@@ -1,0 +1,197 @@
+// shared/data/seedDogs.ts
+// Seed data for local density simulation.
+// Run: npx ts-node scripts/seed.ts to populate Firestore.
+
+import type { DogProfile } from '../types';
+
+const BASE_LAT  = 40.7128; // NYC default — override with your city
+const BASE_LNG  = -74.0060;
+
+function offsetCoords(latOff: number, lngOff: number) {
+  return { lat: BASE_LAT + latOff, lng: BASE_LNG + lngOff };
+}
+
+export const SEED_DOGS: Omit<DogProfile, 'id' | 'ownerId' | 'trustScore' | 'totalMeetups' | 'createdAt' | 'updatedAt'>[] = [
+  {
+    name: 'Kaju', breed: 'Mini Dachshund', purebred: true,
+    size: 'S', age: 'adult', sex: 'M', fixed: true, energyLevel: 70,
+    photos: ['/images/kaju-profile.jpg'],
+    goodWith: ['small dogs', 'medium dogs', 'large dogs', 'calm dogs', 'all dogs'],
+    notGoodWith: [],
+    playStyles: ['loves fetch 🎾', 'explorer 👃'],
+    boundaries: [],
+    allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Goofy mini dachshund who acts 10 feet tall. Social butterfly who loves belly scratches, learning new tricks, and anyone willing to play hide-and-seek with treats.',
+  },
+  // ── 🟢 First card: strong match for Kaju (same breed group, same size) ───────
+  {
+    name: 'Noodle', breed: 'Dachshund', purebred: true,
+    size: 'S', age: 'adult', sex: 'M', fixed: true, energyLevel: 55,
+    photos: [],
+    goodWith: ['small dogs', 'calm dogs'],
+    notGoodWith: ['large dogs', 'rough play'],
+    playStyles: ['explorer 👃', 'gentle play 🐾'], boundaries: ['no toy sharing'],
+    allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Big personality in a tiny package. Loves epic sniff walks.',
+  },
+  // ── 🟡 Second card: good fit but energy mismatch ──────────────────────────
+  {
+    name: 'Poppy', breed: 'Cavalier King Charles', purebred: true,
+    size: 'S', age: 'adult', sex: 'F', fixed: true, energyLevel: 45,
+    photos: [],
+    goodWith: ['calm dogs', 'small dogs'],
+    notGoodWith: ['high-energy dogs', 'rough play', 'large dogs'],
+    playStyles: ['gentle play 🐾', 'calm 🧘'], boundaries: ['short sessions', 'slow warm-up'],
+    allergies: [], specialNeeds: [], behaviorFlags: ['prefers calm dogs'],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Short walks, gentle cuddles. Ideal for calm, mellow playdates.',
+  },
+  // ── 🔴 Third card: size safety mismatch (not good with small dogs) ─────────
+  {
+    name: 'Luna', breed: 'Husky', purebred: true,
+    size: 'L', age: 'adult', sex: 'F', fixed: true, energyLevel: 88,
+    photos: [],
+    goodWith: ['large dogs', 'high-energy dogs'],
+    notGoodWith: ['small dogs', 'puppies'],
+    playStyles: ['high-energy runner ⚡', 'wrestling 🤼'], boundaries: [],
+    allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Trail runs and fetch are her love language. Pure athlete.',
+  },
+  {
+    name: 'Mochi', breed: 'Shiba Inu', purebred: true,
+    size: 'M', age: 'adult', sex: 'F', fixed: true, energyLevel: 72,
+    photos: ['https://images.unsplash.com/photo-1546513791-4d6e43e9f0e5?w=400'],
+    goodWith: ['calm dogs', 'large dogs'], notGoodWith: ['puppies', 'rough play'],
+    playStyles: ['explorer 👃', 'gentle play 🐾'], boundaries: ['no rough play'],
+    allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Morning walks and trail adventures. Calm energy, excellent manners.',
+  },
+  {
+    name: 'Biscuit', breed: 'Golden Retriever', purebred: true,
+    size: 'L', age: 'adult', sex: 'M', fixed: true, energyLevel: 85,
+    photos: ['https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400'],
+    goodWith: ['small dogs', 'large dogs', 'puppies', 'high-energy dogs', 'all dogs'],
+    notGoodWith: [], playStyles: ['loves fetch 🎾', 'high-energy runner ⚡'],
+    boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Certified therapy dog in training. Loves absolutely everyone he meets!',
+  },
+  {
+    name: 'Zephyr', breed: 'Border Collie', purebred: true,
+    size: 'M', age: 'adult', sex: 'M', fixed: true, energyLevel: 95,
+    photos: [],
+    goodWith: ['high-energy dogs', 'large dogs'],
+    notGoodWith: ['puppies', 'overstimulated'],
+    playStyles: ['loves fetch 🎾', 'high-energy runner ⚡', 'wrestling 🤼'],
+    boundaries: [], allergies: [], specialNeeds: [],
+    behaviorFlags: ['easily overstimulated'],
+    vaccinated: true, vetChecked: false, mode: 'playdate',
+    bio: 'Agility champion. Needs a partner who can match pure intensity.',
+  },
+  {
+    name: 'Pretzel', breed: 'Corgi', purebred: true,
+    size: 'S', age: 'adult', sex: 'M', fixed: true, energyLevel: 80,
+    photos: [],
+    goodWith: ['small dogs', 'medium dogs'],
+    notGoodWith: [], playStyles: ['loves fetch 🎾', 'high-energy runner ⚡'],
+    boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Royalty on tiny legs. Surprisingly fast. Will herd your heart.',
+  },
+  {
+    name: 'Atlas', breed: 'Bernese Mountain Dog', purebred: true,
+    size: 'XL', age: 'adult', sex: 'M', fixed: true, energyLevel: 60,
+    photos: [],
+    goodWith: ['large dogs', 'calm dogs', 'puppies', 'small dogs', 'all dogs'],
+    notGoodWith: [], playStyles: ['gentle play 🐾', 'calm 🧘', 'explorer 👃'],
+    boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: "Gentle giant. The park's most beloved teddy bear.",
+  },
+  {
+    name: 'Pepper', breed: 'French Bulldog', purebred: true,
+    size: 'S', age: 'adult', sex: 'F', fixed: true, energyLevel: 65,
+    photos: [],
+    goodWith: ['small dogs', 'calm dogs', 'medium dogs'],
+    notGoodWith: ['high-energy dogs', 'rough play'],
+    playStyles: ['gentle play 🐾', 'calm 🧘'],
+    boundaries: ['short sessions'], allergies: [], specialNeeds: [],
+    behaviorFlags: ['easily overstimulated'],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Zoomies for 5 min, then 2 hrs of napping. Work-life balance icon.',
+  },
+  {
+    name: 'Cloud', breed: 'Samoyed', purebred: true,
+    size: 'L', age: 'adult', sex: 'F', fixed: true, energyLevel: 78,
+    photos: [],
+    goodWith: ['large dogs', 'medium dogs', 'calm dogs', 'puppies', 'all dogs'],
+    notGoodWith: [], playStyles: ['gentle play 🐾', 'explorer 👃', 'high-energy runner ⚡'],
+    boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'A living cloud. Floats through the park spreading pure joy.',
+  },
+  {
+    name: 'Rosie', breed: 'Australian Shepherd', purebred: true,
+    size: 'M', age: 'adult', sex: 'F', fixed: true, energyLevel: 87,
+    photos: [],
+    goodWith: ['medium dogs', 'large dogs', 'high-energy dogs'],
+    notGoodWith: ['small dogs', 'puppies'],
+    playStyles: ['loves fetch 🎾', 'high-energy runner ⚡'], boundaries: [],
+    allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Merle coat, bright eyes, endless energy. Will tire you out before herself.',
+  },
+  {
+    name: 'Theo', breed: 'Beagle', purebred: true,
+    size: 'M', age: 'adult', sex: 'M', fixed: true, energyLevel: 70,
+    photos: [],
+    goodWith: ['small dogs', 'medium dogs', 'calm dogs', 'puppies', 'large dogs', 'all dogs'],
+    notGoodWith: [], playStyles: ['explorer 👃', 'gentle play 🐾', 'loves fetch 🎾'],
+    boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: "Most sociable nose in town. Gets along with literally everyone.",
+  },
+  {
+    name: 'Coco', breed: 'Poodle', purebred: true,
+    size: 'M', age: 'adult', sex: 'F', fixed: true, energyLevel: 68,
+    photos: [],
+    goodWith: ['calm dogs', 'medium dogs', 'small dogs'],
+    notGoodWith: ['rough play'], playStyles: ['gentle play 🐾', 'calm 🧘', 'explorer 👃'],
+    boundaries: ['no rough play'], allergies: [], specialNeeds: [],
+    behaviorFlags: ['prefers calm dogs'],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Elegant, intelligent, charming. Expects the same from her playmates.',
+  },
+  {
+    name: 'Finn', breed: 'Labrador Retriever', purebred: true,
+    size: 'L', age: 'adult', sex: 'M', fixed: true, energyLevel: 82,
+    photos: [],
+    goodWith: ['small dogs', 'large dogs', 'puppies', 'high-energy dogs', 'calm dogs', 'all dogs'],
+    notGoodWith: [], playStyles: ['loves fetch 🎾', 'high-energy runner ⚡', 'gentle play 🐾'],
+    boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Has never met a stranger. The golden standard of dog playdate behavior.',
+  },
+  {
+    name: 'Maple', breed: 'Vizsla', purebred: true,
+    size: 'L', age: 'adult', sex: 'F', fixed: true, energyLevel: 90,
+    photos: [],
+    goodWith: ['large dogs', 'high-energy dogs', 'medium dogs'],
+    notGoodWith: ['small dogs'], playStyles: ['loves fetch 🎾', 'high-energy runner ⚡'],
+    boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
+    vaccinated: true, vetChecked: true, mode: 'playdate',
+    bio: 'Velcro dog with a heart of gold. Will run until the sun goes down.',
+  },
+];
+
+// Distance offsets for seed (miles approximated in degrees)
+export const SEED_DISTANCES: Record<string, number> = {
+  Kaju: 0.1,
+  Mochi: 0.4, Biscuit: 0.7, Poppy: 0.3, Zephyr: 1.2, Noodle: 0.6,
+  Luna: 0.9, Pretzel: 0.5, Atlas: 1.4, Pepper: 0.2, Cloud: 0.8,
+  Rosie: 1.6, Theo: 0.4, Coco: 0.3, Finn: 0.6, Maple: 1.0,
+};

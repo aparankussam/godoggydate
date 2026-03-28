@@ -10,8 +10,8 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { getFirebase } from '../../shared/utils/firebase';
-import type { DogProfile, PlayStyle } from '../../shared/types';
+import { getFirebase } from '../shared/utils/firebase';
+import type { DogProfile, PlayStyle } from '../shared/types';
 
 export type { User } from 'firebase/auth';
 export { onAuthStateChanged };

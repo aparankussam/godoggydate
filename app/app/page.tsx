@@ -1,23 +1,24 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { SEED_DOGS } from '../../../shared/data/seedDogs';
-import { calculateCompatibility } from '../../../shared/utils/matchingEngine';
+import { SEED_DOGS } from '../../shared/data/seedDogs';
+import { calculateCompatibility } from '../../shared/utils/matchingEngine';
 import {
   signInWithGoogle, signOutUser,
   getUserDogProfile, saveUserDogProfile,
   toFullProfile, onAuthStateChanged,
 } from '../../lib/auth';
 
-import { getFirebase } from '../../../shared/utils/firebase';
+import { getFirebase } from '../../shared/utils/firebase';
 import type { User, SavedDogProfile } from '../../lib/auth';
-import type { DogProfile } from '../../../shared/types';
+import type { DogProfile } from '../../shared/types';
 import DogProfileForm from '../../components/DogProfileForm';
 
 const USER_DOG = SEED_DOGS[0];
 const FEED = SEED_DOGS.slice(1).map((dog, i) => ({
   ...dog,
+  id: `seed_${i + 1}`,
   distanceMiles: +(0.5 + i * 0.4).toFixed(1),
-  compat: calculateCompatibility(USER_DOG, dog, 0.5 + i * 0.4),
+  compat: calculateCompatibility(USER_DOG as DogProfile, dog as DogProfile, 0.5 + i * 0.4),
 }));
 
 const DEMO_MATCH_NAMES = ['Mochi', 'Biscuit', 'Poppy', 'Theo'] as const;
@@ -32,6 +33,7 @@ const DEMO_MATCHES = DEMO_MATCH_NAMES
   .filter((d): d is (typeof SEED_DOGS)[number] => d !== undefined)
   .map((dog) => ({
     ...dog,
+    id: `demo_${dog.name.toLowerCase()}`,
     ...DEMO_MATCH_META[dog.name],
     messages: [] as { text: string; fromMe: boolean }[],
   }));
@@ -121,8 +123,9 @@ export default function AppPage() {
     if (!userDog) return FEED;
     return SEED_DOGS.slice(1).map((dog, i) => ({
       ...dog,
+      id: `seed_${i + 1}`,
       distanceMiles: +(0.5 + i * 0.4).toFixed(1),
-      compat: calculateCompatibility(userDog, dog, 0.5 + i * 0.4),
+      compat: calculateCompatibility(userDog, dog as DogProfile, 0.5 + i * 0.4),
     }));
   }, [userDog]);
 
