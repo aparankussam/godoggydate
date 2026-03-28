@@ -1,0 +1,15 @@
+{
+  "name": "GoDoggyDate",
+  "short_name": "GoDoggyDate",
+  "description": "Find safer, happier playdates for your dog",
+  "start_url": "/app",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FDF6EE",
+  "theme_color": "#E8633A",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["social", "lifestyle"],
+  "screenshots": []
+}
