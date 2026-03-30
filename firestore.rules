@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── HELPERS ────────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isPartyToMatch(matchData) {
+      return request.auth.uid == matchData.ownerA
+          || request.auth.uid == matchData.ownerB;
+    }
+
+    // ── USERS ─────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read:   if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // soft-delete only
+    }
+
+    // ── DOGS ──────────────────────────────────────────────────────────────────
+    match /dogs/{dogId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isSignedIn()
+                    && resource.data.ownerId == request.auth.uid;
+      allow delete: if isSignedIn()
+                    && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ── MATCHES ───────────────────────────────────────────────────────────────
+    match /matches/{matchId} {
+      allow read:   if isSignedIn() && isPartyToMatch(resource.data);
+      allow create: if isSignedIn();
+      // Only allow updating chatUnlocked and paymentId fields
+      allow update: if isSignedIn()
+                    && isPartyToMatch(resource.data)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['chatUnlocked', 'paymentId']);
+      allow delete: if false;
+    }
+
+    // ── CHATS ─────────────────────────────────────────────────────────────────
+    match /chats/{matchId}/messages/{messageId} {
+      // Only read if chat is unlocked and user is a party to the match
+      allow read: if isSignedIn()
+                  && exists(/databases/$(database)/documents/matches/$(matchId))
+                  && get(/databases/$(database)/documents/matches/$(matchId)).data.chatUnlocked == true
+                  && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data);
+
+      allow create: if isSignedIn()
+                    && request.resource.data.senderId == request.auth.uid
+                    && exists(/databases/$(database)/documents/matches/$(matchId))
+                    && get(/databases/$(database)/documents/matches/$(matchId)).data.chatUnlocked == true
+                    && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data);
+
+      allow update: if false; // messages are immutable
+      allow delete: if false;
+    }
+
+    // ── RATINGS ───────────────────────────────────────────────────────────────
+    match /ratings/{ratingId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.raterId == request.auth.uid
+                    // One rating per match per user
+                    && !exists(/databases/$(database)/documents/ratings/$(request.auth.uid + '_' + request.resource.data.matchId));
+      allow update: if false; // ratings are final
+      allow delete: if false;
+    }
+
+    // ── PAYMENTS (write-only from client; read from server) ───────────────────
+    match /payments/{paymentId} {
+      allow read:   if isSignedIn()
+                    && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if false; // updated only by Cloud Functions
+      allow delete: if false;
+    }
+  }
+}

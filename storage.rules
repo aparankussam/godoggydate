@@ -1,0 +1,56 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── HELPERS ────────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImageOrVideo() {
+      return request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('video/.*');
+    }
+
+    function isUnder10MB() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+
+    function isUnder50MB() {
+      return request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // ── DOG PHOTOS ────────────────────────────────────────────────────────────
+    // Path: dogs/{userId}/{dogId}/photos/{filename}
+    match /dogs/{userId}/{dogId}/photos/{filename} {
+      allow read:   if isSignedIn();
+      allow write:  if isSignedIn()
+                    && request.auth.uid == userId
+                    && isImageOrVideo()
+                    && isUnder10MB();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── DOG VIDEOS ────────────────────────────────────────────────────────────
+    // Path: dogs/{userId}/{dogId}/video/{filename}
+    match /dogs/{userId}/{dogId}/video/{filename} {
+      allow read:   if isSignedIn();
+      allow write:  if isSignedIn()
+                    && request.auth.uid == userId
+                    && request.resource.contentType.matches('video/.*')
+                    && isUnder50MB();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── USER AVATARS ──────────────────────────────────────────────────────────
+    // Path: avatars/{userId}/{filename}
+    match /avatars/{userId}/{filename} {
+      allow read:   if isSignedIn();
+      allow write:  if isSignedIn()
+                    && request.auth.uid == userId
+                    && request.resource.contentType.matches('image/.*')
+                    && isUnder10MB();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+  }
+}
