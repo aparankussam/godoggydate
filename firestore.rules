@@ -35,6 +35,17 @@ service cloud.firestore {
                     && resource.data.ownerId == request.auth.uid;
     }
 
+    match /swipes/{userId}/decisions/{targetDogId} {
+      allow read: if isSignedIn();
+
+      allow create, update: if isSignedIn()
+                            && request.auth.uid == userId
+                            && request.resource.data.targetUserId is string
+                            && request.resource.data.action in ['like', 'pass'];
+
+      allow delete: if false;
+    }
+
     match /matches/{matchId} {
       allow read:   if isSignedIn() && isPartyToMatch(resource.data);
       allow create: if isSignedIn();
@@ -44,7 +55,6 @@ service cloud.firestore {
                          .hasOnly(['chatUnlocked', 'paymentId']);
       allow delete: if false;
 
-      // ✅ CORRECT chat path
       match /messages/{messageId} {
         allow read: if isSignedIn()
                     && exists(/databases/$(database)/documents/matches/$(matchId))
