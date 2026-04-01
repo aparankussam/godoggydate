@@ -26,13 +26,13 @@ service cloud.firestore {
     }
 
     match /dogs/{dogId} {
-      allow read:   if isSignedIn();
+      allow read:   if true;
       allow create: if isSignedIn()
-                    && request.resource.data.ownerId == request.auth.uid;
+                    && request.auth.uid == dogId;
       allow update: if isSignedIn()
-                    && resource.data.ownerId == request.auth.uid;
+                    && request.auth.uid == dogId;
       allow delete: if isSignedIn()
-                    && resource.data.ownerId == request.auth.uid;
+                    && request.auth.uid == dogId;
     }
 
     match /swipes/{userId}/decisions/{targetDogId} {
@@ -52,7 +52,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
                     && isPartyToMatch(resource.data)
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['chatUnlocked', 'paymentId']);
+                         .hasOnly(['chatUnlocked', 'paymentId', 'lastMessage', 'lastMessageTime', 'lastMessageFromUid']);
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -61,7 +61,7 @@ service cloud.firestore {
                     && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data);
 
         allow create: if isSignedIn()
-                      && request.resource.data.senderId == request.auth.uid
+                      && request.resource.data.fromUserId == request.auth.uid
                       && exists(/databases/$(database)/documents/matches/$(matchId))
                       && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data);
 
@@ -84,6 +84,14 @@ service cloud.firestore {
                     && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn()
                     && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /reports/{reportId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.reporterId == request.auth.uid;
+      allow read:   if false;
       allow update: if false;
       allow delete: if false;
     }
