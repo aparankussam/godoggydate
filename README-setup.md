@@ -95,10 +95,10 @@ godoggydate/
 firebase login
 
 # Create project (or use existing)
-firebase projects:create godoggydate-dev --display-name "GoDoggyDate Dev"
+firebase projects:create godoggydate-c6c92 --display-name "GoDoggyDate"
 
 # Set active project
-firebase use godoggydate-dev
+firebase use godoggydate-c6c92
 ```
 
 ### 3.2 Enable Services
@@ -114,6 +114,12 @@ In the [Firebase Console](https://console.firebase.google.com):
 firebase deploy --only firestore:rules,firestore:indexes,storage
 ```
 
+If the web app shows a composite index error on Matches or Messages, redeploy indexes explicitly:
+
+```bash
+firebase deploy --only firestore:indexes
+```
+
 ### 3.4 Seed Data (Optional but recommended)
 
 ```bash
@@ -121,7 +127,7 @@ firebase deploy --only firestore:rules,firestore:indexes,storage
 FIRESTORE_EMULATOR_HOST=localhost:8080 npx ts-node scripts/seed.ts
 
 # Against live project (ensure service account is set up)
-FIREBASE_PROJECT_ID=godoggydate-dev npx ts-node scripts/seed.ts
+FIREBASE_PROJECT_ID=godoggydate-c6c92 npx ts-node scripts/seed.ts
 ```
 
 ### 3.5 Start Emulators (for local dev)

@@ -1,4 +1,4 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
@@ -12,6 +12,8 @@ const firebaseConfig = {
   appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID             ?? process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+const APP_NAME = 'godoggydate-shared';
+
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
@@ -22,10 +24,14 @@ export function getFirebase() {
   if (typeof window === 'undefined') return { app, auth, db, storage };
 
   if (!app) {
-    app     = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    app     = getApps().some((existing) => existing.name === APP_NAME)
+      ? getApp(APP_NAME)
+      : initializeApp(firebaseConfig, APP_NAME);
     auth    = getAuth(app);
     db      = getFirestore(app);
-    storage = getStorage(app);
+    storage = firebaseConfig.storageBucket
+      ? getStorage(app, `gs://${firebaseConfig.storageBucket}`)
+      : getStorage(app);
   }
   return { app, auth, db, storage };
 }

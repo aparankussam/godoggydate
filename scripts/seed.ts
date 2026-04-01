@@ -15,7 +15,7 @@ import { SEED_DOGS } from '../shared/data/seedDogs';
 // Init
 if (!admin.apps.length) {
   admin.initializeApp({
-    projectId: process.env.FIREBASE_PROJECT_ID ?? 'godoggydate-dev',
+    projectId: process.env.FIREBASE_PROJECT_ID ?? 'godoggydate-c6c92',
   });
 }
 
