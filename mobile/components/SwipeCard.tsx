@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -16,8 +16,11 @@ import type { DiscoverDog } from '../lib/discover';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const CARD_WIDTH = SCREEN_WIDTH - 32;
-export const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.45, 530);
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
+// 4:5 aspect ratio — same as Tinder/Hinge. Max 560px on large phones.
+export const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.25, 560);
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+const VELOCITY_THRESHOLD = 700; // px/s — enables flick even if position < threshold
+const TAP_MAX_MOVE = 8; // px — if gesture moved less than this, treat as tap
 
 export interface SwipeCardRef {
   triggerSwipe: (direction: 'like' | 'pass') => void;
@@ -34,48 +37,82 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
   ({ dog, onSwipe, isTop, stackIndex = 0 }, ref) => {
     const tx = useSharedValue(0);
     const ty = useSharedValue(0);
+    const [photoIndex, setPhotoIndex] = useState(0);
+
+    // Filter out placeholder strings
+    const photos = dog.photos.filter((p) => p && !p.startsWith('_'));
+    const photoCount = photos.length;
+
+    // Reset photo index whenever the dog changes (new card)
+    useEffect(() => {
+      setPhotoIndex(0);
+    }, [dog.id]);
 
     useImperativeHandle(ref, () => ({
       triggerSwipe: (direction: 'like' | 'pass') => {
         const exitX =
           direction === 'like' ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
-        tx.value = withTiming(exitX, { duration: 300 }, () => {
+        tx.value = withTiming(exitX, { duration: 280 }, () => {
           runOnJS(onSwipe)(direction);
         });
       },
     }));
 
+    // Called from worklet thread — must be defined before gesture
+    function advancePhoto(tapAbsoluteX: number) {
+      if (tapAbsoluteX > SCREEN_WIDTH / 2) {
+        setPhotoIndex((i) => Math.min(i + 1, photoCount - 1));
+      } else {
+        setPhotoIndex((i) => Math.max(i - 1, 0));
+      }
+    }
+
     const gesture = Gesture.Pan()
       .enabled(isTop)
+      .activeOffsetX([-6, 6]) // must move 6px horizontally before activating
       .onUpdate((e) => {
         tx.value = e.translationX;
-        ty.value = e.translationY * 0.2;
+        ty.value = e.translationY * 0.15;
       })
       .onEnd((e) => {
-        if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
+        const isTap =
+          Math.abs(e.translationX) < TAP_MAX_MOVE &&
+          Math.abs(e.translationY) < TAP_MAX_MOVE;
+
+        if (isTap && photoCount > 1) {
+          runOnJS(advancePhoto)(e.absoluteX);
+          tx.value = withSpring(0, { damping: 20 });
+          ty.value = withSpring(0, { damping: 20 });
+          return;
+        }
+
+        const positionSwipe = Math.abs(e.translationX) > SWIPE_THRESHOLD;
+        const velocitySwipe = Math.abs(e.velocityX) > VELOCITY_THRESHOLD;
+
+        if (positionSwipe || velocitySwipe) {
           const dir = e.translationX > 0 ? 'like' : 'pass';
           const exitX =
             e.translationX > 0 ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
-          tx.value = withTiming(exitX, { duration: 280 }, () => {
+          tx.value = withTiming(exitX, { duration: 260 }, () => {
             runOnJS(onSwipe)(dir);
           });
         } else {
-          tx.value = withSpring(0, { damping: 14, stiffness: 120 });
-          ty.value = withSpring(0, { damping: 14 });
+          tx.value = withSpring(0, { damping: 18, stiffness: 180 });
+          ty.value = withSpring(0, { damping: 18 });
         }
       });
 
     const cardStyle = useAnimatedStyle(() => {
       if (stackIndex > 0) {
         return {
-          transform: [{ scale: 0.95 }, { translateY: 14 }],
-          opacity: 0.72,
+          transform: [{ scale: 0.94 }, { translateY: 16 }],
+          opacity: 0.78,
         };
       }
       const rotation = interpolate(
         tx.value,
-        [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
-        [-10, 0, 10],
+        [-SCREEN_WIDTH * 0.5, 0, SCREEN_WIDTH * 0.5],
+        [-8, 0, 8],
         Extrapolation.CLAMP,
       );
       return {
@@ -87,28 +124,28 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
       };
     });
 
-    const likeOpacity = useAnimatedStyle(() => ({
+    const likeOverlayStyle = useAnimatedStyle(() => ({
       opacity: interpolate(
         tx.value,
-        [0, SWIPE_THRESHOLD * 0.55],
+        [0, SWIPE_THRESHOLD * 0.6],
         [0, 1],
         Extrapolation.CLAMP,
       ),
     }));
 
-    const passOpacity = useAnimatedStyle(() => ({
+    const passOverlayStyle = useAnimatedStyle(() => ({
       opacity: interpolate(
         tx.value,
-        [-SWIPE_THRESHOLD * 0.55, 0],
+        [-SWIPE_THRESHOLD * 0.6, 0],
         [1, 0],
         Extrapolation.CLAMP,
       ),
     }));
 
-    const photo = dog.photos[0];
+    const currentPhoto = photos[photoIndex] ?? null;
     const ageLabel =
       dog.age === 'puppy' ? 'Puppy' : dog.age === 'senior' ? 'Senior' : 'Adult';
-    const sexSymbol = dog.sex === 'M' ? '\u2642' : '\u2640';
+    const sexLabel = dog.sex === 'M' ? 'Male' : 'Female';
     const distLabel =
       dog.distanceMiles != null
         ? `${dog.distanceMiles} mi away`
@@ -117,9 +154,10 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     return (
       <GestureDetector gesture={gesture}>
         <Animated.View style={[styles.card, cardStyle]}>
-          {photo ? (
+          {/* Photo */}
+          {currentPhoto ? (
             <Image
-              source={{ uri: photo }}
+              source={{ uri: currentPhoto }}
               style={StyleSheet.absoluteFill}
               resizeMode="cover"
             />
@@ -129,41 +167,69 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
             </View>
           )}
 
-          <Animated.View style={[styles.woofBadge, likeOpacity]}>
+          {/* Photo progress bars (Tinder-style) */}
+          {photoCount > 1 && (
+            <View style={styles.photoBars} pointerEvents="none">
+              {photos.map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.photoBar, i === photoIndex && styles.photoBarActive]}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* WOOF badge */}
+          <Animated.View style={[styles.woofBadge, likeOverlayStyle]} pointerEvents="none">
             <Text style={styles.woofText}>WOOF 🐾</Text>
           </Animated.View>
 
-          <Animated.View style={[styles.passBadge, passOpacity]}>
+          {/* PASS badge */}
+          <Animated.View style={[styles.passBadge, passOverlayStyle]} pointerEvents="none">
             <Text style={styles.passText}>PASS</Text>
           </Animated.View>
 
+          {/* Info overlay */}
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.82)']}
-            locations={[0, 0.45, 1]}
+            colors={['transparent', 'rgba(0,0,0,0.38)', 'rgba(0,0,0,0.78)']}
+            locations={[0, 0.5, 1]}
             style={styles.gradient}
             pointerEvents="none"
           >
+            {/* Name + sex */}
             <View style={styles.nameLine}>
               <Text style={styles.name} numberOfLines={1}>
                 {dog.name}
               </Text>
-              <Text style={styles.sexSymbol}>{sexSymbol}</Text>
+              <View style={styles.sexBadge}>
+                <Text style={styles.sexText}>{sexLabel}</Text>
+              </View>
             </View>
-            <Text style={styles.breedAge}>
+
+            {/* Breed · age */}
+            <Text style={styles.breedAge} numberOfLines={1}>
               {dog.breed} · {ageLabel} · {dog.size}
             </Text>
+
+            {/* Distance */}
             <Text style={styles.distance} numberOfLines={1}>
-              {'\uD83D\uDCCD'} {distLabel}
+              📍 {distLabel}
             </Text>
-            {dog.playStyles[0] ? (
+
+            {/* Tags row */}
+            {dog.playStyles.length > 0 && (
               <View style={styles.tagRow}>
-                <View style={styles.tag}>
-                  <Text style={styles.tagText} numberOfLines={1}>
-                    {dog.playStyles[0]}
-                  </Text>
-                </View>
+                {dog.playStyles.slice(0, 2).map((tag) => (
+                  <View key={tag} style={styles.tag}>
+                    <Text style={styles.tagText} numberOfLines={1}>
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            ) : null}
+            )}
+
+            {/* Tagline */}
             <Text style={styles.tagline} numberOfLines={2}>
               {dog.tagline}
             </Text>
@@ -181,15 +247,15 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     overflow: 'hidden',
     backgroundColor: colors.creamDark,
     position: 'absolute',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 14,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 8,
   },
   photoFallback: {
     ...StyleSheet.absoluteFillObject,
@@ -198,103 +264,144 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamDark,
   },
   photoFallbackEmoji: { fontSize: 80 },
+
+  // Photo progress bars
+  photoBars: {
+    position: 'absolute',
+    top: 12,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    gap: 4,
+    zIndex: 10,
+  },
+  photoBar: {
+    flex: 1,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.38)',
+  },
+  photoBarActive: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+
+  // WOOF / PASS overlays
   woofBadge: {
     position: 'absolute',
-    top: 22,
+    top: 28,
     left: 18,
     borderWidth: 3,
     borderColor: '#4CAF50',
-    borderRadius: radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    transform: [{ rotate: '-12deg' }],
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    transform: [{ rotate: '-14deg' }],
+    backgroundColor: 'rgba(0,0,0,0.12)',
   },
   woofText: {
     color: '#4CAF50',
     fontFamily: fonts.bold,
-    fontSize: 22,
-    letterSpacing: 1,
+    fontWeight: '800',
+    fontSize: 24,
+    letterSpacing: 2,
   },
   passBadge: {
     position: 'absolute',
-    top: 22,
+    top: 28,
     right: 18,
     borderWidth: 3,
     borderColor: '#F44336',
-    borderRadius: radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    transform: [{ rotate: '12deg' }],
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    transform: [{ rotate: '14deg' }],
+    backgroundColor: 'rgba(0,0,0,0.12)',
   },
   passText: {
     color: '#F44336',
     fontFamily: fonts.bold,
-    fontSize: 22,
-    letterSpacing: 1,
+    fontWeight: '800',
+    fontSize: 24,
+    letterSpacing: 2,
   },
+
+  // Gradient info area
   gradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: CARD_HEIGHT * 0.58,
+    height: CARD_HEIGHT * 0.52,
     paddingHorizontal: 18,
-    paddingBottom: 20,
+    paddingBottom: 22,
     justifyContent: 'flex-end',
   },
   nameLine: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 3,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
   },
   name: {
     fontFamily: fonts.display,
-    fontSize: 30,
+    fontSize: 32,
     color: '#fff',
     flex: 1,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  sexSymbol: {
-    fontFamily: fonts.bold,
-    fontSize: 20,
-    color: 'rgba(255,255,255,0.8)',
+  sexBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  sexText: {
+    color: '#fff',
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+    fontSize: 12,
   },
   breedAge: {
     fontFamily: fonts.body,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: 3,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 4,
   },
   distance: {
     fontFamily: fonts.body,
     fontSize: 13,
     color: 'rgba(255,255,255,0.75)',
-    marginBottom: 9,
+    marginBottom: 10,
   },
   tagRow: {
     flexDirection: 'row',
-    marginBottom: 9,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
   },
   tag: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     borderRadius: radius.full,
-    paddingHorizontal: 11,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.28)',
   },
   tagText: {
     color: '#fff',
     fontFamily: fonts.semibold,
+    fontWeight: '600',
     fontSize: 12,
   },
   tagline: {
     fontFamily: fonts.body,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.78)',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.82)',
     fontStyle: 'italic',
-    lineHeight: 18,
+    lineHeight: 20,
   },
 });

@@ -1,8 +1,8 @@
 /**
  * Discover feed data layer.
  *
- * Uses mock data so the UI is fully testable in Expo Go immediately.
- * To wire Firestore: replace the mock return inside fetchDiscoverFeed().
+ * Mock data makes the UI fully testable in Expo Go immediately.
+ * Firestore adapter: replace the mock return in fetchDiscoverFeed() when ready.
  */
 
 export interface DiscoverDog {
@@ -29,7 +29,11 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'F',
     size: 'L',
     energyLevel: 80,
-    photos: ['https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['loves fetch 🎾', 'high-energy runner ⚡'],
     location: 'Ann Arbor, MI',
     distanceMiles: 2.4,
@@ -43,7 +47,10 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'M',
     size: 'S',
     energyLevel: 40,
-    photos: ['https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1534361960057-19f4434a6e3a?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['gentle play 🐾', 'calm 🧘'],
     location: 'Detroit, MI',
     distanceMiles: 5.1,
@@ -57,7 +64,10 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'F',
     size: 'L',
     energyLevel: 100,
-    photos: ['https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['high-energy runner ⚡', 'explorer 👃'],
     location: 'Royal Oak, MI',
     distanceMiles: 3.8,
@@ -71,7 +81,10 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'M',
     size: 'S',
     energyLevel: 60,
-    photos: ['https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1612159279342-3a3f66eb6ccb?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['loves fetch 🎾', 'explorer 👃'],
     location: 'Birmingham, MI',
     distanceMiles: 1.9,
@@ -85,7 +98,10 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'F',
     size: 'XL',
     energyLevel: 80,
-    photos: ['https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['wrestling 🤼', 'high-energy runner ⚡'],
     location: 'Troy, MI',
     distanceMiles: 4.2,
@@ -99,7 +115,11 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'M',
     size: 'L',
     energyLevel: 40,
-    photos: ['https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['gentle play 🐾', 'calm 🧘'],
     location: 'Bloomfield Hills, MI',
     distanceMiles: 7.3,
@@ -113,7 +133,10 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'F',
     size: 'S',
     energyLevel: 60,
-    photos: ['https://images.unsplash.com/photo-1534361960057-19f4434a6e3a?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1534361960057-19f4434a6e3a?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['gentle play 🐾', 'loves fetch 🎾'],
     location: 'Ferndale, MI',
     distanceMiles: 2.1,
@@ -127,7 +150,10 @@ const MOCK_DOGS: DiscoverDog[] = [
     sex: 'M',
     size: 'S',
     energyLevel: 60,
-    photos: ['https://images.unsplash.com/photo-1612159279342-3a3f66eb6ccb?w=800&auto=format&fit=crop'],
+    photos: [
+      'https://images.unsplash.com/photo-1612159279342-3a3f66eb6ccb?w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?w=800&auto=format&fit=crop',
+    ],
     playStyles: ['explorer 👃', 'wrestling 🤼'],
     location: 'Pontiac, MI',
     distanceMiles: 8.5,
@@ -140,6 +166,5 @@ export function getMockDiscoverDeck(): DiscoverDog[] {
 }
 
 export async function fetchDiscoverFeed(_userId: string): Promise<DiscoverDog[]> {
-  // Firestore adapter: replace this mock return when backend is ready.
   return getMockDiscoverDeck();
 }

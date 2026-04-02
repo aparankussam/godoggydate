@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
+  Modal,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -13,24 +14,25 @@ import Animated, {
   useSharedValue,
   withSequence,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, type SwipeCardRef } from '../../components/SwipeCard';
 import { fetchDiscoverFeed, type DiscoverDog } from '../../lib/discover';
 import { useSession } from '../../lib/session';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 export default function DiscoverTab() {
-  const { user, profile, profileComplete } = useSession();
+  const { user, profileComplete } = useSession();
   const [deck, setDeck] = useState<DiscoverDog[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [likeCount, setLikeCount] = useState(0);
+  const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
   const topCardRef = useRef<SwipeCardRef>(null);
 
   const likeScale = useSharedValue(1);
   const passScale = useSharedValue(1);
+  const starScale = useSharedValue(1);
 
   useEffect(() => {
     if (!user) return;
@@ -39,28 +41,32 @@ export default function DiscoverTab() {
       .finally(() => setLoading(false));
   }, [user]);
 
-  const handleSwipe = useCallback(
-    (action: 'like' | 'pass') => {
-      if (action === 'like') setLikeCount((n) => n + 1);
-      setIndex((prev) => prev + 1);
-    },
-    [],
-  );
+  const handleSwipe = useCallback((action: 'like' | 'pass') => {
+    if (action === 'like') setLikeCount((n) => n + 1);
+    setIndex((prev) => prev + 1);
+  }, []);
 
-  function animateButton(sv: Animated.SharedValue<number>) {
+  function bounce(sv: Animated.SharedValue<number>) {
     sv.value = withSequence(
-      withSpring(0.88, { damping: 6 }),
-      withSpring(1, { damping: 10 }),
+      withSpring(0.84, { damping: 5, stiffness: 400 }),
+      withSpring(1.08, { damping: 8 }),
+      withSpring(1, { damping: 12 }),
     );
   }
 
   function handlePassPress() {
-    animateButton(passScale);
+    bounce(passScale);
     topCardRef.current?.triggerSwipe('pass');
   }
 
   function handleLikePress() {
-    animateButton(likeScale);
+    bounce(likeScale);
+    topCardRef.current?.triggerSwipe('like');
+  }
+
+  function handleSuperLike() {
+    bounce(starScale);
+    // Superlike = like for now; wire to separate action in Phase 3
     topCardRef.current?.triggerSwipe('like');
   }
 
@@ -71,14 +77,15 @@ export default function DiscoverTab() {
 
   const likeButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
   const passButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: passScale.value }] }));
+  const starButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: starScale.value }] }));
 
   if (!profileComplete) {
     return (
-      <SafeAreaView style={styles.center}>
-        <Text style={styles.blockEmoji}>🐾</Text>
-        <Text style={styles.blockTitle}>Finish your profile first</Text>
-        <Text style={styles.blockBody}>
-          Head to the Profile tab and complete your dog's profile to start discovering.
+      <SafeAreaView style={styles.gateContainer}>
+        <Text style={styles.gateEmoji}>🐾</Text>
+        <Text style={styles.gateTitle}>Finish your profile first</Text>
+        <Text style={styles.gateBody}>
+          Go to the Profile tab and complete your dog's profile to start discovering nearby pups.
         </Text>
       </SafeAreaView>
     );
@@ -86,7 +93,7 @@ export default function DiscoverTab() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
+      <SafeAreaView style={styles.gateContainer}>
         <ActivityIndicator color={colors.primary} size="large" />
         <Text style={styles.loadingText}>Fetching nearby pups…</Text>
       </SafeAreaView>
@@ -95,27 +102,39 @@ export default function DiscoverTab() {
 
   const remaining = deck.length - index;
   const isDeckEmpty = remaining <= 0;
+  const topDog = deck[index] ?? null;
+  const peekDog = deck[index + 1] ?? null;
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>GoDoggyDate</Text>
-        {likeCount > 0 && (
-          <View style={styles.likesBadge}>
-            <Text style={styles.likesBadgeText}>{likeCount} 🐾</Text>
-          </View>
-        )}
+        <View style={styles.headerRight}>
+          {likeCount > 0 && (
+            <View style={styles.likesBadge}>
+              <Text style={styles.likesBadgeText}>{likeCount} 🐾</Text>
+            </View>
+          )}
+          {topDog && (
+            <Pressable
+              style={styles.infoBtn}
+              onPress={() => setDetailDog(topDog)}
+            >
+              <Text style={styles.infoBtnText}>ℹ</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
-      {/* Card stack */}
+      {/* Card stack area */}
       <View style={styles.stackArea}>
         {isDeckEmpty ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🐕</Text>
             <Text style={styles.emptyTitle}>You've seen everyone!</Text>
             <Text style={styles.emptyBody}>
-              Check back soon for new pups in your area.
+              Check back soon — new pups join every day.
             </Text>
             <Pressable style={styles.resetButton} onPress={handleReset}>
               <Text style={styles.resetButtonText}>Start over</Text>
@@ -123,21 +142,19 @@ export default function DiscoverTab() {
           </View>
         ) : (
           <>
-            {/* Peek card (behind top card) */}
-            {deck[index + 1] && (
+            {peekDog && (
               <SwipeCard
-                key={deck[index + 1].id}
-                dog={deck[index + 1]}
+                key={peekDog.id}
+                dog={peekDog}
                 onSwipe={handleSwipe}
                 isTop={false}
                 stackIndex={1}
               />
             )}
-            {/* Top card */}
             <SwipeCard
               ref={topCardRef}
-              key={deck[index].id}
-              dog={deck[index]}
+              key={topDog!.id}
+              dog={topDog!}
               onSwipe={handleSwipe}
               isTop
               stackIndex={0}
@@ -149,16 +166,21 @@ export default function DiscoverTab() {
       {/* Action buttons */}
       {!isDeckEmpty && (
         <View style={styles.actionRow}>
+          {/* Pass */}
           <Animated.View style={passButtonStyle}>
             <Pressable style={[styles.actionBtn, styles.passBtn]} onPress={handlePassPress}>
               <Text style={styles.passIcon}>✕</Text>
             </Pressable>
           </Animated.View>
 
-          <View style={styles.counterWrap}>
-            <Text style={styles.counterText}>{remaining} left</Text>
-          </View>
+          {/* Superlike */}
+          <Animated.View style={starButtonStyle}>
+            <Pressable style={[styles.actionBtn, styles.starBtn]} onPress={handleSuperLike}>
+              <Text style={styles.starIcon}>⭐</Text>
+            </Pressable>
+          </Animated.View>
 
+          {/* Like */}
           <Animated.View style={likeButtonStyle}>
             <Pressable style={[styles.actionBtn, styles.likeBtn]} onPress={handleLikePress}>
               <Text style={styles.likeIcon}>🐾</Text>
@@ -166,89 +188,188 @@ export default function DiscoverTab() {
           </Animated.View>
         </View>
       )}
+
+      {/* Dog detail modal */}
+      <Modal
+        visible={detailDog !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setDetailDog(null)}
+      >
+        {detailDog && (
+          <SafeAreaView style={styles.detailContainer}>
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailName}>{detailDog.name}</Text>
+              <Pressable onPress={() => setDetailDog(null)}>
+                <Text style={styles.detailClose}>✕</Text>
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.detailBody}>
+              <Text style={styles.detailSection}>About</Text>
+              <Text style={styles.detailLine}>
+                {detailDog.breed} · {detailDog.age} · {detailDog.size} · {detailDog.sex === 'M' ? 'Male' : 'Female'}
+              </Text>
+              <Text style={styles.detailLine}>📍 {detailDog.location}</Text>
+              {detailDog.tagline ? (
+                <>
+                  <Text style={styles.detailSection}>Bio</Text>
+                  <Text style={styles.detailBio}>{detailDog.tagline}</Text>
+                </>
+              ) : null}
+              {detailDog.playStyles.length > 0 && (
+                <>
+                  <Text style={styles.detailSection}>Play style</Text>
+                  <View style={styles.detailTags}>
+                    {detailDog.playStyles.map((tag) => (
+                      <View key={tag} style={styles.detailTag}>
+                        <Text style={styles.detailTagText}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+              <View style={{ height: 32 }} />
+              <Pressable
+                style={styles.detailLikeBtn}
+                onPress={() => {
+                  setDetailDog(null);
+                  topCardRef.current?.triggerSwipe('like');
+                }}
+              >
+                <Text style={styles.detailLikeBtnText}>Woof! 🐾</Text>
+              </Pressable>
+            </ScrollView>
+          </SafeAreaView>
+        )}
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.cream },
-  center: {
+  gateContainer: {
     flex: 1,
     backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
   },
+  gateEmoji: { fontSize: 56, marginBottom: 16 },
+  gateTitle: {
+    fontFamily: fonts.display,
+    fontSize: 24,
+    color: colors.brown,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  gateBody: {
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.brownLight,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  loadingText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.brownLight,
+    marginTop: 14,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingTop: 6,
+    paddingBottom: 8,
   },
   headerTitle: {
     fontFamily: fonts.display,
-    fontSize: 24,
+    fontSize: 22,
     color: colors.brown,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   likesBadge: {
     backgroundColor: colors.primary,
     borderRadius: radius.full,
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 4,
   },
   likesBadgeText: {
     fontFamily: fonts.bold,
+    fontWeight: '700',
     fontSize: 13,
     color: '#fff',
+  },
+  infoBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.creamDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoBtnText: {
+    fontSize: 16,
+    color: colors.brownMid,
   },
   stackArea: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    paddingBottom: 8,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 16,
-    paddingHorizontal: 24,
-    gap: 24,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
+    gap: 18,
   },
   actionBtn: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow.button,
   },
   passBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#fff',
+    borderWidth: 2.5,
+    borderColor: colors.danger,
+    shadowColor: colors.danger,
+  },
+  starBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#F44336',
+    borderColor: colors.gold,
+    shadowColor: colors.gold,
   },
   likeBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: colors.primary,
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    shadowColor: colors.primary,
   },
-  passIcon: { fontSize: 22, color: '#F44336' },
-  likeIcon: { fontSize: 26 },
-  counterWrap: { flex: 1, alignItems: 'center' },
-  counterText: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.brownLight,
-  },
+  passIcon: { fontSize: 22, color: colors.danger },
+  starIcon: { fontSize: 20 },
+  likeIcon: { fontSize: 28 },
   emptyCard: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     backgroundColor: '#fff',
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
@@ -268,39 +389,92 @@ const styles = StyleSheet.create({
     color: colors.brownLight,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   resetButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.full,
-    paddingHorizontal: 28,
-    paddingVertical: 13,
+    paddingHorizontal: 30,
+    paddingVertical: 14,
     ...shadow.button,
   },
   resetButtonText: {
     fontFamily: fonts.bold,
+    fontWeight: '700',
     color: '#fff',
     fontSize: 15,
   },
-  blockEmoji: { fontSize: 56, marginBottom: 16 },
-  blockTitle: {
+  // Detail modal
+  detailContainer: { flex: 1, backgroundColor: colors.cream },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  detailName: {
     fontFamily: fonts.display,
-    fontSize: 24,
+    fontSize: 28,
     color: colors.brown,
-    marginBottom: 10,
-    textAlign: 'center',
   },
-  blockBody: {
-    fontFamily: fonts.body,
-    fontSize: 15,
+  detailClose: {
+    fontSize: 20,
     color: colors.brownLight,
-    textAlign: 'center',
-    lineHeight: 22,
+    padding: 4,
   },
-  loadingText: {
+  detailBody: { padding: 20 },
+  detailSection: {
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    fontSize: 12,
+    color: colors.brownLight,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  detailLine: {
     fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.brown,
+    marginBottom: 4,
+    lineHeight: 24,
+  },
+  detailBio: {
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.brownMid,
+    lineHeight: 24,
+    fontStyle: 'italic',
+  },
+  detailTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  detailTag: {
+    backgroundColor: colors.creamDark,
+    borderRadius: radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  detailTagText: {
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
     fontSize: 14,
-    color: colors.brownLight,
-    marginTop: 14,
+    color: colors.brownMid,
+  },
+  detailLikeBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 16,
+    alignItems: 'center',
+    ...shadow.button,
+  },
+  detailLikeBtnText: {
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    fontSize: 17,
+    color: '#fff',
   },
 });
