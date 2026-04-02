@@ -2,8 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
-import { getAuth, initializeAuth, type Auth } from 'firebase/auth';
-import { getReactNativePersistence } from 'firebase/auth/react-native';
+import { getAuth, initializeAuth, getReactNativePersistence, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -31,8 +30,14 @@ export function getFirebase() {
       auth = initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage),
       });
-    } catch {
-      auth = getAuth(app);
+    } catch (e: unknown) {
+      // On hot-reload, auth may already be initialized — reuse the existing instance.
+      // Any other error (bad config, wrong SDK version, etc.) should surface.
+      if ((e as { code?: string }).code === 'auth/already-initialized') {
+        auth = getAuth(app);
+      } else {
+        throw e;
+      }
     }
 
     db = getFirestore(app);

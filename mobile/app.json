@@ -44,6 +44,13 @@
         {
           "locationWhenInUsePermission": "Show dogs near you."
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.godoggydate.app",
+          "enableGooglePay": false
+        }
       ]
     ],
     "scheme": "godoggydate",
