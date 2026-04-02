@@ -13,6 +13,10 @@ export default function RootLayout() {
           <Stack.Screen name="welcome" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="chat/[matchId]"
+            options={{ presentation: 'card', animation: 'slide_from_right' }}
+          />
         </Stack>
       </SessionProvider>
     </GestureHandlerRootView>

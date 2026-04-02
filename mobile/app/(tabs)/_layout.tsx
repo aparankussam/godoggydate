@@ -1,12 +1,25 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../../constants/theme';
 
-function TabIcon({ emoji, label, focused }: { emoji: string; label: string; focused: boolean }) {
+function TabIcon({
+  emoji,
+  label,
+  focused,
+}: {
+  emoji: string;
+  label: string;
+  focused: boolean;
+}) {
   return (
     <View style={styles.tabIcon}>
-      <Text style={[styles.emoji, focused && styles.emojiFocused]}>{emoji}</Text>
-      <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
+      <Text style={styles.emoji}>{emoji}</Text>
+      <Text
+        style={[styles.label, focused && styles.labelActive]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -16,14 +29,15 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
         tabBarShowLabel: false,
+        tabBarStyle: styles.tabBar,
       }}
     >
       <Tabs.Screen
         name="discover"
         options={{
-          tabBarIcon: ({ focused }: { focused: boolean }) => (
+          title: 'Discover',
+          tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🐾" label="Discover" focused={focused} />
           ),
         }}
@@ -31,7 +45,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="matches"
         options={{
-          tabBarIcon: ({ focused }: { focused: boolean }) => (
+          title: 'Matches',
+          tabBarIcon: ({ focused }) => (
             <TabIcon emoji="💛" label="Matches" focused={focused} />
           ),
         }}
@@ -39,7 +54,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ focused }: { focused: boolean }) => (
+          title: 'Profile',
+          tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🐕" label="Profile" focused={focused} />
           ),
         }}
@@ -50,26 +66,31 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#FFFFFF',
-    borderTopColor: '#EAD9C8',
-    borderTopWidth: 1,
-    height: 80,
+    backgroundColor: '#fff',
+    borderTopColor: 'rgba(0,0,0,0.08)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    height: 64,
     paddingBottom: 8,
   },
   tabIcon: {
     alignItems: 'center',
-    paddingTop: 8,
+    justifyContent: 'center',
+    paddingTop: 6,
+    width: 72,
   },
-  emoji: { fontSize: 24, opacity: 0.5 },
-  emojiFocused: { opacity: 1 },
+  emoji: {
+    fontSize: 22,
+    lineHeight: 26,
+  },
   label: {
     fontFamily: fonts.body,
     fontSize: 10,
-    color: '#9B7560',
+    color: colors.brownLight,
     marginTop: 2,
+    letterSpacing: 0.2,
   },
-  labelFocused: {
-    fontFamily: fonts.bold,
-    color: '#E8633A',
+  labelActive: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
   },
 });
