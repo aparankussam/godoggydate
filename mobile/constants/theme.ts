@@ -30,10 +30,10 @@ export const colors = {
 };
 
 export const fonts = {
-  display: 'Fraunces_700Bold',
-  body: 'Nunito_400Regular',
-  semibold: 'Nunito_600SemiBold',
-  bold: 'Nunito_700Bold',
+  display: 'Georgia',
+  body: 'System',
+  semibold: 'System',
+  bold: 'System',
 };
 
 export const radius = {

@@ -23,7 +23,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="discover"
         options={{
-          tabBarIcon: ({ focused }) => (
+          tabBarIcon: ({ focused }: { focused: boolean }) => (
             <TabIcon emoji="🐾" label="Discover" focused={focused} />
           ),
         }}
@@ -31,7 +31,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="matches"
         options={{
-          tabBarIcon: ({ focused }) => (
+          tabBarIcon: ({ focused }: { focused: boolean }) => (
             <TabIcon emoji="💛" label="Matches" focused={focused} />
           ),
         }}
@@ -39,7 +39,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarIcon: ({ focused }) => (
+          tabBarIcon: ({ focused }: { focused: boolean }) => (
             <TabIcon emoji="🐕" label="Profile" focused={focused} />
           ),
         }}
