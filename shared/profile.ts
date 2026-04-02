@@ -85,7 +85,7 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     mode: 'playdate',
     trustScore: 70,
     totalMeetups: 0,
-    temperament: saved.temperament,
+    temperament: saved.temperament ?? [],
     location: saved.location,
     lat: saved.lat,
     lng: saved.lng,
