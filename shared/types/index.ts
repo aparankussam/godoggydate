@@ -87,6 +87,13 @@ export interface DogProfile {
   // Timestamps
   createdAt: number; // unix ms
   updatedAt: number;
+
+  // Enhanced profile fields (optional, backward-compatible)
+  temperament?: string[];
+  location?: string;
+  lat?: number;
+  lng?: number;
+  prompts?: { prompt: string; answer: string }[];
 }
 
 export interface UserProfile {
