@@ -37,6 +37,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
   ({ dog, onSwipe, isTop, stackIndex = 0 }, ref) => {
     const tx = useSharedValue(0);
     const ty = useSharedValue(0);
+    const swipeHandled = useSharedValue(false);
     const [photoIndex, setPhotoIndex] = useState(0);
 
     // Filter out placeholder strings
@@ -46,10 +47,15 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     // Reset photo index whenever the dog changes (new card)
     useEffect(() => {
       setPhotoIndex(0);
+      swipeHandled.value = false;
+      tx.value = 0;
+      ty.value = 0;
     }, [dog.id]);
 
     useImperativeHandle(ref, () => ({
       triggerSwipe: (direction: 'like' | 'pass') => {
+        if (swipeHandled.value) return;
+        swipeHandled.value = true;
         const exitX =
           direction === 'like' ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
         tx.value = withTiming(exitX, { duration: 280 }, () => {
@@ -85,6 +91,8 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
         const velocitySwipe = Math.abs(e.velocityX) > VELOCITY_THRESHOLD;
 
         if (positionSwipe || velocitySwipe) {
+          if (swipeHandled.value) return;
+          swipeHandled.value = true;
           const dir = e.translationX > 0 ? 'like' : 'pass';
           const exitX =
             e.translationX > 0 ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;

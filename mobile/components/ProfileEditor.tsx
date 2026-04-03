@@ -14,7 +14,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { uploadDogPhoto } from '../lib/storage';
-import type { SavedDogProfile } from '../lib/profile';
+import { isProfileComplete, type SavedDogProfile } from '../lib/profile';
 
 const AGE_OPTIONS = [
   { value: 'puppy', label: 'Puppy' },
@@ -73,6 +73,8 @@ export default function ProfileEditor({
   submitLabel,
   onSubmit,
 }: Props) {
+  const hasExistingProfile = Boolean(initialProfile);
+  const profileIsComplete = isProfileComplete(initialProfile);
   const [name, setName] = useState(initialProfile?.name ?? '');
   const [breed, setBreed] = useState(initialProfile?.breed ?? '');
   const [age, setAge] = useState<SavedDogProfile['age'] | ''>(initialProfile?.age ?? '');
@@ -228,8 +230,20 @@ export default function ProfileEditor({
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Set up your dog’s profile</Text>
-      <Text style={styles.subtitle}>This Phase 1 mobile beta focuses on auth, profile setup, and photo upload.</Text>
+      <Text style={styles.title}>
+        {profileIsComplete
+          ? 'Edit your dog’s profile'
+          : hasExistingProfile
+            ? 'Finish your dog’s profile'
+            : 'Set up your dog’s profile'}
+      </Text>
+      <Text style={styles.subtitle}>
+        {profileIsComplete
+          ? 'Update photos, details, and play preferences for your returning profile.'
+          : hasExistingProfile
+            ? 'Your profile is saved, but a few required details are still missing before discovery unlocks.'
+            : 'This Phase 1 mobile beta focuses on auth, profile setup, and photo upload.'}
+      </Text>
 
       <View style={styles.section}>
         <Text style={styles.label}>Photos</Text>

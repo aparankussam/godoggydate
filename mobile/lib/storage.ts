@@ -8,7 +8,8 @@ import { getFirebase } from './firebase';
  * implementation from fetch().blob() is not a true Web Blob. uploadBytesResumable
  * is the recommended approach for Expo / React Native Firebase uploads.
  *
- * Storage path: dogs/{userId}/{timestamp}_{sanitizedFilename}
+ * Storage path: dogs/{userId}/{dogId}/photos/{timestamp}_{sanitizedFilename}
+ * For Phase 1, the dog profile document id matches the signed-in user id.
  */
 export async function uploadDogPhoto(
   userId: string,
@@ -22,7 +23,7 @@ export async function uploadDogPhoto(
   const blob = await response.blob();
 
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `dogs/${userId}/${Date.now()}_${safeName}`;
+  const path = `dogs/${userId}/${userId}/photos/${Date.now()}_${safeName}`;
   const fileRef = ref(storage, path);
 
   return new Promise<string>((resolve, reject) => {

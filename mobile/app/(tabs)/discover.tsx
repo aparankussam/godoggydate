@@ -19,6 +19,7 @@ import Animated, {
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, type SwipeCardRef } from '../../components/SwipeCard';
 import { fetchDiscoverFeed, type DiscoverDog } from '../../lib/discover';
+import { recordSwipe } from '../../lib/matching';
 import { useSession } from '../../lib/session';
 
 export default function DiscoverTab() {
@@ -26,6 +27,7 @@ export default function DiscoverTab() {
   const [deck, setDeck] = useState<DiscoverDog[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [swiping, setSwiping] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
   const topCardRef = useRef<SwipeCardRef>(null);
@@ -35,16 +37,41 @@ export default function DiscoverTab() {
   const starScale = useSharedValue(1);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setDeck([]);
+      setLoading(false);
+      return;
+    }
     fetchDiscoverFeed(user.uid)
       .then(setDeck)
       .finally(() => setLoading(false));
   }, [user]);
 
-  const handleSwipe = useCallback((action: 'like' | 'pass') => {
-    if (action === 'like') setLikeCount((n) => n + 1);
-    setIndex((prev) => prev + 1);
-  }, []);
+  const handleSwipe = useCallback(
+    async (action: 'like' | 'pass') => {
+      const currentDog = deck[index];
+      if (!user || !currentDog || swiping) return;
+
+      setSwiping(true);
+      try {
+        await recordSwipe({
+          currentUserId: user.uid,
+          currentDogId: user.uid,
+          targetUserId: currentDog.ownerId,
+          targetDogId: currentDog.id,
+          action,
+        });
+
+        if (action === 'like') setLikeCount((n) => n + 1);
+        setIndex((prev) => prev + 1);
+      } catch (error) {
+        console.warn('Failed to record swipe', error);
+      } finally {
+        setSwiping(false);
+      }
+    },
+    [deck, index, swiping, user],
+  );
 
   function bounce(sv: { value: number }) {
     sv.value = withSequence(
@@ -71,13 +98,31 @@ export default function DiscoverTab() {
   }
 
   function handleReset() {
-    setIndex(0);
-    setLikeCount(0);
+    if (!user) return;
+    setLoading(true);
+    fetchDiscoverFeed(user.uid)
+      .then((nextDeck) => {
+        setDeck(nextDeck);
+        setIndex(0);
+        setLikeCount(0);
+      })
+      .finally(() => setLoading(false));
   }
 
   const likeButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
   const passButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: passScale.value }] }));
   const starButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: starScale.value }] }));
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <Text style={styles.gateTitle}>Sign in to discover pups</Text>
+        <Text style={styles.gateBody}>
+          Start a session from the welcome screen to browse nearby dogs.
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!profileComplete) {
     return (

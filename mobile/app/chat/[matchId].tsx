@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,20 +15,23 @@ import {
 import { useStripe } from '@stripe/stripe-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, fonts, radius } from '../../constants/theme';
+import { getFirebase } from '../../lib/firebase';
 import {
   fetchMatch,
-  fetchMessages,
+  markMatchRead,
   unlockMatch,
   sendMessage,
   type ChatMessage,
   type MatchItem,
 } from '../../lib/matches';
-import { createChatUnlockIntent } from '../../lib/stripe';
+import { createChatUnlockIntent, isPaymentConfigured } from '../../lib/stripe';
 import { useSession } from '../../lib/session';
 
 export default function ChatScreen() {
-  const { matchId, name } = useLocalSearchParams<{ matchId: string; name: string }>();
+  const { matchId, name } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[] }>();
   const { user } = useSession();
+  const resolvedMatchId = Array.isArray(matchId) ? matchId[0] : matchId;
+  const resolvedName = Array.isArray(name) ? name[0] : name;
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,16 +42,58 @@ export default function ChatScreen() {
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
+  const paymentConfigured = isPaymentConfigured();
 
   useEffect(() => {
-    fetchMessages(matchId)
-      .then(setMessages)
-      .finally(() => setLoading(false));
-  }, [matchId]);
+    if (!resolvedMatchId || !user) {
+      setLoading(false);
+      return;
+    }
+
+    const db = getFirebase().db;
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, 'matches', resolvedMatchId, 'messages'),
+        orderBy('createdAt', 'asc'),
+        limit(200),
+      ),
+      async (snapshot) => {
+        setMessages(
+          snapshot.docs.map((messageDoc) => {
+            const data = messageDoc.data() as {
+              text?: string;
+              fromUserId?: string;
+              senderId?: string;
+              createdAt?: { toMillis?: () => number };
+            };
+
+            return {
+              id: messageDoc.id,
+              text: data.text ?? '',
+              senderId: data.fromUserId ?? data.senderId ?? 'other',
+              createdAt: data.createdAt?.toMillis?.() ?? Date.now(),
+            };
+          }),
+        );
+        setLoading(false);
+        try {
+          await markMatchRead(resolvedMatchId, user.uid);
+        } catch (error) {
+          console.warn('Failed to mark chat as read:', error);
+        }
+      },
+      (error) => {
+        console.warn('Failed to subscribe to messages:', error);
+        setLoading(false);
+      },
+    );
+
+    return unsubscribe;
+  }, [resolvedMatchId, user]);
 
   useEffect(() => {
-    if (!matchId) return;
-    fetchMatch(matchId)
+    if (!resolvedMatchId) return;
+    fetchMatch(resolvedMatchId, user?.uid ?? '')
       .then((m) => {
         setMatch(m);
         setChatUnlocked(m?.chatUnlocked ?? false);
@@ -55,36 +101,37 @@ export default function ChatScreen() {
       .catch((err) => {
         console.warn('Failed to fetch match:', err);
       });
-  }, [matchId]);
+  }, [resolvedMatchId, user?.uid]);
 
   useEffect(() => {
     if (messages.length > 0) {
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 80);
+      const timeoutId = setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+      }, 80);
+      return () => clearTimeout(timeoutId);
     }
   }, [messages.length]);
 
   async function handleSend() {
     const trimmed = text.trim();
-    if (!trimmed || sending || !user || !chatUnlocked) return;
+    if (!trimmed || sending || !user || !chatUnlocked || !resolvedMatchId) return;
     setText('');
     setSending(true);
     try {
-      const msg = await sendMessage(matchId, user.uid, trimmed);
-      setMessages((prev) => [...prev, msg]);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+      await sendMessage(resolvedMatchId, user.uid, trimmed);
     } finally {
       setSending(false);
     }
   }
 
   async function handleUnlock() {
-    if (!user || !matchId) return;
+    if (!user || !resolvedMatchId) return;
 
     setUnlockLoading(true);
     setUnlockError(null);
 
     try {
-      const { clientSecret } = await createChatUnlockIntent(matchId, user.uid);
+      const { clientSecret } = await createChatUnlockIntent(resolvedMatchId, user.uid);
       const initResult = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: 'GoDoggyDate',
@@ -94,7 +141,7 @@ export default function ChatScreen() {
       const presentResult = await presentPaymentSheet();
       if (presentResult.error) throw new Error(presentResult.error.message);
 
-      await unlockMatch(matchId, user.uid);
+      await unlockMatch(resolvedMatchId, user.uid);
       setChatUnlocked(true);
       setUnlockError(null);
     } catch (err: any) {
@@ -106,7 +153,7 @@ export default function ChatScreen() {
   }
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isMe = item.senderId === 'me';
+    const isMe = item.senderId === user?.uid || item.senderId === 'me';
     return (
       <View style={[styles.bubbleWrap, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
         <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
@@ -126,13 +173,21 @@ export default function ChatScreen() {
           <Text style={styles.backText}>‹</Text>
         </Pressable>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerName}>{name}</Text>
+          <Text style={styles.headerName}>{resolvedName || match?.dog.name || 'Chat'}</Text>
           <Text style={styles.headerSub}>GoDoggyDate match</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      {loading ? (
+      {!resolvedMatchId ? (
+        <View style={styles.emptyChat}>
+          <Text style={styles.emptyChatText}>This chat link is missing a match id.</Text>
+        </View>
+      ) : !user ? (
+        <View style={styles.emptyChat}>
+          <Text style={styles.emptyChatText}>Sign in to open this chat.</Text>
+        </View>
+      ) : loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -140,19 +195,22 @@ export default function ChatScreen() {
         <View style={styles.paywallSendWrap}>
           <Text style={styles.paywallTitle}>Unlock Chat</Text>
           <Text style={styles.paywallBody}>
-            Unlock messaging with this match for $4.99 (one-time). This uses Stripe payment
-            sheet and persists unlock status in Firestore.
+            {paymentConfigured
+              ? 'Unlock messaging with this match for $4.99 (one-time). This uses Stripe payment sheet and persists unlock status in Firestore.'
+              : 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
           </Text>
           {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
           <Pressable
             style={[styles.unlockBtn, unlockLoading && styles.sendBtnDisabled]}
             onPress={handleUnlock}
-            disabled={unlockLoading}
+            disabled={unlockLoading || !paymentConfigured}
           >
             {unlockLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.unlockBtnText}>Pay $4.99</Text>
+              <Text style={styles.unlockBtnText}>
+                {paymentConfigured ? 'Pay $4.99' : 'Payment Not Configured'}
+              </Text>
             )}
           </Pressable>
         </View>
@@ -173,7 +231,7 @@ export default function ChatScreen() {
               <View style={styles.emptyChat}>
                 <Text style={styles.emptyChatEmoji}>🐾</Text>
                 <Text style={styles.emptyChatText}>
-                  Say hi to {name}! This is the start of your conversation.
+                  Say hi to {resolvedName || match?.dog.name || 'your match'}! This is the start of your conversation.
                 </Text>
               </View>
             }
@@ -184,7 +242,7 @@ export default function ChatScreen() {
               style={styles.input}
               value={text}
               onChangeText={setText}
-              placeholder={`Message ${name}…`}
+              placeholder={`Message ${resolvedName || match?.dog.name || 'your match'}…`}
               placeholderTextColor={colors.brownLight}
               multiline
               maxLength={500}

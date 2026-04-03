@@ -15,5 +15,8 @@
     "./**/*.tsx",
     "../shared/**/*.ts"
   ],
+  "exclude": [
+    "./**/*.test.ts"
+  ],
   "extends": "expo/tsconfig.base"
 }

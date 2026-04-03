@@ -1,8 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
-import { getAuth, initializeAuth, type Auth } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuth, initializeAuth, getReactNativePersistence, type Auth } from '@firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -13,8 +13,6 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const APP_NAME = 'godoggydate-mobile';
-
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
@@ -22,23 +20,24 @@ let storage: FirebaseStorage;
 
 export function getFirebase() {
   if (!app) {
-    app = getApps().some((existing) => existing.name === APP_NAME)
-      ? getApp(APP_NAME)
-      : initializeApp(firebaseConfig, APP_NAME);
+    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  }
 
+  if (!auth) {
     try {
-      auth = initializeAuth(app);
-    } catch (e: unknown) {
-      // On hot-reload, auth may already be initialized — reuse the existing instance.
-      // Any other error (bad config, wrong SDK version, etc.) should surface.
-      if ((e as { code?: string }).code === 'auth/already-initialized') {
-        auth = getAuth(app);
-      } else {
-        throw e;
-      }
+      auth = initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage),
+      });
+    } catch {
+      auth = getAuth(app);
     }
+  }
 
+  if (!db) {
     db = getFirestore(app);
+  }
+
+  if (!storage) {
     storage = firebaseConfig.storageBucket
       ? getStorage(app, `gs://${firebaseConfig.storageBucket}`)
       : getStorage(app);

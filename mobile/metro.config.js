@@ -22,4 +22,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
+/**
+ * Preserve Metro's normal hierarchical lookup so nested Expo / React Native
+ * dependencies can still resolve correctly. The app still prefers the mobile
+ * and repo-root node_modules paths above.
+ */
+config.resolver.disableHierarchicalLookup = false;
+
 module.exports = config;

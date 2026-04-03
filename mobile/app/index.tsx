@@ -13,11 +13,18 @@ export default function IndexScreen() {
       router.replace('/welcome');
       return;
     }
+    if (profileComplete) {
+      router.replace('/(tabs)/discover');
+      return;
+    }
+    if (user.isAnonymous) {
+      router.replace('/welcome');
+      return;
+    }
     if (!profileComplete) {
       router.replace('/onboarding');
       return;
     }
-    router.replace('/(tabs)/profile');
   }, [loading, profileComplete, user]);
 
   return (

@@ -7,13 +7,16 @@ export interface CreateIntentResponse {
 
 export async function createChatUnlockIntent(matchId: string, userId: string): Promise<CreateIntentResponse> {
   const paymentApiBase =
-    process.env.EXPO_PUBLIC_PAYMENTS_API_URL ??
-    process.env.EXPO_PUBLIC_WEB_URL ??
-    'http://localhost:3000';
+    process.env.EXPO_PUBLIC_PAYMENTS_API_URL ?? process.env.EXPO_PUBLIC_WEB_URL;
+
+  if (!paymentApiBase) {
+    throw new Error('Payment is not configured for this build');
+  }
+
   const url = `${paymentApiBase.replace(/\/$/, '')}/api/payments/create-intent`;
 
   if (!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-    throw new Error('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set');
+    throw new Error('Payment is not configured for this build');
   }
 
   const res = await fetch(url, {
@@ -43,4 +46,11 @@ export async function createChatUnlockIntent(matchId: string, userId: string): P
 
 export function getPublishableKey(): string {
   return getStripePublishableKey();
+}
+
+export function isPaymentConfigured(): boolean {
+  return Boolean(
+    process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY &&
+      (process.env.EXPO_PUBLIC_PAYMENTS_API_URL || process.env.EXPO_PUBLIC_WEB_URL),
+  );
 }

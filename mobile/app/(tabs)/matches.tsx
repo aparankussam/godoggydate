@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '../../constants/theme';
 import { fetchMatches, formatMatchTime, type MatchItem } from '../../lib/matches';
 import { useSession } from '../../lib/session';
@@ -19,12 +19,44 @@ export default function MatchesTab() {
   const [matches, setMatches] = useState<MatchItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchMatches(user.uid)
-      .then(setMatches)
-      .finally(() => setLoading(false));
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      if (!user) {
+        if (active) {
+          setMatches([]);
+          setLoading(false);
+        }
+        return () => {
+          active = false;
+        };
+      }
+
+      setLoading(true);
+      fetchMatches(user.uid)
+        .then((nextMatches) => {
+          if (active) setMatches(nextMatches);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [user]),
+  );
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.emptyWrap}>
+        <Text style={styles.emptyTitle}>Sign in to view matches</Text>
+        <Text style={styles.emptyBody}>
+          Your conversations and matches appear here once you have an active session.
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (

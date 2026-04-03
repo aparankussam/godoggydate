@@ -25,8 +25,9 @@ export default function ProfileTab() {
               setSaving(true);
               await saveProfile(nextProfile);
               setEditing(false);
-            } catch {
-              Alert.alert('Save failed', 'We could not save your dog profile. Please try again.');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'We could not save your dog profile. Please try again.';
+              Alert.alert('Save failed', message);
             } finally {
               setSaving(false);
             }
