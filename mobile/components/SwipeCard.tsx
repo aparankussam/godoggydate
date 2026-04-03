@@ -59,33 +59,28 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     }));
 
     // Called from worklet thread — must be defined before gesture
-    function advancePhoto(tapAbsoluteX: number) {
-      if (tapAbsoluteX > SCREEN_WIDTH / 2) {
+    function advancePhoto(tapX: number, cardWidth = CARD_WIDTH) {
+      const isRight = tapX > cardWidth * 0.5;
+      if (__DEV__) {
+        console.log(
+          `[SwipeCard] advancePhoto tapX=${tapX.toFixed(1)} cardWidth=${cardWidth} isRight=${isRight} photoIndex=${photoIndex} photoCount=${photoCount}`,
+        );
+      }
+      if (isRight) {
         setPhotoIndex((i) => Math.min(i + 1, photoCount - 1));
       } else {
         setPhotoIndex((i) => Math.max(i - 1, 0));
       }
     }
 
-    const gesture = Gesture.Pan()
+    const panGesture = Gesture.Pan()
       .enabled(isTop)
       .activeOffsetX([-6, 6]) // must move 6px horizontally before activating
       .onUpdate((e) => {
         tx.value = e.translationX;
         ty.value = e.translationY * 0.15;
       })
-      .onFinalize((e) => {
-        const isTap =
-          Math.abs(e.translationX) < TAP_MAX_MOVE &&
-          Math.abs(e.translationY) < TAP_MAX_MOVE;
-
-        if (isTap && photoCount > 1) {
-          runOnJS(advancePhoto)(e.absoluteX);
-          tx.value = withSpring(0, { damping: 20 });
-          ty.value = withSpring(0, { damping: 20 });
-          return;
-        }
-
+      .onEnd((e) => {
         const positionSwipe = Math.abs(e.translationX) > SWIPE_THRESHOLD;
         const velocitySwipe = Math.abs(e.velocityX) > VELOCITY_THRESHOLD;
 
@@ -94,6 +89,9 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
           const exitX =
             e.translationX > 0 ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
           tx.value = withTiming(exitX, { duration: 260 }, () => {
+            if (__DEV__) {
+              console.log('[SwipeCard] pan swipe complete', dir);
+            }
             runOnJS(onSwipe)(dir);
           });
         } else {
@@ -101,6 +99,22 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
           ty.value = withSpring(0, { damping: 18 });
         }
       });
+
+    const tapGesture = Gesture.Tap()
+      .enabled(isTop)
+      .maxDuration(250)
+      .maxDistance(10)
+      .onEnd((e) => {
+        if (photoCount <= 1) {
+          return;
+        }
+        if (__DEV__) {
+          console.log('[SwipeCard] tap recognized', { x: e.x, y: e.y });
+        }
+        runOnJS(advancePhoto)(e.x, CARD_WIDTH);
+      });
+
+    const gesture = Gesture.Exclusive(panGesture, tapGesture);
 
     const cardStyle = useAnimatedStyle(() => {
       if (stackIndex > 0) {

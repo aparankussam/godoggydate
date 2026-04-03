@@ -46,7 +46,7 @@ export default function DiscoverTab() {
     setIndex((prev) => prev + 1);
   }, []);
 
-  function bounce(sv: Animated.SharedValue<number>) {
+  function bounce(sv: { value: number }) {
     sv.value = withSequence(
       withSpring(0.84, { damping: 5, stiffness: 400 }),
       withSpring(1.08, { damping: 8 }),

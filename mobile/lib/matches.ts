@@ -1,3 +1,15 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from 'firebase/firestore';
+import { getFirebase } from './firebase';
+
 /**
  * Matches + Chat data layer.
  *
@@ -19,6 +31,7 @@ export interface MatchItem {
   lastMessage?: string;
   lastMessageAt?: number;
   unread?: boolean;
+  chatUnlocked?: boolean;
 }
 
 export interface ChatMessage {
@@ -101,13 +114,80 @@ export function formatMatchTime(ts: number): string {
   return `${Math.floor(diff / (1000 * 60 * 60 * 24))}d`;
 }
 
-export async function fetchMatches(_userId: string): Promise<MatchItem[]> {
+export async function fetchMatches(userId: string): Promise<MatchItem[]> {
+  if (!userId) return getMockMatches();
+
+  try {
+    const db = getFirebase().db;
+    const snap = await getDocs(
+      query(collection(db, 'matches'), where('userId', '==', userId)),
+    );
+    if (!snap.empty) {
+      return snap.docs.map((d) => {
+        const data = d.data() as MatchItem;
+        return {
+          ...data,
+          id: d.id,
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('Could not load Firestore matches, falling back to mock', err);
+  }
+
   return getMockMatches();
 }
 
-export async function fetchMessages(_matchId: string): Promise<ChatMessage[]> {
-  return getMockMessages(_matchId);
+export async function fetchMessages(matchId: string): Promise<ChatMessage[]> {
+  try {
+    const db = getFirebase().db;
+    const snap = await getDoc(doc(db, 'matches', matchId));
+    if (snap.exists()) {
+      // In case match documents store a generated list of messages, adjust here. For now we return mock chat.
+      return getMockMessages(matchId);
+    }
+  } catch (err) {
+    // ignore and fallback to mock
+  }
+  return getMockMessages(matchId);
 }
+
+export async function fetchMatch(matchId: string): Promise<MatchItem | null> {
+  if (!matchId) return null;
+
+  try {
+    const db = getFirebase().db;
+    const docSnap = await getDoc(doc(db, 'matches', matchId));
+    if (docSnap.exists()) {
+      const data = docSnap.data() as MatchItem;
+      return {
+        ...data,
+        id: docSnap.id,
+      };
+    }
+  } catch (err) {
+    console.warn('Could not load Firestore match', err);
+  }
+
+  return getMockMatches().find((m) => m.id === matchId) ?? null;
+}
+
+export async function unlockMatch(matchId: string, userId: string): Promise<void> {
+  if (!matchId || !userId) throw new Error('matchId and userId required');
+
+  const db = getFirebase().db;
+  await setDoc(
+    doc(db, 'matches', matchId),
+    {
+      userId,
+      chatUnlocked: true,
+      unlockedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
 
 export async function sendMessage(
   _matchId: string,

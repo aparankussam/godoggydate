@@ -11,28 +11,50 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useStripe } from '@stripe/stripe-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors, fonts, radius } from '../../constants/theme';
 import {
+  fetchMatch,
   fetchMessages,
+  unlockMatch,
   sendMessage,
   type ChatMessage,
+  type MatchItem,
 } from '../../lib/matches';
+import { createChatUnlockIntent } from '../../lib/stripe';
 import { useSession } from '../../lib/session';
 
 export default function ChatScreen() {
   const { matchId, name } = useLocalSearchParams<{ matchId: string; name: string }>();
   const { user } = useSession();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [match, setMatch] = useState<MatchItem | null>(null);
+  const [chatUnlocked, setChatUnlocked] = useState(false);
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
     fetchMessages(matchId)
       .then(setMessages)
       .finally(() => setLoading(false));
+  }, [matchId]);
+
+  useEffect(() => {
+    if (!matchId) return;
+    fetchMatch(matchId)
+      .then((m) => {
+        setMatch(m);
+        setChatUnlocked(m?.chatUnlocked ?? false);
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch match:', err);
+      });
   }, [matchId]);
 
   useEffect(() => {
@@ -43,7 +65,7 @@ export default function ChatScreen() {
 
   async function handleSend() {
     const trimmed = text.trim();
-    if (!trimmed || sending || !user) return;
+    if (!trimmed || sending || !user || !chatUnlocked) return;
     setText('');
     setSending(true);
     try {
@@ -52,6 +74,34 @@ export default function ChatScreen() {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleUnlock() {
+    if (!user || !matchId) return;
+
+    setUnlockLoading(true);
+    setUnlockError(null);
+
+    try {
+      const { clientSecret } = await createChatUnlockIntent(matchId, user.uid);
+      const initResult = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: 'GoDoggyDate',
+      });
+      if (initResult.error) throw new Error(initResult.error.message);
+
+      const presentResult = await presentPaymentSheet();
+      if (presentResult.error) throw new Error(presentResult.error.message);
+
+      await unlockMatch(matchId, user.uid);
+      setChatUnlocked(true);
+      setUnlockError(null);
+    } catch (err: any) {
+      setUnlockError(err?.message || 'Failed to complete payment');
+      console.warn('unlock error', err);
+    } finally {
+      setUnlockLoading(false);
     }
   }
 
@@ -85,6 +135,26 @@ export default function ChatScreen() {
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : !chatUnlocked ? (
+        <View style={styles.paywallSendWrap}>
+          <Text style={styles.paywallTitle}>Unlock Chat</Text>
+          <Text style={styles.paywallBody}>
+            Unlock messaging with this match for $4.99 (one-time). This uses Stripe payment
+            sheet and persists unlock status in Firestore.
+          </Text>
+          {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
+          <Pressable
+            style={[styles.unlockBtn, unlockLoading && styles.sendBtnDisabled]}
+            onPress={handleUnlock}
+            disabled={unlockLoading}
+          >
+            {unlockLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.unlockBtnText}>Pay $4.99</Text>
+            )}
+          </Pressable>
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -266,5 +336,44 @@ const styles = StyleSheet.create({
     color: colors.brownLight,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  paywallSendWrap: {
+    flex: 1,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  paywallTitle: {
+    fontFamily: fonts.display,
+    fontSize: 24,
+    color: colors.brown,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  paywallBody: {
+    fontFamily: fonts.body,
+    color: colors.brownLight,
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  paywallError: {
+    color: '#c00',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  unlockBtn: {
+    width: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: radius.xl,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unlockBtnText: {
+    color: '#fff',
+    fontFamily: fonts.bold,
+    fontSize: 16,
   },
 });
