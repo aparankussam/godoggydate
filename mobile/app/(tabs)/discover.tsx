@@ -195,6 +195,7 @@ export default function DiscoverTab() {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setDetailDog(null)}
+        onDismiss={() => setDetailDog(null)}
       >
         {detailDog && (
           <SafeAreaView style={styles.detailContainer}>

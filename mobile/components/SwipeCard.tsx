@@ -74,7 +74,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
         tx.value = e.translationX;
         ty.value = e.translationY * 0.15;
       })
-      .onEnd((e) => {
+      .onFinalize((e) => {
         const isTap =
           Math.abs(e.translationX) < TAP_MAX_MOVE &&
           Math.abs(e.translationY) < TAP_MAX_MOVE;
