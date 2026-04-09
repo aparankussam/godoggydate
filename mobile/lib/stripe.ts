@@ -5,19 +5,33 @@ export interface CreateIntentResponse {
   paymentIntentId: string;
 }
 
-export async function createChatUnlockIntent(matchId: string, userId: string): Promise<CreateIntentResponse> {
-  const paymentApiBase =
-    process.env.EXPO_PUBLIC_PAYMENTS_API_URL ?? process.env.EXPO_PUBLIC_WEB_URL;
+function getPaymentApiBase(): string | null {
+  return (
+    process.env.EXPO_PUBLIC_PAYMENTS_API_URL?.trim() ||
+    process.env.EXPO_PUBLIC_WEB_URL?.trim() ||
+    null
+  );
+}
 
-  if (!paymentApiBase) {
-    throw new Error('Payment is not configured for this build');
+export function getPaymentConfigurationError(): string | null {
+  if (!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim()) {
+    return 'Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY in mobile/.env';
   }
+
+  if (!getPaymentApiBase()) {
+    return 'Missing EXPO_PUBLIC_PAYMENTS_API_URL or EXPO_PUBLIC_WEB_URL in mobile/.env';
+  }
+
+  return null;
+}
+
+export async function createChatUnlockIntent(matchId: string, userId: string): Promise<CreateIntentResponse> {
+  const paymentApiBase = getPaymentApiBase();
+  const configurationError = getPaymentConfigurationError();
+
+  if (configurationError || !paymentApiBase) throw new Error(configurationError ?? 'Payment is not configured for this build');
 
   const url = `${paymentApiBase.replace(/\/$/, '')}/api/payments/create-intent`;
-
-  if (!process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-    throw new Error('Payment is not configured for this build');
-  }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -49,8 +63,5 @@ export function getPublishableKey(): string {
 }
 
 export function isPaymentConfigured(): boolean {
-  return Boolean(
-    process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY &&
-      (process.env.EXPO_PUBLIC_PAYMENTS_API_URL || process.env.EXPO_PUBLIC_WEB_URL),
-  );
+  return getPaymentConfigurationError() === null;
 }

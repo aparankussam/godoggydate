@@ -225,25 +225,6 @@ export async function fetchMatch(matchId: string, currentUserId = ''): Promise<M
   return null;
 }
 
-export async function unlockMatch(matchId: string, userId: string): Promise<void> {
-  if (!matchId || !userId) throw new Error('matchId and userId required');
-
-  const db = getFirebase().db;
-  const matchRef = doc(db, 'matches', matchId);
-  const existing = await getDoc(matchRef);
-  if (!existing.exists()) {
-    throw new Error('Match not found');
-  }
-
-  await setDoc(
-    matchRef,
-    {
-      chatUnlocked: true,
-    },
-    { merge: true },
-  );
-}
-
 export async function markMatchRead(matchId: string, userId: string): Promise<void> {
   if (!matchId || !userId) return;
 

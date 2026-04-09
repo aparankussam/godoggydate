@@ -54,11 +54,25 @@ service cloud.firestore {
 
     match /matches/{matchId} {
       allow read:   if isSignedIn() && isPartyToMatch(resource.data);
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.dog1UserId is string
+                    && request.resource.data.dog2UserId is string
+                    && request.resource.data.chatUnlocked == false
+                    && !request.resource.data.keys().hasAny(['paymentId'])
+                    && (
+                         request.auth.uid == request.resource.data.dog1UserId ||
+                         request.auth.uid == request.resource.data.dog2UserId
+                       );
       allow update: if isSignedIn()
                     && isPartyToMatch(resource.data)
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['chatUnlocked', 'paymentId', 'lastMessage', 'lastMessageTime', 'lastMessageFromUid']);
+                         .hasOnly([
+                           'lastMessage',
+                           'lastMessageTime',
+                           'lastMessageFromUid',
+                           'dog1LastReadAt',
+                           'dog2LastReadAt'
+                         ]);
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -69,7 +83,8 @@ service cloud.firestore {
         allow create: if isSignedIn()
                       && request.resource.data.fromUserId == request.auth.uid
                       && exists(/databases/$(database)/documents/matches/$(matchId))
-                      && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data);
+                      && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data)
+                      && get(/databases/$(database)/documents/matches/$(matchId)).data.chatUnlocked == true;
 
         allow update: if false;
         allow delete: if false;

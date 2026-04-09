@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
   ActivityIndicator,
   FlatList,
@@ -19,12 +19,15 @@ import { getFirebase } from '../../lib/firebase';
 import {
   fetchMatch,
   markMatchRead,
-  unlockMatch,
   sendMessage,
   type ChatMessage,
   type MatchItem,
 } from '../../lib/matches';
-import { createChatUnlockIntent, isPaymentConfigured } from '../../lib/stripe';
+import {
+  createChatUnlockIntent,
+  getPaymentConfigurationError,
+  isPaymentConfigured,
+} from '../../lib/stripe';
 import { useSession } from '../../lib/session';
 
 export default function ChatScreen() {
@@ -41,8 +44,10 @@ export default function ChatScreen() {
   const [chatUnlocked, setChatUnlocked] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
   const listRef = useRef<FlatList>(null);
   const paymentConfigured = isPaymentConfigured();
+  const paymentConfigurationError = getPaymentConfigurationError();
 
   useEffect(() => {
     if (!resolvedMatchId || !user) {
@@ -93,6 +98,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!resolvedMatchId) return;
+
     fetchMatch(resolvedMatchId, user?.uid ?? '')
       .then((m) => {
         setMatch(m);
@@ -104,6 +110,52 @@ export default function ChatScreen() {
   }, [resolvedMatchId, user?.uid]);
 
   useEffect(() => {
+    if (!resolvedMatchId) return;
+
+    const db = getFirebase().db;
+    const unsubscribe = onSnapshot(
+      doc(db, 'matches', resolvedMatchId),
+      (matchDoc) => {
+        if (!matchDoc.exists()) {
+          setChatUnlocked(false);
+          return;
+        }
+
+        const data = matchDoc.data() as { chatUnlocked?: boolean };
+        const nextChatUnlocked = Boolean(data.chatUnlocked);
+        setChatUnlocked(nextChatUnlocked);
+        setMatch((currentMatch) => (currentMatch
+          ? { ...currentMatch, chatUnlocked: nextChatUnlocked }
+          : currentMatch));
+      },
+      (error) => {
+        console.warn('Failed to subscribe to match state:', error);
+      },
+    );
+
+    return unsubscribe;
+  }, [resolvedMatchId]);
+
+  useEffect(() => {
+    if (!chatUnlocked) return;
+    setAwaitingVerification(false);
+    setUnlockLoading(false);
+    setUnlockError(null);
+  }, [chatUnlocked]);
+
+  useEffect(() => {
+    if (!awaitingVerification) return undefined;
+
+    const timeoutId = setTimeout(() => {
+      setAwaitingVerification(false);
+      setUnlockLoading(false);
+      setUnlockError('Payment succeeded, but verification is taking longer than expected. Please reopen this chat in a moment.');
+    }, 30000);
+
+    return () => clearTimeout(timeoutId);
+  }, [awaitingVerification]);
+
+  useEffect(() => {
     if (messages.length > 0) {
       const timeoutId = setTimeout(() => {
         listRef.current?.scrollToEnd({ animated: false });
@@ -111,6 +163,25 @@ export default function ChatScreen() {
       return () => clearTimeout(timeoutId);
     }
   }, [messages.length]);
+
+  async function handleRefreshUnlockStatus() {
+    if (!resolvedMatchId) return;
+
+    try {
+      const refreshedMatch = await fetchMatch(resolvedMatchId, user?.uid ?? '');
+      setMatch(refreshedMatch);
+      setChatUnlocked(refreshedMatch?.chatUnlocked ?? false);
+
+      if (refreshedMatch?.chatUnlocked) {
+        setUnlockError(null);
+      } else {
+        setUnlockError('Chat is still waiting for payment verification. Please try again in a moment.');
+      }
+    } catch (error) {
+      console.warn('Failed to refresh unlock status:', error);
+      setUnlockError('We could not refresh chat status right now. Please try again in a moment.');
+    }
+  }
 
   async function handleSend() {
     const trimmed = text.trim();
@@ -129,6 +200,8 @@ export default function ChatScreen() {
 
     setUnlockLoading(true);
     setUnlockError(null);
+    setAwaitingVerification(false);
+    let paymentSubmitted = false;
 
     try {
       const { clientSecret } = await createChatUnlockIntent(resolvedMatchId, user.uid);
@@ -141,14 +214,18 @@ export default function ChatScreen() {
       const presentResult = await presentPaymentSheet();
       if (presentResult.error) throw new Error(presentResult.error.message);
 
-      await unlockMatch(resolvedMatchId, user.uid);
-      setChatUnlocked(true);
+      paymentSubmitted = true;
+      setAwaitingVerification(true);
       setUnlockError(null);
+      return;
     } catch (err: any) {
+      setAwaitingVerification(false);
       setUnlockError(err?.message || 'Failed to complete payment');
       console.warn('unlock error', err);
     } finally {
-      setUnlockLoading(false);
+      if (!paymentSubmitted) {
+        setUnlockLoading(false);
+      }
     }
   }
 
@@ -197,9 +274,14 @@ export default function ChatScreen() {
           <Text style={styles.paywallBody}>
             {paymentConfigured
               ? 'Unlock messaging with this match for $4.99 (one-time). This uses Stripe payment sheet and persists unlock status in Firestore.'
-              : 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
+              : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
           </Text>
           {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
+          {!unlockLoading && unlockError ? (
+            <Pressable style={styles.statusButton} onPress={handleRefreshUnlockStatus}>
+              <Text style={styles.statusButtonText}>Check Unlock Status</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             style={[styles.unlockBtn, unlockLoading && styles.sendBtnDisabled]}
             onPress={handleUnlock}
@@ -433,5 +515,15 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: fonts.bold,
     fontSize: 16,
+  },
+  statusButton: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 6,
+  },
+  statusButtonText: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
+    fontSize: 14,
   },
 });

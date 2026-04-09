@@ -131,7 +131,7 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
     dog2Id: dog2UserId,
     dog1UserId,
     dog2UserId,
-    chatUnlocked: true,
+    chatUnlocked: false,
     createdAt: serverTimestamp(),
     lastMessage: null,
     lastMessageTime: null,
@@ -142,10 +142,7 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
     console.info('[matching] match creation succeeded', { matchId });
   } catch (error: unknown) {
     console.error('[matching] match creation failed', { matchId, error });
-
-    if ((error as { code?: string } | null)?.code !== 'permission-denied') {
-      throw error;
-    }
+    throw error;
   }
 
   return { isMatch: true, matchId };

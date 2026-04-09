@@ -79,7 +79,7 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>Mobile Beta</Text>
+          <Text style={styles.eyebrow}>GoDoggyDate</Text>
           <Text style={styles.title}>GoDoggyDate</Text>
           <Text style={styles.subtitle}>
             Find safe, compatible playmates for your dog nearby. Match on personality, energy, and real-world fit instead of random swipes.

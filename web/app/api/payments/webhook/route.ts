@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 
-// Stripe webhook handler is not active in this release.
-// This stub keeps the route resolvable so the build succeeds.
+// This endpoint is intentionally inactive for launch.
+// Mobile one-time unlocks are verified by the Firebase Function webhook instead.
 export async function POST() {
-  return NextResponse.json({ received: true }, { status: 200 });
+  return NextResponse.json(
+    { error: 'Inactive webhook endpoint. Use the deployed Firebase Function stripeWebhook instead.' },
+    { status: 410 },
+  );
 }

@@ -58,7 +58,7 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
       dog2Id,
       dog1UserId,
       dog2UserId,
-      chatUnlocked: true,
+      chatUnlocked: false,
       createdAt: serverTimestamp(),
       lastMessage: null,
       lastMessageTime: null,
