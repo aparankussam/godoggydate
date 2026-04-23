@@ -18,6 +18,24 @@ export { onAuthStateChanged };
 export type { SavedDogProfile } from '../../shared/profile';
 export { isProfileComplete, toFullProfile } from '../../shared/profile';
 
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefined(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, entry]) => entry !== undefined)
+        .map(([key, entry]) => [key, stripUndefined(entry)]),
+    ) as T;
+  }
+
+  return value;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export async function signInWithGoogle(): Promise<void> {
   const { auth } = getFirebase();
@@ -41,8 +59,8 @@ export async function saveUserDogProfile(
   profile: SavedDogProfile,
 ): Promise<void> {
   const { db } = getFirebase();
-  await setDoc(doc(db, 'dogs', uid), {
+  await setDoc(doc(db, 'dogs', uid), stripUndefined({
     ...profile,
     ownerId: uid,
-  });
+  }));
 }

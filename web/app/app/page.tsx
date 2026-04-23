@@ -21,7 +21,6 @@ import DogProfileForm from '../../components/DogProfileForm';
 import SwipeStack from '../../components/SwipeStack';
 import AuthModal from '../../components/AuthModal';
 import MatchModal from '../../components/MatchModal';
-import UpgradeModal from '../../components/UpgradeModal';
 import SkeletonCard from '../../components/SkeletonCard';
 import { buildDiscoverFeed, buildGuestFeed, type DiscoverFeedDog } from '../../lib/discover';
 
@@ -46,28 +45,12 @@ export default function AppPage() {
   const [feedDepleted,     setFeedDepleted]     = useState(false);
   const [feedLoading,      setFeedLoading]      = useState(false);
   const [activeFeed,       setActiveFeed]       = useState<FeedDog[]>([]);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [profileSavedToast, setProfileSavedToast] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
 
   // ── Retention hook ────────────────────────────────────────────────────────
   const [showRetentionHook, setShowRetentionHook] = useState(false);
   const [hasHadFirstMatch,  setHasHadFirstMatch]  = useState(false);
-
-  // ── Stripe checkout return ────────────────────────────────────────────────
-  const [checkoutToast, setCheckoutToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const checkout = params.get('checkout');
-    if (checkout === 'success') {
-      setCheckoutToast('Subscription activated! Enjoy unlimited swipes. 🎉');
-      // Remove query param without a full reload
-      window.history.replaceState({}, '', '/app');
-    } else if (checkout === 'cancelled') {
-      window.history.replaceState({}, '', '/app');
-    }
-  }, []);
 
   // ── Auth observer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -221,12 +204,6 @@ export default function AppPage() {
         onClose={() => setShowAuthModal(false)}
       />
 
-      {/* Upgrade / paywall modal */}
-      <UpgradeModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-      />
-
       {/* ── Match celebration (fixed full-screen overlay) ────────────────── */}
       {matchedDog && activeMatchId && (
         <MatchModal
@@ -305,15 +282,6 @@ export default function AppPage() {
             onClick={() => setShowRetentionHook(false)}
             className="text-white/50 hover:text-white text-xl leading-none shrink-0"
           >×</button>
-        </div>
-      )}
-
-      {/* ── Stripe checkout success toast ───────────────────────────────── */}
-      {checkoutToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white rounded-2xl px-5 py-3 flex items-center gap-2 shadow-xl">
-          <span className="text-lg">✓</span>
-          <p className="text-sm font-semibold">{checkoutToast}</p>
-          <button onClick={() => setCheckoutToast(null)} className="ml-2 text-white/70 hover:text-white text-lg leading-none">×</button>
         </div>
       )}
 
@@ -408,7 +376,6 @@ export default function AppPage() {
                 currentDogId={userDog?.id ?? authUser.uid}
                 onMatch={(dog, matchId) => handleMatch(dog as FeedDog, matchId)}
                 onEmpty={() => setFeedDepleted(true)}
-                onSwipeLimitReached={() => setShowUpgradeModal(true)}
               />
             </>
           )}

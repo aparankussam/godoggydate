@@ -26,6 +26,7 @@ interface MatchDoc {
   dog2Id:     string;
   dog1UserId: string;
   dog2UserId: string;
+  chatUnlocked: boolean;
   createdAt:  { seconds: number } | null;
   lastMessage:     string | null;
   lastMessageTime: { seconds: number } | null;
@@ -236,12 +237,16 @@ export default function MatchesPage() {
                       <p className="text-xs text-brown-mid mt-1 truncate">{m.lastMessage}</p>
                     )}
                     {!hasLastMsg && (
-                      <p className="text-xs text-primary font-medium mt-1">Open chat and say hello 👋</p>
+                      <p className="text-xs text-primary font-medium mt-1">
+                        {m.chatUnlocked ? 'Open chat and say hello 👋' : 'Unlock chat in the mobile app to start messaging'}
+                      </p>
                     )}
                   </div>
 
-                  <div className="shrink-0 w-11 h-11 rounded-full bg-primary text-white flex items-center justify-center shadow-md">
-                    💬
+                  <div className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center shadow-md ${
+                    m.chatUnlocked ? 'bg-primary text-white' : 'bg-brown-light/15 text-brown'
+                  }`}>
+                    {m.chatUnlocked ? '💬' : '🔒'}
                   </div>
                 </Link>
               );

@@ -1,56 +1,60 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 
 admin.initializeApp();
 const db = admin.firestore();
-
-const stripe = new Stripe(functions.config().stripe.secret_key, {
-  apiVersion: '2024-04-10',
-});
+const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
+const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 
 // ── Stripe Webhook ─────────────────────────────────────────────────────────────
 
-export const stripeWebhook = functions.https.onRequest(async (req, res) => {
-  const sig = req.headers['stripe-signature'] as string;
-  const webhookSecret = functions.config().stripe.webhook_secret;
+export const stripeWebhook = functions
+  .runWith({ secrets: [stripeSecretKey, stripeWebhookSecret] })
+  .https.onRequest(async (req, res) => {
+    const sig = req.headers['stripe-signature'] as string;
+    const webhookSecret = stripeWebhookSecret.value();
+    const stripe = new Stripe(stripeSecretKey.value(), {
+      apiVersion: '2024-04-10',
+    });
 
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
-  } catch (err: any) {
-    console.error('Webhook signature failed:', err.message);
-    res.status(400).send(`Webhook Error: ${err.message}`);
-    return;
-  }
-
-  if (event.type === 'payment_intent.succeeded') {
-    const pi = event.data.object as Stripe.PaymentIntent;
-    const { matchId, userId } = pi.metadata;
-
-    if (matchId) {
-      await db.doc(`matches/${matchId}`).update({
-        chatUnlocked: true,
-        paymentId: pi.id,
-        unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // Record payment
-      await db.collection('payments').add({
-        matchId,
-        userId,
-        paymentIntentId: pi.id,
-        amount: pi.amount,
-        currency: pi.currency,
-        status: 'succeeded',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+    } catch (err: any) {
+      console.error('Webhook signature failed:', err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
     }
-  }
 
-  res.json({ received: true });
-});
+    if (event.type === 'payment_intent.succeeded') {
+      const pi = event.data.object as Stripe.PaymentIntent;
+      const { matchId, userId } = pi.metadata;
+
+      if (matchId) {
+        await db.doc(`matches/${matchId}`).update({
+          chatUnlocked: true,
+          paymentId: pi.id,
+          unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Record payment
+        await db.collection('payments').add({
+          matchId,
+          userId,
+          paymentIntentId: pi.id,
+          amount: pi.amount,
+          currency: pi.currency,
+          status: 'succeeded',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    res.json({ received: true });
+  });
 
 // ── Trust Score Recalculation (triggered when a rating is created) ─────────────
 

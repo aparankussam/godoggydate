@@ -4,8 +4,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import SwipeCard, { type SwipeCardHandle } from './SwipeCard';
 import { recordSwipe } from '../lib/matching';
-import { getTodaySwipeCount, incrementSwipeCount, isSubscribed } from '../lib/swipes';
-import { FREE_DAILY_SWIPES } from '../lib/stripe';
 import type { CompatibilityResult } from '../shared/types';
 
 interface FeedDog {
@@ -35,7 +33,6 @@ interface Props {
   onMatch: (dog: FeedDog, matchId: string) => void;
   onEmpty: () => void;
   isGuest?: boolean;
-  onSwipeLimitReached?: () => void;
   onRequireAuthForLike?: () => void;
 }
 
@@ -46,48 +43,17 @@ export default function SwipeStack({
   onMatch,
   onEmpty,
   isGuest = false,
-  onSwipeLimitReached,
   onRequireAuthForLike,
 }: Props) {
   const [index, setIndex] = useState(0);
   const [selectedDog, setSelectedDog] = useState<FeedDog | null>(null);
 
-  const swipesUsedRef = useRef<number>(0);
-  const subscribedRef = useRef<boolean>(true);
-  const limitCheckedRef = useRef<boolean>(false);
   const topCardRef = useRef<SwipeCardHandle | null>(null);
 
   useEffect(() => {
     setIndex(0);
     setSelectedDog(null);
   }, [dogs]);
-
-  useEffect(() => {
-    if (isGuest) {
-      limitCheckedRef.current = true;
-      subscribedRef.current = true;
-      swipesUsedRef.current = 0;
-      return;
-    }
-
-    Promise.all([
-      getTodaySwipeCount(currentUserId),
-      isSubscribed(currentUserId),
-    ])
-      .then(([count, sub]) => {
-        swipesUsedRef.current = count;
-        subscribedRef.current = sub;
-        limitCheckedRef.current = true;
-
-        if (!sub && count >= FREE_DAILY_SWIPES) {
-          onSwipeLimitReached?.();
-        }
-      })
-      .catch(() => {
-        limitCheckedRef.current = true;
-        subscribedRef.current = true;
-      });
-  }, [currentUserId, isGuest, onSwipeLimitReached]);
 
   const advance = useCallback(() => {
     setIndex((i) => {
@@ -97,30 +63,6 @@ export default function SwipeStack({
     });
   }, [dogs.length, onEmpty]);
 
-  const consumeSwipe = useCallback((): boolean => {
-    if (isGuest) return false;
-    if (!limitCheckedRef.current) return false;
-
-    if (subscribedRef.current) {
-      incrementSwipeCount(currentUserId);
-      return false;
-    }
-
-    if (swipesUsedRef.current >= FREE_DAILY_SWIPES) {
-      onSwipeLimitReached?.();
-      return true;
-    }
-
-    swipesUsedRef.current += 1;
-    incrementSwipeCount(currentUserId);
-
-    if (swipesUsedRef.current >= FREE_DAILY_SWIPES) {
-      setTimeout(() => onSwipeLimitReached?.(), 400);
-    }
-
-    return false;
-  }, [currentUserId, isGuest, onSwipeLimitReached]);
-
   const handleLike = useCallback(
     async (dog: FeedDog) => {
       if (isGuest) {
@@ -129,7 +71,6 @@ export default function SwipeStack({
         return false;
       }
 
-      if (consumeSwipe()) return false;
       advance();
 
       try {
@@ -150,7 +91,7 @@ export default function SwipeStack({
 
       return true;
     },
-    [consumeSwipe, advance, currentUserId, currentDogId, isGuest, onMatch, onRequireAuthForLike]
+    [advance, currentUserId, currentDogId, isGuest, onMatch, onRequireAuthForLike]
   );
 
   const handlePass = useCallback(
@@ -160,7 +101,6 @@ export default function SwipeStack({
         return true;
       }
 
-      if (consumeSwipe()) return false;
       advance();
 
       try {
@@ -177,7 +117,7 @@ export default function SwipeStack({
 
       return true;
     },
-    [consumeSwipe, advance, currentUserId, currentDogId, isGuest]
+    [advance, currentUserId, currentDogId, isGuest]
   );
 
   const activeDog = dogs[index];
@@ -332,8 +272,8 @@ export default function SwipeStack({
             zIndex={0}
             stackIndex={1}
             isTop={false}
-            onLike={() => {}}
-            onPass={() => {}}
+            onLike={() => false}
+            onPass={() => false}
           />
         )}
         {/* Active top card */}

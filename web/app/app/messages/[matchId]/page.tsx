@@ -95,6 +95,7 @@ export default function ChatPage() {
   const [messages, setMessages]             = useState<Message[]>([]);
   const [chatInput, setChatInput]           = useState('');
   const [sending, setSending]               = useState(false);
+  const [chatUnlocked, setChatUnlocked]     = useState(false);
   const [accessDenied, setAccessDenied]     = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [showReportMenu, setShowReportMenu] = useState(false);
@@ -128,6 +129,7 @@ export default function ChatPage() {
         const matchData = matchSnap.data() as {
           dog1UserId: string; dog2UserId: string;
           dog1Id: string;    dog2Id: string;
+          chatUnlocked?: boolean;
         };
 
         // Verify current user is a participant
@@ -142,6 +144,7 @@ export default function ChatPage() {
           : matchData.dog1UserId;
 
         setOtherUserId(resolvedOtherUserId);
+        setChatUnlocked(Boolean(matchData.chatUnlocked));
 
         const profileSnap = await getDoc(doc(db, 'dogs', resolvedOtherUserId));
         if (profileSnap.exists()) {
@@ -186,7 +189,7 @@ export default function ChatPage() {
 
   // ── Send message ──────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || !authUser || !matchId || sending) return;
+    if (!text.trim() || !authUser || !matchId || sending || !chatUnlocked) return;
     setSending(true);
     const trimmed = text.trim();
     setChatInput('');
@@ -232,7 +235,7 @@ export default function ChatPage() {
     } finally {
       setSending(false);
     }
-  }, [authUser, matchId, sending]);
+  }, [authUser, chatUnlocked, matchId, sending]);
 
   // ── Block / Report ────────────────────────────────────────────────────────────
   const handleReport = useCallback(async (reason: 'block' | 'spam' | 'inappropriate') => {
@@ -355,7 +358,7 @@ export default function ChatPage() {
           )}
         </div>
         <div className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1">
-          Active match
+          {chatUnlocked ? 'Chat unlocked' : 'Chat locked'}
         </div>
         <button
           onClick={() => setShowReportMenu(true)}
@@ -368,12 +371,24 @@ export default function ChatPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+        {!chatUnlocked && (
+          <div className="rounded-[1.5rem] border border-border bg-white px-4 py-4 text-center shadow-sm">
+            <p className="font-semibold text-brown">Unlock chat on mobile</p>
+            <p className="mt-2 text-sm leading-relaxed text-brown-light">
+              GoDoggyDate launch uses a one-time $4.99 match unlock. Open this match in the mobile app to pay and start messaging.
+            </p>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-16">
             <span className="text-5xl">👋</span>
-            <p className="font-display text-2xl text-brown">Start the conversation</p>
+            <p className="font-display text-2xl text-brown">
+              {chatUnlocked ? 'Start the conversation' : 'Chat is locked'}
+            </p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Send the first message to {dogName}. A simple hello is all it takes.
+              {chatUnlocked
+                ? `Send the first message to ${dogName}. A simple hello is all it takes.`
+                : `Unlock this match in the mobile app before messaging ${dogName}.`}
             </p>
           </div>
         )}
@@ -395,7 +410,8 @@ export default function ChatPage() {
           <button
             key={p}
             onClick={() => sendMessage(p)}
-            className="shrink-0 bg-primary/10 text-primary font-semibold text-xs rounded-full px-3 py-2 hover:bg-primary/20 transition-colors whitespace-nowrap"
+            disabled={!chatUnlocked || sending}
+            className="shrink-0 bg-primary/10 text-primary font-semibold text-xs rounded-full px-3 py-2 hover:bg-primary/20 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-45"
           >
             {p}
           </button>
@@ -410,12 +426,12 @@ export default function ChatPage() {
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(chatInput)}
-          disabled={sending}
+          disabled={sending || !chatUnlocked}
           autoComplete="off"
         />
         <button
           onClick={() => sendMessage(chatInput)}
-          disabled={!chatInput.trim() || sending}
+          disabled={!chatInput.trim() || sending || !chatUnlocked}
           className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-md hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 shrink-0"
           aria-label="Send"
         >

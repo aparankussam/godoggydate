@@ -22,6 +22,7 @@ interface ConversationItem {
   otherProfile: SavedDogProfile | null;
   lastMessage:  string | null;
   lastMessageTime: { seconds: number } | null;
+  chatUnlocked: boolean;
   isNew: boolean;
 }
 
@@ -38,6 +39,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
   const docs: Array<{
     matchId: string; dog1UserId: string; dog2UserId: string;
     lastMessage: string | null; lastMessageTime: { seconds: number } | null;
+    chatUnlocked: boolean;
     createdAt: { seconds: number } | null;
   }> = [];
 
@@ -52,6 +54,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
           dog2UserId: data.dog2UserId,
           lastMessage: data.lastMessage ?? null,
           lastMessageTime: data.lastMessageTime ?? null,
+          chatUnlocked: Boolean(data.chatUnlocked),
           createdAt: data.createdAt ?? null,
         });
       }
@@ -79,6 +82,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
         otherProfile,
         lastMessage: m.lastMessage,
         lastMessageTime: m.lastMessageTime,
+        chatUnlocked: m.chatUnlocked,
         isNew: !m.lastMessage,
       };
     }),
@@ -224,11 +228,18 @@ export default function MessagesPage() {
                           New
                         </span>
                       )}
+                      {!c.chatUnlocked && (
+                        <span className="ml-2 shrink-0 rounded-full bg-brown/10 text-brown text-[10px] font-bold px-2 py-1">
+                          Locked
+                        </span>
+                      )}
                     </div>
                     <p className={`text-xs truncate mt-1 ${
                       c.isNew ? 'text-primary font-medium' : 'text-brown-light'
                     }`}>
-                      {c.lastMessage ?? 'New match! Say hello 👋'}
+                      {c.lastMessage ?? (c.chatUnlocked
+                        ? 'New match! Say hello 👋'
+                        : 'Unlock chat in the mobile app to start messaging')}
                     </p>
                   </div>
 

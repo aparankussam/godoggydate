@@ -1,7 +1,7 @@
 // web/lib/storage.ts
 // Firebase Storage helpers for dog photo uploads.
-// Files land at: dogs/{userId}/{timestamp}_{safeName}
-// Rules (storage.rules) already allow: authenticated users to write their own files < 5 MB.
+// Files land at: dogs/{userId}/{userId}/photos/{timestamp}_{safeName}
+// This matches storage.rules for dog profile photo uploads.
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirebase } from '../shared/utils/firebase';
@@ -16,7 +16,7 @@ export async function uploadDogPhoto(userId: string, file: File): Promise<string
 
   // Sanitise the filename — no special chars
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path     = `dogs/${userId}/${Date.now()}_${safeName}`;
+  const path     = `dogs/${userId}/${userId}/photos/${Date.now()}_${safeName}`;
   const fileRef  = ref(storage, path);
 
   const snapshot = await uploadBytes(fileRef, file);
