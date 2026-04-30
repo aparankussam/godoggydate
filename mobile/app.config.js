@@ -1,7 +1,7 @@
 const easProjectId =
   process.env.EXPO_PUBLIC_EAS_PROJECT_ID ??
   process.env.EAS_PROJECT_ID ??
-  'YOUR_EAS_PROJECT_ID';
+  '481f95ac-9bc4-4ecd-8e03-244dc7b69d3d';
 const isProductionLikeBuild =
   process.env.EAS_BUILD === 'true' ||
   process.env.CI === 'true' ||
