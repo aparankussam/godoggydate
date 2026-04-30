@@ -15,6 +15,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getPrimaryRenderablePhoto } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
+import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 
 interface ConversationItem {
   matchId:      string;
@@ -40,6 +41,8 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
     matchId: string; dog1UserId: string; dog2UserId: string;
     lastMessage: string | null; lastMessageTime: { seconds: number } | null;
     chatUnlocked: boolean;
+    dog1ChatUnlocked?: boolean | null;
+    dog2ChatUnlocked?: boolean | null;
     createdAt: { seconds: number } | null;
   }> = [];
 
@@ -54,7 +57,9 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
           dog2UserId: data.dog2UserId,
           lastMessage: data.lastMessage ?? null,
           lastMessageTime: data.lastMessageTime ?? null,
-          chatUnlocked: Boolean(data.chatUnlocked),
+          chatUnlocked: isUserChatUnlocked(data, uid),
+          dog1ChatUnlocked: data.dog1ChatUnlocked ?? null,
+          dog2ChatUnlocked: data.dog2ChatUnlocked ?? null,
           createdAt: data.createdAt ?? null,
         });
       }

@@ -32,10 +32,6 @@ export const metadata: Metadata = {
     description: 'Find safer, happier playdates for your dog 🐾',
   },
   manifest: '/manifest.json',
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

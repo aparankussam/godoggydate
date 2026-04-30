@@ -14,7 +14,6 @@ import Animated, {
   useSharedValue,
   withSequence,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, type SwipeCardRef } from '../../components/SwipeCard';

@@ -12,6 +12,18 @@ const firebaseConfig = {
   appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID             ?? process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+function assertFirebaseConfig() {
+  const missing = Object.entries(firebaseConfig)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing Firebase web env vars: ${missing.join(', ')}. Check NEXT_PUBLIC_FIREBASE_* before initializing the client SDK.`,
+    );
+  }
+}
+
 const APP_NAME = 'godoggydate-web';
 
 let app: FirebaseApp;
@@ -24,6 +36,7 @@ export function getFirebase() {
   if (typeof window === 'undefined') return { app, auth, db, storage };
 
   if (!app) {
+    assertFirebaseConfig();
     app     = getApps().some((existing) => existing.name === APP_NAME)
       ? getApp(APP_NAME)
       : initializeApp(firebaseConfig, APP_NAME);

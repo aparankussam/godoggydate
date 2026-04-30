@@ -30,8 +30,8 @@ interface Props {
   dog: CardDog;
   zIndex: number;
   stackIndex: number;
-  onLike: () => void;
-  onPass: () => void;
+  onLike: () => boolean | Promise<boolean>;
+  onPass: () => boolean | Promise<boolean>;
   onOpenDetails?: () => void;
   isTop: boolean;
 }
@@ -77,15 +77,21 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
       window.clearTimeout(releaseTimerRef.current);
     }
 
+    const finishSwipe = async () => {
+      const allowed = direction === 'right' ? await onLike() : await onPass();
+      if (!allowed) {
+        setGone(null);
+      }
+    };
+
     if (options?.immediate) {
-      if (direction === 'right') { onLike(); return; }
-      onPass(); return;
+      void finishSwipe();
+      return;
     }
 
     releaseTimerRef.current = window.setTimeout(() => {
       releaseTimerRef.current = null;
-      if (direction === 'right') { onLike(); return; }
-      onPass();
+      void finishSwipe();
     }, 280);
   }, [gone, onLike, onPass]);
 

@@ -8,9 +8,15 @@ import {
   signOut as _signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
-import { isProfileComplete, toFullProfile } from '../../shared/profile';
+import {
+  isProfileComplete,
+  mergeSavedDogProfiles,
+  toFullProfile,
+  toPrivateSavedDogProfile,
+  toPublicSavedDogProfile,
+} from '../../shared/profile';
 import type { SavedDogProfile } from '../../shared/profile';
 
 export type { User } from 'firebase/auth';
@@ -50,8 +56,16 @@ export async function signOutUser(): Promise<void> {
 // ── Firestore ─────────────────────────────────────────────────────────────────
 export async function getUserDogProfile(uid: string): Promise<SavedDogProfile | null> {
   const { db } = getFirebase();
-  const snap = await getDoc(doc(db, 'dogs', uid));
-  return snap.exists() ? (snap.data() as SavedDogProfile) : null;
+  const [publicSnap, privateSnap] = await Promise.all([
+    getDoc(doc(db, 'dogs', uid)),
+    getDoc(doc(db, 'users', uid, 'private', 'dogProfile')),
+  ]);
+
+  if (!publicSnap.exists()) return null;
+
+  const publicProfile = publicSnap.data() as SavedDogProfile;
+  const privateProfile = privateSnap.exists() ? privateSnap.data() as SavedDogProfile : null;
+  return mergeSavedDogProfiles(publicProfile, privateProfile);
 }
 
 export async function saveUserDogProfile(
@@ -59,8 +73,21 @@ export async function saveUserDogProfile(
   profile: SavedDogProfile,
 ): Promise<void> {
   const { db } = getFirebase();
-  await setDoc(doc(db, 'dogs', uid), stripUndefined({
-    ...profile,
-    ownerId: uid,
-  }));
+  const batch = writeBatch(db);
+
+  batch.set(
+    doc(db, 'dogs', uid),
+    stripUndefined({
+      ...toPublicSavedDogProfile(profile),
+      ownerId: uid,
+    }),
+  );
+
+  batch.set(
+    doc(db, 'users', uid, 'private', 'dogProfile'),
+    stripUndefined(toPrivateSavedDogProfile(profile)),
+    { merge: true },
+  );
+
+  await batch.commit();
 }

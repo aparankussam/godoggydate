@@ -13,6 +13,18 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+function assertFirebaseConfig() {
+  const missing = Object.entries(firebaseConfig)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing Expo Firebase env vars: ${missing.join(', ')}. Check EXPO_PUBLIC_FIREBASE_* in your environment.`,
+    );
+  }
+}
+
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
@@ -20,6 +32,7 @@ let storage: FirebaseStorage;
 
 export function getFirebase() {
   if (!app) {
+    assertFirebaseConfig();
     app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   }
 

@@ -1,4 +1,5 @@
 import { getStripePublishableKey } from '../../shared/utils/stripe';
+import { getFirebase } from './firebase';
 
 export interface CreateIntentResponse {
   clientSecret: string;
@@ -31,14 +32,21 @@ export async function createChatUnlockIntent(matchId: string, userId: string): P
 
   if (configurationError || !paymentApiBase) throw new Error(configurationError ?? 'Payment is not configured for this build');
 
+  const currentUser = getFirebase().auth.currentUser;
+  if (!currentUser) throw new Error('You need to be signed in to unlock chat');
+  if (currentUser.uid !== userId) throw new Error('Signed-in user does not match requested payment user');
+
+  const idToken = await currentUser.getIdToken();
+
   const url = `${paymentApiBase.replace(/\/$/, '')}/api/payments/create-intent`;
 
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
     },
-    body: JSON.stringify({ matchId, userId }),
+    body: JSON.stringify({ matchId }),
   });
 
   if (!res.ok) {

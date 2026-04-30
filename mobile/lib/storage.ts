@@ -1,6 +1,21 @@
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { getFirebase } from './firebase';
 
+function uriToBlob(uri: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onerror = () => {
+      reject(new Error('Could not load the selected photo from this device.'));
+    };
+    xhr.onload = () => {
+      resolve(xhr.response as Blob);
+    };
+    xhr.responseType = 'blob';
+    xhr.open('GET', uri, true);
+    xhr.send();
+  });
+}
+
 /**
  * Upload a dog photo from a local device URI to Firebase Storage.
  *
@@ -18,9 +33,7 @@ export async function uploadDogPhoto(
   mimeType = 'image/jpeg',
 ): Promise<string> {
   const { storage } = getFirebase();
-
-  const response = await fetch(uri);
-  const blob = await response.blob();
+  const blob = await uriToBlob(uri);
 
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = `dogs/${userId}/${userId}/photos/${Date.now()}_${safeName}`;
@@ -31,7 +44,23 @@ export async function uploadDogPhoto(
     task.on(
       'state_changed',
       null, // no progress tracking needed for Phase 1
-      reject,
+      (error) => {
+        const serverResponse =
+          typeof error === 'object' &&
+          error !== null &&
+          'serverResponse' in error &&
+          typeof (error as { serverResponse?: unknown }).serverResponse === 'string'
+            ? (error as { serverResponse: string }).serverResponse
+            : '';
+
+        reject(new Error(
+          serverResponse
+            ? `Photo upload failed: ${serverResponse}`
+            : error instanceof Error
+              ? error.message
+              : 'Photo upload failed.',
+        ));
+      },
       () => {
         getDownloadURL(task.snapshot.ref).then(resolve, reject);
       },

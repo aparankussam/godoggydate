@@ -1,4 +1,10 @@
 {
+  "scripts": {
+    "seed:dev": "npx ts-node scripts/seed.ts",
+    "prepare:dev-user": "node scripts/prepare-dev-user.cjs",
+    "verify:launch-config": "node scripts/verify-launch-config.cjs",
+    "audit:match-unlocks": "node scripts/audit-match-unlocks.cjs"
+  },
   "dependencies": {
     "@google-cloud/firestore": "^8.3.0",
     "firebase": "^12.11.0",

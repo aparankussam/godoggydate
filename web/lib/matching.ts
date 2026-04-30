@@ -33,9 +33,14 @@ export interface MatchData {
   dog1UserId: string;
   dog2UserId: string;
   chatUnlocked: boolean;
+  dog1ChatUnlocked: boolean;
+  dog2ChatUnlocked: boolean;
   createdAt: ReturnType<typeof serverTimestamp>;
   lastMessage: null;
   lastMessageTime: null;
+  lastMessageFromUid: null;
+  dog1LastReadAt: null;
+  dog2LastReadAt: null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -114,6 +119,7 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
   // ── Mutual like — create match ───────────────────────────────────────────
   const matchId = makeMatchId(params.currentUserId, params.targetUserId);
   const matchRef = doc(db, 'matches', matchId);
+  const existingMatch = await getDoc(matchRef);
   const [dog1UserId, dog2UserId] = [
     params.currentUserId,
     params.targetUserId,
@@ -132,13 +138,20 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
     dog1UserId,
     dog2UserId,
     chatUnlocked: false,
+    dog1ChatUnlocked: false,
+    dog2ChatUnlocked: false,
     createdAt: serverTimestamp(),
     lastMessage: null,
     lastMessageTime: null,
+    lastMessageFromUid: null,
+    dog1LastReadAt: null,
+    dog2LastReadAt: null,
   };
 
   try {
-    await setDoc(matchRef, matchData);
+    if (!existingMatch.exists()) {
+      await setDoc(matchRef, matchData);
+    }
     console.info('[matching] match creation succeeded', { matchId });
   } catch (error: unknown) {
     console.error('[matching] match creation failed', { matchId, error });

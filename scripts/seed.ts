@@ -11,11 +11,28 @@
 
 import * as admin from 'firebase-admin';
 import { SEED_DOGS } from '../shared/data/seedDogs';
+import { toPrivateSavedDogProfile, toPublicSavedDogProfile, type SavedDogProfile } from '../shared/profile';
+
+const DEFAULT_SEED_PHOTO = 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800';
+
+function buildSeedUserId(index: number): string {
+  return `user_seed_${index}`;
+}
+
+function buildSeedLocation(index: number) {
+  return {
+    city: 'New York',
+    state: 'NY',
+    zip: `1000${index}`,
+    lat: 40.7128 + index * 0.01,
+    lng: -74.006 + index * 0.01,
+  };
+}
 
 // Init
 if (!admin.apps.length) {
   admin.initializeApp({
-    projectId: process.env.FIREBASE_PROJECT_ID ?? 'godoggydate-c6c92',
+    projectId: process.env.FIREBASE_PROJECT_ID ?? 'godoggydate',
   });
 }
 
@@ -25,13 +42,36 @@ async function seedDogs() {
   console.log(`🐾 Seeding ${SEED_DOGS.length} dogs…`);
   const batch = db.batch();
 
-  for (const dog of SEED_DOGS) {
-    const ref = db.collection('dogs').doc(dog.id);
-    batch.set(ref, {
+  for (const [index, dog] of SEED_DOGS.entries()) {
+    const userId = buildSeedUserId(index);
+    const primaryPhoto = dog.photos[0] || DEFAULT_SEED_PHOTO;
+    const { city, state, zip, lat, lng } = buildSeedLocation(index);
+    const savedProfile: SavedDogProfile = {
       ...dog,
+      photos: [primaryPhoto, primaryPhoto, primaryPhoto],
+      location: `${city}, ${state}`,
+      city,
+      state,
+      zip,
+      lat,
+      lng,
+    };
+    const ref = db.collection('dogs').doc(userId);
+    batch.set(ref, {
+      ...toPublicSavedDogProfile(savedProfile),
+      ownerId: userId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    batch.set(
+      db.collection('users').doc(userId).collection('private').doc('dogProfile'),
+      {
+        ...toPrivateSavedDogProfile(savedProfile),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+    );
   }
 
   await batch.commit();
@@ -44,14 +84,15 @@ async function seedUsers() {
 
   for (let i = 0; i < Math.min(SEED_DOGS.length, 5); i++) {
     const dog = SEED_DOGS[i];
-    const userId = `user_seed_${i}`;
+    const userId = buildSeedUserId(i);
     const ref = db.collection('users').doc(userId);
+    const { lat, lng } = buildSeedLocation(i);
     batch.set(ref, {
       id: userId,
       phone: `+1555000000${i}`,
       displayName: `${dog.name}'s Owner`,
-      dogIds: [dog.id],
-      location: { lat: 37.774 + i * 0.01, lng: -122.419 + i * 0.01 },
+      dogIds: [userId],
+      location: { lat, lng },
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -66,20 +107,34 @@ async function seedMatches() {
   const matches = [
     {
       id: 'match_seed_1',
-      dogAId: SEED_DOGS[0].id,
-      dogBId: SEED_DOGS[1].id,
-      userAId: 'user_seed_0',
-      userBId: 'user_seed_1',
+      dog1Id: buildSeedUserId(0),
+      dog2Id: buildSeedUserId(1),
+      dog1UserId: 'user_seed_0',
+      dog2UserId: 'user_seed_1',
       chatUnlocked: true,
+      dog1ChatUnlocked: true,
+      dog2ChatUnlocked: true,
       paymentId: 'pi_demo_001',
+      lastMessage: null,
+      lastMessageTime: null,
+      lastMessageFromUid: null,
+      dog1LastReadAt: null,
+      dog2LastReadAt: null,
     },
     {
       id: 'match_seed_2',
-      dogAId: SEED_DOGS[0].id,
-      dogBId: SEED_DOGS[2].id,
-      userAId: 'user_seed_0',
-      userBId: 'user_seed_2',
+      dog1Id: buildSeedUserId(0),
+      dog2Id: buildSeedUserId(2),
+      dog1UserId: 'user_seed_0',
+      dog2UserId: 'user_seed_2',
       chatUnlocked: false,
+      dog1ChatUnlocked: false,
+      dog2ChatUnlocked: false,
+      lastMessage: null,
+      lastMessageTime: null,
+      lastMessageFromUid: null,
+      dog1LastReadAt: null,
+      dog2LastReadAt: null,
     },
   ];
 
@@ -103,7 +158,7 @@ async function seedRatings() {
     id: 'rating_seed_1',
     matchId: 'match_seed_1',
     raterId: 'user_seed_0',
-    dogId: SEED_DOGS[1].id,
+    dogId: buildSeedUserId(1),
     stars: 5,
     wouldMeetAgain: true,
     tags: ['great_match', 'friendly'],

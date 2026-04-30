@@ -13,6 +13,9 @@ import {
 } from 'firebase/firestore';
 import { getOtherDogId, isMatchUnread } from './firestoreData';
 import { getFirebase } from './firebase';
+import { isUserChatUnlocked } from '../../shared/matchAccess';
+
+const MATCH_THREAD_PREVIEW = 'New message';
 
 export interface MatchedDog {
   id: string;
@@ -61,8 +64,23 @@ interface FirestoreMatchDoc {
   lastMessageFromUid?: string | null;
   unread?: boolean;
   chatUnlocked?: boolean;
+  dog1ChatUnlocked?: boolean | null;
+  dog2ChatUnlocked?: boolean | null;
   dog1LastReadAt?: number | { toMillis?: () => number } | null;
   dog2LastReadAt?: number | { toMillis?: () => number } | null;
+}
+
+function getReadFieldForUser(data: FirestoreMatchDoc, userId: string): 'dog1LastReadAt' | 'dog2LastReadAt' | null {
+  if (data.dog1UserId === userId) return 'dog1LastReadAt';
+  if (data.dog2UserId === userId) return 'dog2LastReadAt';
+
+  // Older match docs used userAId/userBId instead of dog1UserId/dog2UserId.
+  // We still persist read state into the current dog1/dog2 slots so unread
+  // tracking works without widening access.
+  if (data.userAId === userId) return 'dog1LastReadAt';
+  if (data.userBId === userId) return 'dog2LastReadAt';
+
+  return null;
 }
 
 function toMillis(value: unknown): number | undefined {
@@ -129,7 +147,7 @@ async function normalizeMatchDoc(
       currentUserId,
       toMillis(data.lastMessageAt) ?? toMillis(data.lastMessageTime),
     ),
-    chatUnlocked: Boolean(data.chatUnlocked),
+    chatUnlocked: isUserChatUnlocked(data, currentUserId),
   };
 }
 
@@ -234,12 +252,7 @@ export async function markMatchRead(matchId: string, userId: string): Promise<vo
   if (!snap.exists()) return;
 
   const data = snap.data() as FirestoreMatchDoc;
-  const readField =
-    data.dog1UserId === userId
-      ? 'dog1LastReadAt'
-      : data.dog2UserId === userId
-        ? 'dog2LastReadAt'
-        : null;
+  const readField = getReadFieldForUser(data, userId);
 
   if (!readField) return;
 
@@ -273,7 +286,7 @@ export async function sendMessage(
   await setDoc(
     doc(db, 'matches', matchId),
     {
-      lastMessage: trimmed,
+      lastMessage: MATCH_THREAD_PREVIEW,
       lastMessageTime: serverTimestamp(),
       lastMessageFromUid: senderId,
     },

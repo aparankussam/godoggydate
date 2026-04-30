@@ -20,6 +20,72 @@ export interface SavedDogProfile {
   prompts?: { prompt: string; answer: string }[];
 }
 
+export interface SavedDogPrivateProfile {
+  location?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  lat?: number;
+  lng?: number;
+}
+
+function normalizedPublicLocation(profile: SavedDogProfile): string | undefined {
+  const city = profile.city?.trim();
+  const state = profile.state?.trim().toUpperCase();
+  const location = profile.location?.trim();
+
+  if (city && state) {
+    return `${city}, ${state}`;
+  }
+
+  // Never expose raw ZIP codes as the public display location.
+  if (location && !/^\d{5}(-\d{4})?$/.test(location)) {
+    return location;
+  }
+
+  return undefined;
+}
+
+export function toPublicSavedDogProfile(profile: SavedDogProfile): SavedDogProfile {
+  return {
+    ...profile,
+    location: normalizedPublicLocation(profile),
+    city: profile.city?.trim() || undefined,
+    state: profile.state?.trim().toUpperCase() || undefined,
+    zip: undefined,
+    lat: undefined,
+    lng: undefined,
+  };
+}
+
+export function toPrivateSavedDogProfile(profile: SavedDogProfile): SavedDogPrivateProfile {
+  return {
+    location: profile.location?.trim() || undefined,
+    city: profile.city?.trim() || undefined,
+    state: profile.state?.trim().toUpperCase() || undefined,
+    zip: profile.zip?.trim() || undefined,
+    lat: profile.lat,
+    lng: profile.lng,
+  };
+}
+
+export function mergeSavedDogProfiles(
+  publicProfile: SavedDogProfile,
+  privateProfile?: SavedDogPrivateProfile | null,
+): SavedDogProfile {
+  if (!privateProfile) return publicProfile;
+
+  return {
+    ...publicProfile,
+    location: privateProfile.location ?? publicProfile.location,
+    city: privateProfile.city ?? publicProfile.city,
+    state: privateProfile.state ?? publicProfile.state,
+    zip: privateProfile.zip,
+    lat: privateProfile.lat,
+    lng: privateProfile.lng,
+  };
+}
+
 export function isProfileComplete(
   profile: {
     photos?: string[];

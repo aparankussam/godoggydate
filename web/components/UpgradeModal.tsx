@@ -1,10 +1,8 @@
 'use client';
 // web/components/UpgradeModal.tsx
-// Paywall modal shown when a free user hits the 10-swipe daily limit.
-// Calls /api/stripe/checkout to create a Stripe Checkout session,
-// then redirects the browser to the hosted Stripe payment page.
+// Launch builds do not offer a web subscription flow.
+// Keep the modal informational so the UI does not point at inactive endpoints.
 
-import { useState } from 'react';
 import { getFirebase } from '../shared/utils/firebase';
 import { FREE_DAILY_SWIPES } from '../lib/stripe';
 
@@ -14,49 +12,7 @@ interface Props {
 }
 
 export default function UpgradeModal({ isOpen, onClose }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
-
   if (!isOpen) return null;
-
-  async function handleUpgrade() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { auth } = getFirebase();
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        setError('Sign in first to subscribe.');
-        return;
-      }
-
-      const res  = await fetch('/api/stripe/checkout', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ userId: uid }),
-      });
-      const data = await res.json() as { url?: string; error?: string; comingSoon?: boolean };
-
-      // Graceful fallback when Stripe is not yet configured for this environment
-      if (data.comingSoon) {
-        setError('Payments are coming soon. Keep swiping — we will notify you when subscriptions go live! 🐾');
-        return;
-      }
-
-      if (!res.ok || !data.url) {
-        setError(data.error ?? 'Could not start checkout. Try again.');
-        return;
-      }
-
-      // Redirect to Stripe-hosted checkout page
-      window.location.href = data.url;
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div
@@ -86,17 +42,17 @@ export default function UpgradeModal({ isOpen, onClose }: Props) {
             You&apos;ve used your {FREE_DAILY_SWIPES} free swipes
           </h2>
           <p className="text-brown-light text-sm mt-2">
-            Upgrade to swipe unlimited dogs every day and unlock all matches.
+            Web launch keeps swiping free. Paid chat unlocks happen in the mobile app after a match.
           </p>
         </div>
 
         {/* Feature list */}
         <ul className="self-stretch flex flex-col gap-2 text-sm text-brown-mid">
           {[
-            '♾️ Unlimited daily swipes',
-            '💬 Chat with all your matches',
-            '📍 See exact distances',
-            '⭐ Priority in the feed',
+            '📱 Unlock chats in the mobile app',
+            '💬 Pay only when you want to message',
+            '🐾 Keep browsing matches on web',
+            '🔒 No inactive checkout links',
           ].map((f) => (
             <li key={f} className="flex items-center gap-2">
               <span className="text-primary font-bold">✓</span> {f}
@@ -104,19 +60,9 @@ export default function UpgradeModal({ isOpen, onClose }: Props) {
           ))}
         </ul>
 
-        {/* CTA */}
-        <button
-          onClick={handleUpgrade}
-          disabled={loading}
-          className="w-full btn-primary py-4 text-base font-bold disabled:opacity-60"
-        >
-          {loading ? 'Opening checkout…' : 'Subscribe · $4.99 / month'}
-        </button>
-
-        {/* Error */}
-        {error && (
-          <p className="text-red-600 text-xs text-center">{error}</p>
-        )}
+        <div className="w-full rounded-2xl border border-border bg-white px-4 py-4 text-center text-sm text-brown">
+          Sign in on mobile with the same account to unlock chat after you match.
+        </div>
 
         {/* Dismiss */}
         <button

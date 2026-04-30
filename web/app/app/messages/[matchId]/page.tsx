@@ -18,6 +18,7 @@ import { onAuthStateChanged } from '../../../../lib/auth';
 import type { User, SavedDogProfile } from '../../../../lib/auth';
 import ChatBubble from '../../../../components/ChatBubble';
 import { getPrimaryRenderablePhoto } from '../../../../lib/photos';
+import { isUserChatUnlocked } from '../../../../../shared/matchAccess';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ interface Message {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const SAFETY_TIP = '🐾 Tip: Always meet in a public place for your first playdate.';
+const MATCH_THREAD_PREVIEW = 'New message';
 
 function buildSmartPromptsFromProfile(profile: {
   name?: string;
@@ -130,6 +132,8 @@ export default function ChatPage() {
           dog1UserId: string; dog2UserId: string;
           dog1Id: string;    dog2Id: string;
           chatUnlocked?: boolean;
+          dog1ChatUnlocked?: boolean | null;
+          dog2ChatUnlocked?: boolean | null;
         };
 
         // Verify current user is a participant
@@ -144,7 +148,7 @@ export default function ChatPage() {
           : matchData.dog1UserId;
 
         setOtherUserId(resolvedOtherUserId);
-        setChatUnlocked(Boolean(matchData.chatUnlocked));
+        setChatUnlocked(isUserChatUnlocked(matchData, authUser.uid));
 
         const profileSnap = await getDoc(doc(db, 'dogs', resolvedOtherUserId));
         if (profileSnap.exists()) {
@@ -162,7 +166,7 @@ export default function ChatPage() {
 
   // ── Real-time messages listener ───────────────────────────────────────────────
   useEffect(() => {
-    if (!matchId || accessDenied) return;
+    if (!matchId || accessDenied || !chatUnlocked) return;
 
     const { db } = getFirebase();
     const msgsRef = collection(db, 'matches', matchId, 'messages');
@@ -180,7 +184,7 @@ export default function ChatPage() {
     });
 
     return unsub;
-  }, [matchId, accessDenied]);
+  }, [matchId, accessDenied, chatUnlocked]);
 
   // ── Auto-scroll to bottom on new messages ────────────────────────────────────
   useEffect(() => {
@@ -221,7 +225,7 @@ export default function ChatPage() {
       console.info('[chat] updating match metadata', { matchId });
       try {
         await updateDoc(doc(db, 'matches', matchId), {
-          lastMessage:         trimmed,
+          lastMessage:         MATCH_THREAD_PREVIEW,
           lastMessageTime:     serverTimestamp(),
           lastMessageFromUid:  authUser.uid,
         });

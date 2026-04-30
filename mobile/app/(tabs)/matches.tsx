@@ -126,7 +126,9 @@ export default function MatchesTab() {
                   style={[styles.lastMessage, match.unread && styles.lastMessageBold]}
                   numberOfLines={1}
                 >
-                  {match.lastMessage ?? 'Say hello! 👋'}
+                  {match.chatUnlocked
+                    ? (match.lastMessage ?? 'Say hello! 👋')
+                    : 'Unlock chat to start messaging'}
                 </Text>
               </View>
             </Pressable>

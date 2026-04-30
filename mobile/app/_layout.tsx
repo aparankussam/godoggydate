@@ -5,9 +5,15 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import { SessionProvider } from '../lib/session';
 
 export default function RootLayout() {
+  const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
+  if (!stripePublishableKey) {
+    throw new Error('Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY for mobile Stripe initialization');
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
+      <StripeProvider publishableKey={stripePublishableKey}>
         <SessionProvider>
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerShown: false }}>

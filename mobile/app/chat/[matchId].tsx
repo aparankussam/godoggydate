@@ -29,6 +29,7 @@ import {
   isPaymentConfigured,
 } from '../../lib/stripe';
 import { useSession } from '../../lib/session';
+import { isUserChatUnlocked } from '../../../shared/matchAccess';
 
 export default function ChatScreen() {
   const { matchId, name } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[] }>();
@@ -53,6 +54,12 @@ export default function ChatScreen() {
     if (!resolvedMatchId || !user) {
       setLoading(false);
       return;
+    }
+
+    if (!chatUnlocked) {
+      setMessages([]);
+      setLoading(false);
+      return undefined;
     }
 
     const db = getFirebase().db;
@@ -94,7 +101,7 @@ export default function ChatScreen() {
     );
 
     return unsubscribe;
-  }, [resolvedMatchId, user]);
+  }, [chatUnlocked, resolvedMatchId, user]);
 
   useEffect(() => {
     if (!resolvedMatchId) return;
@@ -121,8 +128,14 @@ export default function ChatScreen() {
           return;
         }
 
-        const data = matchDoc.data() as { chatUnlocked?: boolean };
-        const nextChatUnlocked = Boolean(data.chatUnlocked);
+        const data = matchDoc.data() as {
+          chatUnlocked?: boolean;
+          dog1ChatUnlocked?: boolean | null;
+          dog2ChatUnlocked?: boolean | null;
+          dog1UserId?: string;
+          dog2UserId?: string;
+        };
+        const nextChatUnlocked = user ? isUserChatUnlocked(data, user.uid) : false;
         setChatUnlocked(nextChatUnlocked);
         setMatch((currentMatch) => (currentMatch
           ? { ...currentMatch, chatUnlocked: nextChatUnlocked }
@@ -134,7 +147,7 @@ export default function ChatScreen() {
     );
 
     return unsubscribe;
-  }, [resolvedMatchId]);
+  }, [resolvedMatchId, user]);
 
   useEffect(() => {
     if (!chatUnlocked) return;
@@ -218,9 +231,10 @@ export default function ChatScreen() {
       setAwaitingVerification(true);
       setUnlockError(null);
       return;
-    } catch (err: any) {
+    } catch (err: unknown) {
       setAwaitingVerification(false);
-      setUnlockError(err?.message || 'Failed to complete payment');
+      const message = err instanceof Error ? err.message : 'Failed to complete payment';
+      setUnlockError(message);
       console.warn('unlock error', err);
     } finally {
       if (!paymentSubmitted) {

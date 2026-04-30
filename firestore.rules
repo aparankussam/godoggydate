@@ -14,12 +14,30 @@ service cloud.firestore {
       return isSignedIn()
           && (
             request.auth.uid == matchData.dog1UserId ||
-            request.auth.uid == matchData.dog2UserId
+            request.auth.uid == matchData.dog2UserId ||
+            request.auth.uid == matchData.userAId ||
+            request.auth.uid == matchData.userBId
+          );
+    }
+
+    function isDog1Party(matchData) {
+      return request.auth.uid == matchData.dog1UserId || request.auth.uid == matchData.userAId;
+    }
+
+    function isDog2Party(matchData) {
+      return request.auth.uid == matchData.dog2UserId || request.auth.uid == matchData.userBId;
+    }
+
+    function canCurrentUserChat(matchData) {
+      return isSignedIn()
+          && (
+            (isDog1Party(matchData) && matchData.dog1ChatUnlocked == true) ||
+            (isDog2Party(matchData) && matchData.dog2ChatUnlocked == true)
           );
     }
 
     match /users/{userId} {
-      allow read:   if isSignedIn();
+      allow read:   if isOwner(userId);
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
       allow delete: if false;
@@ -32,7 +50,7 @@ service cloud.firestore {
     }
 
     match /dogs/{dogId} {
-      allow read:   if true;
+      allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && request.auth.uid == dogId;
       allow update: if isSignedIn()
@@ -42,7 +60,7 @@ service cloud.firestore {
     }
 
     match /swipes/{userId}/decisions/{targetDogId} {
-      allow read: if isSignedIn();
+      allow read: if isOwner(userId);
 
       allow create, update: if isSignedIn()
                             && request.auth.uid == userId
@@ -57,14 +75,23 @@ service cloud.firestore {
       allow create: if isSignedIn()
                     && request.resource.data.dog1UserId is string
                     && request.resource.data.dog2UserId is string
+                    && request.resource.data.dog1Id == request.resource.data.dog1UserId
+                    && request.resource.data.dog2Id == request.resource.data.dog2UserId
                     && request.resource.data.chatUnlocked == false
+                    && request.resource.data.dog1ChatUnlocked == false
+                    && request.resource.data.dog2ChatUnlocked == false
                     && !request.resource.data.keys().hasAny(['paymentId'])
+                    && exists(/databases/$(database)/documents/swipes/$(request.resource.data.dog1UserId)/decisions/$(request.resource.data.dog2Id))
+                    && exists(/databases/$(database)/documents/swipes/$(request.resource.data.dog2UserId)/decisions/$(request.resource.data.dog1Id))
+                    && get(/databases/$(database)/documents/swipes/$(request.resource.data.dog1UserId)/decisions/$(request.resource.data.dog2Id)).data.action == 'like'
+                    && get(/databases/$(database)/documents/swipes/$(request.resource.data.dog2UserId)/decisions/$(request.resource.data.dog1Id)).data.action == 'like'
                     && (
                          request.auth.uid == request.resource.data.dog1UserId ||
                          request.auth.uid == request.resource.data.dog2UserId
                        );
       allow update: if isSignedIn()
                     && isPartyToMatch(resource.data)
+                    && canCurrentUserChat(resource.data)
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly([
                            'lastMessage',
@@ -78,13 +105,14 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isSignedIn()
                     && exists(/databases/$(database)/documents/matches/$(matchId))
-                    && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data);
+                    && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data)
+                    && canCurrentUserChat(get(/databases/$(database)/documents/matches/$(matchId)).data);
 
         allow create: if isSignedIn()
                       && request.resource.data.fromUserId == request.auth.uid
                       && exists(/databases/$(database)/documents/matches/$(matchId))
                       && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data)
-                      && get(/databases/$(database)/documents/matches/$(matchId)).data.chatUnlocked == true;
+                      && canCurrentUserChat(get(/databases/$(database)/documents/matches/$(matchId)).data);
 
         allow update: if false;
         allow delete: if false;
@@ -103,10 +131,17 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow read:   if isSignedIn()
                     && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn()
-                    && request.resource.data.userId == request.auth.uid;
+      allow create: if false;
       allow update: if false;
       allow delete: if false;
+    }
+
+    match /matchUnlocks/{unlockId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /stripeEvents/{eventId} {
+      allow read, create, update, delete: if false;
     }
 
     match /reports/{reportId} {

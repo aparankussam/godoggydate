@@ -82,6 +82,10 @@ export function isMatchUnread(
       ? toMillis(data.dog1LastReadAt)
       : data.dog2UserId === currentUserId
         ? toMillis(data.dog2LastReadAt)
+        : data.userAId === currentUserId
+          ? toMillis(data.dog1LastReadAt)
+          : data.userBId === currentUserId
+            ? toMillis(data.dog2LastReadAt)
         : undefined;
 
   return !readAt || readAt < lastMessageAt;

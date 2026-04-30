@@ -20,7 +20,6 @@ export const CARD_WIDTH = SCREEN_WIDTH - 32;
 export const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.25, 560);
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 const VELOCITY_THRESHOLD = 700; // px/s — enables flick even if position < threshold
-const TAP_MAX_MOVE = 8; // px — if gesture moved less than this, treat as tap
 
 export interface SwipeCardRef {
   triggerSwipe: (direction: 'like' | 'pass') => void;

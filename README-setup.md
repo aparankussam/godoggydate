@@ -215,7 +215,7 @@ npx expo install @expo-google-fonts/fraunces @expo-google-fonts/nunito expo-font
 | `constants/theme.ts` | Colours, fonts, spacing |
 | `app/onboarding.tsx` | Onboarding questions, validation |
 | `app/(tabs)/discover.tsx` | Swipe card layout, feed logic |
-| `app.json` | Bundle ID, app name, icons |
+| `app.config.js` | Bundle ID, app name, icons, Expo EAS project id |
 
 ### 5.6 Replace Demo Data with Firebase
 

@@ -17,6 +17,7 @@ import type { SavedDogProfile } from '../../../lib/auth';
 import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getPrimaryRenderablePhoto } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
+import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,8 @@ interface MatchDoc {
   dog1UserId: string;
   dog2UserId: string;
   chatUnlocked: boolean;
+  dog1ChatUnlocked?: boolean | null;
+  dog2ChatUnlocked?: boolean | null;
   createdAt:  { seconds: number } | null;
   lastMessage:     string | null;
   lastMessageTime: { seconds: number } | null;
@@ -57,7 +60,12 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
     for (const d of snap.docs) {
       if (!seen.has(d.id)) {
         seen.add(d.id);
-        docs.push({ matchId: d.id, ...(d.data() as Omit<MatchDoc, 'matchId'>) });
+        const data = d.data() as Omit<MatchDoc, 'matchId'>;
+        docs.push({
+          ...data,
+          matchId: d.id,
+          chatUnlocked: isUserChatUnlocked(data, uid),
+        });
       }
     }
   }
