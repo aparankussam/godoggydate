@@ -17,34 +17,75 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, type SwipeCardRef } from '../../components/SwipeCard';
-import { fetchDiscoverFeed, type DiscoverDog } from '../../lib/discover';
+import { fetchDiscoverFeed, DEFAULT_DISCOVER_RADIUS_MILES, type DiscoverDog } from '../../lib/discover';
 import { recordSwipe } from '../../lib/matching';
 import { useSession } from '../../lib/session';
+import { requestApproxLocation, type LocationStatus } from '../../lib/location';
 
 export default function DiscoverTab() {
-  const { user, profileComplete } = useSession();
+  const { user, profile, profileComplete, saveProfile } = useSession();
   const [deck, setDeck] = useState<DiscoverDog[]>([]);
+  const [radiusApplied, setRadiusApplied] = useState(false);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [swiping, setSwiping] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
+  const locationRequestedRef = useRef(false);
   const topCardRef = useRef<SwipeCardRef>(null);
 
   const likeScale = useSharedValue(1);
   const passScale = useSharedValue(1);
   const starScale = useSharedValue(1);
 
+  // Ask for approximate location once per session if the dog profile has none stored.
+  // Persists rounded coords to the user's own dog doc; respects denial silently.
+  useEffect(() => {
+    if (!user || !profileComplete || !profile) return;
+    if (locationRequestedRef.current) return;
+    const alreadyHasCoords =
+      typeof profile.lat === 'number' && typeof profile.lng === 'number';
+    if (alreadyHasCoords) {
+      setLocationStatus('granted');
+      return;
+    }
+    locationRequestedRef.current = true;
+    requestApproxLocation()
+      .then(async (result) => {
+        setLocationStatus(result.status);
+        if (result.status === 'granted' && result.coords) {
+          try {
+            await saveProfile({
+              ...profile,
+              lat: result.coords.lat,
+              lng: result.coords.lng,
+            });
+          } catch (error) {
+            console.warn('Failed to persist approximate location', error);
+          }
+        }
+      })
+      .catch(() => {
+        setLocationStatus('unavailable');
+      });
+  }, [profile, profileComplete, saveProfile, user]);
+
   useEffect(() => {
     if (!user) {
       setDeck([]);
+      setRadiusApplied(false);
       setLoading(false);
       return;
     }
     fetchDiscoverFeed(user.uid)
-      .then(setDeck)
+      .then((result) => {
+        setDeck(result.dogs);
+        setRadiusApplied(result.radiusApplied);
+      })
       .finally(() => setLoading(false));
-  }, [user]);
+  // Re-fetch when stored coords land so the radius filter actually engages.
+  }, [user, profile?.lat, profile?.lng]);
 
   const handleSwipe = useCallback(
     async (action: 'like' | 'pass') => {
@@ -100,8 +141,9 @@ export default function DiscoverTab() {
     if (!user) return;
     setLoading(true);
     fetchDiscoverFeed(user.uid)
-      .then((nextDeck) => {
-        setDeck(nextDeck);
+      .then((result) => {
+        setDeck(result.dogs);
+        setRadiusApplied(result.radiusApplied);
         setIndex(0);
         setLikeCount(0);
       })
@@ -153,7 +195,16 @@ export default function DiscoverTab() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>GoDoggyDate</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>GoDoggyDate</Text>
+          <Text style={styles.headerSubtitle}>
+            {radiusApplied
+              ? `Dogs within ${DEFAULT_DISCOVER_RADIUS_MILES} miles`
+              : locationStatus === 'denied' || locationStatus === 'unavailable'
+                ? 'Showing all dogs'
+                : 'Dogs near you'}
+          </Text>
+        </View>
         <View style={styles.headerRight}>
           {likeCount > 0 && (
             <View style={styles.likesBadge}>
@@ -329,10 +380,19 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 8,
   },
+  headerLeft: {
+    flexShrink: 1,
+  },
   headerTitle: {
     fontFamily: fonts.display,
     fontSize: 22,
     color: colors.brown,
+  },
+  headerSubtitle: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.brownLight,
+    marginTop: 2,
   },
   headerRight: {
     flexDirection: 'row',

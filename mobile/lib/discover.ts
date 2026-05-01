@@ -20,6 +20,17 @@ export interface DiscoverDog {
   tagline: string;
 }
 
+export const DEFAULT_DISCOVER_RADIUS_MILES = 50;
+
+export interface FetchDiscoverFeedOptions {
+  radiusMiles?: number;
+}
+
+export interface DiscoverFeedResult {
+  dogs: DiscoverDog[];
+  radiusApplied: boolean;
+}
+
 function milesBetween(a: DogProfile, b: DogProfile): number {
   if (typeof a.lat !== 'number' || typeof a.lng !== 'number') return -1;
   if (typeof b.lat !== 'number' || typeof b.lng !== 'number') return -1;
@@ -60,21 +71,28 @@ function normalizeSavedProfile(value: SavedDogProfile): SavedDogProfile {
   };
 }
 
-export async function fetchDiscoverFeed(userId: string): Promise<DiscoverDog[]> {
-  if (!userId) return [];
+export async function fetchDiscoverFeed(
+  userId: string,
+  options: FetchDiscoverFeedOptions = {},
+): Promise<DiscoverFeedResult> {
+  if (!userId) return { dogs: [], radiusApplied: false };
 
   const { db } = getFirebase();
   const currentSnap = await getDocs(collection(db, 'dogs'));
   const currentDoc = currentSnap.docs.find((docSnap) => docSnap.id === userId);
-  if (!currentDoc) return [];
+  if (!currentDoc) return { dogs: [], radiusApplied: false };
 
   const currentSaved = normalizeSavedProfile(currentDoc.data() as SavedDogProfile);
-  if (!isProfileComplete(currentSaved)) return [];
+  if (!isProfileComplete(currentSaved)) return { dogs: [], radiusApplied: false };
 
   const baseDog = toFullProfile(currentSaved, userId);
   const swipedIds = await getSwipedDogIds(userId);
 
-  return currentSnap.docs
+  const baseHasCoords = typeof baseDog.lat === 'number' && typeof baseDog.lng === 'number';
+  const radiusMiles = options.radiusMiles ?? DEFAULT_DISCOVER_RADIUS_MILES;
+  const applyRadius = baseHasCoords && radiusMiles > 0;
+
+  const dogs = currentSnap.docs
     .map((docSnap) => ({
       id: docSnap.id,
       saved: normalizeSavedProfile(docSnap.data() as SavedDogProfile),
@@ -113,9 +131,17 @@ export async function fetchDiscoverFeed(userId: string): Promise<DiscoverDog[]> 
           compat.microcopy,
       } satisfies DiscoverDog;
     })
+    .filter((dog) => {
+      if (!applyRadius) return true;
+      // When radius is active, drop candidates whose distance is unknown or beyond the radius.
+      if (typeof dog.distanceMiles !== 'number') return false;
+      return dog.distanceMiles <= radiusMiles;
+    })
     .sort((a, b) => {
       const distA = a.distanceMiles ?? Number.MAX_SAFE_INTEGER;
       const distB = b.distanceMiles ?? Number.MAX_SAFE_INTEGER;
       return distA - distB || a.name.localeCompare(b.name);
     });
+
+  return { dogs, radiusApplied: applyRadius };
 }

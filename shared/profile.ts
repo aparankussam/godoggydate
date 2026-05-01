@@ -46,6 +46,16 @@ function normalizedPublicLocation(profile: SavedDogProfile): string | undefined 
   return undefined;
 }
 
+// Round coords to ~1.1 km precision before exposing on the public dog doc.
+// Enough for radius-based discovery, coarse enough that no exact address can be derived.
+const PUBLIC_COORD_DECIMALS = 2;
+
+function roundPublicCoord(value: number | undefined): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  const factor = 10 ** PUBLIC_COORD_DECIMALS;
+  return Math.round(value * factor) / factor;
+}
+
 export function toPublicSavedDogProfile(profile: SavedDogProfile): SavedDogProfile {
   return {
     ...profile,
@@ -53,8 +63,8 @@ export function toPublicSavedDogProfile(profile: SavedDogProfile): SavedDogProfi
     city: profile.city?.trim() || undefined,
     state: profile.state?.trim().toUpperCase() || undefined,
     zip: undefined,
-    lat: undefined,
-    lng: undefined,
+    lat: roundPublicCoord(profile.lat),
+    lng: roundPublicCoord(profile.lng),
   };
 }
 
