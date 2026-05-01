@@ -31,6 +31,7 @@ module.exports = {
       supportsTablet: false,
       bundleIdentifier: 'com.godoggydate.app',
       googleServicesFile: './GoogleService-Info.plist',
+      usesAppleSignIn: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription: 'We use your location to show nearby dogs.',
         NSCameraUsageDescription: 'Upload a photo of your dog.',
@@ -52,6 +53,7 @@ module.exports = {
       'expo-dev-client',
       'expo-router',
       'expo-image-picker',
+      'expo-apple-authentication',
       [
         'expo-location',
         {
@@ -63,6 +65,13 @@ module.exports = {
         {
           merchantIdentifier: 'merchant.com.godoggydate.app',
           enableGooglePay: false,
+        },
+      ],
+      [
+        '@react-native-google-signin/google-signin',
+        {
+          iosUrlScheme:
+            'com.googleusercontent.apps.597697529529-33q6d5hdq2mvm27lps4gdm0rsmh5ab5c',
         },
       ],
     ],

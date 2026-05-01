@@ -1,41 +1,28 @@
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { useEffect, useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { useSession } from '../lib/session';
-
-WebBrowser.maybeCompleteAuthSession();
+import { signInWithGoogleNative } from '../lib/googleAuth';
+import { isAppleSignInAvailable, signInWithAppleNative } from '../lib/appleAuth';
 
 export default function WelcomeScreen() {
-  const { loading, profileComplete, signInGuest, signInWithGoogleIdToken, user } = useSession();
+  const {
+    loading,
+    profileComplete,
+    signInGuest,
+    signInWithGoogleIdToken,
+    signInWithAppleCredential,
+    user,
+  } = useSession();
   const hasRestoredGuestSession = Boolean(user?.isAnonymous);
-  const browserClientId =
-    process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID ||
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
-    '';
   const googleConfigured = Boolean(
-    browserClientId &&
-      (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
-        process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
-        process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID),
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+      process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
   );
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: browserClientId || 'missing-google-client-id',
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    selectAccount: true,
-    scopes: ['openid', 'profile', 'email'],
-  }, {
-    scheme: 'godoggydate',
-  });
-
-  useEffect(() => {
-    if (__DEV__ && request?.redirectUri) {
-      console.info('[Auth] Google redirect URI', request.redirectUri);
-    }
-  }, [request]);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [authBusy, setAuthBusy] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -50,30 +37,55 @@ export default function WelcomeScreen() {
   }, [loading, profileComplete, user]);
 
   useEffect(() => {
-    if (response?.type !== 'success') {
-      if (response?.type === 'error') {
-        Alert.alert('Google sign-in failed', 'We could not complete Google sign-in. Please try again.');
-      }
+    let active = true;
+    isAppleSignInAvailable().then((available) => {
+      if (active) setAppleAvailable(available);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleGooglePress() {
+    if (!googleConfigured) {
+      Alert.alert(
+        'Google sign-in not configured',
+        'Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID (and ideally EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) before signing in with Google.',
+      );
       return;
     }
-
-    const idToken = typeof response.params?.id_token === 'string' ? response.params.id_token : '';
-
-    if (!idToken) {
-      Alert.alert('Google sign-in failed', 'Google did not return an ID token for Firebase sign-in.');
-      return;
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      const result = await signInWithGoogleNative();
+      if (result.status !== 'success' || !result.idToken) return;
+      await signInWithGoogleIdToken(result.idToken);
+      router.replace('/(tabs)/discover');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'We could not sign you in with Google.';
+      Alert.alert('Google sign-in failed', message);
+    } finally {
+      setAuthBusy(false);
     }
+  }
 
-    signInWithGoogleIdToken(idToken)
-      .then(() => {
-        router.replace('/(tabs)/discover');
-      })
-      .catch((error) => {
-        const message =
-          error instanceof Error ? error.message : 'We could not sign you in with Google.';
-        Alert.alert('Google sign-in failed', message);
-      });
-  }, [response, signInWithGoogleIdToken]);
+  async function handleApplePress() {
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      const result = await signInWithAppleNative();
+      if (result.status !== 'success' || !result.identityToken || !result.rawNonce) return;
+      await signInWithAppleCredential(result.identityToken, result.rawNonce);
+      router.replace('/(tabs)/discover');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'We could not sign you in with Apple.';
+      Alert.alert('Apple sign-in failed', message);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -87,25 +99,29 @@ export default function WelcomeScreen() {
 
           <View style={styles.ctaGroup}>
             <Pressable
-              style={[styles.secondaryButton, (!googleConfigured || !request) && styles.buttonDisabled]}
-              onPress={() => {
-                if (!googleConfigured || !request) {
-                  Alert.alert(
-                    'Google sign-in not configured',
-                    'Add a Google web or Expo client ID plus the native iOS/Android client IDs to mobile/.env before using Google sign-in on device.',
-                  );
-                  return;
-                }
-
-                promptAsync();
-              }}
+              style={[styles.secondaryButton, (!googleConfigured || authBusy) && styles.buttonDisabled]}
+              onPress={handleGooglePress}
+              disabled={!googleConfigured || authBusy}
             >
               <Text style={styles.secondaryText}>Sign in with Google</Text>
             </Pressable>
 
+            {appleAvailable && Platform.OS === 'ios' && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={radius.full}
+                style={styles.appleButton}
+                onPress={handleApplePress}
+              />
+            )}
+
             <Pressable
-              style={styles.primaryButton}
+              style={[styles.primaryButton, authBusy && styles.buttonDisabled]}
+              disabled={authBusy}
               onPress={async () => {
+                if (authBusy) return;
+                setAuthBusy(true);
                 try {
                   if (!user) {
                     await signInGuest();
@@ -116,6 +132,8 @@ export default function WelcomeScreen() {
                     ? error.message
                     : 'We could not start your mobile session. Please try again.';
                   Alert.alert('Sign-in failed', message);
+                } finally {
+                  setAuthBusy(false);
                 }
               }}
             >
@@ -127,8 +145,8 @@ export default function WelcomeScreen() {
 
           <Text style={styles.helperText}>
             {hasRestoredGuestSession
-              ? 'A guest session was restored on this device. You can resume setup or switch to Google sign-in.'
-              : 'Returning fully set up users will open straight into the app. Google sign-in still needs browser and native client IDs in `mobile/.env`.'}
+              ? 'A guest session was restored on this device. You can resume setup or switch to Google or Apple sign-in.'
+              : 'Sign in with Apple or Google to save your matches across devices, or continue as a guest to start exploring.'}
           </Text>
         </View>
 
@@ -228,6 +246,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingVertical: 16,
     alignItems: 'center',
+    marginBottom: 10,
+  },
+  appleButton: {
+    height: 52,
+    width: '100%',
     marginBottom: 10,
   },
   buttonDisabled: {

@@ -9,11 +9,13 @@ import {
 } from 'react';
 import {
   GoogleAuthProvider,
+  OAuthProvider,
   linkWithCredential,
   onAuthStateChanged,
   signInAnonymously,
   signInWithCredential,
   signOut,
+  type AuthCredential,
   type User,
 } from '@firebase/auth';
 import { getFirebase } from './firebase';
@@ -26,6 +28,7 @@ interface SessionContextValue {
   profileComplete: boolean;
   signInGuest: () => Promise<void>;
   signInWithGoogleIdToken: (idToken: string) => Promise<void>;
+  signInWithAppleCredential: (identityToken: string, rawNonce: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   saveProfile: (profile: SavedDogProfile) => Promise<void>;
@@ -92,19 +95,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await signInAnonymously(auth);
   }, [auth]);
 
-  const signInWithGoogleIdToken = useCallback(async (idToken: string) => {
-    const trimmedToken = idToken.trim();
-    if (!trimmedToken) {
-      throw new Error('Google sign-in did not return an ID token');
-    }
-
-    const credential = GoogleAuthProvider.credential(trimmedToken);
+  const applyCredential = useCallback(async (credential: AuthCredential, providerLabel: string) => {
     const currentUser = auth.currentUser;
 
     if (currentUser?.isAnonymous) {
       try {
         if (__DEV__) {
-          console.info('[Session] linking anonymous user with Google credential', {
+          console.info(`[Session] linking anonymous user with ${providerLabel} credential`, {
             uid: currentUser.uid,
           });
         }
@@ -116,13 +113,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           throw error;
         }
         if (__DEV__) {
-          console.info('[Session] falling back to signInWithCredential after link attempt', { code });
+          console.info('[Session] falling back to signInWithCredential after link attempt', { code, providerLabel });
         }
       }
     }
 
     await signInWithCredential(auth, credential);
   }, [auth]);
+
+  const signInWithGoogleIdToken = useCallback(async (idToken: string) => {
+    const trimmedToken = idToken.trim();
+    if (!trimmedToken) {
+      throw new Error('Google sign-in did not return an ID token');
+    }
+
+    const credential = GoogleAuthProvider.credential(trimmedToken);
+    await applyCredential(credential, 'Google');
+  }, [applyCredential]);
+
+  const signInWithAppleCredential = useCallback(async (identityToken: string, rawNonce: string) => {
+    const trimmedToken = identityToken.trim();
+    if (!trimmedToken) {
+      throw new Error('Apple sign-in did not return an identity token');
+    }
+
+    const provider = new OAuthProvider('apple.com');
+    const credential = provider.credential({
+      idToken: trimmedToken,
+      rawNonce: rawNonce || undefined,
+    });
+
+    await applyCredential(credential, 'Apple');
+  }, [applyCredential]);
 
   const signOutUser = useCallback(async () => {
     await signOut(auth);
@@ -141,10 +163,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     profileComplete: isProfileComplete(profile),
     signInGuest,
     signInWithGoogleIdToken,
+    signInWithAppleCredential,
     signOutUser,
     refreshProfile,
     saveProfile,
-  }), [loading, profile, refreshProfile, saveProfile, signInGuest, signInWithGoogleIdToken, signOutUser, user]);
+  }), [loading, profile, refreshProfile, saveProfile, signInGuest, signInWithAppleCredential, signInWithGoogleIdToken, signOutUser, user]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
