@@ -4,6 +4,7 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithCredential,
   browserPopupRedirectResolver,
   signOut as _signOut,
   onAuthStateChanged,
@@ -46,6 +47,12 @@ function stripUndefined<T>(value: T): T {
 export async function signInWithGoogle(): Promise<void> {
   const { auth } = getFirebase();
   await signInWithPopup(auth, new GoogleAuthProvider(), browserPopupRedirectResolver);
+}
+
+export async function signInWithGoogleIdToken(idToken: string): Promise<void> {
+  const { auth } = getFirebase();
+  const credential = GoogleAuthProvider.credential(idToken);
+  await signInWithCredential(auth, credential);
 }
 
 export async function signOutUser(): Promise<void> {
