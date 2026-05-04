@@ -6,6 +6,8 @@ export interface SavedDogProfile {
   energyLevel: number;
   playStyles: string[];
   vaccinated: boolean;
+  createdAt?: number;
+  updatedAt?: number;
   breed?: string;
   age?: 'puppy' | 'adult' | 'senior';
   sex?: 'M' | 'F';
@@ -166,7 +168,7 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     lat: saved.lat,
     lng: saved.lng,
     prompts: saved.prompts,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    createdAt: saved.createdAt ?? Date.now(),
+    updatedAt: saved.updatedAt ?? saved.createdAt ?? Date.now(),
   };
 }

@@ -13,6 +13,8 @@ interface MatchDog {
   name: string;
   breed: string;
   photos?: string[];
+  distanceMiles?: number;
+  location?: string;
   compat: CompatibilityResult;
 }
 
@@ -25,6 +27,12 @@ interface Props {
 export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const photo = getPrimaryRenderablePhoto(dog.photos);
+  const topReasons = dog.compat.reasons.slice(0, 3);
+  const topWarning = dog.compat.warnings[0];
+  const distanceSummary =
+    typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0
+      ? `${dog.distanceMiles.toFixed(1)} mi apart`
+      : dog.location ?? 'Nearby';
 
   // Trap focus inside modal
   useEffect(() => {
@@ -77,7 +85,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
             is ready for a playdate connection.
           </p>
           <p className="text-white/70 text-sm">
-            {dog.breed} with a {dog.compat.score}% match vibe. This could be a really fun one.
+            {dog.breed} · {dog.compat.label} · {distanceSummary}
           </p>
         </div>
 
@@ -85,6 +93,29 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
         <div className="score-ring w-14 h-14 text-lg border-gold" style={{ color: '#F59E0B', borderColor: '#F59E0B' }}>
           {dog.compat.score}
         </div>
+      </div>
+
+      <div className="w-full max-w-sm rounded-[1.75rem] border border-white/12 bg-white/12 px-5 py-5 text-left shadow-[0_12px_36px_rgba(0,0,0,0.18)] backdrop-blur-md">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">Why you&apos;ll click</p>
+        <p className="mt-2 text-lg font-semibold text-white">{dog.compat.label}</p>
+
+        {topReasons.length > 0 && (
+          <div className="mt-4 space-y-2.5">
+            {topReasons.map((reason) => (
+              <p key={reason} className="text-sm leading-relaxed text-white/90">
+                <span className="mr-2 font-bold text-gold">•</span>
+                {reason}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {topWarning && (
+          <div className="mt-4 rounded-2xl bg-black/15 px-3 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/60">Worth knowing</p>
+            <p className="mt-1 text-sm text-white/88">{topWarning}</p>
+          </div>
+        )}
       </div>
 
       {/* CTAs */}
@@ -95,6 +126,12 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
         >
           💬 Say hi to {dog.name}
         </Link>
+        <p className="text-center text-sm leading-relaxed text-white/72">
+          One-time $4.99 unlock in the mobile app. No subscription, no auto-renew.
+        </p>
+        <p className="text-center text-xs leading-relaxed text-white/58">
+          Safety tip: start with a public dog park or another busy public place for your first meetup.
+        </p>
         <button
           onClick={onKeepSwiping}
           className="text-white/60 text-sm hover:text-white/90 transition-colors py-2"

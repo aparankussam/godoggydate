@@ -1,12 +1,13 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { isProfileComplete, toFullProfile, type SavedDogProfile } from '../../shared/profile';
 import { calculateCompatibility } from '../../shared/utils/matchingEngine';
-import type { DogProfile } from '../../shared/types';
+import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { getFirebase } from './firebase';
 
 export interface DiscoverDog {
   id: string;
   ownerId: string;
+  createdAt?: number;
   name: string;
   breed: string;
   age: 'puppy' | 'adult' | 'senior';
@@ -18,6 +19,7 @@ export interface DiscoverDog {
   location: string;
   distanceMiles?: number;
   tagline: string;
+  compat: CompatibilityResult;
 }
 
 export const DEFAULT_DISCOVER_RADIUS_MILES = 50;
@@ -110,11 +112,12 @@ export async function fetchDiscoverFeed(
         saved.location?.trim() ||
         (saved.city?.trim() && saved.state?.trim()
           ? `${saved.city.trim()}, ${saved.state.trim().toUpperCase()}`
-          : saved.zip?.trim() || 'Nearby');
+          : saved.zip?.trim() || 'Local match');
 
       return {
         id: dog.id,
         ownerId: dog.ownerId,
+        createdAt: dog.createdAt,
         name: dog.name,
         breed: dog.breed,
         age: dog.age,
@@ -129,6 +132,7 @@ export async function fetchDiscoverFeed(
           dog.bio?.trim() ||
           dog.prompts?.find((prompt) => prompt.answer?.trim())?.answer?.trim() ||
           compat.microcopy,
+        compat,
       } satisfies DiscoverDog;
     })
     .filter((dog) => {

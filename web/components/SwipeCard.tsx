@@ -49,6 +49,20 @@ function realPhotos(photos?: string[]): string[] {
   return (photos ?? []).filter((p) => p && !p.startsWith('_'));
 }
 
+function getEnergyLabel(energyLevel: number): string {
+  if (energyLevel >= 75) return 'High energy';
+  if (energyLevel <= 35) return 'Mellow';
+  return 'Balanced';
+}
+
+function getLocationLabel(dog: CardDog): string {
+  if (typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0) {
+    const city = dog.location?.split(',')[0]?.trim();
+    return city ? `${city} · ${dog.distanceMiles.toFixed(1)} mi` : `${dog.distanceMiles.toFixed(1)} mi away`;
+  }
+  return dog.location ?? 'Local match';
+}
+
 const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   dog,
   zIndex,
@@ -172,9 +186,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const passStrength = Math.min(-dragX / THRESHOLD, 1);
 
   // Compact location/distance string shown on the card
-  const distanceLabel = dog.distanceMiles >= 0
-    ? `${dog.distanceMiles.toFixed(1)} mi away`
-    : (dog.location ?? 'Nearby');
+  const distanceLabel = getLocationLabel(dog);
+  const energyLabel = getEnergyLabel(dog.energyLevel);
 
   return (
     <div
@@ -216,7 +229,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
           {/* Photo dot indicators — shown only when 2+ photos */}
           {photos.length > 1 && isTop && (
-            <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+            <div className="absolute top-4 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
               {photos.map((_, i) => (
                 <div
                   key={i}
@@ -235,7 +248,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
             className="absolute inset-x-0 bottom-0"
             style={{
               background:
-                'linear-gradient(to top, rgba(8,6,5,0.72) 0%, rgba(8,6,5,0.46) 22%, rgba(8,6,5,0.18) 42%, transparent 62%)',
+                'linear-gradient(to top, rgba(8,6,5,0.78) 0%, rgba(8,6,5,0.52) 22%, rgba(8,6,5,0.26) 46%, rgba(8,6,5,0.12) 62%, transparent 72%)',
             }}
           >
             <div className="px-5 pb-5 pt-14">
@@ -247,15 +260,33 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                   {dog.breed}
                 </p>
                 <p className="mt-1 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
-                  📍 {distanceLabel}
+                  {distanceLabel}
                 </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/20 bg-white/14 px-3 py-1 text-[11px] font-semibold text-white/92 backdrop-blur-sm">
+                    {energyLabel}
+                  </span>
+                  {dog.playStyles.slice(0, 2).map((style) => (
+                    <span
+                      key={style}
+                      className="rounded-full border border-white/20 bg-white/14 px-3 py-1 text-[11px] font-semibold text-white/92 backdrop-blur-sm"
+                    >
+                      {style}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
           {dog.compat.score > 0 && (
-            <div className="absolute right-4 top-4 rounded-full bg-white/70 px-2.5 py-1 shadow-[0_6px_18px_rgba(0,0,0,0.08)] backdrop-blur-sm">
-              <span className="text-[11px] font-bold tracking-[0.12em] uppercase text-brown/65">{dog.compat.score}%</span>
+            <div className="absolute bottom-4 left-4 flex flex-col items-center gap-1">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/85 bg-[rgba(255,248,240,0.16)] text-xl font-black text-white shadow-[0_8px_24px_rgba(0,0,0,0.24)] backdrop-blur-md">
+                {dog.compat.score}
+              </div>
+              <span className="rounded-full bg-black/24 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
+                Match
+              </span>
             </div>
           )}
 
@@ -285,6 +316,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
               <span>✓</span> Vaccinated
             </div>
           )}
+
+          <div className="pointer-events-none absolute inset-0 rounded-[2.15rem] ring-1 ring-black/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]" />
 
           {/* Details button */}
           {onOpenDetails && (

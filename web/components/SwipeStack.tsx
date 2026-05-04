@@ -9,6 +9,7 @@ import type { CompatibilityResult } from '../shared/types';
 interface FeedDog {
   id: string;
   name: string;
+  createdAt?: number;
   breed: string;
   age: string;
   sex: string;
@@ -47,13 +48,24 @@ export default function SwipeStack({
 }: Props) {
   const [index, setIndex] = useState(0);
   const [selectedDog, setSelectedDog] = useState<FeedDog | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
   const topCardRef = useRef<SwipeCardHandle | null>(null);
+
+  function formatMemberSince(timestamp: number | undefined): string | null {
+    if (!timestamp || !Number.isFinite(timestamp)) return null;
+    return new Date(timestamp).toLocaleDateString([], { month: 'short', year: 'numeric' });
+  }
 
   useEffect(() => {
     setIndex(0);
     setSelectedDog(null);
+    setSelectedPhotoIndex(0);
   }, [dogs]);
+
+  useEffect(() => {
+    setSelectedPhotoIndex(0);
+  }, [selectedDog?.firestoreId, selectedDog?.id]);
 
   const advance = useCallback(() => {
     setIndex((i) => {
@@ -141,116 +153,168 @@ export default function SwipeStack({
           onClick={() => setSelectedDog(null)}
         >
           <div
-            className="relative w-full max-w-md rounded-t-3xl bg-cream px-5 py-6 shadow-2xl sm:rounded-3xl"
+            className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-cream shadow-2xl sm:max-h-[88vh] sm:rounded-3xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => setSelectedDog(null)}
-              className="absolute right-4 top-4 text-2xl leading-none text-brown-light hover:text-brown"
-              aria-label="Close details"
-            >
-              ×
-            </button>
+            <div className="sticky top-0 z-10 border-b border-border/70 bg-cream/95 px-5 py-4 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => setSelectedDog(null)}
+                className="absolute right-4 top-3 text-2xl leading-none text-brown-light hover:text-brown"
+                aria-label="Close details"
+              >
+                ×
+              </button>
 
-            <div className="pr-8">
-              <p className="font-display text-3xl text-brown">{selectedDog.name}</p>
-              <p className="mt-1 text-sm text-brown-light">
-                {[selectedDog.breed, selectedDog.age, selectedDog.sex, selectedDog.size].filter(Boolean).join(' · ')}
-              </p>
+              <div className="pr-8">
+                <p className="font-display text-[2rem] leading-tight text-brown">{selectedDog.name}</p>
+                <p className="mt-1 text-sm text-brown-light">
+                  {[selectedDog.breed, selectedDog.age, selectedDog.sex, selectedDog.size].filter(Boolean).join(' · ')}
+                </p>
+              </div>
             </div>
 
-            {/* Photo gallery — full-width first photo + scrollable thumbnails */}
-            {(() => {
-              const rp = (selectedDog.photos ?? []).filter((p) => p && !p.startsWith('_'));
-              if (rp.length === 0) return null;
-              return (
-                <div className="mt-4 -mx-5">
-                  {/* Primary large photo */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={rp[0]}
-                    alt={selectedDog.name}
-                    className="w-full h-52 object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                  {/* Thumbnail row for additional photos */}
-                  {rp.length > 1 && (
-                    <div className="flex gap-1.5 px-5 pt-2 overflow-x-auto pb-0.5">
-                      {rp.slice(1).map((src, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={i}
-                          src={src}
-                          alt={`${selectedDog.name} photo ${i + 2}`}
-                          className="h-16 w-16 shrink-0 rounded-xl object-cover border border-border"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
+            <div className="overflow-y-auto px-5 pb-5 pt-4">
+              {/* Photo gallery — full-width first photo + scrollable thumbnails */}
+              {(() => {
+                const rp = (selectedDog.photos ?? []).filter((p) => p && !p.startsWith('_'));
+                if (rp.length === 0) return null;
+                const activePhoto = rp[Math.min(selectedPhotoIndex, rp.length - 1)] ?? rp[0];
+                return (
+                  <div className="-mx-5">
+                    {/* Primary large photo */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activePhoto}
+                      alt={selectedDog.name}
+                      className="h-44 w-full object-cover sm:h-48"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <div className="flex gap-2 overflow-x-auto px-5 pt-3 pb-0.5">
+                      {rp.map((src, i) => (
+                        <button
+                          key={src}
+                          type="button"
+                          onClick={() => setSelectedPhotoIndex(i)}
+                          className={`shrink-0 rounded-xl border transition-all ${
+                            i === selectedPhotoIndex
+                              ? 'border-primary ring-2 ring-primary/30'
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          aria-label={`View photo ${i + 1} of ${selectedDog.name}`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={src}
+                            alt={`${selectedDog.name} photo ${i + 1}`}
+                            className="h-14 w-14 rounded-xl object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </button>
                       ))}
                     </div>
-                  )}
-                </div>
-              );
-            })()}
+                  </div>
+                );
+              })()}
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              {[
-                { label: 'Energy', value: `${selectedDog.energyLevel}%` },
-                { label: 'Vaccinated', value: selectedDog.vaccinated ? 'Yes ✓' : 'Unknown' },
-                {
-                  label: 'Distance',
-                  value: selectedDog.distanceMiles >= 0
-                    ? `${selectedDog.distanceMiles.toFixed(1)} mi`
-                    : (selectedDog.location ?? 'Nearby'),
-                },
-                { label: 'Match', value: selectedDog.compat.score > 0 ? `${selectedDog.compat.score}%` : '—' },
-              ].map((item) => (
-                <div key={item.label} className="rounded-2xl border border-border bg-white px-3 py-3">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">{item.label}</p>
-                  <p className="mt-1 text-sm font-semibold text-brown">{item.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {selectedDog.location && (
-              <div className="mt-4 rounded-2xl border border-border bg-white px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Neighbourhood</p>
-                <p className="mt-1 text-sm text-brown">{selectedDog.location}</p>
-              </div>
-            )}
-
-            {(selectedDog.temperament?.length ?? 0) > 0 && (
-              <div className="mt-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Personality</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedDog.temperament?.map((trait) => (
-                    <span key={trait} className="chip text-xs">{trait}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(selectedDog.playStyles?.length ?? 0) > 0 && (
-              <div className="mt-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Play Style</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedDog.playStyles?.map((style) => (
-                    <span key={style} className="chip text-xs">{style}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(selectedDog.prompts?.length ?? 0) > 0 && (
-              <div className="mt-4 flex flex-col gap-3">
-                {selectedDog.prompts?.filter((prompt) => prompt.answer?.trim()).map((prompt) => (
-                  <div key={prompt.prompt} className="rounded-2xl border border-border bg-white px-4 py-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-brown-light">{prompt.prompt}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-brown">{prompt.answer}</p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Match', value: selectedDog.compat.score > 0 ? `${selectedDog.compat.score}%` : '—' },
+                  {
+                    label: 'Distance',
+                    value: selectedDog.distanceMiles >= 0
+                      ? `${selectedDog.distanceMiles.toFixed(1)} mi`
+                      : (selectedDog.location ?? 'Nearby'),
+                  },
+                  { label: 'Energy', value: `${selectedDog.energyLevel}%` },
+                  { label: 'Vaccinated', value: selectedDog.vaccinated ? 'Yes ✓' : 'Unknown' },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-border bg-white px-3 py-3">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">{item.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-brown">{item.value}</p>
                   </div>
                 ))}
               </div>
-            )}
+
+              {selectedDog.compat.score > 0 && (
+                <div className="mt-4 rounded-2xl border border-primary/25 bg-white px-4 py-4 shadow-[0_8px_24px_rgba(180,83,9,0.08)]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Why you&apos;ll click</p>
+                      <p className="mt-1 text-sm font-semibold text-brown">{selectedDog.compat.label}</p>
+                    </div>
+                    <div className="score-ring h-12 w-12 shrink-0 text-sm border-primary text-primary">
+                      {selectedDog.compat.score}
+                    </div>
+                  </div>
+
+                  {(selectedDog.compat.reasons?.length ?? 0) > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {selectedDog.compat.reasons.slice(0, 3).map((reason) => (
+                        <p key={reason} className="text-sm text-brown">
+                          <span className="mr-2 font-bold text-primary">•</span>
+                          {reason}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {(selectedDog.compat.warnings?.length ?? 0) > 0 && (
+                    <div className="mt-3 rounded-xl bg-[rgba(180,83,9,0.08)] px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">Worth knowing</p>
+                      <p className="mt-1 text-sm text-brown">{selectedDog.compat.warnings[0]}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedDog.location && (
+                <div className="mt-3 rounded-2xl border border-border bg-white px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Neighbourhood</p>
+                  <p className="mt-1 text-sm text-brown">{selectedDog.location}</p>
+                </div>
+              )}
+
+              {formatMemberSince(selectedDog.createdAt) && (
+                <div className="mt-3 rounded-2xl border border-border bg-white px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Member since</p>
+                  <p className="mt-1 text-sm text-brown">{formatMemberSince(selectedDog.createdAt)}</p>
+                </div>
+              )}
+
+              {(selectedDog.temperament?.length ?? 0) > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Personality</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedDog.temperament?.map((trait) => (
+                      <span key={trait} className="chip text-xs">{trait}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(selectedDog.playStyles?.length ?? 0) > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Play Style</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedDog.playStyles?.map((style) => (
+                      <span key={style} className="chip text-xs">{style}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(selectedDog.prompts?.length ?? 0) > 0 && (
+                <div className="mt-4 flex flex-col gap-3">
+                  {selectedDog.prompts?.filter((prompt) => prompt.answer?.trim()).map((prompt) => (
+                    <div key={prompt.prompt} className="rounded-2xl border border-border bg-white px-4 py-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.08em] text-brown-light">{prompt.prompt}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-brown">{prompt.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

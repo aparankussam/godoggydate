@@ -21,6 +21,12 @@ export const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.25, 560);
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 const VELOCITY_THRESHOLD = 700; // px/s — enables flick even if position < threshold
 
+function getEnergyLabel(energyLevel: number): string {
+  if (energyLevel >= 75) return 'High energy';
+  if (energyLevel <= 35) return 'Mellow';
+  return 'Balanced';
+}
+
 export interface SwipeCardRef {
   triggerSwipe: (direction: 'like' | 'pass') => void;
 }
@@ -171,6 +177,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
       dog.distanceMiles != null
         ? `${dog.distanceMiles} mi away`
         : dog.location;
+    const energyLabel = getEnergyLabel(dog.energyLevel);
 
     return (
       <GestureDetector gesture={gesture}>
@@ -237,9 +244,23 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
               📍 {distLabel}
             </Text>
 
+            {dog.compat.score > 0 && (
+              <View style={styles.matchBadgeWrap}>
+                <View style={styles.matchRing}>
+                  <Text style={styles.matchRingScore}>{dog.compat.score}</Text>
+                </View>
+                <Text style={styles.matchRingLabel}>MATCH</Text>
+              </View>
+            )}
+
             {/* Tags row */}
-            {dog.playStyles.length > 0 && (
+            {(dog.playStyles.length > 0 || energyLabel) && (
               <View style={styles.tagRow}>
+                <View style={styles.tag}>
+                  <Text style={styles.tagText} numberOfLines={1}>
+                    {energyLabel}
+                  </Text>
+                </View>
                 {dog.playStyles.slice(0, 2).map((tag) => (
                   <View key={tag} style={styles.tag}>
                     <Text style={styles.tagText} numberOfLines={1}>
@@ -356,6 +377,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 22,
     justifyContent: 'flex-end',
+  },
+  matchBadgeWrap: {
+    position: 'absolute',
+    left: 0,
+    bottom: 104,
+    alignItems: 'center',
+    gap: 6,
+  },
+  matchRing: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,248,240,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchRingScore: {
+    fontFamily: fonts.bold,
+    fontWeight: '800',
+    fontSize: 22,
+    color: colors.white,
+  },
+  matchRingLabel: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    color: colors.white,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    fontSize: 10,
+    letterSpacing: 1.3,
   },
   nameLine: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@ export interface DiscoverFeedDog {
   id: string;
   firestoreId: string;
   ownerId: string;
+  createdAt?: number;
   name: string;
   breed: string;
   age: string;
@@ -55,11 +56,22 @@ function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean):
   const distanceMiles = isDemo
     ? SEED_DISTANCES[candidate.name] ?? 1.2
     : milesBetween(baseDog, candidate);
+  const candidateWithAddress = candidate as DogProfile & {
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
+  const location =
+    candidate.location?.trim() ||
+    (candidateWithAddress.city?.trim() && candidateWithAddress.state?.trim()
+      ? `${candidateWithAddress.city.trim()}, ${candidateWithAddress.state.trim().toUpperCase()}`
+      : candidateWithAddress.zip?.trim() || 'Local match');
 
   return {
     id: candidate.id,
     firestoreId: candidate.id,
     ownerId: candidate.ownerId,
+    createdAt: candidate.createdAt,
     name: candidate.name,
     breed: candidate.breed,
     age: candidate.age,
@@ -70,7 +82,7 @@ function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean):
     vaccinated: candidate.vaccinated,
     temperament: candidate.temperament,
     playStyles: candidate.playStyles,
-    location: candidate.location,
+    location,
     prompts: candidate.prompts,
     distanceMiles,
     compat: calculateCompatibility(baseDog, candidate, distanceMiles),

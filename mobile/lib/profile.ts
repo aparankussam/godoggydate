@@ -27,6 +27,12 @@ export async function getUserDogProfile(uid: string): Promise<SavedDogProfile | 
 
 export async function saveUserDogProfile(uid: string, profile: SavedDogProfile): Promise<void> {
   const { db } = getFirebase();
+  const existingDogSnap = await getDoc(doc(db, 'dogs', uid));
+  const existingDogData = existingDogSnap.exists()
+    ? existingDogSnap.data() as SavedDogProfile
+    : null;
+  const createdAt = existingDogData?.createdAt ?? profile.createdAt ?? Date.now();
+  const updatedAt = Date.now();
   const batch = writeBatch(db);
 
   batch.set(
@@ -34,6 +40,8 @@ export async function saveUserDogProfile(uid: string, profile: SavedDogProfile):
     stripUndefined({
       ...toPublicSavedDogProfile(profile),
       ownerId: uid,
+      createdAt,
+      updatedAt,
     }),
   );
 
