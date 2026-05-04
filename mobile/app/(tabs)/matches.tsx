@@ -128,7 +128,7 @@ export default function MatchesTab() {
                 >
                   {match.chatUnlocked
                     ? (match.lastMessage ?? 'Say hello! 👋')
-                    : 'Unlock chat to start messaging'}
+                    : 'Open chat to send the first hello'}
                 </Text>
               </View>
             </Pressable>

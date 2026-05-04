@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { collection, doc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -31,6 +32,9 @@ import {
 import { useSession } from '../../lib/session';
 import { isUserChatUnlocked } from '../../../shared/matchAccess';
 
+const SAFETY_TIP =
+  'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
+
 export default function ChatScreen() {
   const { matchId, name } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[] }>();
   const { user } = useSession();
@@ -49,6 +53,46 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
   const paymentConfigured = isPaymentConfigured();
   const paymentConfigurationError = getPaymentConfigurationError();
+
+  async function submitReport(reason: 'block' | 'spam' | 'inappropriate') {
+    if (!user || !resolvedMatchId || !match?.dog.id) return;
+
+    try {
+      const db = getFirebase().db;
+      const reportId = `${user.uid}_${match.dog.id}`;
+      await setDoc(doc(db, 'reports', reportId), {
+        reporterId: user.uid,
+        targetUserId: match.dog.id,
+        matchId: resolvedMatchId,
+        reason,
+        createdAt: serverTimestamp(),
+      });
+
+      Alert.alert(
+        reason === 'block' ? 'User blocked' : 'Report submitted',
+        reason === 'block'
+          ? 'We saved your block request and removed this conversation from your flow.'
+          : 'Thanks for letting us know. We saved your report for review.',
+        [{ text: 'OK', onPress: () => reason === 'block' && router.replace('/(tabs)/matches') }],
+      );
+    } catch (error) {
+      console.warn('Failed to submit report', error);
+      Alert.alert('Could not submit report', 'Please try again in a moment.');
+    }
+  }
+
+  function openSafetyMenu() {
+    Alert.alert(
+      'Safety options',
+      'Choose what you want to do with this match.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Report spam or fake profile', onPress: () => void submitReport('spam') },
+        { text: 'Report inappropriate behaviour', onPress: () => void submitReport('inappropriate') },
+        { text: 'Block this user', style: 'destructive', onPress: () => void submitReport('block') },
+      ],
+    );
+  }
 
   useEffect(() => {
     if (!resolvedMatchId || !user) {
@@ -267,7 +311,9 @@ export default function ChatScreen() {
           <Text style={styles.headerName}>{resolvedName || match?.dog.name || 'Chat'}</Text>
           <Text style={styles.headerSub}>GoDoggyDate match</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <Pressable style={styles.moreBtn} onPress={openSafetyMenu}>
+          <Text style={styles.moreBtnText}>•••</Text>
+        </Pressable>
       </View>
 
       {!resolvedMatchId ? (
@@ -287,8 +333,11 @@ export default function ChatScreen() {
           <Text style={styles.paywallTitle}>Unlock Chat</Text>
           <Text style={styles.paywallBody}>
             {paymentConfigured
-              ? 'Unlock messaging with this match for $4.99 (one-time). This uses Stripe payment sheet and persists unlock status in Firestore.'
+              ? `Unlock chat with ${resolvedName || match?.dog.name || 'your match'} for a one-time $4.99. No subscription. No auto-renew.`
               : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
+          </Text>
+          <Text style={styles.paywallSupport}>
+            {SAFETY_TIP}
           </Text>
           {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
           {!unlockLoading && unlockError ? (
@@ -305,7 +354,7 @@ export default function ChatScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.unlockBtnText}>
-                {paymentConfigured ? 'Pay $4.99' : 'Payment Not Configured'}
+                {paymentConfigured ? 'Unlock chat for $4.99' : 'Payment Not Configured'}
               </Text>
             )}
           </Pressable>
@@ -316,6 +365,9 @@ export default function ChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
+          <View style={styles.safetyBanner}>
+            <Text style={styles.safetyBannerText}>{SAFETY_TIP}</Text>
+          </View>
           <FlatList
             ref={listRef}
             data={messages}
@@ -397,6 +449,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.brownLight,
   },
+  moreBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreBtnText: {
+    fontSize: 16,
+    color: colors.brownLight,
+    fontFamily: fonts.bold,
+  },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
@@ -406,6 +469,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexGrow: 1,
+  },
+  safetyBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 2,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(232,99,58,0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  safetyBannerText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.brownMid,
+    textAlign: 'center',
   },
   bubbleWrap: { marginBottom: 8, flexDirection: 'row' },
   bubbleWrapMe: { justifyContent: 'flex-end' },
@@ -509,6 +588,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     color: colors.brownLight,
     fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  paywallSupport: {
+    fontFamily: fonts.body,
+    color: colors.brownMid,
+    fontSize: 13,
+    lineHeight: 19,
     textAlign: 'center',
     marginBottom: 18,
   },

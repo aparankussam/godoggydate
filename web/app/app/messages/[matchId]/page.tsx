@@ -377,10 +377,18 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {!chatUnlocked && (
           <div className="rounded-[1.5rem] border border-border bg-white px-4 py-4 text-center shadow-sm">
-            <p className="font-semibold text-brown">Unlock chat on mobile</p>
+            <p className="font-semibold text-brown">Send the first hello on mobile</p>
             <p className="mt-2 text-sm leading-relaxed text-brown-light">
-              GoDoggyDate launch uses a one-time $4.99 match unlock. Open this match in the mobile app to pay and start messaging.
+              Unlock this match for a one-time $4.99 in the mobile app. It opens chat for life with {dogName} and never auto-renews.
             </p>
+            <p className="mt-3 text-xs leading-relaxed text-brown-light">
+              {SAFETY_TIP}
+            </p>
+          </div>
+        )}
+        {chatUnlocked && (
+          <div className="rounded-[1.25rem] border border-primary/15 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-brown-light">
+            {SAFETY_TIP}
           </div>
         )}
         {messages.length === 0 && (
@@ -392,7 +400,7 @@ export default function ChatPage() {
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
               {chatUnlocked
                 ? `Send the first message to ${dogName}. A simple hello is all it takes.`
-                : `Unlock this match in the mobile app before messaging ${dogName}.`}
+                : `Open the mobile app to unlock this match and send ${dogName} your first message.`}
             </p>
           </div>
         )}

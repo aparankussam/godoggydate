@@ -196,9 +196,14 @@ export default function HomePage() {
       <footer className="border-t border-border py-8">
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="font-display text-lg text-brown-light">🐾 GoDoggyDate</span>
-          <p className="text-sm text-brown-light">
-            © {new Date().getFullYear()} GoDoggyDate. Made with ❤️ for dogs everywhere.
-          </p>
+          <div className="text-center sm:text-left">
+            <p className="text-sm text-brown-light">
+              © {new Date().getFullYear()} GoDoggyDate. Made with ❤️ for dogs everywhere.
+            </p>
+            <p className="mt-1 text-xs text-brown-light/90">
+              A GoBotsAI product · <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">gobotsai.com</a>
+            </p>
+          </div>
           <div className="flex gap-4 text-sm text-brown-light">
             <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link>

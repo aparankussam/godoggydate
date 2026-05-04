@@ -195,7 +195,7 @@ export default function MessagesPage() {
               Your matches will appear here once you connect with another dog.
             </p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Start swiping to connect with other dogs, then open a match to say hello.
+              Start swiping to connect with other dogs, then open a match to send the first hello.
             </p>
             <Link href="/app" className="btn-primary px-8 py-3">Start Swiping</Link>
           </div>
@@ -244,7 +244,7 @@ export default function MessagesPage() {
                     }`}>
                       {c.lastMessage ?? (c.chatUnlocked
                         ? 'New match! Say hello 👋'
-                        : 'Unlock chat in the mobile app to start messaging')}
+                        : 'Send the first hello from the mobile app')}
                     </p>
                   </div>
 

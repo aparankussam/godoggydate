@@ -26,6 +26,7 @@ import { buildDiscoverFeed, buildGuestFeed, type DiscoverFeedDog } from '../../l
 
 // ── Seed feed ─────────────────────────────────────────────────────────────────
 type FeedDog = DiscoverFeedDog;
+const DEFAULT_DISCOVER_RADIUS_MILES = 50;
 
 export default function AppPage() {
   const router = useRouter();
@@ -194,7 +195,39 @@ export default function AppPage() {
     // State reset + redirect happen via onAuthStateChanged → user=null branch above
   }
 
+  function handleInviteFriend() {
+    const shareUrl = 'https://godoggydate.com';
+    const message = 'Come join me on GoDoggyDate. It helps dog owners find safer, compatible local playdates.';
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({
+        title: 'GoDoggyDate',
+        text: message,
+        url: shareUrl,
+      }).catch(() => { /* user cancelled */ });
+      return;
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(`${message} ${shareUrl}`).catch(() => { /* ignore */ });
+      return;
+    }
+    window.location.href = `mailto:?subject=${encodeURIComponent('Join me on GoDoggyDate')}&body=${encodeURIComponent(`${message}\n\n${shareUrl}`)}`;
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
+  const visibleDogs = activeFeed;
+  const visibleWithinFive = visibleDogs.filter(
+    (dog) => typeof dog.distanceMiles === 'number' && dog.distanceMiles <= 5,
+  ).length;
+  const visibleWithinRadius = visibleDogs.filter(
+    (dog) =>
+      typeof dog.distanceMiles !== 'number' ||
+      dog.distanceMiles <= DEFAULT_DISCOVER_RADIUS_MILES,
+  ).length;
+  const densityLine =
+    visibleDogs.length === 0
+      ? `We’ll keep looking within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`
+      : `${visibleWithinFive} within 5 mi · ${visibleWithinRadius} within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`;
+
   return (
     <div className="min-h-screen w-full bg-cream flex flex-col relative overflow-x-hidden">
 
@@ -328,25 +361,34 @@ export default function AppPage() {
           {!authLoading && authUser && profileIsComplete && feedDepleted && (
             <div className="flex flex-1 flex-col items-center justify-center py-24 gap-4 text-center px-4">
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">Early access is still warming up</p>
-              <p className="text-brown-light text-sm max-w-xs">
-                We couldn&apos;t find any new dogs right now.
+              <p className="font-display text-2xl text-brown">That&apos;s everyone for now</p>
+              <p className="text-brown-light text-sm max-w-xs leading-relaxed">
+                We&apos;ll keep looking for new dogs within {DEFAULT_DISCOVER_RADIUS_MILES} miles.
               </p>
-              <p className="text-brown-light text-sm max-w-xs">
-                Real dogs appear first, with demo dogs filling the gaps when available. Try refreshing soon or invite friends.
+              <p className="text-brown-light text-sm max-w-xs leading-relaxed">
+                Real dogs appear first, with demo dogs filling the gaps when available. Invite a dog parent or check back soon to see who joins next.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (authUser && userDog) {
-                    refreshDiscoverFeed(authUser, userDog)
-                      .catch(() => { /* handled inside refreshDiscoverFeed */ });
-                  }
-                }}
-                className="btn-primary px-8 py-3"
-              >
-                Refresh Feed
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (authUser && userDog) {
+                      refreshDiscoverFeed(authUser, userDog)
+                        .catch(() => { /* handled inside refreshDiscoverFeed */ });
+                    }
+                  }}
+                  className="btn-primary px-8 py-3"
+                >
+                  Check Again
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInviteFriend}
+                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
+                >
+                  Invite a Dog Parent
+                </button>
+              </div>
             </div>
           )}
 
@@ -366,8 +408,11 @@ export default function AppPage() {
           {!authLoading && !feedLoading && authUser && profileIsComplete && !feedDepleted && (
             <>
               <div className="mx-auto w-full max-w-sm mb-2 px-2 text-center">
-                <p className="text-xs text-brown-light">
-                  Swipe to discover nearby dogs.
+                <p className="text-xs font-medium text-brown-light">
+                  {densityLine}
+                </p>
+                <p className="mt-1 text-[11px] text-brown-light/80">
+                  Swipe to discover nearby dogs and open a match when you&apos;re ready to say hello.
                 </p>
               </div>
               <SwipeStack
