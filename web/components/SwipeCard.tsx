@@ -240,8 +240,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                   key={i}
                   className={`rounded-full transition-all duration-200 ${
                     i === photoIndex
-                      ? 'w-5 h-1.5 bg-white shadow-sm'
-                      : 'w-1.5 h-1.5 bg-white/50'
+                      ? 'w-5 h-1.5 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.35)] ring-1 ring-black/15'
+                      : 'w-2 h-2 bg-white/90 shadow-[0_2px_8px_rgba(0,0,0,0.28)] ring-1 ring-black/20'
                   }`}
                 />
               ))}
@@ -268,13 +268,13 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                   {distanceLabel}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-white/20 bg-white/14 px-3 py-1 text-[11px] font-semibold text-white/92 backdrop-blur-sm">
+                  <span className="rounded-full border border-white/30 bg-black/34 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_4px_14px_rgba(0,0,0,0.28)] backdrop-blur-md">
                     {energyLabel}
                   </span>
                   {dog.playStyles.slice(0, 2).map((style) => (
                     <span
                       key={style}
-                      className="rounded-full border border-white/20 bg-white/14 px-3 py-1 text-[11px] font-semibold text-white/92 backdrop-blur-sm"
+                      className="rounded-full border border-white/30 bg-black/34 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_4px_14px_rgba(0,0,0,0.28)] backdrop-blur-md"
                     >
                       {style}
                     </span>
