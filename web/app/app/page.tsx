@@ -28,6 +28,14 @@ import { buildDiscoverFeed, buildGuestFeed, type DiscoverFeedDog } from '../../l
 type FeedDog = DiscoverFeedDog;
 const DEFAULT_DISCOVER_RADIUS_MILES = 50;
 
+function formatDensityLine(withinFive: number, withinRadius: number, radiusMiles: number): string {
+  if (withinRadius === 0) return `We’ll keep looking within ${radiusMiles} mi`;
+  if (withinFive === withinRadius) {
+    return `${withinRadius} within ${withinRadius === 1 ? '5 mile' : '5 mi'}`;
+  }
+  return `${withinFive} within 5 mi · ${withinRadius} within ${radiusMiles} mi`;
+}
+
 export default function AppPage() {
   const router = useRouter();
 
@@ -226,7 +234,7 @@ export default function AppPage() {
   const densityLine =
     visibleDogs.length === 0
       ? `We’ll keep looking within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`
-      : `${visibleWithinFive} within 5 mi · ${visibleWithinRadius} within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`;
+      : formatDensityLine(visibleWithinFive, visibleWithinRadius, DEFAULT_DISCOVER_RADIUS_MILES);
 
   return (
     <div className="min-h-screen w-full bg-cream flex flex-col relative overflow-x-hidden">

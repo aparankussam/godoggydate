@@ -63,6 +63,10 @@ function getLocationLabel(dog: CardDog): string {
   return dog.location ?? 'Local match';
 }
 
+function getContentWidthClass(hasScore: boolean): string {
+  return hasScore ? 'max-w-[72%] sm:max-w-[74%]' : 'max-w-[78%]';
+}
+
 const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   dog,
   zIndex,
@@ -188,6 +192,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   // Compact location/distance string shown on the card
   const distanceLabel = getLocationLabel(dog);
   const energyLabel = getEnergyLabel(dog.energyLevel);
+  const hasScore = dog.compat.score > 0;
 
   return (
     <div
@@ -252,7 +257,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
             }}
           >
             <div className="px-5 pb-5 pt-14">
-              <div className="min-w-0 max-w-[78%]">
+              <div className={`min-w-0 ${getContentWidthClass(hasScore)}`}>
                 <p className="font-display text-[2.55rem] leading-[0.94] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)]">
                   {dog.name}
                 </p>
@@ -279,8 +284,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
             </div>
           </div>
 
-          {dog.compat.score > 0 && (
-            <div className="absolute bottom-4 left-4 flex flex-col items-center gap-1">
+          {hasScore && (
+            <div className="absolute left-4 top-16 flex flex-col items-center gap-1">
               <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/85 bg-[rgba(255,248,240,0.16)] text-xl font-black text-white shadow-[0_8px_24px_rgba(0,0,0,0.24)] backdrop-blur-md">
                 {dog.compat.score}
               </div>

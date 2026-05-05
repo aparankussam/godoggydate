@@ -31,6 +31,10 @@ export interface DiscoverFeedDog {
   isDemo: boolean;
 }
 
+function isSeedUserId(id: string): boolean {
+  return id.startsWith('user_seed_');
+}
+
 function milesBetween(a: DogProfile, b: DogProfile): number {
   // -1 sentinel: no coordinates — SwipeCard shows location string or "Nearby" instead.
   if (typeof a.lat !== 'number' || typeof a.lng !== 'number') return -1;
@@ -118,6 +122,7 @@ async function getRealCandidateDogs(currentUserId: string): Promise<DogProfile[]
       .filter(({ id, saved }) => {
         if (id === currentUserId) return false;
         if (id.startsWith('UID_')) return false;
+        if (isSeedUserId(id)) return false;
 
         const hasMinimumFields =
           !!saved.name?.trim() &&
