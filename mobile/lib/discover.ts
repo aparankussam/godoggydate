@@ -142,8 +142,12 @@ export async function fetchDiscoverFeed(
     })
     .filter((dog) => {
       if (!applyRadius) return true;
-      // When radius is active, drop candidates whose distance is unknown or beyond the radius.
-      if (typeof dog.distanceMiles !== 'number') return false;
+      // Keep candidates whose distance is unknown (e.g. web-created profiles
+      // that have city/state but no lat/lng yet). They sort to the end of the
+      // deck and the card shows their city/state via getLocationLabel.
+      // Without this, a mobile user with coords never sees a web-created
+      // profile in the same area.
+      if (typeof dog.distanceMiles !== 'number') return true;
       return dog.distanceMiles <= radiusMiles;
     })
     .sort((a, b) => {
