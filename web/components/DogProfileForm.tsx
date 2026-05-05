@@ -278,7 +278,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
     const hasState = !!usState.trim();
 
     return {
-      photos: photos.length === 0 ? 'Add at least 1 photo' : '',
+      photos: photos.length < 3 ? 'Add at least 3 photos' : '',
       name: !name.trim() ? 'Required' : '',
       breed: !breed.trim() ? 'Required' : '',
       age: !age ? 'Required' : '',
@@ -748,7 +748,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
           <div className="rounded-2xl bg-cream-dark px-4 py-3 text-sm text-brown-mid">
             <p className="mb-1 font-semibold">To unlock swiping, add:</p>
             <ul className="space-y-0.5 text-xs text-brown-light">
-              {photos.length === 0 && <li>• At least 1 photo</li>}
+              {photos.length < 3 && <li>• At least 3 photos ({photos.length}/3)</li>}
               {!name.trim() && <li>• Dog&apos;s name</li>}
               {!breed.trim() && <li>• Breed</li>}
               {!age && <li>• Age</li>}
