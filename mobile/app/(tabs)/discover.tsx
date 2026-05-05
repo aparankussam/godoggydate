@@ -24,6 +24,7 @@ import { fetchDiscoverFeed, DEFAULT_DISCOVER_RADIUS_MILES, type DiscoverDog } fr
 import { recordSwipe } from '../../lib/matching';
 import { useSession } from '../../lib/session';
 import { requestApproxLocation, type LocationStatus } from '../../lib/location';
+import { isPubliclyDiscoverable } from '../../../shared/profile';
 
 function getEnergyLabel(energyLevel: number): string {
   if (energyLevel >= 75) return 'High energy';
@@ -351,6 +352,22 @@ export default function DiscoverTab() {
         </View>
       </View>
 
+      {/* Visibility warning — shows when the profile is complete from the
+          owner's view (e.g. has a ZIP) but lacks a public location anchor
+          (city/state or lat/lng), so other dogs cannot discover them. */}
+      {profile && profileComplete && !isPubliclyDiscoverable(profile) && (
+        <Pressable
+          style={styles.visibilityBanner}
+          onPress={() => router.push('/(tabs)/profile')}
+        >
+          <Text style={styles.visibilityBannerText}>
+            Other dogs can&apos;t see you yet. Add a city or allow location to be
+            discoverable.
+          </Text>
+          <Text style={styles.visibilityBannerCta}>Edit profile ›</Text>
+        </Pressable>
+      )}
+
       {/* Card stack area */}
       <View style={styles.stackArea}>
         {isDeckEmpty ? (
@@ -561,6 +578,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.brownLight,
     marginTop: 2,
+  },
+  visibilityBanner: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(245,183,49,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(180,83,9,0.30)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  visibilityBannerText: {
+    flex: 1,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.brown,
+  },
+  visibilityBannerCta: {
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    fontSize: 12,
+    color: colors.primary,
   },
   headerRight: {
     flexDirection: 'row',

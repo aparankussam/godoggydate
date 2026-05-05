@@ -24,6 +24,7 @@ import MatchModal from '../../components/MatchModal';
 import SkeletonCard from '../../components/SkeletonCard';
 import { buildDiscoverFeed, buildGuestFeed, type DiscoverFeedDog } from '../../lib/discover';
 import { requestApproxLocation } from '../../lib/location';
+import { isPubliclyDiscoverable } from '../../../shared/profile';
 
 // ── Seed feed ─────────────────────────────────────────────────────────────────
 type FeedDog = DiscoverFeedDog;
@@ -325,6 +326,31 @@ export default function AppPage() {
             className="shrink-0 text-xs font-bold text-primary bg-white/70 hover:bg-white rounded-full px-3 py-1.5 transition-colors"
           >
             Sign in 🐾
+          </button>
+        </div>
+      )}
+
+      {/* ── Visibility warning ────────────────────────────────────────────
+          Profile is complete from the owner's view (e.g. ZIP entered) but
+          lacks any public-readable location anchor (city/state or coords),
+          so other dogs can't discover them. Surfaced once the profile form
+          is closed. */}
+      {!authLoading &&
+        authUser &&
+        savedProfile &&
+        profileIsComplete &&
+        !showProfileForm &&
+        !isPubliclyDiscoverable(savedProfile) && (
+        <div className="mx-4 mt-2 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-amber-900 flex-1 leading-snug">
+            Other dogs can&apos;t see you yet. Add a city or allow location to be
+            discoverable.
+          </p>
+          <button
+            onClick={() => setShowProfileForm(true)}
+            className="shrink-0 text-xs font-bold text-amber-900 underline underline-offset-2"
+          >
+            Edit profile
           </button>
         </div>
       )}

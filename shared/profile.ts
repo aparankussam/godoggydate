@@ -146,6 +146,40 @@ export function isProfileComplete(
   );
 }
 
+// True if the profile's public-readable fields anchor a location that other
+// users can use to discover them. Different from isProfileComplete, which can
+// be satisfied by ZIP alone (a private-only field that gets stripped from the
+// public dog doc). Use this to warn users that their profile, while complete
+// from their own view, will be invisible to other dogs.
+export function isPubliclyDiscoverable(
+  profile: {
+    location?: string;
+    city?: string;
+    state?: string;
+    lat?: number;
+    lng?: number;
+  } | null | undefined,
+): boolean {
+  if (!profile) return false;
+
+  const hasCoords =
+    typeof profile.lat === 'number' &&
+    Number.isFinite(profile.lat) &&
+    typeof profile.lng === 'number' &&
+    Number.isFinite(profile.lng);
+  if (hasCoords) return true;
+
+  const hasCityState = !!profile.city?.trim() && !!profile.state?.trim();
+  if (hasCityState) return true;
+
+  const text = profile.location?.trim();
+  // Plain ZIP-shaped strings are stripped from the public doc, so they don't
+  // count as a public anchor here.
+  if (text && !/^\d{5}(-\d{4})?$/.test(text)) return true;
+
+  return false;
+}
+
 export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
   return {
     id: uid,
