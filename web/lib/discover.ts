@@ -124,12 +124,13 @@ async function getRealCandidateDogs(currentUserId: string): Promise<DogProfile[]
         if (id.startsWith('UID_')) return false;
         if (isSeedUserId(id)) return false;
 
-        const hasMinimumFields =
-          !!saved.name?.trim() &&
-          !!saved.size &&
-          typeof saved.energyLevel === 'number';
-
-        return isProfileComplete(saved) || hasMinimumFields;
+        // Strict completeness only. The previous looser fallback
+        // (name + size + energyLevel) admitted photoless profiles, which
+        // looked broken in the deck. Mobile already required strict
+        // isProfileComplete, so this aligns the two surfaces.
+        // Note: isProfileComplete now treats lat/lng as a valid location,
+        // so ZIP-only profiles that have granted geolocation still pass.
+        return isProfileComplete(saved);
       })
       .map(({ id, saved }) => toFullProfile(saved, id));
   } catch {

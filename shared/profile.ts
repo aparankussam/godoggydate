@@ -113,6 +113,8 @@ export function isProfileComplete(
     city?: string;
     state?: string;
     zip?: string;
+    lat?: number;
+    lng?: number;
   } | null | undefined,
 ): boolean {
   if (!profile) return false;
@@ -120,7 +122,13 @@ export function isProfileComplete(
   const hasPersonality =
     (profile.temperament?.length ?? 0) >= 1 ||
     (profile.playStyles?.length ?? 0) >= 1;
+  const hasCoords =
+    typeof profile.lat === 'number' &&
+    Number.isFinite(profile.lat) &&
+    typeof profile.lng === 'number' &&
+    Number.isFinite(profile.lng);
   const hasLocation =
+    hasCoords ||
     !!(profile.zip ?? '').trim() ||
     (!!(profile.city ?? '').trim() && !!(profile.state ?? '').trim()) ||
     !!(profile.location ?? '').trim();
