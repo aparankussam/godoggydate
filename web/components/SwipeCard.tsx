@@ -286,10 +286,10 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
           {hasScore && (
             <div className="absolute left-4 top-16 flex flex-col items-center gap-1">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/85 bg-[rgba(255,248,240,0.16)] text-xl font-black text-white shadow-[0_8px_24px_rgba(0,0,0,0.24)] backdrop-blur-md">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/95 bg-[rgba(24,18,12,0.34)] text-xl font-black text-white shadow-[0_10px_28px_rgba(0,0,0,0.34)] ring-1 ring-black/18 backdrop-blur-md">
                 {dog.compat.score}
               </div>
-              <span className="rounded-full bg-black/24 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white/90 backdrop-blur-sm">
+              <span className="rounded-full bg-black/38 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] backdrop-blur-sm">
                 Match
               </span>
             </div>
