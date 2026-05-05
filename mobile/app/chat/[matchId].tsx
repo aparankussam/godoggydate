@@ -35,6 +35,10 @@ import { isUserChatUnlocked } from '../../../shared/matchAccess';
 const SAFETY_TIP =
   'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
 
+function isSeedUserId(id?: string): boolean {
+  return Boolean(id?.startsWith('user_seed_'));
+}
+
 export default function ChatScreen() {
   const { matchId, name } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[] }>();
   const { user } = useSession();
@@ -206,7 +210,7 @@ export default function ChatScreen() {
     const timeoutId = setTimeout(() => {
       setAwaitingVerification(false);
       setUnlockLoading(false);
-      setUnlockError('Payment succeeded, but verification is taking longer than expected. Please reopen this chat in a moment.');
+      setUnlockError('We’re still confirming your payment. Chat usually opens within a minute. Tap below to check again.');
     }, 30000);
 
     return () => clearTimeout(timeoutId);
@@ -232,7 +236,7 @@ export default function ChatScreen() {
       if (refreshedMatch?.chatUnlocked) {
         setUnlockError(null);
       } else {
-        setUnlockError('Chat is still waiting for payment verification. Please try again in a moment.');
+        setUnlockError('We’re still confirming your payment. Please check again in a moment.');
       }
     } catch (error) {
       console.warn('Failed to refresh unlock status:', error);
@@ -254,6 +258,10 @@ export default function ChatScreen() {
 
   async function handleUnlock() {
     if (!user || !resolvedMatchId) return;
+    if (isSeedUserId(match?.dog.id)) {
+      setUnlockError('This demo profile is not available for chat unlocks.');
+      return;
+    }
 
     setUnlockLoading(true);
     setUnlockError(null);
@@ -327,6 +335,13 @@ export default function ChatScreen() {
       ) : loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : match && isSeedUserId(match.dog.id) ? (
+        <View style={styles.emptyChat}>
+          <Text style={styles.emptyChatEmoji}>🐾</Text>
+          <Text style={styles.emptyChatText}>
+            This demo profile is no longer available for chats or unlocks.
+          </Text>
         </View>
       ) : !chatUnlocked ? (
         <View style={styles.paywallSendWrap}>

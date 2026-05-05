@@ -36,6 +36,14 @@ function formatMemberSince(timestamp?: number): string | null {
   return new Date(timestamp).toLocaleDateString([], { month: 'short', year: 'numeric' });
 }
 
+function formatDensityLine(withinFive: number, withinRadius: number, radiusMiles: number): string {
+  if (withinRadius === 0) return `We’ll keep looking within ${radiusMiles} mi`;
+  if (withinFive === withinRadius) {
+    return `${withinRadius} within 5 mi`;
+  }
+  return `${withinFive} within 5 mi · ${withinRadius} within ${radiusMiles} mi`;
+}
+
 export default function DiscoverTab() {
   const { user, profile, profileComplete, saveProfile } = useSession();
   const [deck, setDeck] = useState<DiscoverDog[]>([]);
@@ -245,7 +253,7 @@ export default function DiscoverTab() {
   const densityLine =
     visibleDogs.length === 0
       ? `We’ll keep looking within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`
-      : `${visibleWithinFive} within 5 mi · ${visibleWithinRadius} within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`;
+      : formatDensityLine(visibleWithinFive, visibleWithinRadius, DEFAULT_DISCOVER_RADIUS_MILES);
 
   return (
     <SafeAreaView style={styles.container}>

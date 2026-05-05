@@ -33,6 +33,10 @@ export interface DiscoverFeedResult {
   radiusApplied: boolean;
 }
 
+function isSeedUserId(id: string): boolean {
+  return id.startsWith('user_seed_');
+}
+
 function milesBetween(a: DogProfile, b: DogProfile): number {
   if (typeof a.lat !== 'number' || typeof a.lng !== 'number') return -1;
   if (typeof b.lat !== 'number' || typeof b.lng !== 'number') return -1;
@@ -101,6 +105,7 @@ export async function fetchDiscoverFeed(
     }))
     .filter(({ id, saved }) => {
       if (id === userId) return false;
+      if (isSeedUserId(id)) return false;
       if (swipedIds.has(id)) return false;
       return isProfileComplete(saved);
     })

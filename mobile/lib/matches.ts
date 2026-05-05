@@ -70,6 +70,10 @@ interface FirestoreMatchDoc {
   dog2LastReadAt?: number | { toMillis?: () => number } | null;
 }
 
+function isSeedUserId(id: string): boolean {
+  return id.startsWith('user_seed_');
+}
+
 function getReadFieldForUser(data: FirestoreMatchDoc, userId: string): 'dog1LastReadAt' | 'dog2LastReadAt' | null {
   if (data.dog1UserId === userId) return 'dog1LastReadAt';
   if (data.dog2UserId === userId) return 'dog2LastReadAt';
@@ -98,6 +102,7 @@ function toMillis(value: unknown): number | undefined {
 
 async function fetchDogSummary(dogId: string): Promise<MatchedDog | null> {
   if (!dogId) return null;
+  if (isSeedUserId(dogId)) return null;
 
   try {
     const db = getFirebase().db;
@@ -122,9 +127,10 @@ async function normalizeMatchDoc(
   id: string,
   data: FirestoreMatchDoc,
   currentUserId: string,
-): Promise<MatchItem> {
+): Promise<MatchItem | null> {
   const nestedDog = data.dog;
   const otherDogId = getOtherDogId(data, currentUserId);
+  if (otherDogId && isSeedUserId(otherDogId)) return null;
   const fetchedDog = otherDogId ? await fetchDogSummary(otherDogId) : null;
   const dog: MatchedDog =
     fetchedDog ??
@@ -181,7 +187,9 @@ export async function fetchMatches(userId: string): Promise<MatchItem[]> {
       const normalized = await Promise.all(
         [...docs.entries()].map(([id, data]) => normalizeMatchDoc(id, data, userId)),
       );
-      return normalized.sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
+      return normalized
+        .filter((match): match is MatchItem => Boolean(match))
+        .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
     }
   } catch (err) {
     console.warn('Could not load Firestore matches', err);

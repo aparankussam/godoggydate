@@ -6,6 +6,27 @@ import {
 
 let configured = false;
 
+function mapGoogleSignInError(error: unknown): Error {
+  const rawMessage = error instanceof Error ? error.message : String(error ?? 'Unknown Google sign-in error');
+  const normalized = rawMessage.toLowerCase();
+
+  if (
+    normalized.includes('developer_error') ||
+    normalized.includes('12500') ||
+    normalized.includes('12501') ||
+    normalized.includes('client id') ||
+    normalized.includes('id token')
+  ) {
+    return new Error('Google sign-in is misconfigured for this build. Please try Apple sign-in or guest mode for now.');
+  }
+
+  if (normalized.includes('network')) {
+    return new Error('Google sign-in could not reach the network. Please try again in a moment.');
+  }
+
+  return error instanceof Error ? error : new Error(rawMessage);
+}
+
 function ensureConfigured(): void {
   if (configured) return;
   const webClientId =
@@ -60,6 +81,6 @@ export async function signInWithGoogleNative(): Promise<GoogleSignInResult> {
         throw new Error('Google Play Services is not available on this device.');
       }
     }
-    throw error;
+    throw mapGoogleSignInError(error);
   }
 }

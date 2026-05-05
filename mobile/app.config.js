@@ -32,6 +32,11 @@ module.exports = {
       bundleIdentifier: 'com.godoggydate.app',
       googleServicesFile: './GoogleService-Info.plist',
       usesAppleSignIn: true,
+      config: {
+        // Standard HTTPS only; qualifies for the EAR mass-market exemption.
+        // Skips Apple's encryption compliance prompt on every future build.
+        usesNonExemptEncryption: false,
+      },
       infoPlist: {
         NSLocationWhenInUseUsageDescription: 'We use your location to show nearby dogs.',
         NSCameraUsageDescription: 'Upload a photo of your dog.',
