@@ -6,7 +6,7 @@
 //   • Swipe feed: SwipeStack + MatchModal celebration
 // Matches, messages, and profile each live in their own /app/* sub-routes.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   signOutUser,
@@ -23,6 +23,7 @@ import AuthModal from '../../components/AuthModal';
 import MatchModal from '../../components/MatchModal';
 import SkeletonCard from '../../components/SkeletonCard';
 import { buildDiscoverFeed, buildGuestFeed, type DiscoverFeedDog } from '../../lib/discover';
+import { requestApproxLocation } from '../../lib/location';
 
 // ── Seed feed ─────────────────────────────────────────────────────────────────
 type FeedDog = DiscoverFeedDog;
@@ -134,6 +135,38 @@ export default function AppPage() {
       setFeedLoading(false);
     }
   }
+
+  // ── Approximate location capture ───────────────────────────────────────────
+  // Mirrors mobile/app/(tabs)/discover.tsx: once per session, if the profile
+  // is complete and has no coords yet, request approximate browser location
+  // and persist rounded coords to the public dog doc. Without this, mobile
+  // users with coords can't see web-created profiles in their radius filter.
+  const locationRequestedRef = useRef(false);
+  useEffect(() => {
+    if (!authUser || !savedProfile) return;
+    if (locationRequestedRef.current) return;
+    if (!isProfileComplete(savedProfile)) return;
+    const alreadyHasCoords =
+      typeof savedProfile.lat === 'number' && typeof savedProfile.lng === 'number';
+    if (alreadyHasCoords) return;
+
+    locationRequestedRef.current = true;
+    requestApproxLocation().then(async (result) => {
+      if (result.status !== 'granted' || !result.coords) return;
+      const next: SavedDogProfile = {
+        ...savedProfile,
+        lat: result.coords.lat,
+        lng: result.coords.lng,
+      };
+      try {
+        await saveUserDogProfile(authUser.uid, next);
+        setSavedProfile(next);
+        setUserDog(toFullProfile(next, authUser.uid));
+      } catch (error) {
+        console.warn('Failed to persist approximate location', error);
+      }
+    });
+  }, [authUser, savedProfile]);
 
   // ── Feed ──────────────────────────────────────────────────────────────────
   useEffect(() => {
