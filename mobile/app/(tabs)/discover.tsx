@@ -57,6 +57,7 @@ export default function DiscoverTab() {
   const [matchedDog, setMatchedDog] = useState<DiscoverDog | null>(null);
   const [matchedMatchId, setMatchedMatchId] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
+  const [swipeError, setSwipeError] = useState<string | null>(null);
   const locationRequestedRef = useRef(false);
   const topCardRef = useRef<SwipeCardRef>(null);
 
@@ -137,6 +138,8 @@ export default function DiscoverTab() {
         setIndex((prev) => prev + 1);
       } catch (error) {
         console.warn('Failed to record swipe', error);
+        setSwipeError('That like didn’t save — check your connection and try again.');
+        setTimeout(() => setSwipeError(null), 3500);
       } finally {
         setSwiping(false);
       }
@@ -351,6 +354,12 @@ export default function DiscoverTab() {
           )}
         </View>
       </View>
+
+      {swipeError && (
+        <View style={styles.swipeErrorBanner}>
+          <Text style={styles.swipeErrorBannerText}>{swipeError}</Text>
+        </View>
+      )}
 
       {/* Visibility warning — shows when the profile is complete from the
           owner's view (e.g. has a ZIP) but lacks a public location anchor
@@ -578,6 +587,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.brownLight,
     marginTop: 2,
+  },
+  swipeErrorBanner: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: radius.lg,
+    backgroundColor: colors.brown,
+  },
+  swipeErrorBannerText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: '#fff',
+    textAlign: 'center',
   },
   visibilityBanner: {
     marginHorizontal: 16,

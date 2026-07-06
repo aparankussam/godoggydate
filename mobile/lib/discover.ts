@@ -3,6 +3,7 @@ import { isProfileComplete, toFullProfile, type SavedDogProfile } from '../../sh
 import { calculateCompatibility } from '../../shared/utils/matchingEngine';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { getFirebase } from './firebase';
+import { getBlockedUserIds } from './blocks';
 
 export interface DiscoverDog {
   id: string;
@@ -92,7 +93,10 @@ export async function fetchDiscoverFeed(
   if (!isProfileComplete(currentSaved)) return { dogs: [], radiusApplied: false };
 
   const baseDog = toFullProfile(currentSaved, userId);
-  const swipedIds = await getSwipedDogIds(userId);
+  const [swipedIds, blockedIds] = await Promise.all([
+    getSwipedDogIds(userId),
+    getBlockedUserIds(userId),
+  ]);
 
   const baseHasCoords = typeof baseDog.lat === 'number' && typeof baseDog.lng === 'number';
   const radiusMiles = options.radiusMiles ?? DEFAULT_DISCOVER_RADIUS_MILES;
@@ -107,6 +111,7 @@ export async function fetchDiscoverFeed(
       if (id === userId) return false;
       if (isSeedUserId(id)) return false;
       if (swipedIds.has(id)) return false;
+      if (blockedIds.has(id)) return false;
       return isProfileComplete(saved);
     })
     .map(({ id, saved }) => {

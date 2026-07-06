@@ -1,14 +1,44 @@
-import { Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import ProfileEditor from '../../components/ProfileEditor';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
+import { deleteAccount } from '../../lib/account';
 
 export default function ProfileTab() {
   const { user, profile, profileComplete, saveProfile, signOutUser } = useSession();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDeleteAccount() {
+    Alert.alert(
+      'Delete your account permanently?',
+      'This removes your dog’s profile, all matches, messages, and swipe history. Chat unlock purchases are not refunded. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete everything',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+              router.replace('/welcome');
+            } catch (error) {
+              console.error('Account deletion failed:', error);
+              Alert.alert(
+                'Could not delete account',
+                'Please try again or email support@godoggydate.com.',
+              );
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   if (!user) return null;
 
@@ -72,6 +102,18 @@ export default function ProfileTab() {
           }}
         >
           <Text style={styles.secondaryText}>Sign out</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.deleteButton}
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator color={colors.brownLight} />
+          ) : (
+            <Text style={styles.deleteText}>Delete account</Text>
+          )}
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -147,5 +189,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     fontSize: 16,
     color: colors.brown,
+  },
+  deleteButton: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 8,
+  },
+  deleteText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.brownLight,
   },
 });

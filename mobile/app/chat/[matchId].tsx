@@ -5,6 +5,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -21,8 +22,10 @@ import {
   fetchMatch,
   markMatchRead,
   sendMessage,
+  MAX_MESSAGE_LENGTH,
   type ChatMessage,
   type MatchItem,
+  type PlaydateDetails,
 } from '../../lib/matches';
 import {
   createChatUnlockIntent,
@@ -31,12 +34,18 @@ import {
 } from '../../lib/stripe';
 import { useSession } from '../../lib/session';
 import { isUserChatUnlocked } from '../../../shared/matchAccess';
+import { blockUser } from '../../lib/blocks';
+import { onEntitlements, getFoundingMemberLink } from '../../lib/entitlements';
 
 const SAFETY_TIP =
   'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
 
 function isSeedUserId(id?: string): boolean {
   return Boolean(id?.startsWith('user_seed_'));
+}
+
+function playdateKey(p?: PlaydateDetails): string {
+  return p ? `${p.date}|${p.time}|${p.place}` : '';
 }
 
 export default function ChatScreen() {
@@ -51,19 +60,44 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [match, setMatch] = useState<MatchItem | null>(null);
   const [chatUnlocked, setChatUnlocked] = useState(false);
+  const [hasLifetime, setHasLifetime] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [awaitingVerification, setAwaitingVerification] = useState(false);
+  const [showPlaydateForm, setShowPlaydateForm] = useState(false);
+  const [playdateDraft, setPlaydateDraft] = useState<PlaydateDetails>({ date: '', time: '', place: '' });
   const listRef = useRef<FlatList>(null);
   const paymentConfigured = isPaymentConfigured();
   const paymentConfigurationError = getPaymentConfigurationError();
 
+  // Effective chat access: per-match unlock OR Founding Member entitlement.
+  const canChat = chatUnlocked || hasLifetime;
+
+  useEffect(() => {
+    if (!user) return;
+    return onEntitlements(user.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
+  }, [user]);
+
   async function submitReport(reason: 'block' | 'spam' | 'inappropriate') {
     if (!user || !resolvedMatchId || !match?.dog.id) return;
 
+    // Block FIRST and independently — the safety action must not be skipped
+    // because the report write fails (e.g. repeat reports: rules forbid
+    // updating an existing report doc).
+    if (reason === 'block') {
+      try {
+        await blockUser(user.uid, match.dog.id);
+      } catch (error) {
+        console.warn('Block failed', error);
+        Alert.alert('Block failed', 'Please check your connection and try again.');
+        return;
+      }
+    }
+
     try {
       const db = getFirebase().db;
-      const reportId = `${user.uid}_${match.dog.id}`;
+      // Unique id per submission so repeat reports are creates, never updates.
+      const reportId = `${user.uid}_${match.dog.id}_${Date.now()}`;
       await setDoc(doc(db, 'reports', reportId), {
         reporterId: user.uid,
         targetUserId: match.dog.id,
@@ -81,7 +115,14 @@ export default function ChatScreen() {
       );
     } catch (error) {
       console.warn('Failed to submit report', error);
-      Alert.alert('Could not submit report', 'Please try again in a moment.');
+      if (reason === 'block') {
+        // The block itself already succeeded — don't tell the user it failed.
+        Alert.alert('User blocked', 'We removed this conversation from your flow.', [
+          { text: 'OK', onPress: () => router.replace('/(tabs)/matches') },
+        ]);
+      } else {
+        Alert.alert('Could not submit report', 'Please try again in a moment.');
+      }
     }
   }
 
@@ -104,7 +145,7 @@ export default function ChatScreen() {
       return;
     }
 
-    if (!chatUnlocked) {
+    if (!canChat) {
       setMessages([]);
       setLoading(false);
       return undefined;
@@ -125,6 +166,8 @@ export default function ChatScreen() {
               fromUserId?: string;
               senderId?: string;
               createdAt?: { toMillis?: () => number };
+              type?: ChatMessage['type'];
+              playdate?: PlaydateDetails;
             };
 
             return {
@@ -132,6 +175,8 @@ export default function ChatScreen() {
               text: data.text ?? '',
               senderId: data.fromUserId ?? data.senderId ?? 'other',
               createdAt: data.createdAt?.toMillis?.() ?? Date.now(),
+              type: data.type,
+              playdate: data.playdate,
             };
           }),
         );
@@ -149,7 +194,7 @@ export default function ChatScreen() {
     );
 
     return unsubscribe;
-  }, [chatUnlocked, resolvedMatchId, user]);
+  }, [canChat, resolvedMatchId, user]);
 
   useEffect(() => {
     if (!resolvedMatchId) return;
@@ -183,7 +228,10 @@ export default function ChatScreen() {
           dog1UserId?: string;
           dog2UserId?: string;
         };
-        const nextChatUnlocked = user ? isUserChatUnlocked(data, user.uid) : false;
+        // OR in hasLifetime so this state means the same "effective access"
+        // as fetchMatch()/fetchMatches() in lib/matches.ts — Founding
+        // Members never look locked in match.chatUnlocked here.
+        const nextChatUnlocked = (user ? isUserChatUnlocked(data, user.uid) : false) || hasLifetime;
         setChatUnlocked(nextChatUnlocked);
         setMatch((currentMatch) => (currentMatch
           ? { ...currentMatch, chatUnlocked: nextChatUnlocked }
@@ -195,14 +243,14 @@ export default function ChatScreen() {
     );
 
     return unsubscribe;
-  }, [resolvedMatchId, user]);
+  }, [resolvedMatchId, user, hasLifetime]);
 
   useEffect(() => {
-    if (!chatUnlocked) return;
+    if (!canChat) return;
     setAwaitingVerification(false);
     setUnlockLoading(false);
     setUnlockError(null);
-  }, [chatUnlocked]);
+  }, [canChat]);
 
   useEffect(() => {
     if (!awaitingVerification) return undefined;
@@ -244,16 +292,63 @@ export default function ChatScreen() {
     }
   }
 
-  async function handleSend() {
-    const trimmed = text.trim();
-    if (!trimmed || sending || !user || !chatUnlocked || !resolvedMatchId) return;
-    setText('');
+  async function handleSend(
+    overrideText?: string,
+    extra?: { type: ChatMessage['type']; playdate: PlaydateDetails },
+  ): Promise<boolean> {
+    const trimmed = (overrideText ?? text).trim();
+    if (!trimmed || sending || !user || !canChat || !resolvedMatchId) return false;
+    if (!overrideText) setText('');
     setSending(true);
+    let delivered = false;
     try {
-      await sendMessage(resolvedMatchId, user.uid, trimmed);
+      await sendMessage(resolvedMatchId, user.uid, trimmed, extra);
+      delivered = true;
+    } catch (error) {
+      console.warn('Message send failed:', error);
+      if (!overrideText) setText(trimmed); // restore the draft — silent loss is worse
+      Alert.alert('Message didn’t send', 'Please check your connection and try again.');
     } finally {
       setSending(false);
     }
+    return delivered;
+  }
+
+  const confirmedPlaydateKeys = new Set(
+    messages.filter((m) => m.type === 'playdate_confirmed').map((m) => playdateKey(m.playdate)),
+  );
+
+  async function proposePlaydate() {
+    const { date, time, place } = playdateDraft;
+    if (!date.trim() || !place.trim()) return;
+    const when = time.trim() ? `${date.trim()} at ${time.trim()}` : date.trim();
+    const delivered = await handleSend(`📅 Playdate proposal: ${when} — ${place.trim()}`, {
+      type: 'playdate_proposal',
+      playdate: { date: date.trim(), time: time.trim(), place: place.trim() },
+    });
+    if (!delivered) return; // keep the form + draft so the user can retry
+    setShowPlaydateForm(false);
+    setPlaydateDraft({ date: '', time: '', place: '' });
+  }
+
+  async function acceptPlaydate(proposal: ChatMessage) {
+    if (!proposal.playdate) return;
+    const { date, time, place } = proposal.playdate;
+    const when = time ? `${date} at ${time}` : date;
+    await handleSend(`✅ Playdate confirmed: ${when} — ${place}`, {
+      type: 'playdate_confirmed',
+      playdate: proposal.playdate,
+    });
+  }
+
+  function openFoundingMemberLink() {
+    if (!user) return;
+    const link = getFoundingMemberLink(user.uid);
+    if (!link) return;
+    Linking.openURL(link).catch((error) => {
+      console.warn('Failed to open Founding Member link', error);
+      Alert.alert('Could not open link', 'Please try again in a moment.');
+    });
   }
 
   async function handleUnlock() {
@@ -297,6 +392,29 @@ export default function ChatScreen() {
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isMe = item.senderId === user?.uid || item.senderId === 'me';
+
+    if (item.type === 'playdate_proposal' && item.playdate) {
+      const confirmed = confirmedPlaydateKeys.has(playdateKey(item.playdate));
+      return (
+        <View style={[styles.playdateCard, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
+          <Text style={styles.playdateLabel}>📅 Playdate {confirmed ? '· Confirmed' : 'proposal'}</Text>
+          <Text style={styles.playdateWhen}>
+            {item.playdate.date}{item.playdate.time ? ` at ${item.playdate.time}` : ''}
+          </Text>
+          <Text style={styles.playdateWhere}>{item.playdate.place}</Text>
+          {!isMe && !confirmed && (
+            <Pressable
+              style={styles.playdateAcceptBtn}
+              onPress={() => acceptPlaydate(item)}
+              disabled={sending}
+            >
+              <Text style={styles.playdateAcceptText}>Accept playdate</Text>
+            </Pressable>
+          )}
+        </View>
+      );
+    }
+
     return (
       <View style={[styles.bubbleWrap, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
         <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
@@ -343,7 +461,7 @@ export default function ChatScreen() {
             This demo profile is no longer available for chats or unlocks.
           </Text>
         </View>
-      ) : !chatUnlocked ? (
+      ) : !canChat ? (
         <View style={styles.paywallSendWrap}>
           <Text style={styles.paywallTitle}>Unlock Chat</Text>
           <Text style={styles.paywallBody}>
@@ -373,6 +491,13 @@ export default function ChatScreen() {
               </Text>
             )}
           </Pressable>
+          {getFoundingMemberLink(user.uid) && (
+            <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink}>
+              <Text style={styles.foundingMemberLinkText}>
+                🐾 Or become a Founding Member — every chat unlocked for life, one-time $39
+              </Text>
+            </Pressable>
+          )}
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -400,7 +525,53 @@ export default function ChatScreen() {
             }
           />
 
+          {showPlaydateForm && (
+            <View style={styles.playdateForm}>
+              <Text style={styles.playdateFormLabel}>📅 Propose a playdate</Text>
+              <TextInput
+                style={styles.playdateFormInput}
+                value={playdateDraft.date}
+                onChangeText={(v) => setPlaydateDraft((d) => ({ ...d, date: v }))}
+                placeholder="Date (e.g. Sat, July 12)"
+                placeholderTextColor={colors.brownLight}
+              />
+              <TextInput
+                style={styles.playdateFormInput}
+                value={playdateDraft.time}
+                onChangeText={(v) => setPlaydateDraft((d) => ({ ...d, time: v }))}
+                placeholder="Time (e.g. 10:00 AM)"
+                placeholderTextColor={colors.brownLight}
+              />
+              <TextInput
+                style={styles.playdateFormInput}
+                value={playdateDraft.place}
+                onChangeText={(v) => setPlaydateDraft((d) => ({ ...d, place: v }))}
+                placeholder="Where? (e.g. Maple Dog Park)"
+                placeholderTextColor={colors.brownLight}
+              />
+              <View style={styles.playdateFormActions}>
+                <Pressable
+                  style={[styles.playdateSendBtn, (!playdateDraft.date.trim() || !playdateDraft.place.trim() || sending) && styles.sendBtnDisabled]}
+                  onPress={proposePlaydate}
+                  disabled={!playdateDraft.date.trim() || !playdateDraft.place.trim() || sending}
+                >
+                  <Text style={styles.playdateSendBtnText}>Send proposal</Text>
+                </Pressable>
+                <Pressable style={styles.playdateCancelBtn} onPress={() => setShowPlaydateForm(false)}>
+                  <Text style={styles.playdateCancelBtnText}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           <View style={styles.inputRow}>
+            <Pressable
+              style={styles.playdateToggleBtn}
+              onPress={() => setShowPlaydateForm((v) => !v)}
+              disabled={sending}
+            >
+              <Text style={styles.playdateToggleBtnText}>📅</Text>
+            </Pressable>
             <TextInput
               style={styles.input}
               value={text}
@@ -408,13 +579,13 @@ export default function ChatScreen() {
               placeholder={`Message ${resolvedName || match?.dog.name || 'your match'}…`}
               placeholderTextColor={colors.brownLight}
               multiline
-              maxLength={500}
+              maxLength={MAX_MESSAGE_LENGTH}
               returnKeyType="send"
-              onSubmitEditing={handleSend}
+              onSubmitEditing={() => handleSend()}
             />
             <Pressable
               style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-              onPress={handleSend}
+              onPress={() => handleSend()}
               disabled={!text.trim() || sending}
             >
               {sending ? (
@@ -642,5 +813,119 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontFamily: fonts.semibold,
     fontSize: 14,
+  },
+  foundingMemberLink: {
+    marginTop: 14,
+    paddingVertical: 6,
+  },
+  foundingMemberLinkText: {
+    color: colors.primary,
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
+  playdateCard: {
+    maxWidth: '85%',
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  playdateLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  playdateWhen: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.brown,
+    marginTop: 4,
+  },
+  playdateWhere: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.brownLight,
+  },
+  playdateAcceptBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  playdateAcceptText: {
+    color: '#fff',
+    fontFamily: fonts.bold,
+    fontSize: 12,
+  },
+  playdateToggleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(212,163,53,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playdateToggleBtnText: { fontSize: 18 },
+  playdateForm: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#fff',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+  },
+  playdateFormLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  playdateFormInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.brown,
+    backgroundColor: colors.cream,
+    marginBottom: 8,
+  },
+  playdateFormActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+  },
+  playdateSendBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  playdateSendBtnText: {
+    color: '#fff',
+    fontFamily: fonts.bold,
+    fontSize: 13,
+  },
+  playdateCancelBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+  },
+  playdateCancelBtnText: {
+    color: colors.brownLight,
+    fontFamily: fonts.semibold,
+    fontSize: 13,
   },
 });
