@@ -4,6 +4,7 @@
 // opens this modal — never the raw Google chooser directly.
 
 import { useEffect, useRef, useState } from 'react';
+import { trackEvent } from '../lib/analytics';
 import { signInWithGoogle, signInWithGoogleIdToken } from '../lib/auth';
 
 interface Props {
@@ -18,6 +19,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
   const [oneTapReady, setOneTapReady] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+
+  useEffect(() => {
+    if (isOpen) {
+      trackEvent('auth_open');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -42,9 +49,15 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       setError('');
       try {
         await signInWithGoogleIdToken(response.credential);
+        trackEvent('sign_in_success', {
+          method: 'google_one_tap',
+        });
         onSuccess?.();
         onClose();
       } catch {
+        trackEvent('sign_in_failure', {
+          method: 'google_one_tap',
+        });
         setError('Google sign-in failed. Please try again.');
       }
     };
@@ -97,8 +110,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
 
   async function handleGoogleSignIn() {
     setError('');
+    trackEvent('sign_in_attempt', {
+      method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
+    });
     try {
       await signInWithGoogle();
+      trackEvent('sign_in_success', {
+        method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
+      });
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
@@ -109,6 +128,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       ) {
         return; // user dismissed — not an error
       }
+      trackEvent('sign_in_failure', {
+        method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
+        error_code: code || 'unknown',
+      });
       setError('Sign-in failed. Please try again.');
     }
   }

@@ -22,6 +22,7 @@ import SwipeStack from '../../components/SwipeStack';
 import AuthModal from '../../components/AuthModal';
 import MatchModal from '../../components/MatchModal';
 import SkeletonCard from '../../components/SkeletonCard';
+import { trackEvent } from '../../lib/analytics';
 import { buildDiscoverFeed, buildGuestFeed, type DiscoverFeedDog } from '../../lib/discover';
 import { requestApproxLocation } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
@@ -111,6 +112,16 @@ export default function AppPage() {
       setSavedProfile(safeProfile);
       setUserDog(toFullProfile(safeProfile, authUser.uid));
       setShowProfileForm(false);
+      const completed = isProfileComplete(safeProfile);
+      trackEvent('profile_saved', {
+        context: savedProfile ? 'discover_edit' : 'discover_onboarding',
+        completed,
+      });
+      if (completed) {
+        trackEvent('profile_completed', {
+          context: savedProfile ? 'discover_edit' : 'discover_onboarding',
+        });
+      }
       setProfileSavedToast(true);
       setTimeout(() => setProfileSavedToast(false), 3000);
       router.replace('/app');
@@ -221,6 +232,12 @@ export default function AppPage() {
   function handleMatch(dog: FeedDog, matchId: string) {
     setMatchedDog(dog);
     setActiveMatchId(matchId);
+    trackEvent('match_created', {
+      match_id: matchId,
+      dog_id: dog.firestoreId ?? dog.id,
+      is_demo: dog.isDemo,
+      compatibility_score: dog.compat.score,
+    });
     if (!hasHadFirstMatch) {
       setHasHadFirstMatch(true);
       setTimeout(() => setShowRetentionHook(true), 3000);
@@ -238,6 +255,9 @@ export default function AppPage() {
   }
 
   function handleInviteFriend() {
+    trackEvent('invite_friend_clicked', {
+      source: feedDepleted ? 'empty_state' : 'discover',
+    });
     const shareUrl = 'https://godoggydate.com';
     const message = 'Come join me on GoDoggyDate. It helps dog owners find safer, compatible local playdates.';
     if (typeof navigator !== 'undefined' && navigator.share) {

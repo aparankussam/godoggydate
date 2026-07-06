@@ -17,6 +17,7 @@ import {
 import { getFirebase } from '../../../shared/utils/firebase';
 import type { User, SavedDogProfile } from '../../../lib/auth';
 import DogProfileForm from '../../../components/DogProfileForm';
+import { trackEvent } from '../../../lib/analytics';
 import { getRenderablePhotos } from '../../../lib/photos';
 
 export default function ProfilePage() {
@@ -74,6 +75,16 @@ export default function ProfilePage() {
       await saveUserDogProfile(authUser.uid, safe);
       setSavedProfile(safe);
       setShowEdit(false);
+      const completed = isProfileComplete(safe);
+      trackEvent('profile_saved', {
+        context: 'profile_page',
+        completed,
+      });
+      if (completed) {
+        trackEvent('profile_completed', {
+          context: 'profile_page',
+        });
+      }
     } catch {
       setSaveError('We could not save your profile. Check your connection and try again.');
     } finally {
@@ -250,9 +261,9 @@ export default function ProfilePage() {
           )}
 
           <button
-            onClick={() => setShowEdit(true)}
-            className="btn-primary py-3 shadow-lg"
-          >
+              onClick={() => setShowEdit(true)}
+              className="btn-primary py-3 shadow-lg"
+            >
             {savedProfile ? 'Edit Profile' : 'Create Profile'}
           </button>
 

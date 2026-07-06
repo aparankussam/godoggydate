@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AuthModal from '../components/AuthModal';
+import { trackEvent } from '../lib/analytics';
 import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
 
@@ -22,8 +23,16 @@ export default function HomePage() {
     return unsub;
   }, []);
 
+  useEffect(() => {
+    trackEvent('landing_view');
+  }, []);
+
   // If already signed in, CTAs go straight to /app
-  function handleCTA() {
+  function handleCTA(source: string) {
+    trackEvent('cta_click', {
+      source,
+      signed_in: signedIn,
+    });
     router.push('/app');
   }
 
@@ -62,15 +71,15 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             {/* "Find Playmates" only for guests */}
             {(!authChecked || !signedIn) && (
-              <button
-                onClick={handleCTA}
+                <button
+                onClick={() => handleCTA('nav_find_playmates')}
                 className="btn-secondary hidden sm:block"
               >
                 Find Playmates Near Me
               </button>
             )}
             <button
-              onClick={handleCTA}
+              onClick={() => handleCTA('nav_primary')}
               className="btn-primary"
             >
               {ctaLabel}
@@ -94,7 +103,7 @@ export default function HomePage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
-            onClick={handleCTA}
+            onClick={() => handleCTA('hero_primary')}
             className="btn-primary text-lg px-8 py-4"
           >
             {signedIn ? 'Open App →' : 'Find Playmates Near Me'}
@@ -184,7 +193,7 @@ export default function HomePage() {
             Join our early access community — be among the first dog owners to find safer, happier playdates.
           </p>
           <button
-            onClick={handleCTA}
+            onClick={() => handleCTA('footer_primary')}
             className="btn-primary text-lg px-10 py-4"
           >
             {signedIn ? 'Open App →' : "Create Your Dog's Profile"}
@@ -205,6 +214,8 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex gap-4 text-sm text-brown-light">
+            <Link href="/dog-playdates" className="hover:text-primary transition-colors">Dog Playdates</Link>
+            <Link href="/dog-socialization-tips" className="hover:text-primary transition-colors">Socialization Tips</Link>
             <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
             <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link>
           </div>

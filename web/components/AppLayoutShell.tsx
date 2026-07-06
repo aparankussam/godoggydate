@@ -13,6 +13,7 @@ import {
 import { getFirebase } from '../shared/utils/firebase';
 import { onAuthStateChanged, getUserDogProfile, isProfileComplete } from '../lib/auth';
 import type { User, SavedDogProfile } from '../lib/auth';
+import { setAnalyticsUser, trackEvent } from '../lib/analytics';
 import BottomNav from './BottomNav';
 
 interface Props {
@@ -31,6 +32,10 @@ export default function AppLayoutShell({ children }: Props) {
     const { auth } = getFirebase();
     const unsub = onAuthStateChanged(auth, async (user) => {
       setAuthUser(user);
+      setAnalyticsUser(user?.uid ?? null);
+      if (!user) {
+        trackEvent('signed_out');
+      }
       if (user) {
         try {
           const p = await getUserDogProfile(user.uid);

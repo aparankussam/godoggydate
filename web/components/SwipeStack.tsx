@@ -3,6 +3,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import SwipeCard, { type SwipeCardHandle } from './SwipeCard';
+import { trackEvent, trackOncePerSession } from '../lib/analytics';
 import { recordSwipe } from '../lib/matching';
 import type { CompatibilityResult } from '../shared/types';
 
@@ -79,11 +80,22 @@ export default function SwipeStack({
     async (dog: FeedDog) => {
       if (isGuest) {
         advance();
+        trackEvent('guest_like_requires_auth', {
+          dog_id: dog.firestoreId ?? dog.id,
+        });
         onRequireAuthForLike?.();
         return false;
       }
 
       advance();
+      trackEvent('swipe_action', {
+        action: 'like',
+        dog_id: dog.firestoreId ?? dog.id,
+        compatibility_score: dog.compat.score,
+      });
+      trackOncePerSession('first_swipe', 'first_swipe', {
+        action: 'like',
+      });
 
       try {
         const result = await recordSwipe({
@@ -110,10 +122,23 @@ export default function SwipeStack({
     async (dog: FeedDog) => {
       if (isGuest) {
         advance();
+        trackEvent('swipe_action', {
+          action: 'pass',
+          guest: true,
+          dog_id: dog.firestoreId ?? dog.id,
+        });
         return true;
       }
 
       advance();
+      trackEvent('swipe_action', {
+        action: 'pass',
+        dog_id: dog.firestoreId ?? dog.id,
+        compatibility_score: dog.compat.score,
+      });
+      trackOncePerSession('first_swipe', 'first_swipe', {
+        action: 'pass',
+      });
 
       try {
         await recordSwipe({
