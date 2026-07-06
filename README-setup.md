@@ -24,14 +24,14 @@
 
 ```
 godoggydate/
-├── mobile/                     # React Native + Expo SDK 51
+├── mobile/                     # React Native + Expo SDK 54
 │   ├── app/                    # Expo Router screens
 │   │   ├── _layout.tsx         # Root layout (fonts, gesture handler)
 │   │   ├── index.tsx           # Splash → routing
 │   │   ├── onboarding.tsx      # 3-step dog profile creation
 │   │   └── (tabs)/             # Main tab navigator
 │   │       ├── discover.tsx    # Swipe feed
-│   │       ├── matches.tsx     # Matches + chat + rating
+│   │       ├── matches.tsx     # Matches + chat
 │   │       └── profile.tsx     # Dog profile view
 │   └── constants/theme.ts      # Design tokens
 │
@@ -44,7 +44,7 @@ godoggydate/
 │   │   └── api/
 │   │       └── payments/
 │   │           ├── create-intent/route.ts   # Stripe PI creation
-│   │           └── webhook/route.ts         # Stripe webhook
+│   │           └── webhook/route.ts         # Inactive launch stub; Stripe webhook runs in Firebase Functions
 │   └── public/manifest.json    # PWA manifest
 │
 ├── shared/                     # Platform-agnostic code
@@ -95,18 +95,20 @@ godoggydate/
 firebase login
 
 # Create project (or use existing)
-firebase projects:create godoggydate-c6c92 --display-name "GoDoggyDate"
+firebase projects:create <your-firebase-project-id> --display-name "GoDoggyDate"
 
 # Set active project
-firebase use godoggydate-c6c92
+firebase use <your-firebase-project-id>
 ```
 
 ### 3.2 Enable Services
 
 In the [Firebase Console](https://console.firebase.google.com):
-1. **Authentication** → Sign-in methods → Enable **Phone**
-2. **Firestore Database** → Create database → Start in **production mode**
-3. **Storage** → Get started
+1. **Authentication** → Sign-in methods → Enable **Google**
+2. **Authentication** → Sign-in methods → Enable **Anonymous**
+3. For iOS builds, configure **Sign in with Apple** in Apple Developer / App Store Connect and keep `usesAppleSignIn: true` in `mobile/app.config.js`
+4. **Firestore Database** → Create database → Start in **production mode**
+5. **Storage** → Get started
 
 ### 3.3 Deploy Rules & Indexes
 
@@ -127,7 +129,7 @@ firebase deploy --only firestore:indexes
 FIRESTORE_EMULATOR_HOST=localhost:8080 npx ts-node scripts/seed.ts
 
 # Against live project (ensure service account is set up)
-FIREBASE_PROJECT_ID=godoggydate-c6c92 npx ts-node scripts/seed.ts
+FIREBASE_PROJECT_ID=<your-firebase-project-id> npx ts-node scripts/seed.ts
 ```
 
 ### 3.5 Start Emulators (for local dev)
@@ -153,6 +155,10 @@ npm install
 ```bash
 cp ../.env.example .env.local
 # Edit .env.local with your Firebase + Stripe keys
+# Also set:
+# - NEXT_PUBLIC_SITE_URL=https://godoggydate.com
+# - NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+# - GOOGLE_SITE_VERIFICATION=<token from Google Search Console>
 ```
 
 ### 4.3 Run Dev Server
@@ -161,6 +167,8 @@ cp ../.env.example .env.local
 npm run dev
 # http://localhost:3000 — landing page
 # http://localhost:3000/app — web app
+# For mobile-to-web local payments, use `npm run dev:3001` so
+# `EXPO_PUBLIC_PAYMENTS_API_URL=http://localhost:3001` matches the local API origin.
 ```
 
 ### 4.4 Key Files to Customise
@@ -171,6 +179,29 @@ npm run dev
 | `app/globals.css` | Brand colours (CSS variables at top) |
 | `tailwind.config.ts` | Extend colour/font tokens |
 | `app/app/page.tsx` | Web app — replace demo data with Firestore |
+| `ANALYTICS-EVENTS.md` | Web funnel events and GA4 dashboard reference |
+
+### 4.5 Analytics + Search Console
+
+After deployment:
+
+1. Add your GA4 measurement id as `NEXT_PUBLIC_GA_MEASUREMENT_ID`
+2. Add your Search Console token as `GOOGLE_SITE_VERIFICATION`
+3. Redeploy the web app
+4. In Google Search Console, submit:
+
+```text
+https://godoggydate.com/sitemap.xml
+```
+
+5. In GA4 Realtime, verify:
+   - `page_view`
+   - `landing_view`
+   - `cta_click`
+   - `auth_open`
+   - `sign_in_success`
+
+See `ANALYTICS-EVENTS.md` for the full event list and suggested funnel.
 
 ---
 
@@ -217,20 +248,12 @@ npx expo install @expo-google-fonts/fraunces @expo-google-fonts/nunito expo-font
 | `app/(tabs)/discover.tsx` | Swipe card layout, feed logic |
 | `app.config.js` | Bundle ID, app name, icons, Expo EAS project id |
 
-### 5.6 Replace Demo Data with Firebase
+### 5.6 Discover Feed
 
-In `discover.tsx`, replace the static `FEED` array with a Firestore query:
-
-```typescript
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { getFirebase } from '../../../shared/utils/firebase';
-
-const { db } = getFirebase();
-const snap = await getDocs(
-  query(collection(db, 'dogs'), where('location', '!=', null))
-);
-const dogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-```
+The current mobile app already reads discover candidates from Firestore and
+applies compatibility + local radius filtering. The remaining launch task is
+operational: make sure your canonical Firebase project has real dog profiles,
+rules, indexes, and location data.
 
 ---
 
@@ -245,8 +268,8 @@ const dogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 ### 6.2 Wire Webhook (local testing)
 
 ```bash
-# Start Stripe CLI listener
-stripe listen --forward-to localhost:3000/api/payments/webhook
+# Start Stripe CLI listener and forward to the deployed Firebase Function
+stripe listen --forward-to https://us-central1-<your-firebase-project-id>.cloudfunctions.net/stripeWebhook
 
 # This prints a webhook signing secret — add it as STRIPE_WEBHOOK_SECRET
 ```
@@ -260,8 +283,13 @@ stripe listen --forward-to localhost:3000/api/payments/webhook
 ### 6.4 Production Webhook
 
 In your [Stripe Dashboard](https://dashboard.stripe.com/webhooks):
-1. Add endpoint: `https://godoggydate.com/api/payments/webhook`
-2. Select event: `payment_intent.succeeded`
+1. Add endpoint: `https://us-central1-<your-firebase-project-id>.cloudfunctions.net/stripeWebhook`
+2. Select events:
+   - `payment_intent.succeeded`
+   - `payment_intent.payment_failed`
+   - `payment_intent.canceled`
+   - `charge.refunded`
+   - `charge.dispute.created`
 3. Copy the signing secret → `STRIPE_WEBHOOK_SECRET`
 
 ### 6.5 Mobile Stripe Setup
@@ -340,8 +368,9 @@ eas submit --platform android
            │                               │
            ▼                               ▼
 ┌──────────────────────┐    ┌─────────────────────────┐
-│   Firebase Auth      │    │  Next.js API Routes     │
-│   (Phone OTP)        │    │  /api/payments/*        │
+│   Firebase Auth      │    │  Next.js API Route      │
+│ Google / Apple /     │    │ /api/payments/create-   │
+│ Anonymous guest      │    │ intent                  │
 └──────────┬───────────┘    └────────────┬────────────┘
            │                             │
            ▼                             ▼
@@ -355,7 +384,7 @@ eas submit --platform android
 │  Firebase Functions  │
 │  - stripeWebhook     │
 │  - onRatingCreated   │
-│  - cleanupStale      │
+│  - cleanupStaleMatches │
 └──────────────────────┘
 ```
 
@@ -376,7 +405,7 @@ Client confirms payment (Stripe SDK)
         ↓
 Stripe fires payment_intent.succeeded webhook
         ↓
-Firebase Function updates match.chatUnlocked = true
+Firebase Function updates the payer's chat unlock state
         ↓
 Chat opens 🎉
 ```
@@ -434,10 +463,13 @@ trustScore = clamp(weightedAvgStars/5 + confidenceBonus, 0, 1)
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Web | Stripe client key |
 | `STRIPE_SECRET_KEY` | Web server only | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Web server only | Stripe webhook signing secret |
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Web | Mapbox GL JS token |
-| `EXPO_PUBLIC_MAPBOX_TOKEN` | Mobile | Mapbox token |
+| `NEXT_PUBLIC_APP_URL` | Web | Public web origin used by metadata and SSR integrations |
+| `EXPO_PUBLIC_PAYMENTS_API_URL` | Mobile | Base URL for `/api/payments/create-intent` |
+| `EXPO_PUBLIC_WEB_URL` | Mobile | Optional fallback base URL for the main web origin |
 | `FIREBASE_PROJECT_ID` | Scripts/Functions | Firebase project ID |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Scripts/Functions | Path to service account JSON |
+| `FIREBASE_CLIENT_EMAIL` | Web host / scripts | Firebase Admin client email |
+| `FIREBASE_PRIVATE_KEY` | Web host / scripts | Firebase Admin private key |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Scripts/Functions | Optional path to service account JSON for local admin usage |
 
 ---
 
@@ -498,4 +530,4 @@ cd mobile && npx expo start
 
 ---
 
-*Built with ❤️ for dogs everywhere. Questions? hello@godoggydate.com*
+*Built with ❤️ for dogs everywhere.*

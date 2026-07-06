@@ -7,6 +7,8 @@ This guide is for local testing with:
 - Firebase project `godoggydate`
 - Stripe test mode
 
+Before you start, run `npm run audit:runtime-config` from the repo root and make sure your local runtime files all point at the same Firebase project.
+
 ## 1. Start Services
 
 ### Web API on port 3001
@@ -123,6 +125,7 @@ After successful payment:
 - PaymentSheet completes successfully
 - Stripe webhook receives `payment_intent.succeeded`
 - Firebase Function `stripeWebhook` updates:
+  - `matches/{matchId}.dog1ChatUnlocked = true` or `dog2ChatUnlocked = true`
   - `matches/{matchId}.chatUnlocked = true`
   - `paymentId`
   - `unlockedAt`
