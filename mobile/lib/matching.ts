@@ -39,20 +39,24 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
     return { isMatch: false };
   }
 
+  // Rules only allow reading a reverse decision that targets us AND is a
+  // 'like' — a missing doc or a 'pass' both surface as permission-denied.
   const reverseRef = doc(db, 'swipes', targetUserId, 'decisions', currentDogId);
-  const reverseSnap = await getDoc(reverseRef);
-  if (!reverseSnap.exists() || reverseSnap.data()?.action !== 'like') {
+  const reverseSnap = await getDoc(reverseRef).catch(() => null);
+  if (!reverseSnap?.exists() || reverseSnap.data()?.action !== 'like') {
     return { isMatch: false };
   }
 
+  // No existence pre-read: rules deny `get` on a nonexistent match doc, so a
+  // pre-read throws exactly when the match doesn't exist yet. Attempt the
+  // create; on denial, confirm the match already exists by reading it.
   const matchId = makeMatchId(currentUserId, targetUserId);
   const matchRef = doc(db, 'matches', matchId);
-  const existingMatch = await getDoc(matchRef);
-  if (!existingMatch.exists()) {
-    const [dog1UserId, dog2UserId] = [currentUserId, targetUserId].sort();
-    const dog1Id = dog1UserId === currentUserId ? currentDogId : targetDogId;
-    const dog2Id = dog2UserId === currentUserId ? currentDogId : targetDogId;
+  const [dog1UserId, dog2UserId] = [currentUserId, targetUserId].sort();
+  const dog1Id = dog1UserId === currentUserId ? currentDogId : targetDogId;
+  const dog2Id = dog2UserId === currentUserId ? currentDogId : targetDogId;
 
+  try {
     await setDoc(matchRef, {
       dog1Id,
       dog2Id,
@@ -68,6 +72,9 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
       dog1LastReadAt: null,
       dog2LastReadAt: null,
     });
+  } catch (error) {
+    const existing = await getDoc(matchRef).catch(() => null);
+    if (!existing?.exists()) throw error;
   }
 
   return { isMatch: true, matchId };

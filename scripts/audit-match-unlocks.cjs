@@ -28,19 +28,26 @@ async function main() {
   for (const matchDoc of matchesSnap.docs) {
     const data = matchDoc.data();
     const unlocks = unlocksByMatch.get(matchDoc.id) || [];
-    const expectedAnyUnlocked = Boolean(data.dog1ChatUnlocked) || Boolean(data.dog2ChatUnlocked);
+    const anyPerUserUnlocked = Boolean(data.dog1ChatUnlocked) || Boolean(data.dog2ChatUnlocked);
 
-    if (Boolean(data.chatUnlocked) !== expectedAnyUnlocked) {
+    // Semantics: one payment unlocks both sides, so chatUnlocked=true with
+    // per-user flags false is VALID (legacy paid docs). The revenue-losing
+    // direction is the only inconsistency: a per-user flag says paid but the
+    // shared chatUnlocked gate is still false.
+    if (anyPerUserUnlocked && !data.chatUnlocked) {
       issues += 1;
-      console.log(`Mismatch: matches/${matchDoc.id} chatUnlocked=${data.chatUnlocked} but per-user fields say ${expectedAnyUnlocked}`);
+      console.log(`Mismatch: matches/${matchDoc.id} has a per-user unlock but chatUnlocked=false — paying user is locked out`);
     }
 
     for (const unlock of unlocks) {
       if (unlock.status === 'succeeded') {
+        // A succeeded payment must open the chat: either via the payer's
+        // per-user flag (new writes) or the shared chatUnlocked gate (legacy).
         const field = unlock.unlockField;
-        if (!field || data[field] !== true) {
+        const reflected = (field && data[field] === true) || data.chatUnlocked === true;
+        if (!reflected) {
           issues += 1;
-          console.log(`Mismatch: matchUnlocks/${unlock.id} succeeded but ${field || 'unknown field'} is not true on matches/${matchDoc.id}`);
+          console.log(`Mismatch: matchUnlocks/${unlock.id} succeeded but matches/${matchDoc.id} is still locked`);
         }
       }
     }

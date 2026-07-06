@@ -6,11 +6,16 @@ Run these before any soft launch or public launch:
 2. `cd web && npm run build && npm run lint && npm run typecheck`
 3. `cd mobile && npm run lint && npm run typecheck`
 4. `cd firebase/functions && npm run build`
-5. Verify the deployed Stripe webhook points to the Firebase Function `stripeWebhook`
+5. Verify the deployed Stripe webhook points to the Firebase Function `stripeWebhook` and is
+   subscribed to: `payment_intent.succeeded`, `payment_intent.payment_failed`,
+   `payment_intent.canceled`, `charge.refunded`, `charge.dispute.created`,
+   `checkout.session.completed` (Founding Member payment link)
 6. Complete a real Stripe test payment and verify:
-   - only the paying user gets chat access
+   - one payment unlocks chat for BOTH matched users (both-sides semantics)
    - a second tap reuses the same pending intent or returns a safe conflict
    - a replayed webhook does not create duplicate payment records
+   - a Founding Member payment-link purchase grants `users/{uid}/private/entitlements.lifetimeChatUnlocks`
+     and opens every locked chat for that user
 7. Run `npm run audit:match-unlocks` against the target Firebase project after test payments
 8. Confirm web, mobile, scripts, and Firebase deploys all target the same canonical Firebase project id
 9. Set `NEXT_PUBLIC_GA_MEASUREMENT_ID`, deploy, and verify GA4 Realtime shows:
@@ -29,3 +34,5 @@ Manual checks still required:
 - Provision `NEXT_PUBLIC_GA_MEASUREMENT_ID` and `GOOGLE_SITE_VERIFICATION` on the web host
 - Regenerate `web/package-lock.json` on a machine with network access before final CI/prod deploy
 - Update Stripe Dashboard webhooks to the deployed Firebase Function URL, not the inactive Next.js webhook stubs
+- Create the $39 Founding Member Payment Link in Stripe and set `NEXT_PUBLIC_FOUNDING_MEMBER_PAYMENT_LINK` on the web host (CTA stays hidden until set)
+- After deploying updated firestore.rules, confirm a mutual like creates a match (the pre-fix rules blocked the reverse-swipe read, so no match could ever be created)

@@ -21,8 +21,16 @@ import { getPrimaryRenderablePhoto } from '../../../../lib/photos';
 import { trackEvent } from '../../../../lib/analytics';
 import { isUserChatUnlocked } from '../../../../../shared/matchAccess';
 import ChatUnlockPanel, { isSeedUserId } from '../../../../components/ChatUnlockPanel';
+import { blockUser } from '../../../../lib/blocks';
+import { onEntitlements, getFoundingMemberLink } from '../../../../lib/entitlements';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+
+interface PlaydateDetails {
+  date:  string;
+  time:  string;
+  place: string;
+}
 
 interface Message {
   id:         string;
@@ -30,12 +38,19 @@ interface Message {
   fromUserId: string;
   createdAt:  { seconds: number } | null;
   isSystem?:  boolean;
+  type?:      'playdate_proposal' | 'playdate_confirmed';
+  playdate?:  PlaydateDetails;
+}
+
+function playdateKey(p?: PlaydateDetails): string {
+  return p ? `${p.date}|${p.time}|${p.place}` : '';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const SAFETY_TIP = '🐾 Tip: Always meet in a public place for your first playdate.';
 const MATCH_THREAD_PREVIEW = 'New message';
+const MAX_MESSAGE_LENGTH = 1000;
 
 function buildSmartPromptsFromProfile(profile: {
   name?: string;
@@ -99,11 +114,15 @@ export default function ChatPage() {
   const [messages, setMessages]             = useState<Message[]>([]);
   const [chatInput, setChatInput]           = useState('');
   const [sending, setSending]               = useState(false);
+  const [sendError, setSendError]           = useState<string | null>(null);
   const [chatUnlocked, setChatUnlocked]     = useState(false);
+  const [hasLifetime, setHasLifetime]       = useState(false);
   const [accessDenied, setAccessDenied]     = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [showReportMenu, setShowReportMenu] = useState(false);
   const [reportDone, setReportDone]         = useState<string | null>(null);
+  const [showPlaydateForm, setShowPlaydateForm] = useState(false);
+  const [playdateDraft, setPlaydateDraft]   = useState<PlaydateDetails>({ date: '', time: '', place: '' });
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +135,15 @@ export default function ChatPage() {
     });
     return unsub;
   }, []);
+
+  // ── Founding Member entitlement (unlocks every chat, no per-match payment) ───
+  useEffect(() => {
+    if (!authUser) return;
+    return onEntitlements(authUser.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
+  }, [authUser]);
+
+  // Effective chat access: per-match unlock OR lifetime entitlement.
+  const canChat = chatUnlocked || hasLifetime;
 
   // ── Validate match access + load counterpart profile ─────────────────────────
   // Realtime listener (not a one-time getDoc): once a payment succeeds, the
@@ -176,7 +204,7 @@ export default function ChatPage() {
 
   // ── Real-time messages listener ───────────────────────────────────────────────
   useEffect(() => {
-    if (!matchId || accessDenied || !chatUnlocked) return;
+    if (!matchId || accessDenied || !canChat) return;
 
     const { db } = getFirebase();
     const msgsRef = collection(db, 'matches', matchId, 'messages');
@@ -189,19 +217,21 @@ export default function ChatPage() {
         fromUserId: (d.data().fromUserId ?? d.data().senderId ?? '') as string,
         createdAt:  d.data().createdAt ?? null,
         isSystem:   d.data().isSystem ?? false,
+        type:       d.data().type,
+        playdate:   d.data().playdate,
       }));
       setMessages(msgs);
     });
 
     return unsub;
-  }, [matchId, accessDenied, chatUnlocked]);
+  }, [matchId, accessDenied, canChat]);
 
   useEffect(() => {
     if (!matchId || authLoading || loadingProfile || accessDenied) return;
-    trackEvent(chatUnlocked ? 'chat_view' : 'chat_unlock_prompt_view', {
+    trackEvent(canChat ? 'chat_view' : 'chat_unlock_prompt_view', {
       match_id: matchId,
     });
-  }, [accessDenied, authLoading, chatUnlocked, loadingProfile, matchId]);
+  }, [accessDenied, authLoading, canChat, loadingProfile, matchId]);
 
   // ── Auto-scroll to bottom on new messages ────────────────────────────────────
   useEffect(() => {
@@ -209,11 +239,16 @@ export default function ChatPage() {
   }, [messages]);
 
   // ── Send message ──────────────────────────────────────────────────────────────
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || !authUser || !matchId || sending || !chatUnlocked) return;
+  const sendMessage = useCallback(async (
+    text: string,
+    extra?: { type: Message['type']; playdate: PlaydateDetails },
+  ): Promise<boolean> => {
+    if (!text.trim() || !authUser || !matchId || sending || !canChat) return false;
     setSending(true);
-    const trimmed = text.trim();
+    setSendError(null);
+    const trimmed = text.trim().slice(0, MAX_MESSAGE_LENGTH);
     setChatInput('');
+    let delivered = false;
 
     try {
       const { db } = getFirebase();
@@ -231,7 +266,9 @@ export default function ChatPage() {
           senderId: authUser.uid,
           isSystem: false,
           createdAt: serverTimestamp(),
+          ...(extra ? { type: extra.type, playdate: extra.playdate } : {}),
         });
+        delivered = true;
         console.info('[chat] message create succeeded', { matchId });
         trackEvent('message_sent', {
           match_id: matchId,
@@ -257,16 +294,72 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.warn('Message send failed:', err);
+      if (!delivered) {
+        // Restore the draft and tell the user — silent loss is worse.
+        setChatInput(trimmed);
+        setSendError('Message didn’t send — check your connection and try again.');
+        setTimeout(() => setSendError(null), 4000);
+      }
     } finally {
       setSending(false);
     }
-  }, [authUser, chatUnlocked, matchId, messages.length, sending]);
+    return delivered;
+  }, [authUser, canChat, matchId, messages.length, sending]);
+
+  // ── Playdates (the product's north-star action) ───────────────────────────────
+  const confirmedPlaydateKeys = new Set(
+    messages.filter((m) => m.type === 'playdate_confirmed').map((m) => playdateKey(m.playdate)),
+  );
+
+  const proposePlaydate = useCallback(async () => {
+    const { date, time, place } = playdateDraft;
+    if (!date || !place.trim()) return;
+    const when = time ? `${date} at ${time}` : date;
+    const delivered = await sendMessage(`📅 Playdate proposal: ${when} — ${place.trim()}`, {
+      type: 'playdate_proposal',
+      playdate: { date, time, place: place.trim() },
+    });
+    if (!delivered) return; // keep the form + draft so the user can retry
+    trackEvent('playdate_proposed', { match_id: matchId });
+    setShowPlaydateForm(false);
+    setPlaydateDraft({ date: '', time: '', place: '' });
+  }, [playdateDraft, sendMessage, matchId]);
+
+  const acceptPlaydate = useCallback(async (proposal: Message) => {
+    if (!proposal.playdate) return;
+    const { date, time, place } = proposal.playdate;
+    const when = time ? `${date} at ${time}` : date;
+    const delivered = await sendMessage(`✅ Playdate confirmed: ${when} — ${place}`, {
+      type: 'playdate_confirmed',
+      playdate: proposal.playdate,
+    });
+    if (delivered) {
+      trackEvent('playdate_confirmed', { match_id: matchId });
+    }
+  }, [sendMessage, matchId]);
 
   // ── Block / Report ────────────────────────────────────────────────────────────
   const handleReport = useCallback(async (reason: 'block' | 'spam' | 'inappropriate') => {
     if (!authUser || !otherUserId) return;
     const { db } = getFirebase();
-    const reportId = `${authUser.uid}_${otherUserId}`;
+
+    // Block FIRST and independently — the safety action must not be skipped
+    // because the report write fails (e.g. repeat reports: rules forbid
+    // updating an existing report doc).
+    if (reason === 'block') {
+      try {
+        await blockUser(authUser.uid, otherUserId);
+      } catch (error) {
+        console.error('Block failed:', error);
+        setReportDone('Block failed — check your connection and try again.');
+        setShowReportMenu(false);
+        setTimeout(() => setReportDone(null), 3000);
+        return;
+      }
+    }
+
+    // Unique id per submission so repeat reports are creates, never updates.
+    const reportId = `${authUser.uid}_${otherUserId}_${Date.now()}`;
     try {
       await setDoc(doc(db, 'reports', reportId), {
         reporterId:   authUser.uid,
@@ -367,6 +460,13 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* Send-failure toast */}
+      {sendError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white text-sm font-semibold rounded-full px-5 py-2.5 shadow-lg max-w-[90vw] text-center">
+          {sendError}
+        </div>
+      )}
+
       {/* Header */}
       <header className="shrink-0 z-40 bg-white/95 backdrop-blur border-b border-border px-4 h-16 flex items-center gap-3">
         <Link href="/app/messages" className="text-2xl text-brown-light hover:text-brown transition-colors" aria-label="Back">
@@ -387,7 +487,7 @@ export default function ChatPage() {
           )}
         </div>
         <div className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1">
-          {chatUnlocked ? 'Chat unlocked' : 'Chat locked'}
+          {canChat ? 'Chat unlocked' : 'Chat locked'}
         </div>
         <button
           onClick={() => setShowReportMenu(true)}
@@ -400,7 +500,7 @@ export default function ChatPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-        {!chatUnlocked && (
+        {!canChat && (
           <div className="rounded-[1.5rem] border border-border bg-white px-4 py-4 text-center shadow-sm">
             {isSeedUserId(otherUserId) ? (
               <>
@@ -416,6 +516,16 @@ export default function ChatPage() {
                   A one-time $4.99 opens chat for life with {dogName}. No subscription, no auto-renew.
                 </p>
                 <ChatUnlockPanel matchId={matchId} dogName={dogName} />
+                {getFoundingMemberLink(authUser.uid) && (
+                  <a
+                    href={getFoundingMemberLink(authUser.uid)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 block text-xs font-semibold text-primary underline underline-offset-2"
+                  >
+                    🐾 Or become a Founding Member — every chat unlocked for life, one-time $39
+                  </a>
+                )}
               </>
             )}
             <p className="mt-3 text-xs leading-relaxed text-brown-light">
@@ -423,7 +533,7 @@ export default function ChatPage() {
             </p>
           </div>
         )}
-        {chatUnlocked && (
+        {canChat && (
           <div className="rounded-[1.25rem] border border-primary/15 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-brown-light">
             {SAFETY_TIP}
           </div>
@@ -432,34 +542,119 @@ export default function ChatPage() {
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-16">
             <span className="text-5xl">👋</span>
             <p className="font-display text-2xl text-brown">
-              {chatUnlocked ? 'Start the conversation' : 'Chat is locked'}
+              {canChat ? 'Start the conversation' : 'Chat is locked'}
             </p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              {chatUnlocked
+              {canChat
                 ? `Send the first message to ${dogName}. A simple hello is all it takes.`
                 : `Unlock this match above to send ${dogName} your first message.`}
             </p>
           </div>
         )}
-        {messages.map((msg) => (
-          <ChatBubble
-            key={msg.id}
-            text={msg.text}
-            fromMe={msg.fromUserId === authUser.uid}
-            isSystem={msg.isSystem}
-            time={msg.isSystem ? undefined : formatTime(msg.createdAt)}
-          />
-        ))}
+        {messages.map((msg) => {
+          if (msg.type === 'playdate_proposal' && msg.playdate) {
+            const fromMe = msg.fromUserId === authUser.uid;
+            const confirmed = confirmedPlaydateKeys.has(playdateKey(msg.playdate));
+            return (
+              <div
+                key={msg.id}
+                className={`max-w-[85%] rounded-[1.25rem] border px-4 py-3 shadow-sm ${
+                  fromMe ? 'self-end border-primary/25 bg-primary/5' : 'self-start border-border bg-white'
+                }`}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+                  📅 Playdate {confirmed ? '· Confirmed' : 'proposal'}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-brown">
+                  {msg.playdate.date}{msg.playdate.time ? ` at ${msg.playdate.time}` : ''}
+                </p>
+                <p className="text-sm text-brown-light">{msg.playdate.place}</p>
+                {!fromMe && !confirmed && (
+                  <button
+                    onClick={() => acceptPlaydate(msg)}
+                    disabled={sending}
+                    className="mt-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm hover:scale-105 transition-transform disabled:opacity-50"
+                  >
+                    Accept playdate
+                  </button>
+                )}
+                <p className="mt-1.5 text-[10px] text-brown-light">{formatTime(msg.createdAt)}</p>
+              </div>
+            );
+          }
+          return (
+            <ChatBubble
+              key={msg.id}
+              text={msg.text}
+              fromMe={msg.fromUserId === authUser.uid}
+              isSystem={msg.isSystem}
+              time={msg.isSystem ? undefined : formatTime(msg.createdAt)}
+            />
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
+      {/* Playdate proposal form */}
+      {showPlaydateForm && canChat && (
+        <div className="shrink-0 border-t border-border bg-white px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary mb-2">📅 Propose a playdate</p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="date"
+              value={playdateDraft.date}
+              onChange={(e) => setPlaydateDraft((d) => ({ ...d, date: e.target.value }))}
+              className="bg-cream rounded-xl px-3 py-2 text-sm text-brown outline-none border border-transparent focus:border-primary/30"
+              aria-label="Playdate date"
+            />
+            <input
+              type="time"
+              value={playdateDraft.time}
+              onChange={(e) => setPlaydateDraft((d) => ({ ...d, time: e.target.value }))}
+              className="bg-cream rounded-xl px-3 py-2 text-sm text-brown outline-none border border-transparent focus:border-primary/30"
+              aria-label="Playdate time"
+            />
+            <input
+              type="text"
+              placeholder="Where? (e.g. Maple Dog Park)"
+              value={playdateDraft.place}
+              onChange={(e) => setPlaydateDraft((d) => ({ ...d, place: e.target.value }))}
+              className="flex-1 min-w-[10rem] bg-cream rounded-xl px-3 py-2 text-sm text-brown placeholder:text-brown-light outline-none border border-transparent focus:border-primary/30"
+              aria-label="Playdate place"
+            />
+          </div>
+          <div className="mt-2 flex gap-2">
+            <button
+              onClick={proposePlaydate}
+              disabled={!playdateDraft.date || !playdateDraft.place.trim() || sending}
+              className="rounded-full bg-primary px-5 py-2 text-xs font-bold text-white shadow-sm disabled:opacity-45"
+            >
+              Send proposal
+            </button>
+            <button
+              onClick={() => setShowPlaydateForm(false)}
+              className="rounded-full px-4 py-2 text-xs font-semibold text-brown-light hover:text-brown"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Context-aware smart prompts */}
       <div className="shrink-0 overflow-x-auto flex gap-2 px-4 py-2.5 bg-white border-t border-border">
+        <button
+          onClick={() => setShowPlaydateForm((v) => !v)}
+          disabled={!canChat || sending}
+          className="shrink-0 bg-gold/20 text-brown font-semibold text-xs rounded-full px-3 py-2 hover:bg-gold/30 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          📅 Propose playdate
+        </button>
         {buildSmartPromptsFromProfile(otherProfile).map((p) => (
           <button
             key={p}
             onClick={() => sendMessage(p)}
-            disabled={!chatUnlocked || sending}
+            disabled={!canChat || sending}
             className="shrink-0 bg-primary/10 text-primary font-semibold text-xs rounded-full px-3 py-2 hover:bg-primary/20 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-45"
           >
             {p}
@@ -475,12 +670,13 @@ export default function ChatPage() {
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(chatInput)}
-          disabled={sending || !chatUnlocked}
+          disabled={sending || !canChat}
+          maxLength={MAX_MESSAGE_LENGTH}
           autoComplete="off"
         />
         <button
           onClick={() => sendMessage(chatInput)}
-          disabled={!chatInput.trim() || sending || !chatUnlocked}
+          disabled={!chatInput.trim() || sending || !canChat}
           className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-md hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 shrink-0"
           aria-label="Send"
         >

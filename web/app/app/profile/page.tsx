@@ -19,6 +19,7 @@ import type { User, SavedDogProfile } from '../../../lib/auth';
 import DogProfileForm from '../../../components/DogProfileForm';
 import { trackEvent } from '../../../lib/analytics';
 import { getRenderablePhotos } from '../../../lib/photos';
+import { deleteAccount } from '../../../lib/account';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -30,6 +31,9 @@ export default function ProfilePage() {
   const [saving,       setSaving]       = useState(false);
   const [signingOut,   setSigningOut]   = useState(false);
   const [saveError,    setSaveError]    = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting,     setDeleting]     = useState(false);
+  const [deleteError,  setDeleteError]  = useState<string | null>(null);
 
   // ── Auth observer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -60,6 +64,20 @@ export default function ProfilePage() {
       await signOutUser();
     } finally {
       router.replace('/');
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      trackEvent('account_delete_requested');
+      await deleteAccount();
+      router.replace('/');
+    } catch (err) {
+      console.error('Account deletion failed:', err);
+      setDeleteError('We could not delete your account right now. Please try again or email support@godoggydate.com.');
+      setDeleting(false);
     }
   }
 
@@ -280,11 +298,47 @@ export default function ProfilePage() {
             <button
               onClick={handleSignOut}
               disabled={signingOut}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 rounded-b-2xl"
+              className="w-full flex items-center justify-between px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
             >
               <span>{signingOut ? 'Signing out…' : 'Sign out'}</span>
               <span>→</span>
             </button>
+
+            {/* Delete account */}
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown-light hover:text-red-600 hover:bg-red-50 transition-colors rounded-b-2xl"
+              >
+                <span>Delete account</span>
+                <span>→</span>
+              </button>
+            ) : (
+              <div className="px-4 py-4 rounded-b-2xl bg-red-50/60">
+                <p className="text-sm font-semibold text-red-700">Delete your account permanently?</p>
+                <p className="mt-1 text-xs leading-relaxed text-brown-light">
+                  This removes your dog&apos;s profile, all matches, messages, and swipe history.
+                  Chat unlock purchases are not refunded. This cannot be undone.
+                </p>
+                {deleteError && <p className="mt-2 text-xs text-red-600">{deleteError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                  </button>
+                  <button
+                    onClick={() => { setConfirmDelete(false); setDeleteError(null); }}
+                    disabled={deleting}
+                    className="rounded-full px-4 py-2 text-xs font-semibold text-brown-light hover:text-brown disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <Link

@@ -8,6 +8,10 @@ const db = admin.firestore();
 const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
 const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 
+// Founding Member lifetime tier — checkout sessions below this amount never
+// grant the entitlement ($39.00).
+const FOUNDING_MEMBER_MIN_CENTS = 3900;
+
 type MatchData = FirebaseFirestore.DocumentData & {
   dog1UserId?: string;
   dog2UserId?: string;
@@ -259,7 +263,21 @@ export const stripeWebhook = functions
         if (paymentIntentId) {
           const paymentSnap = await db.doc(`payments/${paymentIntentId}`).get();
           if (paymentSnap.exists) {
-            const paymentData = paymentSnap.data() as StoredPaymentDoc;
+            const paymentData = paymentSnap.data() as StoredPaymentDoc & { type?: string };
+
+            // Founding Member refund/dispute → revoke the lifetime entitlement.
+            if (paymentData.type === 'founding_member' && paymentData.userId) {
+              await db.doc(`users/${paymentData.userId}/private/entitlements`).set({
+                lifetimeChatUnlocks: false,
+                revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+                revokedReason: event.type === 'charge.refunded' ? 'refunded' : 'disputed',
+              }, { merge: true });
+              await db.doc(`payments/${paymentIntentId}`).set({
+                status: event.type === 'charge.refunded' ? 'refunded' : 'disputed',
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              }, { merge: true });
+            }
+
             if (paymentData.matchId && paymentData.userId && paymentData.unlockField) {
               await upsertMatchUnlockState(
                 paymentData.matchId,
@@ -285,6 +303,60 @@ export const stripeWebhook = functions
         return;
       }
 
+      if (
+        event.type === 'checkout.session.completed' ||
+        event.type === 'checkout.session.async_payment_succeeded'
+      ) {
+        // Founding Member lifetime purchase via a Stripe Payment Link.
+        // The marketing site appends ?client_reference_id=<uid> to the link,
+        // so the session carries the purchasing user's Firebase uid.
+        // Guards: must actually be paid, and must be at least the Founding
+        // Member price — a cheaper product on this Stripe account must never
+        // grant the entitlement.
+        const session = event.data.object as Stripe.Checkout.Session;
+        const uid = session.client_reference_id;
+        const paidEnough =
+          session.payment_status === 'paid' &&
+          (session.amount_total ?? 0) >= FOUNDING_MEMBER_MIN_CENTS &&
+          session.currency === 'usd';
+        const paymentIntentId =
+          typeof session.payment_intent === 'string' ? session.payment_intent : '';
+
+        if (uid && paidEnough) {
+          await db.doc(`users/${uid}/private/entitlements`).set({
+            lifetimeChatUnlocks: true,
+            source: 'founding_member',
+            checkoutSessionId: session.id,
+            paymentIntentId: paymentIntentId || null,
+            amountTotal: session.amount_total ?? null,
+            currency: session.currency ?? null,
+            grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+
+          // Record the payment so charge.refunded / dispute events can find
+          // and revoke this entitlement (they look up payments/{paymentIntentId}).
+          if (paymentIntentId) {
+            await db.doc(`payments/${paymentIntentId}`).set({
+              type: 'founding_member',
+              userId: uid,
+              checkoutSessionId: session.id,
+              status: 'succeeded',
+              amount: session.amount_total ?? null,
+              currency: session.currency ?? null,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+          }
+        }
+
+        await finalizeStripeEvent(event.id, uid && paidEnough ? 'processed' : 'ignored', {
+          checkoutSessionId: session.id,
+          hasClientReference: Boolean(uid),
+          paidEnough,
+        });
+        res.json({ received: true });
+        return;
+      }
+
       await finalizeStripeEvent(event.id, 'ignored');
       res.json({ received: true, ignored: true });
     } catch (error) {
@@ -293,9 +365,11 @@ export const stripeWebhook = functions
         eventType: event.type,
         error,
       });
-      await finalizeStripeEvent(event.id, 'ignored', {
-        error: error instanceof Error ? error.message : 'Unknown webhook processing error',
-      });
+      // Delete the started-marker so Stripe's retry of this event is NOT
+      // treated as a duplicate — otherwise a transient failure permanently
+      // drops the event (e.g. a paid Founding Member never gets the grant).
+      // All handlers are idempotent writes, so reprocessing is safe.
+      await db.collection('stripeEvents').doc(event.id).delete().catch(() => undefined);
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   });
@@ -347,6 +421,71 @@ export const onRatingCreated = functions.firestore
     });
   });
 
+// ── Account deletion (GDPR/CCPA + App Store requirement) ──────────────────────
+// Deletes all of the caller's data, then the auth user itself. Client signs
+// the user out after this resolves. Matches the user participates in are
+// removed (including message subcollections) so the counterpart doesn't see
+// a ghost thread.
+
+export const deleteAccount = functions
+  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .https.onCall(async (_data, context) => {
+    const uid = context.auth?.uid;
+    if (!uid) {
+      throw new functions.https.HttpsError('unauthenticated', 'Sign in to delete your account.');
+    }
+
+    // Matches in every participant slot, including legacy userAId/userBId docs.
+    const matchQueries = await Promise.all([
+      db.collection('matches').where('dog1UserId', '==', uid).get(),
+      db.collection('matches').where('dog2UserId', '==', uid).get(),
+      db.collection('matches').where('userAId', '==', uid).get(),
+      db.collection('matches').where('userBId', '==', uid).get(),
+    ]);
+    const matchRefs = new Map<string, FirebaseFirestore.DocumentReference>();
+    for (const snap of matchQueries) {
+      for (const d of snap.docs) matchRefs.set(d.id, d.ref);
+    }
+    for (const ref of matchRefs.values()) {
+      await db.recursiveDelete(ref);
+    }
+
+    // Other users' swipe decisions that target this user (collection-group;
+    // requires the decisions.targetUserId COLLECTION_GROUP index).
+    try {
+      const targeting = await db
+        .collectionGroup('decisions')
+        .where('targetUserId', '==', uid)
+        .get();
+      const batch = db.batch();
+      targeting.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    } catch (error) {
+      // Missing index must not strand the rest of the deletion.
+      console.error('deleteAccount: could not delete targeting decisions', { uid, error });
+    }
+
+    // Ratings written by this user and reports they filed.
+    for (const [col, field] of [['ratings', 'raterId'], ['reports', 'reporterId']] as const) {
+      const snap = await db.collection(col).where(field, '==', uid).get();
+      const batch = db.batch();
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    await db.recursiveDelete(db.doc(`swipes/${uid}`));
+    await db.recursiveDelete(db.doc(`blocks/${uid}`));
+    await db.recursiveDelete(db.doc(`users/${uid}`));
+    await db.doc(`dogs/${uid}`).delete();
+
+    // payments/matchUnlocks/stripeEvents are retained: financial records
+    // needed for refund/dispute defense (legitimate-interest retention).
+
+    await admin.auth().deleteUser(uid);
+
+    return { deleted: true };
+  });
+
 // ── Cleanup: delete matches older than 180 days with no chat activity ──────────
 // Widened from 30 days: a short window was silently destroying paywalled
 // revenue opportunities (a user returning after 30 days found the match gone).
@@ -361,8 +500,15 @@ export const cleanupStaleMatches = functions.pubsub
       .where('createdAt', '<', cutoff)
       .get();
 
-    const batch = db.batch();
-    snap.docs.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-    console.log(`Deleted ${snap.size} stale matches`);
+    // Never delete a conversation with activity: Founding Members chat via
+    // entitlement without ever flipping chatUnlocked, so lastMessage is the
+    // real signal. recursiveDelete also clears the messages subcollection
+    // (a plain batch delete would orphan it).
+    let deleted = 0;
+    for (const d of snap.docs) {
+      if (d.data().lastMessage != null) continue;
+      await db.recursiveDelete(d.ref);
+      deleted += 1;
+    }
+    console.log(`Deleted ${deleted} stale matches (${snap.size - deleted} skipped for activity)`);
   });

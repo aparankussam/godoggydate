@@ -18,6 +18,8 @@ import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getPrimaryRenderablePhoto } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
+import { getBlockedUserIds } from '../../../lib/blocks';
+import { getEntitlements } from '../../../lib/entitlements';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,9 +51,11 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
 
   // Firestore doesn't support OR across different fields in one query —
   // run two queries and merge, deduplicating by matchId.
-  const [snap1, snap2] = await Promise.all([
+  const [snap1, snap2, blockedIds, entitlements] = await Promise.all([
     getDocs(query(col, where('dog1UserId', '==', uid), orderBy('createdAt', 'desc'))),
     getDocs(query(col, where('dog2UserId', '==', uid), orderBy('createdAt', 'desc'))),
+    getBlockedUserIds(uid),
+    getEntitlements(uid),
   ]);
 
   const seen = new Set<string>();
@@ -64,7 +68,7 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
         docs.push({
           ...data,
           matchId: d.id,
-          chatUnlocked: isUserChatUnlocked(data, uid),
+          chatUnlocked: isUserChatUnlocked(data, uid) || entitlements.lifetimeChatUnlocks,
         });
       }
     }
@@ -73,9 +77,15 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
   // Sort by createdAt desc (merge already sorted, but re-sort to be safe)
   docs.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
 
+  // Hide matches with users the current user has blocked
+  const visibleDocs = docs.filter((m) => {
+    const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
+    return !blockedIds.has(otherUserId);
+  });
+
   // Fetch counterpart profiles in parallel
   const results = await Promise.all(
-    docs.map(async (m): Promise<MatchWithProfile> => {
+    visibleDocs.map(async (m): Promise<MatchWithProfile> => {
       const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
       const otherDogId  = m.dog1UserId === uid ? m.dog2Id     : m.dog1Id;
       let otherProfile: SavedDogProfile | null = null;

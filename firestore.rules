@@ -28,11 +28,17 @@ service cloud.firestore {
       return request.auth.uid == matchData.dog2UserId || request.auth.uid == matchData.userBId;
     }
 
+    function hasLifetimeUnlocks() {
+      // Founding Member entitlement, written server-side by the Stripe webhook.
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)/private/entitlements)
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)/private/entitlements).data.lifetimeChatUnlocks == true;
+    }
+
     function canCurrentUserChat(matchData) {
       // One payment (from either side) unlocks the conversation for both.
       return isSignedIn()
           && isPartyToMatch(matchData)
-          && matchData.chatUnlocked == true;
+          && (matchData.chatUnlocked == true || hasLifetimeUnlocks());
     }
 
     match /users/{userId} {
@@ -42,9 +48,11 @@ service cloud.firestore {
       allow delete: if false;
 
       // Subscription status + swipe counters live here.
-      // Only the owning user can read/write their private docs.
+      // Only the owning user can read/write their private docs —
+      // except 'entitlements', which only the server (webhook) may write.
       match /private/{docId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && docId != 'entitlements';
       }
     }
 
@@ -59,7 +67,16 @@ service cloud.firestore {
     }
 
     match /swipes/{userId}/decisions/{targetDogId} {
-      allow read: if isOwner(userId);
+      // Owners read their own decisions. A signed-in user may also `get` a
+      // LIKE decision that targets them (doc id == their uid) — required for
+      // the client-side mutual-like check that creates a match. Passes stay
+      // private, and `list` stays owner-only so like-inboxes cannot be
+      // enumerated. Clients must treat a denied read as "no reverse like".
+      allow get: if isOwner(userId)
+                 || (isSignedIn()
+                     && request.auth.uid == targetDogId
+                     && resource.data.action == 'like');
+      allow list: if isOwner(userId);
 
       allow create, update: if isSignedIn()
                             && request.auth.uid == userId
@@ -67,6 +84,14 @@ service cloud.firestore {
                             && request.resource.data.action in ['like', 'pass'];
 
       allow delete: if false;
+    }
+
+    match /blocks/{userId}/blocked/{targetId} {
+      allow read:   if isOwner(userId);
+      allow create: if isOwner(userId)
+                    && request.resource.data.targetUserId == targetId;
+      allow update: if false;
+      allow delete: if isOwner(userId);
     }
 
     match /matches/{matchId} {

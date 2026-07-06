@@ -31,8 +31,12 @@ GOOGLE_SITE_VERIFICATION=your-google-token
 | `chat_view` | Unlocked chat viewed |
 | `chat_unlock_prompt_view` | Locked chat / mobile unlock prompt viewed |
 | `message_sent` | Chat message sent |
+| `chat_unlock_payment_submitted` | Web $4.99 unlock payment submitted (pre-webhook) |
+| `playdate_proposed` | Playdate proposal sent in chat — **north-star input** |
+| `playdate_confirmed` | Playdate proposal accepted — **north-star metric** |
 | `invite_friend_clicked` | Invite flow triggered |
 | `report_submitted` | Spam / inappropriate / block action submitted |
+| `account_delete_requested` | Account deletion confirmed by user |
 | `signed_out` | User signed out |
 
 ## Recommended first dashboard
@@ -46,6 +50,9 @@ Create a funnel with:
 5. `profile_completed`
 6. `first_swipe`
 7. `match_created`
+8. `chat_unlock_payment_submitted`
+9. `playdate_proposed`
+10. `playdate_confirmed` ← the north-star: weekly playdates confirmed
 
 Create a second drop-off report for:
 

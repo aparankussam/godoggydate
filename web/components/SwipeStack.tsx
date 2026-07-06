@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import SwipeCard, { type SwipeCardHandle } from './SwipeCard';
 import { trackEvent, trackOncePerSession } from '../lib/analytics';
 import { recordSwipe } from '../lib/matching';
+import { recordDemoSwipeLocally } from '../lib/discover';
 import type { CompatibilityResult } from '../shared/types';
 
 interface FeedDog {
@@ -26,6 +27,7 @@ interface FeedDog {
   compat: CompatibilityResult;
   firestoreId?: string;
   ownerId?: string;
+  isDemo?: boolean;
 }
 
 interface Props {
@@ -50,6 +52,7 @@ export default function SwipeStack({
   const [index, setIndex] = useState(0);
   const [selectedDog, setSelectedDog] = useState<FeedDog | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [swipeError, setSwipeError] = useState<string | null>(null);
 
   const topCardRef = useRef<SwipeCardHandle | null>(null);
 
@@ -92,10 +95,21 @@ export default function SwipeStack({
         action: 'like',
         dog_id: dog.firestoreId ?? dog.id,
         compatibility_score: dog.compat.score,
+        is_demo: Boolean(dog.isDemo),
       });
       trackOncePerSession('first_swipe', 'first_swipe', {
         action: 'like',
       });
+
+      // Demo/seed profiles exist only to preview the feed — they have no
+      // owning account, so a like can never become a match. Skip the write
+      // but remember it locally so the demo dog doesn't reappear on reload.
+      if (dog.isDemo) {
+        recordDemoSwipeLocally(dog.firestoreId ?? dog.id);
+        setSwipeError(`${dog.name} is a demo profile — real dogs near you can match back!`);
+        setTimeout(() => setSwipeError(null), 3500);
+        return true;
+      }
 
       try {
         const result = await recordSwipe({
@@ -111,6 +125,8 @@ export default function SwipeStack({
         }
       } catch (err) {
         console.warn('Swipe write failed:', err);
+        setSwipeError('That like didn’t save — check your connection and try again.');
+        setTimeout(() => setSwipeError(null), 4000);
       }
 
       return true;
@@ -139,6 +155,11 @@ export default function SwipeStack({
       trackOncePerSession('first_swipe', 'first_swipe', {
         action: 'pass',
       });
+
+      if (dog.isDemo) {
+        recordDemoSwipeLocally(dog.firestoreId ?? dog.id);
+        return true;
+      }
 
       try {
         await recordSwipe({
@@ -172,6 +193,11 @@ export default function SwipeStack({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {swipeError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-brown text-white text-sm font-semibold rounded-full px-5 py-2.5 shadow-lg max-w-[90vw] text-center">
+          {swipeError}
+        </div>
+      )}
       {selectedDog && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"

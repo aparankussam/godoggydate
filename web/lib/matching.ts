@@ -100,26 +100,32 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
     reversePath: `swipes/${params.targetUserId}/decisions/${params.currentUserId}`,
   });
 
-  let reverseSnap = await getDoc(reverseRef);
+  // Rules only allow reading a reverse decision that (a) targets us and
+  // (b) is a 'like' — a missing doc or a 'pass' both surface as
+  // permission-denied, so treat read failure as "no reverse like".
+  let reverseSnap = await getDoc(reverseRef).catch(() => null);
 
-  if (!reverseSnap.exists()) {
+  if (!reverseSnap?.exists()) {
     await new Promise((resolve) => setTimeout(resolve, 150));
-    reverseSnap = await getDoc(reverseRef);
+    reverseSnap = await getDoc(reverseRef).catch(() => null);
   }
 
   console.info('[matching] reverse like result', {
-    exists: reverseSnap.exists(),
-    action: reverseSnap.data()?.action ?? null,
+    exists: reverseSnap?.exists() ?? false,
+    action: reverseSnap?.data()?.action ?? null,
   });
 
-  if (!reverseSnap.exists() || reverseSnap.data()?.action !== 'like') {
+  if (!reverseSnap?.exists() || reverseSnap.data()?.action !== 'like') {
     return { isMatch: false };
   }
 
   // ── Mutual like — create match ───────────────────────────────────────────
+  // No existence pre-read: rules deny `get` on a nonexistent match doc
+  // (isPartyToMatch can't evaluate on a null resource), so a pre-read throws
+  // exactly when the match DOESN'T exist yet. Instead, attempt the create and
+  // fall back to reading (which succeeds for participants once it exists).
   const matchId = makeMatchId(params.currentUserId, params.targetUserId);
   const matchRef = doc(db, 'matches', matchId);
-  const existingMatch = await getDoc(matchRef);
   const [dog1UserId, dog2UserId] = [
     params.currentUserId,
     params.targetUserId,
@@ -149,13 +155,18 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
   };
 
   try {
-    if (!existingMatch.exists()) {
-      await setDoc(matchRef, matchData);
-    }
+    await setDoc(matchRef, matchData);
     console.info('[matching] match creation succeeded', { matchId });
   } catch (error: unknown) {
-    console.error('[matching] match creation failed', { matchId, error });
-    throw error;
+    // setDoc on an existing match counts as an update, which rules restrict
+    // to message-metadata keys — so "already exists" surfaces as a denial.
+    // Confirm by reading: participants can read an existing match.
+    const existing = await getDoc(matchRef).catch(() => null);
+    if (!existing?.exists()) {
+      console.error('[matching] match creation failed', { matchId, error });
+      throw error;
+    }
+    console.info('[matching] match already existed', { matchId });
   }
 
   return { isMatch: true, matchId };
@@ -167,6 +178,8 @@ export async function recordSwipe(params: SwipeParams): Promise<SwipeResult> {
 export async function matchExists(userA: string, userB: string): Promise<boolean> {
   const { db } = getFirebase();
   const matchRef = doc(db, 'matches', makeMatchId(userA, userB));
-  const snap = await getDoc(matchRef);
-  return snap.exists();
+  // A nonexistent match doc reads as permission-denied under rules — treat
+  // any read failure as "no match".
+  const snap = await getDoc(matchRef).catch(() => null);
+  return snap?.exists() ?? false;
 }

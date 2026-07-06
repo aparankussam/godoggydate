@@ -16,6 +16,8 @@ import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getPrimaryRenderablePhoto } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
+import { getBlockedUserIds } from '../../../lib/blocks';
+import { getEntitlements } from '../../../lib/entitlements';
 
 interface ConversationItem {
   matchId:      string;
@@ -31,9 +33,11 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
   const { db } = getFirebase();
   const col = collection(db, 'matches');
 
-  const [snap1, snap2] = await Promise.all([
+  const [snap1, snap2, blockedIds, entitlements] = await Promise.all([
     getDocs(query(col, where('dog1UserId', '==', uid), orderBy('createdAt', 'desc'))),
     getDocs(query(col, where('dog2UserId', '==', uid), orderBy('createdAt', 'desc'))),
+    getBlockedUserIds(uid),
+    getEntitlements(uid),
   ]);
 
   const seen = new Set<string>();
@@ -57,7 +61,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
           dog2UserId: data.dog2UserId,
           lastMessage: data.lastMessage ?? null,
           lastMessageTime: data.lastMessageTime ?? null,
-          chatUnlocked: isUserChatUnlocked(data, uid),
+          chatUnlocked: isUserChatUnlocked(data, uid) || entitlements.lifetimeChatUnlocks,
           dog1ChatUnlocked: data.dog1ChatUnlocked ?? null,
           dog2ChatUnlocked: data.dog2ChatUnlocked ?? null,
           createdAt: data.createdAt ?? null,
@@ -73,8 +77,13 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
     return bTime - aTime;
   });
 
+  const visibleDocs = docs.filter((m) => {
+    const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
+    return !blockedIds.has(otherUserId);
+  });
+
   const results = await Promise.all(
-    docs.map(async (m): Promise<ConversationItem> => {
+    visibleDocs.map(async (m): Promise<ConversationItem> => {
       const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
       let otherProfile: SavedDogProfile | null = null;
       try {

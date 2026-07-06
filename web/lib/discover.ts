@@ -6,6 +6,7 @@ import { getFirebase } from '../shared/utils/firebase';
 import { SEED_DOGS, SEED_DISTANCES } from '../shared/data/seedDogs';
 import { calculateCompatibility } from '../shared/utils/matchingEngine';
 import { isProfileComplete, toFullProfile } from './auth';
+import { getBlockedUserIds } from './blocks';
 import type { SavedDogProfile } from './auth';
 import type { DogProfile, CompatibilityResult } from '../shared/types';
 
@@ -104,6 +105,29 @@ async function getSwipedDogIds(uid: string): Promise<Set<string>> {
   }
 }
 
+// Demo/seed swipes are never written to Firestore (seed profiles have no
+// owning account), so they're tracked locally to keep already-seen demo dogs
+// out of the deck on reload.
+const DEMO_SWIPES_KEY = 'godoggydate.demoSwipedIds';
+
+export function recordDemoSwipeLocally(dogId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = new Set<string>(JSON.parse(window.localStorage.getItem(DEMO_SWIPES_KEY) ?? '[]'));
+    existing.add(dogId);
+    window.localStorage.setItem(DEMO_SWIPES_KEY, JSON.stringify([...existing]));
+  } catch { /* storage unavailable — demo dogs just reappear */ }
+}
+
+function getLocallySwipedDemoIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    return new Set<string>(JSON.parse(window.localStorage.getItem(DEMO_SWIPES_KEY) ?? '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
 async function getRealCandidateDogs(currentUserId: string): Promise<DogProfile[]> {
   try {
     const { db } = getFirebase();
@@ -190,13 +214,17 @@ export function buildGuestFeed(): DiscoverFeedDog[] {
 }
 
 export async function buildDiscoverFeed(currentUserId: string, baseDog: DogProfile): Promise<DiscoverFeedDog[]> {
-  const swipedIds = await getSwipedDogIds(currentUserId);
+  const [swipedIds, blockedIds] = await Promise.all([
+    getSwipedDogIds(currentUserId),
+    getBlockedUserIds(currentUserId),
+  ]);
   const realDogs = (await getRealCandidateDogs(currentUserId))
-    .filter((dog) => !swipedIds.has(dog.id))
+    .filter((dog) => !swipedIds.has(dog.id) && !blockedIds.has(dog.id))
     .map((dog) => toFeedDog(baseDog, dog, false))
     .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
 
-  const demoDogs = getSeedCandidateDogs(swipedIds)
+  const demoExcluded = new Set([...swipedIds, ...getLocallySwipedDemoIds()]);
+  const demoDogs = getSeedCandidateDogs(demoExcluded)
     .map((dog) => toFeedDog(baseDog, dog, true))
     .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
 
