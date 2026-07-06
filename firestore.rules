@@ -29,11 +29,10 @@ service cloud.firestore {
     }
 
     function canCurrentUserChat(matchData) {
+      // One payment (from either side) unlocks the conversation for both.
       return isSignedIn()
-          && (
-            (isDog1Party(matchData) && matchData.dog1ChatUnlocked == true) ||
-            (isDog2Party(matchData) && matchData.dog2ChatUnlocked == true)
-          );
+          && isPartyToMatch(matchData)
+          && matchData.chatUnlocked == true;
     }
 
     match /users/{userId} {

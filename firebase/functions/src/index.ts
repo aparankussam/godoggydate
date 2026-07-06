@@ -347,12 +347,14 @@ export const onRatingCreated = functions.firestore
     });
   });
 
-// ── Cleanup: delete matches older than 30 days with no chat activity ───────────
+// ── Cleanup: delete matches older than 180 days with no chat activity ──────────
+// Widened from 30 days: a short window was silently destroying paywalled
+// revenue opportunities (a user returning after 30 days found the match gone).
 
 export const cleanupStaleMatches = functions.pubsub
   .schedule('every 24 hours')
   .onRun(async () => {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
     const snap = await db
       .collection('matches')
       .where('chatUnlocked', '==', false)

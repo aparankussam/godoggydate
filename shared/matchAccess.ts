@@ -39,15 +39,8 @@ export function isUserChatUnlocked(
   const slot = getParticipantSlot(matchData, userId);
   if (!slot) return false;
 
-  const field = getChatUnlockFieldForSlot(slot);
-  const value = matchData[field];
-
-  // Backward compatibility for legacy docs that only had a single shared flag.
-  if (typeof value !== 'boolean') {
-    return Boolean(matchData.chatUnlocked);
-  }
-
-  return value;
+  // One payment unlocks the conversation for both sides — see anyChatUnlocked.
+  return anyChatUnlocked(matchData);
 }
 
 export function anyChatUnlocked(matchData: MatchAccessLike): boolean {

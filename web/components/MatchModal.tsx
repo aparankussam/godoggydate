@@ -127,7 +127,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           💬 Say hi to {dog.name}
         </Link>
         <p className="text-center text-sm leading-relaxed text-white/72">
-          One-time $4.99 unlock in the mobile app. No subscription, no auto-renew.
+          One-time $4.99 to unlock chat. No subscription, no auto-renew.
         </p>
         <p className="text-center text-xs leading-relaxed text-white/58">
           Safety tip: start with a public dog park or another busy public place for your first meetup.

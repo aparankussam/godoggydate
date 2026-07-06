@@ -18,7 +18,9 @@ import { onAuthStateChanged } from '../../../../lib/auth';
 import type { User, SavedDogProfile } from '../../../../lib/auth';
 import ChatBubble from '../../../../components/ChatBubble';
 import { getPrimaryRenderablePhoto } from '../../../../lib/photos';
+import { trackEvent } from '../../../../lib/analytics';
 import { isUserChatUnlocked } from '../../../../../shared/matchAccess';
+import ChatUnlockPanel, { isSeedUserId } from '../../../../components/ChatUnlockPanel';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -116,52 +118,60 @@ export default function ChatPage() {
   }, []);
 
   // ── Validate match access + load counterpart profile ─────────────────────────
+  // Realtime listener (not a one-time getDoc): once a payment succeeds, the
+  // Stripe webhook flips chatUnlocked asynchronously, and this listener picks
+  // that up live without requiring a manual refresh or poll.
   useEffect(() => {
     if (!authUser || !matchId) return;
 
-    async function loadMatchData() {
-      const { db } = getFirebase();
-      try {
-        // Read the match document
-        const matchSnap = await getDoc(doc(db, 'matches', matchId));
-        if (!matchSnap.exists()) {
-          setAccessDenied(true);
-          return;
-        }
-        const matchData = matchSnap.data() as {
-          dog1UserId: string; dog2UserId: string;
-          dog1Id: string;    dog2Id: string;
-          chatUnlocked?: boolean;
-          dog1ChatUnlocked?: boolean | null;
-          dog2ChatUnlocked?: boolean | null;
-        };
+    const { db } = getFirebase();
+    let profileLoaded = false;
 
-        // Verify current user is a participant
-        if (matchData.dog1UserId !== authUser!.uid && matchData.dog2UserId !== authUser!.uid) {
-          setAccessDenied(true);
-          return;
-        }
-
-        // Fetch the other dog's profile
-        const resolvedOtherUserId = matchData.dog1UserId === authUser!.uid
-          ? matchData.dog2UserId
-          : matchData.dog1UserId;
-
-        setOtherUserId(resolvedOtherUserId);
-        setChatUnlocked(isUserChatUnlocked(matchData, authUser.uid));
-
-        const profileSnap = await getDoc(doc(db, 'dogs', resolvedOtherUserId));
-        if (profileSnap.exists()) {
-          setOtherProfile(profileSnap.data() as SavedDogProfile);
-        }
-      } catch { /* offline — proceed */ }
-      finally {
+    const unsub = onSnapshot(doc(db, 'matches', matchId), async (matchSnap) => {
+      if (!matchSnap.exists()) {
+        setAccessDenied(true);
         setLoadingProfile(false);
+        return;
       }
-    }
 
-    loadMatchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      const matchData = matchSnap.data() as {
+        dog1UserId: string; dog2UserId: string;
+        dog1Id: string;    dog2Id: string;
+        chatUnlocked?: boolean;
+        dog1ChatUnlocked?: boolean | null;
+        dog2ChatUnlocked?: boolean | null;
+      };
+
+      // Verify current user is a participant
+      if (matchData.dog1UserId !== authUser!.uid && matchData.dog2UserId !== authUser!.uid) {
+        setAccessDenied(true);
+        setLoadingProfile(false);
+        return;
+      }
+
+      const resolvedOtherUserId = matchData.dog1UserId === authUser!.uid
+        ? matchData.dog2UserId
+        : matchData.dog1UserId;
+
+      setOtherUserId(resolvedOtherUserId);
+      setChatUnlocked(isUserChatUnlocked(matchData, authUser.uid));
+
+      if (!profileLoaded) {
+        profileLoaded = true;
+        try {
+          const profileSnap = await getDoc(doc(db, 'dogs', resolvedOtherUserId));
+          if (profileSnap.exists()) {
+            setOtherProfile(profileSnap.data() as SavedDogProfile);
+          }
+        } catch { /* offline — proceed */ }
+      }
+
+      setLoadingProfile(false);
+    }, () => {
+      setLoadingProfile(false);
+    });
+
+    return unsub;
   }, [authUser, matchId]);
 
   // ── Real-time messages listener ───────────────────────────────────────────────
@@ -185,6 +195,13 @@ export default function ChatPage() {
 
     return unsub;
   }, [matchId, accessDenied, chatUnlocked]);
+
+  useEffect(() => {
+    if (!matchId || authLoading || loadingProfile || accessDenied) return;
+    trackEvent(chatUnlocked ? 'chat_view' : 'chat_unlock_prompt_view', {
+      match_id: matchId,
+    });
+  }, [accessDenied, authLoading, chatUnlocked, loadingProfile, matchId]);
 
   // ── Auto-scroll to bottom on new messages ────────────────────────────────────
   useEffect(() => {
@@ -216,6 +233,10 @@ export default function ChatPage() {
           createdAt: serverTimestamp(),
         });
         console.info('[chat] message create succeeded', { matchId });
+        trackEvent('message_sent', {
+          match_id: matchId,
+          has_existing_messages: messages.length > 0,
+        });
       } catch (error) {
         console.error('[chat] message create failed', { matchId, error });
         throw error;
@@ -239,7 +260,7 @@ export default function ChatPage() {
     } finally {
       setSending(false);
     }
-  }, [authUser, chatUnlocked, matchId, sending]);
+  }, [authUser, chatUnlocked, matchId, messages.length, sending]);
 
   // ── Block / Report ────────────────────────────────────────────────────────────
   const handleReport = useCallback(async (reason: 'block' | 'spam' | 'inappropriate') => {
@@ -253,6 +274,10 @@ export default function ChatPage() {
         matchId,
         reason,
         createdAt:    serverTimestamp(),
+      });
+      trackEvent('report_submitted', {
+        match_id: matchId,
+        reason,
       });
     } catch { /* non-blocking — fire and forget */ }
     setShowReportMenu(false);
@@ -377,10 +402,22 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {!chatUnlocked && (
           <div className="rounded-[1.5rem] border border-border bg-white px-4 py-4 text-center shadow-sm">
-            <p className="font-semibold text-brown">Send the first hello on mobile</p>
-            <p className="mt-2 text-sm leading-relaxed text-brown-light">
-              Unlock this match for a one-time $4.99 in the mobile app. It opens chat for life with {dogName} and never auto-renews.
-            </p>
+            {isSeedUserId(otherUserId) ? (
+              <>
+                <p className="font-semibold text-brown">Demo profile</p>
+                <p className="mt-2 text-sm leading-relaxed text-brown-light">
+                  This is a sample profile used to preview the app and isn&apos;t available for chat unlocks.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-brown">Unlock chat with {dogName}</p>
+                <p className="mt-2 mb-4 text-sm leading-relaxed text-brown-light">
+                  A one-time $4.99 opens chat for life with {dogName}. No subscription, no auto-renew.
+                </p>
+                <ChatUnlockPanel matchId={matchId} dogName={dogName} />
+              </>
+            )}
             <p className="mt-3 text-xs leading-relaxed text-brown-light">
               {SAFETY_TIP}
             </p>
@@ -400,7 +437,7 @@ export default function ChatPage() {
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
               {chatUnlocked
                 ? `Send the first message to ${dogName}. A simple hello is all it takes.`
-                : `Open the mobile app to unlock this match and send ${dogName} your first message.`}
+                : `Unlock this match above to send ${dogName} your first message.`}
             </p>
           </div>
         )}

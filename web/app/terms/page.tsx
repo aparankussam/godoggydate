@@ -9,7 +9,9 @@ export default function TermsPage() {
           <p>You are responsible for the accuracy of your profile, your dog’s vaccination status, and how you arrange meetups with other owners.</p>
           <p>Use the service respectfully. Harassment, spam, or unsafe conduct may lead to removal from the platform.</p>
           <p>Current launch pricing uses one-time match unlocks. Features and pricing may change as the product evolves during early access.</p>
-          <p>Questions about these terms can be directed to the GoDoggyDate team or through <a href="https://gobotsai.com" className="font-semibold text-primary underline underline-offset-2">gobotsai.com</a>.</p>
+          <p><strong className="text-brown">Refunds:</strong> the $4.99 chat unlock is a one-time digital purchase. If a payment was made in error, was duplicated, or the unlocked match failed to open chat within a reasonable time, contact us within 14 days of purchase at <a href="mailto:support@godoggydate.com" className="font-semibold text-primary underline underline-offset-2">support@godoggydate.com</a> for a refund. Refunds are not available once you have exchanged messages with your match.</p>
+          <p><strong className="text-brown">Meetups are between owners:</strong> GoDoggyDate helps you discover compatible dogs and does not organize, supervise, or guarantee the safety of any in-person playdate. You are solely responsible for verifying your dog&apos;s vaccination status and temperament, and for exercising reasonable care when meeting another owner and dog. By using GoDoggyDate you assume the risks associated with arranging and attending in-person meetups.</p>
+          <p>Questions about these terms can be directed to the GoDoggyDate team at <a href="mailto:support@godoggydate.com" className="font-semibold text-primary underline underline-offset-2">support@godoggydate.com</a> or through <a href="https://gobotsai.com" className="font-semibold text-primary underline underline-offset-2">gobotsai.com</a>.</p>
         </div>
       </div>
     </main>
