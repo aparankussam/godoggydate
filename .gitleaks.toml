@@ -1,0 +1,19 @@
+# Gitleaks config for goDoggyDate.
+# History contains only test-mode Stripe (sk_test) + public-by-design Firebase
+# (NEXT_PUBLIC_) keys; the dangerous serviceAccountKey.json was never committed.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder values and build artifacts (confirmed false positives)"
+paths = [
+    '''\.env\.example''',          # template file — placeholders only
+    '''.*\.next/cache/.*''',       # Next.js build cache (env values inlined at build)
+    '''.*/\.next/cache/.*''',
+]
+regexes = [
+    '''(sk|pk|rk)_test_placeholder''',
+    '''firebase_placeholder''',
+    '''whsec_placeholder''',
+    '''-----BEGIN PRIVATE KEY-----\\n\.\.\.\\n-----END PRIVATE KEY-----''',
+]

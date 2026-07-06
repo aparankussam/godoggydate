@@ -30,6 +30,12 @@ jobs:
       - name: Verify launch config
         run: npm run verify:launch-config
 
+      - name: Test launch config helpers
+        run: npm run test:launch-config
+
+      - name: Audit runtime config
+        run: npm run audit:runtime-config
+
       - name: Verify GoogleService-Info plist parity
         run: diff -q mobile/GoogleService-Info.plist mobile/ios/GoDoggyDate/GoogleService-Info.plist
 

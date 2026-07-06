@@ -22,6 +22,7 @@ const mobileAppConfigJs = readIfExists('mobile/app.config.js');
 const firebaseJson = readIfExists('firebase.json');
 const webPackageJson = readIfExists('web/package.json');
 const webPackageLock = readIfExists('web/package-lock.json');
+const readmeSetup = readIfExists('README-setup.md');
 
 record(
   envExample.includes('FIREBASE_CLIENT_EMAIL=') && envExample.includes('FIREBASE_PRIVATE_KEY='),
@@ -58,6 +59,12 @@ record(
   'Expected EXPO_PUBLIC_EAS_PROJECT_ID in .env.example',
 );
 
+record(
+  envExample.includes('NEXT_PUBLIC_APP_URL='),
+  'Web app origin env var is documented',
+  'Expected NEXT_PUBLIC_APP_URL in .env.example',
+);
+
 const productionLikeRun =
   process.env.EAS_BUILD === 'true' ||
   process.env.NODE_ENV === 'production' ||
@@ -80,6 +87,12 @@ record(
 );
 
 record(
+  !envExample.includes('MAPBOX'),
+  'Unused Mapbox env vars are removed from .env.example',
+  'Remove stale Mapbox env vars from .env.example unless the app actively uses them again',
+);
+
+record(
   webPackageJson.includes('"firebase-admin"'),
   'Web package declares firebase-admin',
   'web/package.json must include firebase-admin for server-auth payment routes',
@@ -89,6 +102,18 @@ record(
   webPackageLock.includes('"firebase-admin"'),
   'Web lockfile includes firebase-admin',
   'Regenerate web/package-lock.json on a networked machine before final deploy',
+);
+
+record(
+  !readmeSetup.includes('/api/payments/webhook'),
+  'README uses the Firebase Function webhook, not the inactive Next.js webhook',
+  'Replace /api/payments/webhook references in README-setup.md with the deployed Firebase Function stripeWebhook URL',
+);
+
+record(
+  !readmeSetup.includes('Phone OTP'),
+  'README auth description matches the current Google / Apple / guest model',
+  'Remove stale Phone OTP references from README-setup.md',
 );
 
 const failed = checks.filter((check) => !check.ok);
