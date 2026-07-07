@@ -56,15 +56,15 @@ export function dismissPushBanner(): void {
 }
 
 /**
- * Request permission and register this browser's FCM token.
- * Returns true when a token was stored.
+ * Registers this browser's FCM token, assuming permission is already
+ * granted. Safe to call repeatedly/silently — Firebase Installations can
+ * fail transiently (e.g. stale IndexedDB state) without any user action,
+ * so callers should retry this on every relevant page load rather than
+ * treating one failure as final.
  */
-export async function enablePushNotifications(userId: string): Promise<boolean> {
+async function registerToken(userId: string): Promise<boolean> {
   const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim();
   if (!vapidKey || !(await isSupported().catch(() => false))) return false;
-
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return false;
 
   try {
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
@@ -81,7 +81,32 @@ export async function enablePushNotifications(userId: string): Promise<boolean> 
     }, { merge: true });
     return true;
   } catch (error) {
-    console.warn('Web push registration failed', error);
+    console.warn('Web push token registration failed', error);
     return false;
   }
+}
+
+/**
+ * Request permission (shows the browser prompt) and register a token.
+ * Returns true when a token was stored.
+ */
+export async function enablePushNotifications(userId: string): Promise<boolean> {
+  if (!isPushConfigured() || !(await isSupported().catch(() => false))) return false;
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return false;
+  return registerToken(userId);
+}
+
+/**
+ * Call on every app-shell mount for a signed-in user. If permission is
+ * already granted but no token registration has ever succeeded (e.g. it
+ * failed silently on a prior visit — a permission grant is not proof the
+ * token save worked), this retries without prompting the user again.
+ * A no-op the moment it succeeds once (checked by re-querying Firestore is
+ * unnecessary: arrayUnion is idempotent, so a harmless repeat send is fine).
+ */
+export async function ensurePushRegisteredIfGranted(userId: string): Promise<void> {
+  if (typeof window === 'undefined' || !isPushConfigured()) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  await registerToken(userId);
 }

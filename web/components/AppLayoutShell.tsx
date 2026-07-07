@@ -14,6 +14,7 @@ import { getFirebase } from '../shared/utils/firebase';
 import { onAuthStateChanged, getUserDogProfile, isProfileComplete } from '../lib/auth';
 import type { User, SavedDogProfile } from '../lib/auth';
 import { setAnalyticsUser, trackEvent } from '../lib/analytics';
+import { ensurePushRegisteredIfGranted } from '../lib/push';
 import BottomNav from './BottomNav';
 
 interface Props {
@@ -41,6 +42,11 @@ export default function AppLayoutShell({ children }: Props) {
           const p = await getUserDogProfile(user.uid);
           setSavedProfile(p);
         } catch { /* offline — no nav */ }
+        // Fire-and-forget: retries silently if a prior visit's token save
+        // failed (e.g. a transient Firebase Installations error) without
+        // re-prompting — permission is already granted, nothing for the
+        // user to do.
+        void ensurePushRegisteredIfGranted(user.uid);
       }
       setReady(true);
     });
