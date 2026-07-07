@@ -22,6 +22,7 @@ import { colors, fonts, radius, shadow } from '../../constants/theme';
 import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, type SwipeCardRef } from '../../components/SwipeCard';
 import { fetchDiscoverFeed, DEFAULT_DISCOVER_RADIUS_MILES, type DiscoverDog } from '../../lib/discover';
 import { recordSwipe } from '../../lib/matching';
+import { trackEvent } from '../../lib/analytics';
 import { useSession } from '../../lib/session';
 import { requestApproxLocation, type LocationStatus } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
@@ -128,9 +129,19 @@ export default function DiscoverTab() {
           action,
         });
 
+        trackEvent('swipe_action', {
+          action,
+          dog_id: currentDog.id,
+          compatibility_score: currentDog.compat.score,
+        });
         if (action === 'like') {
           setLikeCount((n) => n + 1);
           if (result.isMatch && result.matchId) {
+            trackEvent('match_created', {
+              match_id: result.matchId,
+              dog_id: currentDog.id,
+              compatibility_score: currentDog.compat.score,
+            });
             setMatchedDog(currentDog);
             setMatchedMatchId(result.matchId);
           }

@@ -20,6 +20,7 @@ import {
 } from '@firebase/auth';
 import { getFirebase } from './firebase';
 import { getUserDogProfile, saveUserDogProfile, isProfileComplete, type SavedDogProfile } from './profile';
+import { setAnalyticsUser, trackEvent } from './analytics';
 
 interface SessionContextValue {
   user: User | null;
@@ -68,6 +69,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         });
       }
       setUser(nextUser);
+      setAnalyticsUser(nextUser?.uid ?? null);
       if (nextUser) {
         try {
           const nextProfile = await getUserDogProfile(nextUser.uid);
@@ -154,6 +156,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!auth.currentUser) throw new Error('Not signed in');
     await saveUserDogProfile(auth.currentUser.uid, nextProfile);
     setProfile(nextProfile);
+    const completed = isProfileComplete(nextProfile);
+    trackEvent('profile_saved', { context: 'mobile', completed });
+    if (completed) trackEvent('profile_completed', { context: 'mobile' });
   }, [auth]);
 
   const value = useMemo<SessionContextValue>(() => ({

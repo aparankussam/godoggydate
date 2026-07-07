@@ -36,6 +36,7 @@ import { useSession } from '../../lib/session';
 import { isUserChatUnlocked } from '../../../shared/matchAccess';
 import { blockUser } from '../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../lib/entitlements';
+import { trackEvent } from '../../lib/analytics';
 
 const SAFETY_TIP =
   'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
@@ -72,6 +73,11 @@ export default function ChatScreen() {
 
   // Effective chat access: per-match unlock OR Founding Member entitlement.
   const canChat = chatUnlocked || hasLifetime;
+
+  useEffect(() => {
+    if (!resolvedMatchId || loading) return;
+    trackEvent(canChat ? 'chat_view' : 'chat_unlock_prompt_view', { match_id: resolvedMatchId });
+  }, [canChat, loading, resolvedMatchId]);
 
   useEffect(() => {
     if (!user) return;
@@ -304,6 +310,12 @@ export default function ChatScreen() {
     try {
       await sendMessage(resolvedMatchId, user.uid, trimmed, extra);
       delivered = true;
+      trackEvent(
+        extra?.type === 'playdate_proposal' ? 'playdate_proposed'
+          : extra?.type === 'playdate_confirmed' ? 'playdate_confirmed'
+            : 'message_sent',
+        { match_id: resolvedMatchId },
+      );
     } catch (error) {
       console.warn('Message send failed:', error);
       if (!overrideText) setText(trimmed); // restore the draft — silent loss is worse
@@ -345,6 +357,7 @@ export default function ChatScreen() {
     if (!user) return;
     const link = getFoundingMemberLink(user.uid);
     if (!link) return;
+    trackEvent('founding_member_cta_click', { match_id: resolvedMatchId ?? '' });
     Linking.openURL(link).catch((error) => {
       console.warn('Failed to open Founding Member link', error);
       Alert.alert('Could not open link', 'Please try again in a moment.');

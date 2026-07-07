@@ -98,3 +98,18 @@ You should then see these events in GA4 Realtime:
 - `sign_in_success`
 - `profile_saved` or `profile_completed`
 - `first_swipe`
+
+## Mobile events (via /api/analytics GA4 relay)
+
+Mobile posts the same event names through `web/app/api/analytics/route.ts`
+(server holds `GA4_API_SECRET`); every mobile event carries `platform: mobile`.
+
+- `swipe_action`, `match_created` — discover
+- `chat_view`, `chat_unlock_prompt_view`, `message_sent` — chat
+- `playdate_proposed`, `playdate_confirmed` — north-star funnel
+- `founding_member_cta_click` — monetization
+- `profile_saved`, `profile_completed` — onboarding
+
+## Push notification events (web)
+
+- `push_enable_click`, `push_enabled`, `push_enable_failed`

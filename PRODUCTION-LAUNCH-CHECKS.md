@@ -36,3 +36,10 @@ Manual checks still required:
 - Update Stripe Dashboard webhooks to the deployed Firebase Function URL, not the inactive Next.js webhook stubs
 - Create the $39 Founding Member Payment Link in Stripe and set `NEXT_PUBLIC_FOUNDING_MEMBER_PAYMENT_LINK` on the web host (CTA stays hidden until set)
 - After deploying updated firestore.rules, confirm a mutual like creates a match (the pre-fix rules blocked the reverse-swipe read, so no match could ever be created)
+
+Push notifications + mobile analytics (added 2026-07-06):
+
+11. Generate a Web Push certificate (Firebase console → Cloud Messaging) and set `NEXT_PUBLIC_FIREBASE_VAPID_KEY` on Vercel
+12. Create a GA4 Measurement Protocol API secret and set `GA4_API_SECRET` on Vercel (server-only — never NEXT_PUBLIC)
+13. Redeploy Firebase Functions (`firebase deploy --only functions`) to activate onMatchCreatedNotify / onMessageCreatedNotify
+14. For Android push: add `mobile/android/app/google-services.json` (Firebase console → Android app) and upload the FCM service credentials to Expo (`eas credentials`); iOS APNs is EAS-managed automatically
