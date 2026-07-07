@@ -16,4 +16,7 @@ regexes = [
     '''firebase_placeholder''',
     '''whsec_placeholder''',
     '''-----BEGIN PRIVATE KEY-----\\n\.\.\.\\n-----END PRIVATE KEY-----''',
+    # Firebase WEB API key — public by design (shipped in every client
+    # bundle; security comes from Firestore rules, not key secrecy).
+    '''AIzaSyBUb1-qlQrGZ4bKEJSGWYldw0Ovz0mET3k''',
 ]

@@ -351,6 +351,16 @@ export default function ChatScreen() {
     });
   }
 
+  function openWebUnlockLink() {
+    if (!resolvedMatchId) return;
+    const webBase =
+      process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '') || 'https://godoggydate.com';
+    Linking.openURL(`${webBase}/app/messages/${resolvedMatchId}`).catch((error) => {
+      console.warn('Failed to open web unlock link', error);
+      Alert.alert('Could not open link', 'Please try again in a moment.');
+    });
+  }
+
   async function handleUnlock() {
     if (!user || !resolvedMatchId) return;
     if (isSeedUserId(match?.dog.id)) {
@@ -464,33 +474,55 @@ export default function ChatScreen() {
       ) : !canChat ? (
         <View style={styles.paywallSendWrap}>
           <Text style={styles.paywallTitle}>Unlock Chat</Text>
-          <Text style={styles.paywallBody}>
-            {paymentConfigured
-              ? `Unlock chat with ${resolvedName || match?.dog.name || 'your match'} for a one-time $4.99. No subscription. No auto-renew.`
-              : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
-          </Text>
-          <Text style={styles.paywallSupport}>
-            {SAFETY_TIP}
-          </Text>
-          {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
-          {!unlockLoading && unlockError ? (
-            <Pressable style={styles.statusButton} onPress={handleRefreshUnlockStatus}>
-              <Text style={styles.statusButtonText}>Check Unlock Status</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            style={[styles.unlockBtn, unlockLoading && styles.sendBtnDisabled]}
-            onPress={handleUnlock}
-            disabled={unlockLoading || !paymentConfigured}
-          >
-            {unlockLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.unlockBtnText}>
-                {paymentConfigured ? 'Unlock chat for $4.99' : 'Payment Not Configured'}
+          {Platform.OS === 'ios' ? (
+            // Apple Guideline 3.1.1: digital-content purchases inside the app
+            // must use IAP. An in-app card sheet (Stripe PaymentSheet) is a
+            // rejection; an external purchase LINK is permitted on the US
+            // storefront (post-2025 Epic ruling). So on iOS we link out to
+            // the web checkout — the realtime match listener flips the
+            // unlock automatically once the webhook lands, no refresh needed.
+            <>
+              <Text style={styles.paywallBody}>
+                Unlock chat with {resolvedName || match?.dog.name || 'your match'} for a one-time $4.99 on
+                godoggydate.com. No subscription, no auto-renew — this chat opens here automatically after
+                payment.
               </Text>
-            )}
-          </Pressable>
+              <Text style={styles.paywallSupport}>{SAFETY_TIP}</Text>
+              <Pressable style={styles.unlockBtn} onPress={openWebUnlockLink}>
+                <Text style={styles.unlockBtnText}>Unlock on godoggydate.com — $4.99</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.paywallBody}>
+                {paymentConfigured
+                  ? `Unlock chat with ${resolvedName || match?.dog.name || 'your match'} for a one-time $4.99. No subscription. No auto-renew.`
+                  : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
+              </Text>
+              <Text style={styles.paywallSupport}>
+                {SAFETY_TIP}
+              </Text>
+              {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
+              {!unlockLoading && unlockError ? (
+                <Pressable style={styles.statusButton} onPress={handleRefreshUnlockStatus}>
+                  <Text style={styles.statusButtonText}>Check Unlock Status</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={[styles.unlockBtn, unlockLoading && styles.sendBtnDisabled]}
+                onPress={handleUnlock}
+                disabled={unlockLoading || !paymentConfigured}
+              >
+                {unlockLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.unlockBtnText}>
+                    {paymentConfigured ? 'Unlock chat for $4.99' : 'Payment Not Configured'}
+                  </Text>
+                )}
+              </Pressable>
+            </>
+          )}
           {getFoundingMemberLink(user.uid) && (
             <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink}>
               <Text style={styles.foundingMemberLinkText}>

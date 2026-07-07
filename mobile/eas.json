@@ -16,7 +16,22 @@
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production"
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBUb1-qlQrGZ4bKEJSGWYldw0Ovz0mET3k",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "godoggydate.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "godoggydate",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "godoggydate.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "597697529529",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:597697529529:web:f6fad41448299716543d68",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "597697529529-2j2i2dt8grj1k1lahga5ni5t4nba3h5c.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "597697529529-33q6d5hdq2mvm27lps4gdm0rsmh5ab5c.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID": "597697529529-2j2i2dt8grj1k1lahga5ni5t4nba3h5c.apps.googleusercontent.com",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_SET_ME_FROM_STRIPE_DASHBOARD",
+        "EXPO_PUBLIC_PAYMENTS_API_URL": "https://godoggydate.com",
+        "EXPO_PUBLIC_WEB_URL": "https://godoggydate.com",
+        "EXPO_PUBLIC_FOUNDING_MEMBER_PAYMENT_LINK": "https://buy.stripe.com/00w14ne9Hfwq5In90Pgfu00"
+      }
     }
   },
   "submit": {
