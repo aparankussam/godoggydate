@@ -4,22 +4,50 @@
 // message actually costs them (and us) something.
 
 import { useEffect, useState } from 'react';
-import { dismissPushBanner, enablePushNotifications, shouldOfferPush } from '../lib/push';
+import {
+  dismissBlockedPushBanner,
+  dismissPushBanner,
+  enablePushNotifications,
+  getPushBannerState,
+  type PushBannerState,
+} from '../lib/push';
 import { trackEvent } from '../lib/analytics';
 
 export default function EnablePushBanner({ userId }: { userId: string }) {
-  const [visible, setVisible] = useState(false);
+  const [state, setState] = useState<PushBannerState>('none');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    shouldOfferPush().then((offer) => {
-      if (!cancelled && offer) setVisible(true);
+    getPushBannerState().then((next) => {
+      if (!cancelled) setState(next);
     });
     return () => { cancelled = true; };
   }, []);
 
-  if (!visible) return null;
+  if (state === 'none') return null;
+
+  if (state === 'blocked') {
+    return (
+      <div className="mb-4 rounded-[1.25rem] border border-amber-300/60 bg-amber-50 px-4 py-3 flex items-center gap-3">
+        <span className="text-2xl shrink-0">🔕</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-brown">Notifications are blocked</p>
+          <p className="text-xs text-brown-light">
+            You&apos;ll miss match &amp; message alerts. Click the icon next to the address bar,
+            switch Notifications to &quot;Ask&quot; or &quot;Allow,&quot; then reload the page.
+          </p>
+        </div>
+        <button
+          onClick={() => { dismissBlockedPushBanner(); setState('none'); }}
+          className="shrink-0 text-brown-light text-lg leading-none px-1"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-4 rounded-[1.25rem] border border-primary/20 bg-primary/5 px-4 py-3 flex items-center gap-3">
@@ -37,7 +65,7 @@ export default function EnablePushBanner({ userId }: { userId: string }) {
           const enabled = await enablePushNotifications(userId);
           trackEvent(enabled ? 'push_enabled' : 'push_enable_failed');
           setBusy(false);
-          setVisible(false);
+          setState(enabled ? 'none' : await getPushBannerState());
         }}
         disabled={busy}
         className="shrink-0 rounded-full bg-primary text-white text-xs font-bold px-4 py-2 hover:scale-105 transition-transform disabled:opacity-50"
@@ -45,7 +73,7 @@ export default function EnablePushBanner({ userId }: { userId: string }) {
         {busy ? '…' : 'Enable'}
       </button>
       <button
-        onClick={() => { dismissPushBanner(); setVisible(false); }}
+        onClick={() => { dismissPushBanner(); setState('none'); }}
         className="shrink-0 text-brown-light text-lg leading-none px-1"
         aria-label="Dismiss"
       >

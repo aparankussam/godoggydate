@@ -10,19 +10,43 @@ import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { getFirebase } from '../shared/utils/firebase';
 
 const DISMISSED_KEY = 'godoggydate.push.bannerDismissed';
+const DISMISSED_BLOCKED_KEY = 'godoggydate.push.blockedBannerDismissed';
 
 export function isPushConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim());
 }
 
-/** Whether to offer the enable-notifications banner right now. */
-export async function shouldOfferPush(): Promise<boolean> {
-  if (typeof window === 'undefined' || !isPushConfigured()) return false;
-  if (!('Notification' in window) || Notification.permission !== 'default') return false;
+export type PushBannerState = 'none' | 'offer' | 'blocked';
+
+/**
+ * What (if anything) the notifications banner should show right now.
+ * 'blocked' surfaces a fix-it hint instead of silently disappearing forever
+ * — a permission denial otherwise looks identical to "not interested" to
+ * the app, and the user has no idea why push never arrives.
+ */
+export async function getPushBannerState(): Promise<PushBannerState> {
+  if (typeof window === 'undefined' || !isPushConfigured()) return 'none';
+  if (!('Notification' in window)) return 'none';
+  if (!(await isSupported().catch(() => false))) return 'none';
+
+  if (Notification.permission === 'denied') {
+    try {
+      if (window.localStorage.getItem(DISMISSED_BLOCKED_KEY) === '1') return 'none';
+    } catch { /* storage unavailable — still offer */ }
+    return 'blocked';
+  }
+
+  if (Notification.permission !== 'default') return 'none';
   try {
-    if (window.localStorage.getItem(DISMISSED_KEY) === '1') return false;
+    if (window.localStorage.getItem(DISMISSED_KEY) === '1') return 'none';
   } catch { /* storage unavailable — still offer */ }
-  return isSupported().catch(() => false);
+  return 'offer';
+}
+
+export function dismissBlockedPushBanner(): void {
+  try {
+    window.localStorage.setItem(DISMISSED_BLOCKED_KEY, '1');
+  } catch { /* best effort */ }
 }
 
 export function dismissPushBanner(): void {
