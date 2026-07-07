@@ -27,7 +27,7 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "597697529529-2j2i2dt8grj1k1lahga5ni5t4nba3h5c.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "597697529529-33q6d5hdq2mvm27lps4gdm0rsmh5ab5c.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID": "597697529529-2j2i2dt8grj1k1lahga5ni5t4nba3h5c.apps.googleusercontent.com",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_SET_ME_FROM_STRIPE_DASHBOARD",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_51THvxTEEHtCw5yviBv4N5pRdmxk0p8EZUHRgmg1zl0oAteGiOI8bubYj86CxtL71PlpXr44t7Kz7fBN3B1azuV2T00o6DUA16w",
         "EXPO_PUBLIC_PAYMENTS_API_URL": "https://godoggydate.com",
         "EXPO_PUBLIC_WEB_URL": "https://godoggydate.com",
         "EXPO_PUBLIC_FOUNDING_MEMBER_PAYMENT_LINK": "https://buy.stripe.com/00w14ne9Hfwq5In90Pgfu00"

@@ -19,4 +19,8 @@ regexes = [
     # Firebase WEB API key — public by design (shipped in every client
     # bundle; security comes from Firestore rules, not key secrecy).
     '''AIzaSyBUb1-qlQrGZ4bKEJSGWYldw0Ovz0mET3k''',
+    # Stripe PUBLISHABLE keys only (pk_live_/pk_test_) — safe to embed in
+    # client apps by design, unlike sk_live_/rk_live_ secret keys, which
+    # this regex does not match.
+    '''pk_(live|test)_[A-Za-z0-9]+''',
 ]
