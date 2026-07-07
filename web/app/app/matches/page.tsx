@@ -20,6 +20,7 @@ import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
+import EnablePushBanner from '../../../components/EnablePushBanner';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,8 @@ export default function MatchesPage() {
       </header>
 
       <div className="p-4">
+        <EnablePushBanner userId={authUser.uid} />
+
         {/* Loading skeleton */}
         {loading && (
           <div className="flex flex-col gap-3">

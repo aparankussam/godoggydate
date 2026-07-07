@@ -486,6 +486,153 @@ export const deleteAccount = functions
     return { deleted: true };
   });
 
+// ── Push notifications ─────────────────────────────────────────────────────────
+// Tokens live at users/{uid}/private/push (owner-writable):
+//   { expoPushTokens: string[], fcmWebTokens: string[] }
+// Mobile registers an Expo push token; web registers an FCM token. Invalid
+// tokens are pruned on send so the lists self-heal.
+
+interface PushTokensDoc {
+  expoPushTokens?: string[];
+  fcmWebTokens?: string[];
+}
+
+interface PushPayload {
+  title: string;
+  body: string;
+  data: Record<string, string>;
+}
+
+async function sendPushToUser(uid: string, payload: PushPayload): Promise<void> {
+  const tokenRef = db.doc(`users/${uid}/private/push`);
+  const tokenSnap = await tokenRef.get();
+  if (!tokenSnap.exists) return;
+
+  const tokens = tokenSnap.data() as PushTokensDoc;
+  const expoTokens = (tokens.expoPushTokens ?? []).filter(Boolean);
+  const webTokens = (tokens.fcmWebTokens ?? []).filter(Boolean);
+  const staleExpo: string[] = [];
+  const staleWeb: string[] = [];
+
+  if (expoTokens.length > 0) {
+    try {
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expoTokens.map((to) => ({
+          to,
+          title: payload.title,
+          body: payload.body,
+          data: payload.data,
+          sound: 'default',
+        }))),
+      });
+      const result = await res.json() as { data?: Array<{ status: string; details?: { error?: string } }> };
+      result.data?.forEach((ticket, i) => {
+        if (ticket.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
+          staleExpo.push(expoTokens[i]);
+        }
+      });
+    } catch (error) {
+      console.warn('Expo push send failed', { uid, error });
+    }
+  }
+
+  if (webTokens.length > 0) {
+    try {
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens: webTokens,
+        notification: { title: payload.title, body: payload.body },
+        data: payload.data,
+        webpush: {
+          fcmOptions: { link: payload.data.link ?? 'https://godoggydate.com/app/messages' },
+        },
+      });
+      response.responses.forEach((r, i) => {
+        if (!r.success && r.error?.code === 'messaging/registration-token-not-registered') {
+          staleWeb.push(webTokens[i]);
+        }
+      });
+    } catch (error) {
+      console.warn('FCM web push send failed', { uid, error });
+    }
+  }
+
+  if (staleExpo.length > 0 || staleWeb.length > 0) {
+    await tokenRef.set({
+      ...(staleExpo.length > 0
+        ? { expoPushTokens: admin.firestore.FieldValue.arrayRemove(...staleExpo) }
+        : {}),
+      ...(staleWeb.length > 0
+        ? { fcmWebTokens: admin.firestore.FieldValue.arrayRemove(...staleWeb) }
+        : {}),
+    }, { merge: true });
+  }
+}
+
+async function getDogName(dogId: string | undefined): Promise<string> {
+  if (!dogId) return 'A new friend';
+  try {
+    const snap = await db.doc(`dogs/${dogId}`).get();
+    const name = snap.exists ? (snap.data()?.name as string | undefined)?.trim() : undefined;
+    return name || 'A new friend';
+  } catch {
+    return 'A new friend';
+  }
+}
+
+export const onMatchCreatedNotify = functions.firestore
+  .document('matches/{matchId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data() as MatchData;
+    const { matchId } = context.params as { matchId: string };
+    const participants = [data.dog1UserId, data.dog2UserId].filter(Boolean) as string[];
+    if (participants.length !== 2) return;
+
+    await Promise.all(participants.map(async (uid) => {
+      const otherUid = participants.find((p) => p !== uid);
+      const otherName = await getDogName(otherUid);
+      await sendPushToUser(uid, {
+        title: "It's a match! 🐾",
+        body: `${otherName} wants to play too. Say hello and set up a playdate!`,
+        data: {
+          type: 'match',
+          matchId,
+          link: `https://godoggydate.com/app/messages/${matchId}`,
+        },
+      });
+    }));
+  });
+
+export const onMessageCreatedNotify = functions.firestore
+  .document('matches/{matchId}/messages/{messageId}')
+  .onCreate(async (snap, context) => {
+    const message = snap.data() as { fromUserId?: string; text?: string; type?: string };
+    const { matchId } = context.params as { matchId: string };
+    if (!message.fromUserId) return;
+
+    const matchSnap = await db.doc(`matches/${matchId}`).get();
+    if (!matchSnap.exists) return;
+    const matchData = matchSnap.data() as MatchData;
+
+    const recipient = [matchData.dog1UserId, matchData.dog2UserId]
+      .find((uid) => uid && uid !== message.fromUserId);
+    if (!recipient) return;
+
+    const senderName = await getDogName(message.fromUserId);
+    const isPlaydate = message.type === 'playdate_proposal' || message.type === 'playdate_confirmed';
+    await sendPushToUser(recipient, {
+      title: isPlaydate ? `${senderName} 📅` : senderName,
+      // Never leak message contents into a lock screen beyond a short preview.
+      body: (message.text ?? 'New message').slice(0, 120),
+      data: {
+        type: 'message',
+        matchId,
+        link: `https://godoggydate.com/app/messages/${matchId}`,
+      },
+    });
+  });
+
 // ── Cleanup: delete matches older than 180 days with no chat activity ──────────
 // Widened from 30 days: a short window was silently destroying paywalled
 // revenue opportunities (a user returning after 30 days found the match gone).

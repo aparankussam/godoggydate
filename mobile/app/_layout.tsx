@@ -1,8 +1,28 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { StripeProvider } from '@stripe/stripe-react-native';
-import { SessionProvider } from '../lib/session';
+import { SessionProvider, useSession } from '../lib/session';
+import { addNotificationTapListener, registerForPushNotifications } from '../lib/push';
+
+/** Registers this device for push once signed in, and routes notification taps. */
+function PushBootstrap() {
+  const { user } = useSession();
+
+  useEffect(() => {
+    if (!user) return;
+    void registerForPushNotifications(user.uid);
+  }, [user]);
+
+  useEffect(() => {
+    return addNotificationTapListener((matchId) => {
+      router.push({ pathname: '/chat/[matchId]', params: { matchId } });
+    });
+  }, []);
+
+  return null;
+}
 
 export default function RootLayout() {
   const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -15,6 +35,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StripeProvider publishableKey={stripePublishableKey}>
         <SessionProvider>
+          <PushBootstrap />
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
