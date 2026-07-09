@@ -1,10 +1,17 @@
-import { ActivityIndicator, Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import ProfileEditor from '../../components/ProfileEditor';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
+
+function openLegalLink(path: string) {
+  const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
+  Linking.openURL(`${base}${path}`).catch(() => {
+    Alert.alert('Could not open link', 'Please try again in a moment.');
+  });
+}
 
 export default function ProfileTab() {
   const { user, profile, profileComplete, saveProfile, signOutUser } = useSession();
@@ -115,6 +122,16 @@ export default function ProfileTab() {
             <Text style={styles.deleteText}>Delete account</Text>
           )}
         </Pressable>
+
+        <View style={styles.legalRow}>
+          <Pressable onPress={() => openLegalLink('/privacy')}>
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </Pressable>
+          <Text style={styles.legalDivider}>·</Text>
+          <Pressable onPress={() => openLegalLink('/terms')}>
+            <Text style={styles.legalLink}>Terms of Service</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -198,6 +215,23 @@ const styles = StyleSheet.create({
   deleteText: {
     fontFamily: fonts.body,
     fontSize: 14,
+    color: colors.brownLight,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 8,
+  },
+  legalLink: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.brownLight,
+    textDecorationLine: 'underline',
+  },
+  legalDivider: {
+    fontSize: 12,
     color: colors.brownLight,
   },
 });

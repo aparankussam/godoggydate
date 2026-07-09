@@ -1,4 +1,4 @@
-import { Alert, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -6,6 +6,13 @@ import { colors, fonts, radius, shadow } from '../constants/theme';
 import { useSession } from '../lib/session';
 import { signInWithGoogleNative } from '../lib/googleAuth';
 import { isAppleSignInAvailable, signInWithAppleNative } from '../lib/appleAuth';
+
+function openLegalLink(path: string) {
+  const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
+  Linking.openURL(`${base}${path}`).catch(() => {
+    Alert.alert('Could not open link', 'Please try again in a moment.');
+  });
+}
 
 export default function WelcomeScreen() {
   const {
@@ -148,6 +155,13 @@ export default function WelcomeScreen() {
               ? 'A guest session was restored on this device. You can resume setup or switch to Google or Apple sign-in.'
               : 'Sign in with Apple or Google to save your matches across devices, or continue as a guest to start exploring.'}
           </Text>
+
+          <Text style={styles.legalText}>
+            By continuing you agree to our{' '}
+            <Text style={styles.legalLink} onPress={() => openLegalLink('/terms')}>Terms</Text>
+            {' '}and{' '}
+            <Text style={styles.legalLink} onPress={() => openLegalLink('/privacy')}>Privacy Policy</Text>.
+          </Text>
         </View>
 
         <View style={styles.previewCard}>
@@ -273,6 +287,18 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 14,
     textAlign: 'left',
+  },
+  legalText: {
+    fontFamily: fonts.body,
+    color: colors.brownLight,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 10,
+    textAlign: 'left',
+  },
+  legalLink: {
+    textDecorationLine: 'underline',
+    color: colors.brownLight,
   },
   previewCard: {
     backgroundColor: colors.brown,
