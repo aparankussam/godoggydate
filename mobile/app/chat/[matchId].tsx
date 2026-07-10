@@ -37,6 +37,7 @@ import { isUserChatUnlocked } from '../../../shared/matchAccess';
 import { blockUser } from '../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../lib/entitlements';
 import { trackEvent } from '../../lib/analytics';
+import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../shared/utils/stripe';
 
 const SAFETY_TIP =
   'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
@@ -496,20 +497,20 @@ export default function ChatScreen() {
             // unlock automatically once the webhook lands, no refresh needed.
             <>
               <Text style={styles.paywallBody}>
-                Unlock chat with {resolvedName || match?.dog.name || 'your match'} for a one-time $4.99 on
+                Unlock chat with {resolvedName || match?.dog.name || 'your match'} for a one-time {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} on
                 godoggydate.com. No subscription, no auto-renew — this chat opens here automatically after
                 payment.
               </Text>
               <Text style={styles.paywallSupport}>{SAFETY_TIP}</Text>
               <Pressable style={styles.unlockBtn} onPress={openWebUnlockLink}>
-                <Text style={styles.unlockBtnText}>Unlock on godoggydate.com — $4.99</Text>
+                <Text style={styles.unlockBtnText}>Unlock on godoggydate.com — {formatPrice(CHAT_UNLOCK_PRICE_CENTS)}</Text>
               </Pressable>
             </>
           ) : (
             <>
               <Text style={styles.paywallBody}>
                 {paymentConfigured
-                  ? `Unlock chat with ${resolvedName || match?.dog.name || 'your match'} for a one-time $4.99. No subscription. No auto-renew.`
+                  ? `Unlock chat with ${resolvedName || match?.dog.name || 'your match'} for a one-time ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)}. No subscription. No auto-renew.`
                   : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
               </Text>
               <Text style={styles.paywallSupport}>
@@ -530,7 +531,7 @@ export default function ChatScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.unlockBtnText}>
-                    {paymentConfigured ? 'Unlock chat for $4.99' : 'Payment Not Configured'}
+                    {paymentConfigured ? `Unlock chat for ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)}` : 'Payment Not Configured'}
                   </Text>
                 )}
               </Pressable>

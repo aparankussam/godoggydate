@@ -26,6 +26,7 @@ import { trackEvent } from '../../lib/analytics';
 import { useSession } from '../../lib/session';
 import { requestApproxLocation, type LocationStatus } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
+import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../shared/utils/stripe';
 
 function getEnergyLabel(energyLevel: number): string {
   if (energyLevel >= 75) return 'High energy';
@@ -317,7 +318,7 @@ export default function DiscoverTab() {
               </View>
 
               <Text style={styles.matchUnlockText}>
-                One-time $4.99 unlock in chat. No subscription, no auto-renew.
+                One-time {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlock in chat. No subscription, no auto-renew.
               </Text>
 
               <Pressable style={styles.matchPrimaryBtn} onPress={handleOpenMatchedChat}>

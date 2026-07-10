@@ -6,7 +6,10 @@
  * Web:     uses @stripe/stripe-js + @stripe/react-stripe-js
  */
 
-export const CHAT_UNLOCK_PRICE_CENTS = 499; // $4.99
+// TESTING OVERRIDE: temporarily 50 (Stripe's $0.50 USD minimum charge) so
+// internal testers aren't paying full price. Revert to 499 ($4.99) before
+// inviting anyone beyond internal testing.
+export const CHAT_UNLOCK_PRICE_CENTS = 50;
 export const CHAT_UNLOCK_CURRENCY = 'usd';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

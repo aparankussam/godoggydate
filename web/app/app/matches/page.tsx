@@ -21,6 +21,7 @@ import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
+import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -259,7 +260,7 @@ export default function MatchesPage() {
                     )}
                     {!hasLastMsg && (
                       <p className="text-xs text-primary font-medium mt-1">
-                        {m.chatUnlocked ? 'Open chat and say hello 👋' : 'Unlock chat for $4.99 to start messaging'}
+                        {m.chatUnlocked ? 'Open chat and say hello 👋' : `Unlock chat for ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} to start messaging`}
                       </p>
                     )}
                   </div>

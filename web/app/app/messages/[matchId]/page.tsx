@@ -23,6 +23,7 @@ import { isUserChatUnlocked } from '../../../../../shared/matchAccess';
 import ChatUnlockPanel, { isSeedUserId } from '../../../../components/ChatUnlockPanel';
 import { blockUser } from '../../../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../../../lib/entitlements';
+import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../../shared/utils/stripe';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -513,7 +514,7 @@ export default function ChatPage() {
               <>
                 <p className="font-semibold text-brown">Unlock chat with {dogName}</p>
                 <p className="mt-2 mb-4 text-sm leading-relaxed text-brown-light">
-                  A one-time $4.99 opens chat for life with {dogName}. No subscription, no auto-renew.
+                  A one-time {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} opens chat for life with {dogName}. No subscription, no auto-renew.
                 </p>
                 <ChatUnlockPanel matchId={matchId} dogName={dogName} />
                 {getFoundingMemberLink(authUser.uid) && (
