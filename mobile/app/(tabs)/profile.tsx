@@ -1,10 +1,14 @@
 import { ActivityIndicator, Alert, Image, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { router } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 import ProfileEditor from '../../components/ProfileEditor';
+import DogTradingCard from '../../components/DogTradingCard';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
+import { trackEvent } from '../../lib/analytics';
 
 function openLegalLink(path: string) {
   const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
@@ -18,6 +22,29 @@ export default function ProfileTab() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sharingCard, setSharingCard] = useState(false);
+  const cardRef = useRef<View>(null);
+
+  async function handleShareCard() {
+    if (!cardRef.current || sharingCard) return;
+    setSharingCard(true);
+    trackEvent('trading_card_share_click');
+    try {
+      const uri = await captureRef(cardRef, { format: 'png', quality: 1 });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png' });
+        trackEvent('trading_card_shared', { method: 'native_share' });
+      } else {
+        Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+      }
+    } catch (error) {
+      console.warn('Failed to share trading card', error);
+      Alert.alert('Could not share card', 'Please try again in a moment.');
+    } finally {
+      setSharingCard(false);
+    }
+  }
 
   async function handleDeleteAccount() {
     Alert.alert(
@@ -96,6 +123,24 @@ export default function ProfileTab() {
             </Text>
           </View>
         </View>
+
+        {profileComplete && (
+          <View style={styles.tradingCardSection}>
+            <Text style={styles.tradingCardLabel}>Your dog&apos;s card</Text>
+            <View style={styles.tradingCardWrap}>
+              <DogTradingCard ref={cardRef} profile={profile} />
+            </View>
+            <Pressable
+              style={[styles.secondaryButton, sharingCard && { opacity: 0.6 }]}
+              onPress={handleShareCard}
+              disabled={sharingCard}
+            >
+              <Text style={styles.secondaryText}>
+                {sharingCard ? 'Rendering…' : '📤 Share this card'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         <Pressable style={styles.primaryButton} onPress={() => setEditing(true)}>
           <Text style={styles.primaryText}>Edit profile</Text>
@@ -206,6 +251,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     fontSize: 16,
     color: colors.brown,
+  },
+  tradingCardSection: {
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  tradingCardLabel: {
+    alignSelf: 'flex-start',
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.brown,
+  },
+  tradingCardWrap: {
+    alignItems: 'center',
   },
   deleteButton: {
     alignItems: 'center',

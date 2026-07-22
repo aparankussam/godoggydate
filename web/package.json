@@ -13,8 +13,9 @@
   "dependencies": {
     "@stripe/react-stripe-js": "^2.9.0",
     "@stripe/stripe-js": "^4.10.0",
-    "firebase-admin": "^13.7.0",
     "firebase": "^10.14.1",
+    "firebase-admin": "^13.7.0",
+    "html2canvas": "^1.4.1",
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",

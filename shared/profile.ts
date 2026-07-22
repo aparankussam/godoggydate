@@ -20,6 +20,9 @@ export interface SavedDogProfile {
   lat?: number;
   lng?: number;
   prompts?: { prompt: string; answer: string }[];
+  // Server-assigned by the onDogProfileCreated Cloud Function trigger —
+  // never set by the client. Real, permanent, numbered soft-launch scarcity.
+  foundingPackNumber?: number;
 }
 
 export interface SavedDogPrivateProfile {

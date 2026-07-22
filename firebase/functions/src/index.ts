@@ -659,3 +659,26 @@ export const cleanupStaleMatches = functions.pubsub
     }
     console.log(`Deleted ${deleted} stale matches (${snap.size - deleted} skipped for activity)`);
   });
+
+// ── Founding Pack numbering ─────────────────────────────────────────────────
+// Assigns each new dog a permanent, sequential Founding Pack number
+// (Dog #137 of the Founding Pack) — real, numbered scarcity for the
+// soft-launch pricing story. Runs once, on true first creation of a
+// dogs/{uid} doc (Firestore's onCreate only fires the first time a
+// document at that path is created). Atomic via a transaction against a
+// single counters/foundingPack doc so concurrent signups never collide.
+
+export const onDogProfileCreated = functions.firestore
+  .document('dogs/{uid}')
+  .onCreate(async (snap) => {
+    const counterRef = db.doc('counters/foundingPack');
+
+    const number = await db.runTransaction(async (transaction) => {
+      const counterSnap = await transaction.get(counterRef);
+      const next = ((counterSnap.data()?.count as number | undefined) ?? 0) + 1;
+      transaction.set(counterRef, { count: next }, { merge: true });
+      return next;
+    });
+
+    await snap.ref.set({ foundingPackNumber: number }, { merge: true });
+  });

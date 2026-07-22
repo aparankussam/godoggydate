@@ -4,7 +4,7 @@
 // Always redirects unauthenticated users to the landing page.
 // Provides: edit profile, sign out, and a link back to discover.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -20,6 +20,8 @@ import DogProfileForm from '../../../components/DogProfileForm';
 import { trackEvent } from '../../../lib/analytics';
 import { getRenderablePhotos } from '../../../lib/photos';
 import { deleteAccount } from '../../../lib/account';
+import DogTradingCard from '../../../components/DogTradingCard';
+import { shareOrDownloadCard } from '../../../lib/shareCard';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -34,6 +36,25 @@ export default function ProfilePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,     setDeleting]     = useState(false);
   const [deleteError,  setDeleteError]  = useState<string | null>(null);
+  const [sharingCard,  setSharingCard]  = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  async function handleShareCard() {
+    if (!cardRef.current || sharingCard) return;
+    setSharingCard(true);
+    trackEvent('trading_card_share_click');
+    try {
+      const result = await shareOrDownloadCard(
+        cardRef.current,
+        `${(savedProfile?.name ?? 'dog').toLowerCase().replace(/\s+/g, '-')}-godoggydate-card.png`,
+      );
+      trackEvent('trading_card_shared', { method: result });
+    } catch {
+      // html2canvas/share failures are non-critical — just let them retry.
+    } finally {
+      setSharingCard(false);
+    }
+  }
 
   // ── Auth observer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -168,7 +189,7 @@ export default function ProfilePage() {
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
             <p className="font-semibold mb-1">Profile incomplete</p>
             <p className="text-xs">
-              Add your dog&apos;s breed, age, neighbourhood, and at least one personality tag to unlock swiping.
+              Add your dog&apos;s breed, age, neighborhood, and at least one personality tag to unlock swiping.
             </p>
           </div>
         )}
@@ -232,7 +253,7 @@ export default function ProfilePage() {
               { label: 'Age',           value: savedProfile.age            },
               { label: 'Size',          value: savedProfile.size           },
               { label: 'Energy',        value: savedProfile.energyLevel !== undefined ? `${savedProfile.energyLevel}%` : undefined },
-              { label: 'Neighbourhood', value: savedProfile.location       },
+              { label: 'Neighborhood',  value: savedProfile.location       },
               { label: 'Vaccinated',    value: savedProfile.vaccinated ? 'Yes ✅' : 'Not yet' },
             ].map(({ label, value }) => value ? (
               <div key={label} className="flex justify-between items-center px-4 py-3">
@@ -264,6 +285,23 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Trading card share */}
+        {savedProfile && complete && (
+          <div className="flex flex-col items-center gap-4 py-2">
+            <p className="text-sm font-semibold text-brown self-start">Your dog&apos;s card</p>
+            <div className="scale-[0.72] origin-top -mb-24 sm:scale-100 sm:mb-0">
+              <DogTradingCard profile={savedProfile} innerRef={cardRef} />
+            </div>
+            <button
+              onClick={handleShareCard}
+              disabled={sharingCard}
+              className="btn-secondary px-6 py-2.5 text-sm disabled:opacity-50"
+            >
+              {sharingCard ? 'Rendering…' : '📤 Share this card'}
+            </button>
           </div>
         )}
 

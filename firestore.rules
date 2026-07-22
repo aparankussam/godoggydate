@@ -143,6 +143,14 @@ service cloud.firestore {
       }
     }
 
+    match /counters/{counterId} {
+      // Public, non-sensitive aggregate (e.g. Founding Pack enrollment
+      // count) — powers the live counter on the homepage. Only the
+      // Cloud Function (admin SDK, bypasses rules) ever writes it.
+      allow read:  if true;
+      allow write: if false;
+    }
+
     match /ratings/{ratingId} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()

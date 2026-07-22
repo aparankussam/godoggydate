@@ -43,6 +43,10 @@ export async function saveUserDogProfile(uid: string, profile: SavedDogProfile):
       createdAt,
       updatedAt,
     }),
+    // Preserve server-assigned fields (e.g. foundingPackNumber, trustScore)
+    // that aren't part of the client's local profile object — a plain
+    // overwrite would silently wipe them on every subsequent edit.
+    { merge: true },
   );
 
   batch.set(
