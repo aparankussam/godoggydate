@@ -6,11 +6,30 @@
  * Web:     uses @stripe/stripe-js + @stripe/react-stripe-js
  */
 
-// TESTING OVERRIDE: temporarily 50 (Stripe's $0.50 USD minimum charge) so
-// internal testers aren't paying full price. Revert to 499 ($4.99) before
-// inviting anyone beyond internal testing.
+// SOFT-LAUNCH "FOUNDING PACK" PRICING: 50 (Stripe's $0.50 USD minimum
+// charge) instead of the normal 499 ($4.99), framed as real, numbered
+// scarcity (see FOUNDING_PACK_SIZE / getFoundingPackPitch below) rather
+// than a fake countdown. Revert to 499 once the Founding Pack fills or
+// launch broadens beyond the soft-launch neighborhood.
 export const CHAT_UNLOCK_PRICE_CENTS = 50;
 export const CHAT_UNLOCK_CURRENCY = 'usd';
+
+// Number of "Founding Pack" dogs the soft-launch price is honored for.
+export const FOUNDING_PACK_SIZE = 500;
+
+/** Standalone paywall pitch line, reused across every unlock surface. */
+export function getChatUnlockPitch(): string {
+  const price = formatPrice(CHAT_UNLOCK_PRICE_CENTS);
+  return CHAT_UNLOCK_PRICE_CENTS <= 100
+    ? `${price} unlocks this chat forever. Less than a poop bag. One of you pays, both of you talk.`
+    : `${price} unlocks this chat forever. No subscription, no auto-renew. One of you pays, both of you talk.`;
+}
+
+/** Founding Pack scarcity framing — only meaningful while soft-launch pricing is active. */
+export function getFoundingPackPitch(): string | null {
+  if (CHAT_UNLOCK_PRICE_CENTS > 100) return null;
+  return `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} chats until the Founding Pack hits ${FOUNDING_PACK_SIZE} dogs. After that, ${formatPrice(499)}. Your number never expires — the price does.`;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

@@ -28,6 +28,16 @@ const config: Config = {
       borderRadius: {
         '4xl': '2rem',
       },
+      keyframes: {
+        pawFall: {
+          '0%':   { transform: 'translateY(0) rotate(0deg)', opacity: '0' },
+          '10%':  { opacity: '0.85' },
+          '100%': { transform: 'translateY(110vh) rotate(340deg)', opacity: '0' },
+        },
+      },
+      animation: {
+        'paw-fall': 'pawFall linear forwards',
+      },
     },
   },
   plugins: [],

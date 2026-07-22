@@ -259,7 +259,7 @@ export default function AppPage() {
       source: feedDepleted ? 'empty_state' : 'discover',
     });
     const shareUrl = 'https://godoggydate.com';
-    const message = 'Come join me on GoDoggyDate. It helps dog owners find safer, compatible local playdates.';
+    const message = 'My dog needs friends and honestly so do I.';
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({
         title: 'GoDoggyDate',
@@ -397,7 +397,7 @@ export default function AppPage() {
       {showRetentionHook && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-80 bg-brown text-white rounded-2xl px-5 py-3 flex items-center gap-3 shadow-xl">
           <span className="text-2xl shrink-0">🎉</span>
-          <p className="text-sm flex-1">You matched. Early access is live tonight, so send a quick hello while they&apos;re active.</p>
+          <p className="text-sm flex-1">Mutual woof! Say hi first — someone has to, and dogs can&apos;t type.</p>
           <button
             onClick={() => setShowRetentionHook(false)}
             className="text-white/50 hover:text-white text-xl leading-none shrink-0"
@@ -429,17 +429,17 @@ export default function AppPage() {
             <div className="flex flex-1 flex-col items-center justify-center py-16 gap-4 text-center px-4">
               <span className="text-6xl">🐾</span>
               <p className="font-display text-2xl text-brown">
-                Complete your profile to start swiping
+                Your dog can&apos;t make friends without a profile
               </p>
               <p className="text-brown-light text-sm max-w-xs">
-                Add your dog&apos;s breed, age, neighbourhood,
+                Add your dog&apos;s breed, age, neighborhood,
                 and at least one personality tag.
               </p>
               <button
                 onClick={() => setShowProfileForm(true)}
                 className="btn-primary px-8 py-3"
               >
-                Complete Profile
+                Finish the profile
               </button>
             </div>
           )}
@@ -448,12 +448,12 @@ export default function AppPage() {
           {!authLoading && authUser && profileIsComplete && feedDepleted && (
             <div className="flex flex-1 flex-col items-center justify-center py-24 gap-4 text-center px-4">
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">That&apos;s everyone for now</p>
+              <p className="font-display text-2xl text-brown">You&apos;ve sniffed everyone within {DEFAULT_DISCOVER_RADIUS_MILES} miles</p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                We&apos;ll keep looking for new dogs within {DEFAULT_DISCOVER_RADIUS_MILES} miles.
+                Certified neighborhood menace. New dogs drop daily-ish.
               </p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                Real dogs appear first, with demo dogs filling the gaps when available. Invite a dog parent or check back soon to see who joins next.
+                Recruit a dog parent — Kaju will remember this.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button

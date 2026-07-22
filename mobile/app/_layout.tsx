@@ -1,10 +1,19 @@
 import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import { useFonts } from 'expo-font';
+import { Fraunces_600SemiBold, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
+import {
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+} from '@expo-google-fonts/nunito';
 import { SessionProvider, useSession } from '../lib/session';
 import { addNotificationTapListener, registerForPushNotifications } from '../lib/push';
+import { colors } from '../constants/theme';
 
 /** Registers this device for push once signed in, and routes notification taps. */
 function PushBootstrap() {
@@ -29,6 +38,25 @@ export default function RootLayout() {
 
   if (!stripePublishableKey) {
     throw new Error('Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY for mobile Stripe initialization');
+  }
+
+  // The web app's Fraunces/Nunito brand fonts were never actually loaded on
+  // mobile — theme.ts silently fell back to system fonts (Georgia for
+  // display), so iOS looked like a newspaper instead of the styled web app.
+  const [fontsLoaded] = useFonts({
+    Fraunces_600SemiBold,
+    Fraunces_700Bold,
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
   }
 
   return (

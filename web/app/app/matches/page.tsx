@@ -260,7 +260,7 @@ export default function MatchesPage() {
                     )}
                     {!hasLastMsg && (
                       <p className="text-xs text-primary font-medium mt-1">
-                        {m.chatUnlocked ? 'Open chat and say hello 👋' : `Unlock chat for ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} to start messaging`}
+                        {m.chatUnlocked ? 'Open chat and say hello 👋' : `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlocks it forever`}
                       </p>
                     )}
                   </div>

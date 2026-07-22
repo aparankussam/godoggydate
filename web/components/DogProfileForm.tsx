@@ -285,7 +285,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       sex: !sex ? 'Required' : '',
       size: !size ? 'Required' : '',
       energy: Number.isFinite(energyLevel) ? '' : 'Required',
-      zip: hasZip && !/^\d{5}(-\d{4})?$/.test(zip.trim()) ? 'Enter a valid ZIP code' : '',
+      zip: hasZip && !/^\d{5}(-\d{4})?$/.test(zip.trim()) ? "That ZIP doesn't smell right" : '',
       city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : '',
       state: !hasZip && hasCity && !hasState ? 'Select a state' : '',
       personality: temperament.length === 0 && playStyles.length === 0 ? 'Pick at least one' : '',
@@ -682,7 +682,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
               ref={locationRef}
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="City or neighbourhood"
+              placeholder="City or neighborhood"
               className="min-w-0 flex-1 rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
             />
             <select

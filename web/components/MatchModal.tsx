@@ -3,11 +3,13 @@
 // Full-screen celebration overlay fired when a mutual like is detected.
 // Shown from SwipeStack's onMatch callback in app/app/page.tsx.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import type { CompatibilityResult } from '../shared/types';
 import { getPrimaryRenderablePhoto } from '../lib/photos';
-import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../shared/utils/stripe';
+import { getChatUnlockPitch } from '../shared/utils/stripe';
+
+const MATCH_HEADLINES = ["It's a Match!", 'MUTUAL WOOF'];
 
 interface MatchDog {
   id: string;
@@ -34,6 +36,20 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
     typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0
       ? `${dog.distanceMiles.toFixed(1)} mi apart`
       : dog.location ?? 'Nearby';
+  const headline = useMemo(
+    () => MATCH_HEADLINES[Math.floor(Math.random() * MATCH_HEADLINES.length)],
+    [],
+  );
+  // Falling paw-print confetti — deterministic per mount, no library needed.
+  const confetti = useMemo(
+    () => Array.from({ length: 14 }, (_, i) => ({
+      left: `${(i * 37) % 100}%`,
+      delay: `${(i % 7) * 0.15}s`,
+      duration: `${2.4 + (i % 5) * 0.3}s`,
+      size: 16 + (i % 3) * 8,
+    })),
+    [],
+  );
 
   // Trap focus inside modal
   useEffect(() => {
@@ -60,7 +76,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
       </div>
 
       <h2 className="font-display text-5xl text-white leading-tight">
-        It&apos;s a Match!
+        {headline}
       </h2>
 
       {/* Dog photo + score */}
@@ -83,7 +99,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
         <div className="space-y-1">
           <p className="font-display text-3xl text-white">{dog.name}</p>
           <p className="text-white/90 text-lg font-semibold">
-            is ready for a playdate connection.
+            wants to sniff you out.
           </p>
           <p className="text-white/70 text-sm">
             {dog.breed} · {dog.compat.label} · {distanceSummary}
@@ -128,7 +144,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           💬 Say hi to {dog.name}
         </Link>
         <p className="text-center text-sm leading-relaxed text-white/72">
-          One-time {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} to unlock chat. No subscription, no auto-renew.
+          {getChatUnlockPitch()}
         </p>
         <p className="text-center text-xs leading-relaxed text-white/58">
           Safety tip: start with a public dog park or another busy public place for your first meetup.
@@ -146,6 +162,25 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
         {['top-12 left-8 text-3xl opacity-20 rotate-12', 'top-20 right-10 text-2xl opacity-15 -rotate-6',
           'bottom-32 left-6 text-4xl opacity-20 rotate-45', 'bottom-20 right-8 text-3xl opacity-15 -rotate-12'].map((cls, i) => (
           <span key={i} className={`absolute ${cls} select-none`}>🐾</span>
+        ))}
+      </div>
+
+      {/* Falling paw-print confetti */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        {confetti.map((piece, i) => (
+          <span
+            key={i}
+            className="absolute select-none animate-paw-fall"
+            style={{
+              left: piece.left,
+              top: '-2rem',
+              fontSize: piece.size,
+              animationDelay: piece.delay,
+              animationDuration: piece.duration,
+            }}
+          >
+            🐾
+          </span>
         ))}
       </div>
     </div>

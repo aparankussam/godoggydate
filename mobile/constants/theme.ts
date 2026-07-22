@@ -29,11 +29,15 @@ export const colors = {
   overlay: 'rgba(45,26,14,0.45)',
 };
 
+// Loaded via useFonts in app/_layout.tsx — matches the web app's brand
+// typefaces (Fraunces display serif + Nunito body) instead of the system
+// font fallback.
 export const fonts = {
-  display: 'Georgia',
-  body: 'System',
-  semibold: 'System',
-  bold: 'System',
+  display: 'Fraunces_700Bold',
+  displaySemibold: 'Fraunces_600SemiBold',
+  body: 'Nunito_400Regular',
+  semibold: 'Nunito_600SemiBold',
+  bold: 'Nunito_700Bold',
 };
 
 export const radius = {

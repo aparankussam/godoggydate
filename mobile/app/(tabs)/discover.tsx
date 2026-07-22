@@ -26,7 +26,10 @@ import { trackEvent } from '../../lib/analytics';
 import { useSession } from '../../lib/session';
 import { requestApproxLocation, type LocationStatus } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
-import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../shared/utils/stripe';
+import { getChatUnlockPitch } from '../../../shared/utils/stripe';
+import * as Haptics from 'expo-haptics';
+
+const MATCH_HEADLINES = ["It's a Match!", 'MUTUAL WOOF'];
 
 function getEnergyLabel(energyLevel: number): string {
   if (energyLevel >= 75) return 'High energy';
@@ -40,7 +43,7 @@ function formatMemberSince(timestamp?: number): string | null {
 }
 
 function formatDensityLine(withinFive: number, withinRadius: number, radiusMiles: number): string {
-  if (withinRadius === 0) return `We’ll keep looking within ${radiusMiles} mi`;
+  if (withinRadius === 0) return `Sniffed everyone within ${radiusMiles} mi. New dogs drop daily-ish.`;
   if (withinFive === withinRadius) {
     return `${withinRadius} within 5 mi`;
   }
@@ -58,6 +61,7 @@ export default function DiscoverTab() {
   const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
   const [matchedDog, setMatchedDog] = useState<DiscoverDog | null>(null);
   const [matchedMatchId, setMatchedMatchId] = useState<string | null>(null);
+  const [matchHeadline, setMatchHeadline] = useState(MATCH_HEADLINES[0]);
   const [locationStatus, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
   const [swipeError, setSwipeError] = useState<string | null>(null);
   const locationRequestedRef = useRef(false);
@@ -143,8 +147,10 @@ export default function DiscoverTab() {
               dog_id: currentDog.id,
               compatibility_score: currentDog.compat.score,
             });
+            setMatchHeadline(MATCH_HEADLINES[Math.floor(Math.random() * MATCH_HEADLINES.length)]);
             setMatchedDog(currentDog);
             setMatchedMatchId(result.matchId);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
         }
         setIndex((prev) => prev + 1);
@@ -169,16 +175,19 @@ export default function DiscoverTab() {
 
   function handlePassPress() {
     bounce(passScale);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     topCardRef.current?.triggerSwipe('pass');
   }
 
   function handleLikePress() {
     bounce(likeScale);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     topCardRef.current?.triggerSwipe('like');
   }
 
   function handleSuperLike() {
     bounce(starScale);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Superlike = like for now; wire to separate action in Phase 3
     topCardRef.current?.triggerSwipe('like');
   }
@@ -199,8 +208,7 @@ export default function DiscoverTab() {
   async function handleInviteFriends() {
     try {
       await Share.share({
-        message:
-          'Join me on GoDoggyDate to find safe, compatible playmates for your dog nearby: https://godoggydate.com',
+        message: 'My dog needs friends and honestly so do I. https://godoggydate.com',
       });
     } catch {
       // User likely cancelled the share sheet.
@@ -248,7 +256,7 @@ export default function DiscoverTab() {
     return (
       <SafeAreaView style={styles.gateContainer}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.loadingText}>Fetching nearby pups…</Text>
+        <Text style={styles.loadingText}>Sniffing the neighborhood…</Text>
       </SafeAreaView>
     );
   }
@@ -268,7 +276,7 @@ export default function DiscoverTab() {
   ).length;
   const densityLine =
     visibleDogs.length === 0
-      ? `We’ll keep looking within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`
+      ? `Sniffed everyone within ${DEFAULT_DISCOVER_RADIUS_MILES} mi. New dogs drop daily-ish.`
       : formatDensityLine(visibleWithinFive, visibleWithinRadius, DEFAULT_DISCOVER_RADIUS_MILES);
 
   return (
@@ -286,7 +294,7 @@ export default function DiscoverTab() {
           <View style={styles.matchOverlay}>
             <View style={styles.matchModal}>
               <Text style={styles.matchBurst}>🐕 💛 🐶</Text>
-              <Text style={styles.matchTitle}>It&apos;s a Match!</Text>
+              <Text style={styles.matchTitle}>{matchHeadline}</Text>
 
               {matchedDog.photos[0] ? (
                 <Image source={{ uri: matchedDog.photos[0] }} style={styles.matchPhoto} />
@@ -318,7 +326,7 @@ export default function DiscoverTab() {
               </View>
 
               <Text style={styles.matchUnlockText}>
-                One-time {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlock in chat. No subscription, no auto-renew.
+                {getChatUnlockPitch()}
               </Text>
 
               <Pressable style={styles.matchPrimaryBtn} onPress={handleOpenMatchedChat}>
