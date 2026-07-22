@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AuthModal from '../components/AuthModal';
+import FoundingPackSection from '../components/FoundingPackSection';
 import { trackEvent } from '../lib/analytics';
 import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
@@ -11,6 +12,7 @@ export default function HomePage() {
   const router = useRouter();
   const [showAuth,    setShowAuth]    = useState(false);
   const [signedIn,    setSignedIn]    = useState(false);
+  const [userId,      setUserId]      = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Quick auth check — determines whether to show "Get Started" or "Open App"
@@ -18,6 +20,7 @@ export default function HomePage() {
     const { auth } = getFirebase();
     const unsub = onAuthStateChanged(auth, (user) => {
       setSignedIn(!!user);
+      setUserId(user?.uid ?? null);
       setAuthChecked(true);
     });
     return unsub;
@@ -39,8 +42,8 @@ export default function HomePage() {
   const features = [
     { emoji: '🛡️', title: 'Safety First', desc: 'Our matching engine prevents incompatible pairings before you swipe.' },
     { emoji: '🧠', title: 'Smart Compatibility', desc: 'Scored on size, energy, play style, health, and 10+ signals.' },
-    { emoji: '📍', title: 'Truly Local', desc: 'Connect with dogs in your neighbourhood — real meetups, not endless scrolling.' },
-    { emoji: '🐾', title: 'Early Access', desc: 'You\'re among the first. Help us build the safest dog community from the ground up.' },
+    { emoji: '📍', title: 'Truly Local', desc: 'Connect with dogs in your neighborhood — real meetups, not endless scrolling.' },
+    { emoji: '🐾', title: 'Founding Pack', desc: 'Get in early — a permanent, numbered spot and soft-launch pricing that won\'t last.' },
   ];
 
   const steps = [
@@ -91,7 +94,7 @@ export default function HomePage() {
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-[rgba(232,99,58,0.1)] border border-[rgba(232,99,58,0.2)] rounded-full px-4 py-2 mb-6">
-          <span className="text-sm font-semibold text-primary">🐾 Early Access — now open</span>
+          <span className="text-sm font-semibold text-primary">🐾 The Founding Pack is open</span>
         </div>
         <h1 className="font-display text-5xl md:text-7xl text-brown leading-tight mb-6">
           Find safe, compatible<br />
@@ -114,7 +117,7 @@ export default function HomePage() {
         </div>
         <p className="mt-4 text-sm font-semibold text-primary">Join Kaju&apos;s pack 🐾</p>
         <p className="mt-2 text-sm text-brown-light">
-          Free early access · Help us build something great
+          Get your dog a best friend — temperament-matched, not doomscrolled
         </p>
       </section>
 
@@ -145,6 +148,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <FoundingPackSection signedInUserId={userId} onRequireAuth={() => setShowAuth(true)} />
 
       {/* Features */}
       <section className="bg-cream-dark py-20">
