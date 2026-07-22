@@ -365,14 +365,41 @@ export default function ChatScreen() {
     });
   }
 
-  function openWebUnlockLink() {
-    if (!resolvedMatchId) return;
+  async function openWebUnlockLink() {
+    if (!resolvedMatchId || unlockLoading) return;
     const webBase =
       process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '') || 'https://godoggydate.com';
-    Linking.openURL(`${webBase}/app/messages/${resolvedMatchId}`).catch((error) => {
-      console.warn('Failed to open web unlock link', error);
-      Alert.alert('Could not open link', 'Please try again in a moment.');
-    });
+    const path = `/app/messages/${resolvedMatchId}`;
+
+    setUnlockLoading(true);
+    // The system browser has no access to the app's local auth session, so
+    // a plain link dumps the user on a cold sign-in screen. Mint a custom
+    // token from the app's own ID token and hand off an already-signed-in
+    // session — this is what makes "opens automatically after payment"
+    // actually true instead of stalling on a sign-in wall.
+    try {
+      const currentUser = getFirebase().auth.currentUser;
+      if (!currentUser) throw new Error('Not signed in');
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch(`${webBase}/api/auth/handoff-token`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = (await res.json().catch(() => ({}))) as { customToken?: string };
+      if (!res.ok || !data.customToken) throw new Error('Handoff token request failed');
+      await Linking.openURL(`${webBase}${path}?handoff=${encodeURIComponent(data.customToken)}`);
+    } catch (error) {
+      console.warn('Handoff sign-in unavailable, opening plain link', error);
+      // Still get them to the right page — they'll just need to sign in there.
+      try {
+        await Linking.openURL(`${webBase}${path}`);
+      } catch (linkError) {
+        console.warn('Failed to open web unlock link', linkError);
+        Alert.alert('Could not open link', 'Please try again in a moment.');
+      }
+    } finally {
+      setUnlockLoading(false);
+    }
   }
 
   async function handleUnlock() {
@@ -502,8 +529,16 @@ export default function ChatScreen() {
                 payment.
               </Text>
               <Text style={styles.paywallSupport}>{SAFETY_TIP}</Text>
-              <Pressable style={styles.unlockBtn} onPress={openWebUnlockLink}>
-                <Text style={styles.unlockBtnText}>Unlock on godoggydate.com — {formatPrice(CHAT_UNLOCK_PRICE_CENTS)}</Text>
+              <Pressable
+                style={[styles.unlockBtn, unlockLoading && styles.sendBtnDisabled]}
+                onPress={openWebUnlockLink}
+                disabled={unlockLoading}
+              >
+                {unlockLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.unlockBtnText}>Unlock on godoggydate.com — {formatPrice(CHAT_UNLOCK_PRICE_CENTS)}</Text>
+                )}
               </Pressable>
             </>
           ) : (

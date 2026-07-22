@@ -6,7 +6,8 @@
 // Also updates matches/{matchId}.lastMessage + lastMessageTime on send.
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { signInWithCustomToken } from 'firebase/auth';
 import Link from 'next/link';
 import {
   collection, query, orderBy, onSnapshot,
@@ -104,12 +105,19 @@ function formatTime(createdAt: { seconds: number } | null): string {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
-  const params   = useParams();
-  const router   = useRouter();
+  const params       = useParams();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
   const matchId  = typeof params.matchId === 'string' ? params.matchId : '';
+  const handoffToken = searchParams.get('handoff');
 
   const [authUser, setAuthUser]             = useState<User | null>(null);
   const [authLoading, setAuthLoading]       = useState(true);
+  // True once a mobile-app handoff sign-in has been attempted (or there was
+  // none to attempt). The auth-loading gate below waits on this so a fresh,
+  // session-less Safari tab doesn't redirect to /app before the handoff
+  // token has had a chance to sign the user in.
+  const [handoffAttempted, setHandoffAttempted] = useState(!handoffToken);
   const [otherProfile, setOtherProfile]     = useState<SavedDogProfile | null>(null);
   const [otherUserId, setOtherUserId]       = useState<string | null>(null);
   const [messages, setMessages]             = useState<Message[]>([]);
@@ -126,6 +134,27 @@ export default function ChatPage() {
   const [playdateDraft, setPlaydateDraft]   = useState<PlaydateDetails>({ date: '', time: '', place: '' });
 
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // ── Mobile-app session handoff ────────────────────────────────────────────────
+  // The native app opens this page in the system browser (Safari), which has
+  // no access to the app's local auth session. A ?handoff= custom token
+  // (minted by /api/auth/handoff-token from the app's own ID token) signs
+  // this tab in as the same user, so the link lands on the unlock checkout
+  // instead of a cold sign-in screen.
+  useEffect(() => {
+    if (!handoffToken) return;
+    const { auth } = getFirebase();
+    signInWithCustomToken(auth, handoffToken)
+      .catch((error) => {
+        console.warn('Handoff sign-in failed', error);
+      })
+      .finally(() => {
+        setHandoffAttempted(true);
+        // Strip the token from the URL/history once consumed.
+        router.replace(`/app/messages/${matchId}`);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoffToken]);
 
   // ── Auth ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -383,7 +412,7 @@ export default function ChatPage() {
 
   // ── Loading / access states ───────────────────────────────────────────────────
 
-  if (authLoading || loadingProfile) {
+  if (authLoading || loadingProfile || !handoffAttempted) {
     return (
       <div className="flex-1 flex items-center justify-center h-screen">
         <span className="text-4xl animate-spin">🐾</span>
