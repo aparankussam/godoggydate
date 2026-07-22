@@ -37,7 +37,12 @@ import { isUserChatUnlocked } from '../../../shared/matchAccess';
 import { blockUser } from '../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../lib/entitlements';
 import { trackEvent } from '../../lib/analytics';
-import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../shared/utils/stripe';
+import { CHAT_UNLOCK_PRICE_CENTS, formatPrice, getChatUnlockPitch } from '../../../shared/utils/stripe';
+import { hasRatedPlaydate, submitPlaydateRating } from '../../lib/ratings';
+import PlaydateRatingModal from '../../components/PlaydateRatingModal';
+import PlaydateMemoryCard from '../../components/PlaydateMemoryCard';
+import * as Sharing from 'expo-sharing';
+import { captureRef } from 'react-native-view-shot';
 
 const SAFETY_TIP =
   'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
@@ -68,6 +73,11 @@ export default function ChatScreen() {
   const [awaitingVerification, setAwaitingVerification] = useState(false);
   const [showPlaydateForm, setShowPlaydateForm] = useState(false);
   const [playdateDraft, setPlaydateDraft] = useState<PlaydateDetails>({ date: '', time: '', place: '' });
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [alreadyRated, setAlreadyRated] = useState(true);
+  const [memoryCardStars, setMemoryCardStars] = useState<number | null>(null);
+  const [sharingMemoryCard, setSharingMemoryCard] = useState(false);
+  const memoryCardRef = useRef<View>(null);
   const listRef = useRef<FlatList>(null);
   const paymentConfigured = isPaymentConfigured();
   const paymentConfigurationError = getPaymentConfigurationError();
@@ -330,6 +340,52 @@ export default function ChatScreen() {
   const confirmedPlaydateKeys = new Set(
     messages.filter((m) => m.type === 'playdate_confirmed').map((m) => playdateKey(m.playdate)),
   );
+  const hasConfirmedPlaydate = confirmedPlaydateKeys.size > 0;
+
+  useEffect(() => {
+    if (!user || !resolvedMatchId || !hasConfirmedPlaydate) return;
+    let cancelled = false;
+    hasRatedPlaydate(user.uid, resolvedMatchId).then((rated) => {
+      if (!cancelled) setAlreadyRated(rated);
+    });
+    return () => { cancelled = true; };
+  }, [user, resolvedMatchId, hasConfirmedPlaydate]);
+
+  async function handleSubmitRating(stars: number, wouldMeetAgain: boolean) {
+    if (!user || !match?.dog.id || !resolvedMatchId) return;
+    await submitPlaydateRating({
+      matchId: resolvedMatchId,
+      raterId: user.uid,
+      dogId: match.dog.id,
+      stars,
+      wouldMeetAgain,
+    });
+    trackEvent('playdate_rated', { match_id: resolvedMatchId, stars, would_meet_again: wouldMeetAgain });
+    setAlreadyRated(true);
+    setShowRatingModal(false);
+    setMemoryCardStars(stars);
+  }
+
+  async function handleShareMemoryCard() {
+    if (!memoryCardRef.current || sharingMemoryCard) return;
+    setSharingMemoryCard(true);
+    trackEvent('memory_card_share_click', { match_id: resolvedMatchId ?? '' });
+    try {
+      const uri = await captureRef(memoryCardRef, { format: 'png', quality: 1 });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png' });
+        trackEvent('memory_card_shared', { match_id: resolvedMatchId ?? '', method: 'native_share' });
+      } else {
+        Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+      }
+    } catch (error) {
+      console.warn('Failed to share memory card', error);
+      Alert.alert('Could not share card', 'Please try again in a moment.');
+    } finally {
+      setSharingMemoryCard(false);
+    }
+  }
 
   async function proposePlaydate() {
     const { date, time, place } = playdateDraft;
@@ -479,6 +535,13 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <PlaydateRatingModal
+        visible={showRatingModal}
+        dogName={resolvedName || match?.dog.name || 'your match'}
+        onSubmit={handleSubmitRating}
+        onDismiss={() => setShowRatingModal(false)}
+      />
+
       {/* Header */}
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
@@ -524,9 +587,7 @@ export default function ChatScreen() {
             // unlock automatically once the webhook lands, no refresh needed.
             <>
               <Text style={styles.paywallBody}>
-                Unlock chat with {resolvedName || match?.dog.name || 'your match'} for a one-time {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} on
-                godoggydate.com. No subscription, no auto-renew — this chat opens here automatically after
-                payment.
+                {getChatUnlockPitch()} Pay on godoggydate.com — this chat opens here automatically after payment.
               </Text>
               <Text style={styles.paywallSupport}>{SAFETY_TIP}</Text>
               <Pressable
@@ -545,7 +606,7 @@ export default function ChatScreen() {
             <>
               <Text style={styles.paywallBody}>
                 {paymentConfigured
-                  ? `Unlock chat with ${resolvedName || match?.dog.name || 'your match'} for a one-time ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)}. No subscription. No auto-renew.`
+                  ? getChatUnlockPitch()
                   : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
               </Text>
               <Text style={styles.paywallSupport}>
@@ -575,7 +636,7 @@ export default function ChatScreen() {
           {getFoundingMemberLink(user.uid) && (
             <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink}>
               <Text style={styles.foundingMemberLinkText}>
-                🐾 Or become a Founding Member — every chat unlocked for life, one-time $39
+                🐾 Or go Founding Member — $39 once. Every chat, forever. Badge included.
               </Text>
             </Pressable>
           )}
@@ -589,6 +650,41 @@ export default function ChatScreen() {
           <View style={styles.safetyBanner}>
             <Text style={styles.safetyBannerText}>{SAFETY_TIP}</Text>
           </View>
+          {hasConfirmedPlaydate && !alreadyRated && (
+            <Pressable style={styles.ratingBanner} onPress={() => setShowRatingModal(true)}>
+              <Text style={styles.ratingBannerText}>
+                🎾 How did the playdate with {resolvedName || match?.dog.name || 'your match'} go?
+              </Text>
+              <Text style={styles.ratingBannerCta}>Rate it →</Text>
+            </Pressable>
+          )}
+          {memoryCardStars !== null && (
+            <View style={styles.memoryCardWrap}>
+              <PlaydateMemoryCard
+                ref={memoryCardRef}
+                dogName={resolvedName || match?.dog.name || 'your match'}
+                dogBreed={match?.dog.breed}
+                photo={match?.dog.photos?.[0]}
+                stars={memoryCardStars}
+              />
+              <View style={styles.memoryCardActions}>
+                <Pressable
+                  style={[styles.unlockBtn, sharingMemoryCard && styles.sendBtnDisabled]}
+                  onPress={handleShareMemoryCard}
+                  disabled={sharingMemoryCard}
+                >
+                  {sharingMemoryCard ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.unlockBtnText}>📤 Share this memory</Text>
+                  )}
+                </Pressable>
+                <Pressable onPress={() => setMemoryCardStars(null)} style={{ paddingVertical: 10 }}>
+                  <Text style={styles.dismissMemoryText}>Dismiss</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
           <FlatList
             ref={listRef}
             data={messages}
@@ -600,7 +696,7 @@ export default function ChatScreen() {
               <View style={styles.emptyChat}>
                 <Text style={styles.emptyChatEmoji}>🐾</Text>
                 <Text style={styles.emptyChatText}>
-                  Say hi to {resolvedName || match?.dog.name || 'your match'}! This is the start of your conversation.
+                  Someone has to text first — and dogs can't type. Say hi to {resolvedName || match?.dog.name || 'your match'}!
                 </Text>
               </View>
             }
@@ -745,6 +841,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(232,99,58,0.08)',
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  ratingBanner: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(245,183,49,0.4)',
+    backgroundColor: 'rgba(245,183,49,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  ratingBannerText: {
+    flex: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.brown,
+  },
+  ratingBannerCta: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.primary,
+  },
+  memoryCardWrap: {
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 16,
+  },
+  memoryCardActions: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  dismissMemoryText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.brownLight,
   },
   safetyBannerText: {
     fontFamily: fonts.body,

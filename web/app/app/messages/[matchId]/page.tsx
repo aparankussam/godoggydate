@@ -24,7 +24,11 @@ import { isUserChatUnlocked } from '../../../../../shared/matchAccess';
 import ChatUnlockPanel, { isSeedUserId } from '../../../../components/ChatUnlockPanel';
 import { blockUser } from '../../../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../../../lib/entitlements';
-import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../../shared/utils/stripe';
+import { getChatUnlockPitch } from '../../../../../shared/utils/stripe';
+import { hasRatedPlaydate, submitPlaydateRating } from '../../../../lib/ratings';
+import PlaydateRatingModal from '../../../../components/PlaydateRatingModal';
+import PlaydateMemoryCard from '../../../../components/PlaydateMemoryCard';
+import { shareOrDownloadCard } from '../../../../lib/shareCard';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -85,7 +89,7 @@ function buildSmartPromptsFromProfile(profile: {
   }
 
   // Generic warm prompts
-  prompts.push(`Weekend playdate? 🐶`);
+  prompts.push(`Our dogs would cause problems together 🐶`);
   prompts.push(`Coffee + dogs? ☕🐕`);
 
   // Always include a simple hello as last resort
@@ -132,6 +136,11 @@ export default function ChatPage() {
   const [reportDone, setReportDone]         = useState<string | null>(null);
   const [showPlaydateForm, setShowPlaydateForm] = useState(false);
   const [playdateDraft, setPlaydateDraft]   = useState<PlaydateDetails>({ date: '', time: '', place: '' });
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [alreadyRated, setAlreadyRated]     = useState(true); // assume rated until checked, to avoid a flash
+  const [memoryCardStars, setMemoryCardStars] = useState<number | null>(null);
+  const [sharingMemoryCard, setSharingMemoryCard] = useState(false);
+  const memoryCardRef = useRef<HTMLDivElement>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -368,6 +377,46 @@ export default function ChatPage() {
     }
   }, [sendMessage, matchId]);
 
+  // ── Playdate Payout: rating prompt once a playdate is confirmed ───────────────
+  const hasConfirmedPlaydate = confirmedPlaydateKeys.size > 0;
+  useEffect(() => {
+    if (!authUser || !matchId || !hasConfirmedPlaydate) return;
+    let cancelled = false;
+    hasRatedPlaydate(authUser.uid, matchId).then((rated) => {
+      if (!cancelled) setAlreadyRated(rated);
+    });
+    return () => { cancelled = true; };
+  }, [authUser, matchId, hasConfirmedPlaydate]);
+
+  async function handleSubmitRating(stars: number, wouldMeetAgain: boolean) {
+    if (!authUser || !otherUserId) return;
+    await submitPlaydateRating({
+      matchId,
+      raterId: authUser.uid,
+      dogId: otherUserId,
+      stars,
+      wouldMeetAgain,
+    });
+    trackEvent('playdate_rated', { match_id: matchId, stars, would_meet_again: wouldMeetAgain });
+    setAlreadyRated(true);
+    setShowRatingModal(false);
+    setMemoryCardStars(stars);
+  }
+
+  async function handleShareMemoryCard() {
+    if (!memoryCardRef.current || sharingMemoryCard) return;
+    setSharingMemoryCard(true);
+    trackEvent('memory_card_share_click', { match_id: matchId });
+    try {
+      const result = await shareOrDownloadCard(memoryCardRef.current, 'playdate-godoggydate-card.png');
+      trackEvent('memory_card_shared', { match_id: matchId, method: result });
+    } catch {
+      // non-critical — let them retry
+    } finally {
+      setSharingMemoryCard(false);
+    }
+  }
+
   // ── Block / Report ────────────────────────────────────────────────────────────
   const handleReport = useCallback(async (reason: 'block' | 'spam' | 'inappropriate') => {
     if (!authUser || !otherUserId) return;
@@ -441,6 +490,14 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-cream">
+
+      {showRatingModal && (
+        <PlaydateRatingModal
+          dogName={dogName}
+          onSubmit={handleSubmitRating}
+          onDismiss={() => setShowRatingModal(false)}
+        />
+      )}
 
       {/* Block/Report menu overlay */}
       {showReportMenu && (
@@ -543,7 +600,7 @@ export default function ChatPage() {
               <>
                 <p className="font-semibold text-brown">Unlock chat with {dogName}</p>
                 <p className="mt-2 mb-4 text-sm leading-relaxed text-brown-light">
-                  A one-time {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} opens chat for life with {dogName}. No subscription, no auto-renew.
+                  {getChatUnlockPitch()}
                 </p>
                 <ChatUnlockPanel matchId={matchId} dogName={dogName} />
                 {getFoundingMemberLink(authUser.uid) && (
@@ -553,7 +610,7 @@ export default function ChatPage() {
                     rel="noopener noreferrer"
                     className="mt-3 block text-xs font-semibold text-primary underline underline-offset-2"
                   >
-                    🐾 Or become a Founding Member — every chat unlocked for life, one-time $39
+                    🐾 Or go Founding Member — $39 once. Every chat, forever. Badge included.
                   </a>
                 )}
               </>
@@ -568,15 +625,50 @@ export default function ChatPage() {
             {SAFETY_TIP}
           </div>
         )}
+        {canChat && hasConfirmedPlaydate && !alreadyRated && (
+          <button
+            onClick={() => setShowRatingModal(true)}
+            className="rounded-[1.25rem] border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-semibold text-brown flex items-center justify-between gap-3"
+          >
+            <span>🎾 How did the playdate with {dogName} go?</span>
+            <span className="text-primary shrink-0">Rate it →</span>
+          </button>
+        )}
+        {memoryCardStars !== null && (
+          <div className="flex flex-col items-center gap-3 py-4">
+            <PlaydateMemoryCard
+              dogName={dogName}
+              dogBreed={otherProfile?.breed}
+              photos={otherProfile?.photos}
+              stars={memoryCardStars}
+              innerRef={memoryCardRef}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleShareMemoryCard}
+                disabled={sharingMemoryCard}
+                className="btn-secondary px-5 py-2 text-sm disabled:opacity-50"
+              >
+                {sharingMemoryCard ? 'Rendering…' : '📤 Share this memory'}
+              </button>
+              <button
+                onClick={() => setMemoryCardStars(null)}
+                className="px-5 py-2 text-sm text-brown-light hover:text-brown transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-16">
             <span className="text-5xl">👋</span>
             <p className="font-display text-2xl text-brown">
-              {canChat ? 'Start the conversation' : 'Chat is locked'}
+              {canChat ? 'Someone has to text first' : 'Chat is locked'}
             </p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
               {canChat
-                ? `Send the first message to ${dogName}. A simple hello is all it takes.`
+                ? `And dogs can't type, so it's on you. Say hi to ${dogName}.`
                 : `Unlock this match above to send ${dogName} your first message.`}
             </p>
           </div>
