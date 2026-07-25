@@ -1,5 +1,5 @@
 import { ActivityIndicator, Alert, Image, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
@@ -9,6 +9,7 @@ import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
+import { onEntitlements } from '../../lib/entitlements';
 
 function openLegalLink(path: string) {
   const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
@@ -23,7 +24,15 @@ export default function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sharingCard, setSharingCard] = useState(false);
+  const [hasLifetime, setHasLifetime] = useState(false);
   const cardRef = useRef<View>(null);
+
+  // Founding Member badge — the $39 checkout copy promises "Badge included"
+  // but nothing in the product ever rendered one until now.
+  useEffect(() => {
+    if (!user) return;
+    return onEntitlements(user.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
+  }, [user]);
 
   async function handleShareCard() {
     if (!cardRef.current || sharingCard) return;
@@ -121,6 +130,34 @@ export default function ProfileTab() {
             <Text style={styles.badge}>
               {profileComplete ? 'Ready for mobile discover' : 'Profile still needs a few details'}
             </Text>
+
+            {/* Founding Pack + trust badges — computed server-side, never
+                shown before now. No raw trust score (0-1 reads as a public
+                rating); a positive "would meet again" rate instead. */}
+            {(typeof profile.foundingPackNumber === 'number' || (profile.ratingCount ?? 0) > 0 || hasLifetime) && (
+              <View style={styles.statusBadgeRow}>
+                {typeof profile.foundingPackNumber === 'number' && (
+                  <View style={styles.foundingBadge}>
+                    <Text style={styles.foundingBadgeText}>🏅 Founding Pack #{profile.foundingPackNumber}</Text>
+                  </View>
+                )}
+                {hasLifetime && (
+                  <View style={styles.memberBadge}>
+                    <Text style={styles.memberBadgeText}>⭐ Founding Member</Text>
+                  </View>
+                )}
+                {(profile.ratingCount ?? 0) > 0 && (
+                  <View style={styles.trustBadge}>
+                    <Text style={styles.trustBadgeText}>
+                      🐾 {Math.round((profile.meetAgainRate ?? 0) * 100)}% would meet again
+                      <Text style={styles.trustBadgeSubtext}>
+                        {' '}({profile.ratingCount} playdate{profile.ratingCount === 1 ? '' : 's'})
+                      </Text>
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
 
@@ -225,6 +262,54 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+  },
+  statusBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  foundingBadge: {
+    backgroundColor: `${colors.gold}26`, // ~15% opacity
+    borderWidth: 1,
+    borderColor: `${colors.gold}66`, // ~40% opacity
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  foundingBadgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    color: colors.brown,
+  },
+  memberBadge: {
+    backgroundColor: colors.brown,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  memberBadgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    color: colors.cream,
+  },
+  trustBadge: {
+    backgroundColor: 'rgba(34,139,34,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,139,34,0.25)',
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  trustBadgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    color: '#1a5c1a',
+  },
+  trustBadgeSubtext: {
+    fontFamily: fonts.body,
+    fontWeight: '400',
+    color: '#2d7a2d',
   },
   primaryButton: {
     backgroundColor: colors.primary,

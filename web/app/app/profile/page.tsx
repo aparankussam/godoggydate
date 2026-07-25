@@ -22,6 +22,8 @@ import { getRenderablePhotos } from '../../../lib/photos';
 import { deleteAccount } from '../../../lib/account';
 import DogTradingCard from '../../../components/DogTradingCard';
 import { shareOrDownloadCard } from '../../../lib/shareCard';
+import { onEntitlements } from '../../../lib/entitlements';
+import { toDogSlug } from '../../../lib/dogSlug';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -37,16 +39,19 @@ export default function ProfilePage() {
   const [deleting,     setDeleting]     = useState(false);
   const [deleteError,  setDeleteError]  = useState<string | null>(null);
   const [sharingCard,  setSharingCard]  = useState(false);
+  const [hasLifetime,  setHasLifetime]  = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   async function handleShareCard() {
-    if (!cardRef.current || sharingCard) return;
+    if (!cardRef.current || sharingCard || !authUser) return;
     setSharingCard(true);
     trackEvent('trading_card_share_click');
     try {
+      const publicUrl = `${window.location.origin}/d/${toDogSlug(savedProfile?.name ?? 'dog', authUser.uid)}`;
       const result = await shareOrDownloadCard(
         cardRef.current,
         `${(savedProfile?.name ?? 'dog').toLowerCase().replace(/\s+/g, '-')}-godoggydate-card.png`,
+        { publicUrl, dogName: savedProfile?.name },
       );
       trackEvent('trading_card_shared', { method: result });
     } catch {
@@ -78,6 +83,16 @@ export default function ProfilePage() {
     return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Founding Member badge — the $39 checkout copy promises "Badge included"
+  // but nothing in the product ever rendered one until now. Depends on
+  // authUser (set asynchronously by the auth observer above, starts null),
+  // not an empty array — an empty dep array here would only ever run once
+  // while authUser is still null and never re-fire once sign-in resolves.
+  useEffect(() => {
+    if (!authUser) return;
+    return onEntitlements(authUser.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
+  }, [authUser]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -226,6 +241,35 @@ export default function ProfilePage() {
                 </p>
               </div>
             </div>
+
+            {/* Founding Pack + trust + Founding Member badges — computed/granted
+                server-side, none shown before now: a database field with no UI
+                is worse than not having the feature. See getFoundingPackPitch
+                for why we never show a raw trust score (it reads as a public
+                rating; a positive "would meet again" rate is the honest,
+                non-gameable framing instead). */}
+            {(typeof savedProfile.foundingPackNumber === 'number' || (savedProfile.ratingCount ?? 0) > 0 || hasLifetime) && (
+              <div className="flex flex-wrap gap-2 px-5 pb-4 -mt-1">
+                {typeof savedProfile.foundingPackNumber === 'number' && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 border border-gold/40 px-3 py-1.5 text-xs font-bold text-brown">
+                    🏅 Founding Pack #{savedProfile.foundingPackNumber}
+                  </span>
+                )}
+                {hasLifetime && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-brown text-cream px-3 py-1.5 text-xs font-bold">
+                    ⭐ Founding Member
+                  </span>
+                )}
+                {(savedProfile.ratingCount ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-bold text-green-800">
+                    🐾 {Math.round((savedProfile.meetAgainRate ?? 0) * 100)}% would meet again
+                    <span className="font-normal text-green-700">
+                      ({savedProfile.ratingCount} playdate{savedProfile.ratingCount === 1 ? '' : 's'} rated)
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -302,6 +346,15 @@ export default function ProfilePage() {
             >
               {sharingCard ? 'Rendering…' : '📤 Share this card'}
             </button>
+            {authUser && (
+              <Link
+                href={`/d/${toDogSlug(savedProfile.name, authUser.uid)}`}
+                target="_blank"
+                className="text-xs text-brown-light hover:text-brown transition-colors"
+              >
+                View {savedProfile.name}&apos;s public page →
+              </Link>
+            )}
           </div>
         )}
 
