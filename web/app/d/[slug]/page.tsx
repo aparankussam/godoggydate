@@ -29,19 +29,29 @@ interface PageProps {
 async function loadDog(slug: string): Promise<{ uid: string; profile: SavedDogProfile } | null> {
   const uid = parseDogSlugToUid(slug);
   if (!uid) return null;
-  const snap = await getAdminDb().doc(`dogs/${uid}`).get();
-  if (!snap.exists) return null;
-  const raw = snap.data() as SavedDogProfile;
-  if (!raw?.name) return null;
-  // Admin SDK returns Firestore Timestamp class instances for any timestamp
-  // field (createdAt/updatedAt, and ai.generatedAt if present) — passing
-  // those into a 'use client' component (DogTradingCard) as props throws
-  // "Only plain objects... can be passed to Client Components", since RSC
-  // prop serialization requires plain JSON-shaped data. DogTradingCard
-  // doesn't render any timestamp field, so this only needs to strip them,
-  // not preserve their value.
-  const profile = JSON.parse(JSON.stringify(raw)) as SavedDogProfile;
-  return { uid, profile };
+  // This is public, unauthenticated traffic — any Firestore error here
+  // (transient network issue, an unexpected doc shape) previously had
+  // nothing catching it, which crashes the whole page to a raw 500 for a
+  // signed-out visitor instead of a clean "not found". Fails closed to null
+  // (renders as 404) rather than surfacing an internal error publicly.
+  try {
+    const snap = await getAdminDb().doc(`dogs/${uid}`).get();
+    if (!snap.exists) return null;
+    const raw = snap.data() as SavedDogProfile;
+    if (!raw?.name) return null;
+    // Admin SDK returns Firestore Timestamp class instances for any timestamp
+    // field (createdAt/updatedAt, and ai.generatedAt if present) — passing
+    // those into a 'use client' component (DogTradingCard) as props throws
+    // "Only plain objects... can be passed to Client Components", since RSC
+    // prop serialization requires plain JSON-shaped data. DogTradingCard
+    // doesn't render any timestamp field, so this only needs to strip them,
+    // not preserve their value.
+    const profile = JSON.parse(JSON.stringify(raw)) as SavedDogProfile;
+    return { uid, profile };
+  } catch (error) {
+    console.error('public dog page: failed to load dog', uid, error);
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

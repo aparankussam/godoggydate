@@ -80,10 +80,24 @@ service cloud.firestore {
           && request.resource.data.get('ai', null)                == resource.data.get('ai', null);
     }
 
+    // On create there is no resource.data to diff against (resource doesn't
+    // exist yet), so preservesServerOnlyDogFields() can't run — without this,
+    // a client could set a fabricated trustScore/ratingCount/ai directly on
+    // their dog's very first write, before any Cloud Function ever touches
+    // it, defeating the entire point of these being server-computed.
+    function hasNoServerOnlyDogFields() {
+      return !('foundingPackNumber' in request.resource.data)
+          && !('trustScore' in request.resource.data)
+          && !('ratingCount' in request.resource.data)
+          && !('meetAgainRate' in request.resource.data)
+          && !('ai' in request.resource.data);
+    }
+
     match /dogs/{dogId} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
-                    && request.auth.uid == dogId;
+                    && request.auth.uid == dogId
+                    && hasNoServerOnlyDogFields();
       allow update: if isSignedIn()
                     && request.auth.uid == dogId
                     && preservesServerOnlyDogFields();

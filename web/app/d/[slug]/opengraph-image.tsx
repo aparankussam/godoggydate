@@ -16,10 +16,22 @@ export const alt = "A dog's GoDoggyDate profile";
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
+async function loadProfileForOg(uid: string | null): Promise<SavedDogProfile | null> {
+  if (!uid) return null;
+  try {
+    const snap = await getAdminDb().doc(`dogs/${uid}`).get();
+    return snap.exists ? (snap.data() as SavedDogProfile) : null;
+  } catch (error) {
+    // Public unauthenticated route — fail closed to the generic fallback
+    // card below rather than crashing image generation entirely.
+    console.error('opengraph-image: failed to load dog', uid, error);
+    return null;
+  }
+}
+
 export default async function OpengraphImage({ params }: { params: { slug: string } }) {
   const uid = parseDogSlugToUid(params.slug);
-  const snap = uid ? await getAdminDb().doc(`dogs/${uid}`).get() : null;
-  const profile = snap?.exists ? (snap.data() as SavedDogProfile) : null;
+  const profile = await loadProfileForOg(uid);
   const photo = profile ? getPrimaryRenderablePhoto(profile.photos) : null;
 
   const name = profile?.name ?? 'A GoDoggyDate dog';

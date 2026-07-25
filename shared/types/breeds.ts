@@ -637,6 +637,13 @@ export function resolveBreed(breedInput: string | undefined | null): Breed {
   const aliasId = BREED_ALIASES[raw];
   if (aliasId && BREEDS_BY_ID[aliasId]) return BREEDS_BY_ID[aliasId];
 
+  // Substring matching on anything shorter than 3 characters is nonsense —
+  // "a" is a substring of nearly every breed name, so it always "matched"
+  // whichever catalogue entry happened to be longest (Cavalier King Charles
+  // Spaniel), regardless of what was actually typed. Exact match and the
+  // alias table above already handle legitimate short names (Pug, etc).
+  if (raw.length < 3) return MIXED_BREED_FALLBACK;
+
   // Prefer the longest matching catalogue name so "Mini Dachshund" doesn't
   // accidentally prefer a shorter unrelated match over "Dachshund".
   const substringMatches = BREEDS.filter(
