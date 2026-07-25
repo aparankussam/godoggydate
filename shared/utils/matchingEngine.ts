@@ -3,6 +3,7 @@
 // Weights: breed 30% | size 20% | energy 15% | good-with 15% | play style 10% | health 5% | distance 5%
 
 import type { DogProfile, CompatibilityResult, MatchQuality } from '../types';
+import { resolveBreed, type BreedGroup } from '../types/breeds';
 
 const SIZE_VALUE: Record<string, number> = { S: 1, M: 2, L: 3, XL: 4 };
 
@@ -86,34 +87,26 @@ function calcPlayStyleScore(a: DogProfile, b: DogProfile): { score: number; shar
 }
 
 // ─── BREED SCORE (30%) ────────────────────────────────────────────────────────
-// Based on breed group compatibility — simplified for MVP
-const BREED_GROUPS: Record<string, string> = {
-  'Labrador Retriever':   'sporting', 'Golden Retriever': 'sporting',
-  'Vizsla':              'sporting', 'Australian Shepherd': 'herding',
-  'Border Collie':       'herding',  'Corgi': 'herding',
-  'Beagle':              'hound',    'Dachshund': 'hound',
-  'Mini Dachshund':      'hound',    // defensive: matches Kaju's breed string
-  'Husky':               'working',  'Bernese Mountain Dog': 'working',
-  'Samoyed':             'working',  'Shiba Inu': 'non-sporting',
-  'French Bulldog':      'non-sporting', 'Poodle': 'non-sporting',
-  'Cavalier King Charles': 'toy',
-};
-
-const GROUP_COMPAT: Record<string, string[]> = {
-  sporting:     ['sporting', 'herding', 'working', 'hound'],
-  herding:      ['herding', 'sporting'],
-  hound:        ['hound', 'sporting', 'non-sporting'],
-  working:      ['working', 'sporting', 'herding'],
+// Resolves each dog's free-text breed string against the full shared/types/breeds.ts
+// catalogue (via resolveBreed's exact/substring matching — see there for why a plain
+// Record<string,string> lookup silently mis-scored most real breeds and every mix).
+const GROUP_COMPAT: Record<BreedGroup, BreedGroup[]> = {
+  sporting:       ['sporting', 'herding', 'working', 'hound'],
+  herding:        ['herding', 'sporting', 'working'],
+  hound:          ['hound', 'sporting', 'non-sporting'],
+  working:        ['working', 'sporting', 'herding'],
   'non-sporting': ['non-sporting', 'toy', 'hound'],
-  toy:          ['toy', 'non-sporting'],
+  toy:            ['toy', 'non-sporting'],
+  terrier:        ['terrier', 'hound', 'mixed'],
+  mixed:          ['mixed', 'sporting', 'herding', 'hound', 'working', 'non-sporting', 'toy', 'terrier'],
 };
 
 function calcBreedScore(a: DogProfile, b: DogProfile): number {
-  const ga = BREED_GROUPS[a.breed] || 'mixed';
-  const gb = BREED_GROUPS[b.breed] || 'mixed';
-  if (ga === gb) return 30; // Same group – excellent
+  const ga = resolveBreed(a.breed).group;
+  const gb = resolveBreed(b.breed).group;
+  if (ga === gb) return 30; // Same group (or same exact breed) – excellent
   if (GROUP_COMPAT[ga]?.includes(gb)) return 22;
-  return 12; // Different groups – might need introductions
+  return 12; // Different, non-adjacent groups – might need introductions
 }
 
 // ─── HEALTH SCORE (5%) ────────────────────────────────────────────────────────
@@ -244,7 +237,12 @@ export function sortFeed(
     });
 }
 
-// ─── TRUST SCORE ─────────────────────────────────────────────────────────────
+// ─── TRUST SCORE (UNUSED) ───────────────────────────────────────────────────
+// Not called anywhere in this codebase and uses a DIFFERENT scale (0-100,
+// baseline 70) than the real trust engine actually deployed in
+// firebase/functions/src/index.ts's onRatingCreated (0-1, no baseline —
+// trustScore is simply absent until a dog's first rating). Kept only for
+// reference; do not wire this into new code without reconciling the scales.
 export function calculateTrustScore(ratings: Array<{
   stars: number;
   wouldMeetAgain: boolean;

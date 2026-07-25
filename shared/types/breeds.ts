@@ -409,6 +409,73 @@ export const BREEDS: Breed[] = [
     notes: 'Gentle but very large — avoid rough play with small dogs.',
   },
 
+  // ── MORE COMMON BREEDS (previously missing — silently scored as "mixed") ───
+  {
+    id: 'german-shepherd',
+    name: 'German Shepherd',
+    group: 'herding',
+    typicalSize: 'L',
+    typicalEnergyMin: 65,
+    typicalEnergyMax: 85,
+    traits: ['confident', 'loyal', 'intelligent'],
+    compatibleSizes: ['M', 'L', 'XL'],
+  },
+  {
+    id: 'australian-cattle-dog',
+    name: 'Australian Cattle Dog',
+    group: 'herding',
+    typicalSize: 'M',
+    typicalEnergyMin: 80,
+    typicalEnergyMax: 100,
+    traits: ['smart', 'tenacious', 'independent'],
+    compatibleSizes: ['S', 'M', 'L'],
+    notes: 'High prey/herding drive — needs an active match.',
+  },
+  {
+    id: 'american-pit-bull-terrier',
+    name: 'American Pit Bull Terrier',
+    group: 'terrier',
+    typicalSize: 'M',
+    typicalEnergyMin: 60,
+    typicalEnergyMax: 85,
+    traits: ['affectionate', 'strong', 'people-oriented'],
+    compatibleSizes: ['M', 'L'],
+    notes: 'Can be dog-selective — go slow on first intros regardless of size match.',
+  },
+  {
+    id: 'yorkshire-terrier',
+    name: 'Yorkshire Terrier',
+    group: 'toy',
+    typicalSize: 'XS',
+    typicalEnergyMin: 45,
+    typicalEnergyMax: 65,
+    traits: ['feisty', 'affectionate', 'bold'],
+    compatibleSizes: ['XS', 'S'],
+    notes: 'Fragile — only safe with similarly sized dogs.',
+  },
+  {
+    id: 'pug',
+    name: 'Pug',
+    group: 'toy',
+    typicalSize: 'S',
+    typicalEnergyMin: 30,
+    typicalEnergyMax: 50,
+    traits: ['playful', 'charming', 'sociable'],
+    compatibleSizes: ['XS', 'S', 'M'],
+    notes: 'Brachycephalic — avoid extreme heat/exertion.',
+  },
+  {
+    id: 'cane-corso',
+    name: 'Cane Corso',
+    group: 'working',
+    typicalSize: 'XL',
+    typicalEnergyMin: 50,
+    typicalEnergyMax: 70,
+    traits: ['calm', 'protective', 'confident'],
+    compatibleSizes: ['L', 'XL'],
+    notes: 'Large and strong — best matched with confident, similarly robust dogs.',
+  },
+
   // ── MIXED / POPULAR DESIGNER ──────────────────────────────────────────────
   {
     id: 'shiba-inu',
@@ -508,6 +575,76 @@ export function searchBreeds(query: string): Breed[] {
 
 export function getBreedById(id: string): Breed | undefined {
   return BREEDS_BY_ID[id];
+}
+
+const MIXED_BREED_FALLBACK: Breed = BREEDS_BY_ID['mixed-breed'];
+
+// Common nicknames/shorthand that don't substring-match their formal catalogue
+// name (e.g. "Yorkie" vs "Yorkshire Terrier" share no substring).
+const BREED_ALIASES: Record<string, string> = {
+  yorkie: 'yorkshire-terrier',
+  doxie: 'dachshund',
+  weenie: 'dachshund',
+  frenchie: 'french-bulldog',
+  gsd: 'german-shepherd',
+  'german shepherd dog': 'german-shepherd',
+  lab: 'labrador-retriever',
+  'lab mix': 'labrador-retriever',
+  pittie: 'american-pit-bull-terrier',
+  'pit bull': 'american-pit-bull-terrier',
+  pitbull: 'american-pit-bull-terrier',
+  'staffordshire terrier': 'american-pit-bull-terrier',
+  'am staff': 'american-pit-bull-terrier',
+  westie: 'west-highland-terrier',
+  'jack russell': 'jack-russell',
+  jrt: 'jack-russell',
+  'mini dachshund': 'dachshund',
+  'miniature dachshund': 'dachshund',
+  'standard poodle': 'poodle-standard',
+  poodle: 'poodle-standard',
+  husky: 'siberian-husky',
+  cattle: 'australian-cattle-dog',
+  'blue heeler': 'australian-cattle-dog',
+  heeler: 'australian-cattle-dog',
+  'cavalier king charles': 'cavalier-kcs',
+  'king charles spaniel': 'cavalier-kcs',
+  corgi: 'corgi-pembroke',
+  doodle: 'labradoodle',
+};
+
+/**
+ * Resolves a free-text breed string (as stored on DogProfile.breed, which is
+ * a plain user-typed/datalist value — not a breed id) to its catalogue entry.
+ * Real profile data includes things like "Mini Dachshund" or "mini" that
+ * don't exactly match a BREEDS[].name, so this falls back through:
+ *   1. exact name match (case-insensitive)
+ *   2. a common-nickname alias table (handles "Yorkie", "Frenchie", "GSD",
+ *      "pit bull" — real user shorthand that shares no substring with the
+ *      formal AKC name)
+ *   3. substring match in either direction (handles "Mini Dachshund" -> "Dachshund",
+ *      "Corgi" -> "Pembroke Welsh Corgi", "Goldendoodle mix" -> "Goldendoodle")
+ *   4. the generic "Mixed Breed" entry, so callers always get real typical
+ *      size/energy/traits instead of guessing at an unmapped string.
+ * Never throws — always returns a Breed.
+ */
+export function resolveBreed(breedInput: string | undefined | null): Breed {
+  const raw = (breedInput ?? '').trim().toLowerCase();
+  if (!raw) return MIXED_BREED_FALLBACK;
+
+  const exact = BREEDS.find((b) => b.name.toLowerCase() === raw);
+  if (exact) return exact;
+
+  const aliasId = BREED_ALIASES[raw];
+  if (aliasId && BREEDS_BY_ID[aliasId]) return BREEDS_BY_ID[aliasId];
+
+  // Prefer the longest matching catalogue name so "Mini Dachshund" doesn't
+  // accidentally prefer a shorter unrelated match over "Dachshund".
+  const substringMatches = BREEDS.filter(
+    (b) => raw.includes(b.name.toLowerCase()) || b.name.toLowerCase().includes(raw),
+  ).sort((a, b) => b.name.length - a.name.length);
+  if (substringMatches.length > 0) return substringMatches[0];
+
+  return MIXED_BREED_FALLBACK;
 }
 
 /** Returns size-compatibility warning if sizes are unsafe together */
