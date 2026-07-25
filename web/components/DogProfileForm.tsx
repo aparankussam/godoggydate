@@ -157,6 +157,15 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
   const [errors, setErrors] = useState<ValidationErrors>(EMPTY_ERRORS);
   const [uploading, setUploading] = useState(false);
 
+  // Vibe Check — photos in, a finished profile out. Additive to the manual
+  // form rather than replacing it: on success it pre-fills the fields below
+  // (still fully editable — "the app wrote it, you edit it," never silently
+  // auto-saved), and the generated bio/archetype persist server-side to
+  // dogs/{uid}.ai regardless of whether this specific form submission saves.
+  const [vibeChecking, setVibeChecking] = useState(false);
+  const [vibeCheckError, setVibeCheckError] = useState<string | null>(null);
+  const [vibeCheckResult, setVibeCheckResult] = useState<{ bio: string; archetypeName: string; archetypeDescription: string } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewUrlsRef = useRef<string[]>([]);
   const photosRef = useRef<HTMLDivElement | null>(null);
@@ -270,6 +279,69 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       }
       return prev.filter((item) => item.id !== photoId);
     });
+  }
+
+  function fileToDataUri(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error ?? new Error('Could not read file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleVibeCheck() {
+    if (vibeChecking) return;
+    // Only newly-picked photos have a raw File to read as base64 — already-
+    // uploaded photos (edit mode) are Storage URLs, not local files. Scoped
+    // to new photos only rather than also fetching+re-encoding remote URLs.
+    const candidates = photos.filter((p) => p.file).slice(0, 3);
+    if (candidates.length === 0) {
+      setVibeCheckError('Add at least one new photo first');
+      return;
+    }
+
+    setVibeChecking(true);
+    setVibeCheckError(null);
+    try {
+      const { auth } = getFirebase();
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not signed in');
+      const idToken = await currentUser.getIdToken();
+
+      const dataUris = await Promise.all(candidates.map((p) => fileToDataUri(p.file as File)));
+
+      const res = await fetch('/api/ai/vibe-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          photos: dataUris.map((dataUri) => ({ dataUri })),
+          name: name.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ai?.vibeCheck) {
+        throw new Error(data?.error || 'Vibe Check failed');
+      }
+
+      const vc = data.ai.vibeCheck;
+      // Pre-fill, don't auto-save — the user still reviews/edits/submits
+      // through the normal form flow below.
+      if (vc.breedGuess?.name) setBreed(vc.breedGuess.name);
+      if (typeof vc.sizeEstimate === 'string') setSize(vc.sizeEstimate);
+      if (typeof vc.energyEstimate === 'number') setEnergyLevel(vc.energyEstimate);
+      if (Array.isArray(vc.playStyleGuesses) && vc.playStyleGuesses.length > 0) setPlayStyles(vc.playStyleGuesses);
+      if (Array.isArray(vc.temperamentGuesses) && vc.temperamentGuesses.length > 0) setTemperament(vc.temperamentGuesses);
+      setVibeCheckResult({
+        bio: vc.bio,
+        archetypeName: vc.archetype?.name ?? '',
+        archetypeDescription: vc.archetype?.description ?? '',
+      });
+    } catch (err) {
+      setVibeCheckError(err instanceof Error ? err.message : 'Vibe Check failed — try again');
+    } finally {
+      setVibeChecking(false);
+    }
   }
 
   function getValidationErrors(): ValidationErrors {
@@ -503,6 +575,32 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
             Choose images from your device. The first photo becomes the main card image.
           </p>
           {errors.photos && <p className="mt-1 text-xs text-red-500">{errors.photos}</p>}
+
+          {photos.some((p) => p.file) && !vibeCheckResult && (
+            <button
+              type="button"
+              onClick={handleVibeCheck}
+              disabled={vibeChecking}
+              className="mt-3 w-full rounded-xl border border-gold/50 bg-gold/10 px-4 py-2.5 text-sm font-bold text-brown transition-colors hover:bg-gold/20 disabled:opacity-50"
+            >
+              {vibeChecking ? 'Reading the photos…' : '✨ Fill this in from the photos'}
+            </button>
+          )}
+          {vibeCheckError && <p className="mt-1.5 text-xs text-red-500">{vibeCheckError}</p>}
+          {vibeCheckResult && (
+            <div className="mt-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.1em] text-brown/70">
+                {vibeCheckResult.archetypeName}
+              </p>
+              <p className="mt-1 text-sm text-brown leading-relaxed">&ldquo;{vibeCheckResult.bio}&rdquo;</p>
+              <p className="mt-2 text-xs text-brown-light leading-relaxed">
+                {vibeCheckResult.archetypeDescription}
+              </p>
+              <p className="mt-2 text-[11px] text-brown-light">
+                Filled in breed, size, energy, and tags below — check them over.
+              </p>
+            </div>
+          )}
         </div>
 
         <div>
