@@ -177,9 +177,16 @@ function getSeedCandidateDogs(excludedIds: Set<string>): DogProfile[] {
     .filter((dog) => !excludedIds.has(dog.id));
 }
 
-// Guest feed — seed dogs only, no Firestore, no base-dog required.
-// Used when no auth session exists so unauthenticated visitors can browse.
-export function buildGuestFeed(): DiscoverFeedDog[] {
+// Non-interactive demo/showcase dogs — "See how matching works". Never
+// swipeable and never mixed into a real feed: 13 of the 15 seed dogs have
+// photos: [] (a photo-first swipe app showing an emoji-on-gradient card for
+// 87% of "matches"), and every like on one silently produced a "this is a
+// demo profile" toast — the single biggest authenticity liability in the
+// product for an audience whose core competency is detecting fakes. These
+// still exist as a labeled, honest "here's what matching would look like"
+// gallery, computed against the viewer's own dog when known.
+export function buildDemoGalleryDogs(baseDog?: DogProfile): DiscoverFeedDog[] {
+  const dogs = getSeedCandidateDogs(new Set());
   const unscored: CompatibilityResult = {
     score: 0,
     quality: 'good',
@@ -193,48 +200,40 @@ export function buildGuestFeed(): DiscoverFeedDog[] {
       healthScore: 0, distanceScore: 0, penalty: 0,
     },
   };
-  return getSeedCandidateDogs(new Set()).map((dog) => ({
-    id:            dog.id,
-    firestoreId:   dog.id,
-    ownerId:       dog.ownerId,
-    name:          dog.name,
-    breed:         dog.breed,
-    age:           dog.age,
-    sex:           dog.sex,
-    size:          dog.size,
-    energyLevel:   dog.energyLevel,
-    photos:        dog.photos,
-    vaccinated:    dog.vaccinated,
-    playStyles:    dog.playStyles,
-    prompts:       dog.prompts,
-    distanceMiles: SEED_DISTANCES[dog.name] ?? 1.2,
-    compat:        unscored,
-    isDemo:        true,
-  }));
+  return dogs
+    .map((dog) => (baseDog ? toFeedDog(baseDog, dog, true) : {
+      id:            dog.id,
+      firestoreId:   dog.id,
+      ownerId:       dog.ownerId,
+      name:          dog.name,
+      breed:         dog.breed,
+      age:           dog.age,
+      sex:           dog.sex,
+      size:          dog.size,
+      energyLevel:   dog.energyLevel,
+      photos:        dog.photos,
+      vaccinated:    dog.vaccinated,
+      playStyles:    dog.playStyles,
+      prompts:       dog.prompts,
+      distanceMiles: SEED_DISTANCES[dog.name] ?? 1.2,
+      compat:        unscored,
+      isDemo:        true,
+    }))
+    .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
 }
 
+// Real matches only. Previously fell back to recycling all 15 (mostly
+// photoless) seed dogs into the live swipeable deck whenever real density
+// ran out — see buildDemoGalleryDogs for where that content now lives
+// instead: a labeled, non-swipeable showcase, never presented as if it
+// could reciprocate a like.
 export async function buildDiscoverFeed(currentUserId: string, baseDog: DogProfile): Promise<DiscoverFeedDog[]> {
   const [swipedIds, blockedIds] = await Promise.all([
     getSwipedDogIds(currentUserId),
     getBlockedUserIds(currentUserId),
   ]);
-  const realDogs = (await getRealCandidateDogs(currentUserId))
+  return (await getRealCandidateDogs(currentUserId))
     .filter((dog) => !swipedIds.has(dog.id) && !blockedIds.has(dog.id))
     .map((dog) => toFeedDog(baseDog, dog, false))
     .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
-
-  const demoExcluded = new Set([...swipedIds, ...getLocallySwipedDemoIds()]);
-  const demoDogs = getSeedCandidateDogs(demoExcluded)
-    .map((dog) => toFeedDog(baseDog, dog, true))
-    .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
-
-  const recycledDemoDogs = getSeedCandidateDogs(new Set())
-    .map((dog) => toFeedDog(baseDog, dog, true))
-    .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
-
-  if (realDogs.length === 0) {
-    return demoDogs.length > 0 ? demoDogs : recycledDemoDogs;
-  }
-
-  return [...realDogs, ...(demoDogs.length > 0 ? demoDogs : recycledDemoDogs)];
 }

@@ -23,7 +23,8 @@ import AuthModal from '../../components/AuthModal';
 import MatchModal from '../../components/MatchModal';
 import SkeletonCard from '../../components/SkeletonCard';
 import { trackEvent } from '../../lib/analytics';
-import { buildDiscoverFeed, buildGuestFeed, type DiscoverFeedDog } from '../../lib/discover';
+import { buildDiscoverFeed, buildDemoGalleryDogs, type DiscoverFeedDog } from '../../lib/discover';
+import DemoGalleryGrid from '../../components/DemoGalleryGrid';
 import { requestApproxLocation } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
 
@@ -59,6 +60,7 @@ export default function AppPage() {
   const [activeFeed,       setActiveFeed]       = useState<FeedDog[]>([]);
   const [profileSavedToast, setProfileSavedToast] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [showDemoGallery,  setShowDemoGallery]  = useState(false);
 
   // ── Retention hook ────────────────────────────────────────────────────────
   const [showRetentionHook, setShowRetentionHook] = useState(false);
@@ -216,17 +218,20 @@ export default function AppPage() {
     };
   }, [authUser, userDog, savedProfile]);
 
-  // ── Guest feed (no auth) ──────────────────────────────────────────────────
+  // ── Guest mode (no auth) ──────────────────────────────────────────────────
+  // Guests no longer get a swipeable deck of demo dogs — a card that can be
+  // liked but never reciprocates is the exact "fake feed" pattern that reads
+  // as a lie the moment anyone checks. They see a real empty feed (0 real
+  // dogs pre-auth by definition) and can opt into the labeled demo gallery.
   useEffect(() => {
     if (authLoading || authUser) return;
-    setActiveFeed(buildGuestFeed());
+    setActiveFeed([]);
     setFeedDepleted(false);
   }, [authLoading, authUser]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const profileIsComplete = isProfileComplete(savedProfile ?? (userDog as unknown as SavedDogProfile));
   const dogName           = savedProfile?.name ?? userDog?.name ?? '';
-  const feedIncludesDemo  = activeFeed.some((dog) => dog.isDemo);
 
   // ── SwipeStack callbacks ──────────────────────────────────────────────────
   function handleMatch(dog: FeedDog, matchId: string) {
@@ -444,13 +449,18 @@ export default function AppPage() {
             </div>
           )}
 
-          {/* Feed depleted */}
+          {/* Feed depleted — no real dogs nearby right now. Used to silently
+              recycle all 15 (mostly photoless) seed dogs back into the
+              swipeable deck here; that taught the "Check Again" button to
+              produce the exact same fake results every time. Now honest:
+              real feed stays empty, and the demo gallery is opt-in and
+              clearly labeled instead of auto-injected. */}
           {!authLoading && authUser && profileIsComplete && feedDepleted && (
             <div className="flex flex-1 flex-col items-center justify-center py-24 gap-4 text-center px-4">
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">You&apos;ve sniffed everyone within {DEFAULT_DISCOVER_RADIUS_MILES} miles</p>
+              <p className="font-display text-2xl text-brown">No dogs nearby yet</p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                Certified neighborhood menace. New dogs drop daily-ish.
+                You might be the first dog parent in your neighborhood. New dogs drop daily-ish.
               </p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
                 Recruit a dog parent — Kaju will remember this.
@@ -476,18 +486,18 @@ export default function AppPage() {
                   Invite a Dog Parent
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Early-access notice — shown while demo profiles remain in the feed */}
-          {!authLoading && !feedLoading && authUser && profileIsComplete && !feedDepleted && feedIncludesDemo && (
-            <div className="mx-auto w-full max-w-sm mb-2 px-1">
-              <div className="flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1.5">
-                <span className="text-xs font-semibold text-primary shrink-0">🐾 Early Access</span>
-                <span className="text-xs text-brown-light leading-tight">
-                  Real dogs appear first. Demo profiles fill the gaps while more owners join.
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowDemoGallery((v) => !v)}
+                className="mt-2 text-xs font-semibold text-brown-light hover:text-brown transition-colors underline underline-offset-2"
+              >
+                {showDemoGallery ? 'Hide demo' : 'See how matching works (demo)'}
+              </button>
+              {showDemoGallery && (
+                <div className="mt-2 w-full">
+                  <DemoGalleryGrid dogs={buildDemoGalleryDogs(userDog ?? undefined)} />
+                </div>
+              )}
             </div>
           )}
 
@@ -512,17 +522,39 @@ export default function AppPage() {
             </>
           )}
 
-          {/* Swipe feed — guest browsing (swipes not recorded) */}
-          {!authLoading && !feedLoading && !authUser && !feedDepleted && activeFeed.length > 0 && (
-            <SwipeStack
-              dogs={activeFeed}
-              currentUserId="__guest__"
-              currentDogId="__guest__"
-              onMatch={() => {}}
-              onEmpty={() => setFeedDepleted(true)}
-              isGuest
-              onRequireAuthForLike={() => setShowAuthModal(true)}
-            />
+          {/* Guest (signed out) — previously a swipeable deck of the same 15
+              seed dogs handed to every visitor, likeable but unable to ever
+              reciprocate: a card that "matches" pre-auth and can't actually
+              match is the exact fake-feed pattern this audience checks for
+              first. Sign-up prompt + an explicitly opt-in, non-swipeable
+              demo instead. */}
+          {!authLoading && !feedLoading && !authUser && (
+            <div className="flex flex-1 flex-col items-center justify-center py-16 gap-4 text-center px-4">
+              <span className="text-6xl">🐾</span>
+              <p className="font-display text-2xl text-brown">See who&apos;s nearby</p>
+              <p className="text-brown-light text-sm max-w-xs leading-relaxed">
+                Sign up to see real dogs near you and start matching.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="btn-primary px-8 py-3 shadow-lg"
+              >
+                Sign up free
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDemoGallery((v) => !v)}
+                className="mt-2 text-xs font-semibold text-brown-light hover:text-brown transition-colors underline underline-offset-2"
+              >
+                {showDemoGallery ? 'Hide demo' : 'See how matching works (demo)'}
+              </button>
+              {showDemoGallery && (
+                <div className="mt-2 w-full">
+                  <DemoGalleryGrid dogs={buildDemoGalleryDogs()} />
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
