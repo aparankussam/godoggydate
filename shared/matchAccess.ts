@@ -1,3 +1,19 @@
+// ── Soft-launch pricing policy ──────────────────────────────────────────────
+// At current density (a handful of real dogs, ~0 matches/week per user) a
+// per-match chat unlock taxes the one interaction the product barely produces
+// yet, and teaches early users the core loop is a paywall. Chat is free for
+// every real match while this is true; monetization moves to the $39
+// Founding Member tier (a separate Stripe Payment Link, unaffected by this
+// flag) instead of gating conversations.
+//
+// Flip this back to false once a launch neighborhood/ZIP crosses real
+// density (see the Neighborhood Unlock Meter in the roadmap) and real per-
+// match paid unlocks should resume. This flag must be flipped in lockstep
+// with the identical constant in firestore.rules (canCurrentUserChat) —
+// Firestore security rules are a separate deployable artifact and can't
+// import this file directly.
+export const CHAT_FREE_LAUNCH_MODE = true;
+
 export interface MatchAccessLike {
   dog1UserId?: string;
   dog2UserId?: string;
@@ -38,6 +54,11 @@ export function isUserChatUnlocked(
 ): boolean {
   const slot = getParticipantSlot(matchData, userId);
   if (!slot) return false;
+
+  // Soft-launch: every real match is free to chat in. Still requires the
+  // user to actually be a party to this match (checked above) — this is
+  // not a blanket bypass, just a price of $0 for a legitimate participant.
+  if (CHAT_FREE_LAUNCH_MODE) return true;
 
   // One payment unlocks the conversation for both sides — see anyChatUnlocked.
   return anyChatUnlocked(matchData);

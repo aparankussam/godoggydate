@@ -6,11 +6,19 @@
  * Web:     uses @stripe/stripe-js + @stripe/react-stripe-js
  */
 
+import { CHAT_FREE_LAUNCH_MODE } from '../matchAccess';
+
 // SOFT-LAUNCH "FOUNDING PACK" PRICING: 50 (Stripe's $0.50 USD minimum
 // charge) instead of the normal 499 ($4.99), framed as real, numbered
 // scarcity (see FOUNDING_PACK_SIZE / getFoundingPackPitch below) rather
 // than a fake countdown. Revert to 499 once the Founding Pack fills or
 // launch broadens beyond the soft-launch neighborhood.
+//
+// NOTE: CHAT_FREE_LAUNCH_MODE (shared/matchAccess.ts) currently makes chat
+// itself free regardless of this price — see getChatUnlockPitch below. This
+// constant stays live because the create-intent route and ChatUnlockPanel
+// still exist ready to re-enable, and formatPrice(CHAT_UNLOCK_PRICE_CENTS)
+// is still what a re-enabled unlock would charge.
 export const CHAT_UNLOCK_PRICE_CENTS = 50;
 export const CHAT_UNLOCK_CURRENCY = 'usd';
 
@@ -19,6 +27,9 @@ export const FOUNDING_PACK_SIZE = 500;
 
 /** Standalone paywall pitch line, reused across every unlock surface. */
 export function getChatUnlockPitch(): string {
+  if (CHAT_FREE_LAUNCH_MODE) {
+    return 'Chat is free right now — say hi. No unlock, no card, nothing.';
+  }
   const price = formatPrice(CHAT_UNLOCK_PRICE_CENTS);
   return CHAT_UNLOCK_PRICE_CENTS <= 100
     ? `${price} unlocks this chat forever. Less than a poop bag. One of you pays, both of you talk.`
@@ -27,6 +38,7 @@ export function getChatUnlockPitch(): string {
 
 /** Founding Pack scarcity framing — only meaningful while soft-launch pricing is active. */
 export function getFoundingPackPitch(): string | null {
+  if (CHAT_FREE_LAUNCH_MODE) return null;
   if (CHAT_UNLOCK_PRICE_CENTS > 100) return null;
   return `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} chats until the Founding Pack hits ${FOUNDING_PACK_SIZE} dogs. After that, ${formatPrice(499)}. Your number never expires — the price does.`;
 }

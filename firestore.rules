@@ -34,11 +34,20 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/users/$(request.auth.uid)/private/entitlements).data.lifetimeChatUnlocks == true;
     }
 
+    // Soft-launch: chat is free for every real match while density is low —
+    // see CHAT_FREE_LAUNCH_MODE in shared/matchAccess.ts for the full
+    // rationale. Flip both this literal and that constant together; this
+    // file is a separate deployable artifact and can't import the other.
+    function chatFreeLaunchMode() {
+      return true;
+    }
+
     function canCurrentUserChat(matchData) {
-      // One payment (from either side) unlocks the conversation for both.
+      // One payment (from either side) unlocks the conversation for both —
+      // or, during the soft launch, no payment is required at all.
       return isSignedIn()
           && isPartyToMatch(matchData)
-          && (matchData.chatUnlocked == true || hasLifetimeUnlocks());
+          && (chatFreeLaunchMode() || matchData.chatUnlocked == true || hasLifetimeUnlocks());
     }
 
     match /users/{userId} {
@@ -56,12 +65,28 @@ service cloud.firestore {
       }
     }
 
+    // Fields only the server (Admin SDK, which bypasses these rules
+    // entirely) may write: onDogProfileCreated assigns foundingPackNumber,
+    // onRatingCreated writes trustScore/ratingCount/meetAgainRate, and the
+    // Vibe Check API route writes ai. A client update() only touches the
+    // keys it lists, so request.resource.data holds the previous value for
+    // any of these it didn't send — this only fires if a write actually
+    // tries to change one.
+    function preservesServerOnlyDogFields() {
+      return request.resource.data.get('foundingPackNumber', null) == resource.data.get('foundingPackNumber', null)
+          && request.resource.data.get('trustScore', null)        == resource.data.get('trustScore', null)
+          && request.resource.data.get('ratingCount', null)       == resource.data.get('ratingCount', null)
+          && request.resource.data.get('meetAgainRate', null)     == resource.data.get('meetAgainRate', null)
+          && request.resource.data.get('ai', null)                == resource.data.get('ai', null);
+    }
+
     match /dogs/{dogId} {
       allow read:   if isSignedIn();
       allow create: if isSignedIn()
                     && request.auth.uid == dogId;
       allow update: if isSignedIn()
-                    && request.auth.uid == dogId;
+                    && request.auth.uid == dogId
+                    && preservesServerOnlyDogFields();
       allow delete: if isSignedIn()
                     && request.auth.uid == dogId;
     }
