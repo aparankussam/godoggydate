@@ -15,3 +15,5 @@ mobile/ios/build
 mobile/ios/Pods
 mobile/ios/**/*.xcuserdata
 stabilize
+.vercel
+.env*

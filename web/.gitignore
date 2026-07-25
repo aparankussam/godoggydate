@@ -4,3 +4,5 @@ node_modules
 .DS_Store
 tsconfig.tsbuildinfo
 npm-debug.log*
+.vercel
+.env*
