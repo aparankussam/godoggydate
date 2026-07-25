@@ -80,8 +80,16 @@ export interface DogProfile {
   // Mode (strictly separate)
   mode: 'playdate' | 'breeding';
 
-  // Computed/cached
-  trustScore: number; // 0–100
+  // Computed/cached — trustScore/ratingCount/meetAgainRate are written
+  // server-side by onRatingCreated (firebase/functions/src/index.ts) and are
+  // ABSENT (not defaulted to any baseline) until a dog's first rating comes
+  // in — the function only fires on rating creation. Both trustScore and
+  // meetAgainRate are 0-1 fractions, NOT 0-100 — a since-removed dead
+  // function elsewhere in this codebase used a 0-100/baseline-70 convention
+  // that never matched what's actually written to Firestore.
+  trustScore?: number; // 0–1, absent until rated at least once
+  ratingCount?: number;
+  meetAgainRate?: number; // 0–1
   totalMeetups: number;
 
   // Timestamps
@@ -94,6 +102,48 @@ export interface DogProfile {
   lat?: number;
   lng?: number;
   prompts?: { prompt: string; answer: string }[];
+
+  // Server-assigned by the onDogProfileCreated Cloud Function trigger.
+  foundingPackNumber?: number;
+
+  // AI-generated content (Vibe Check onboarding). See DogAIProfile.
+  ai?: DogAIProfile;
+}
+
+// ─── AI-GENERATED PROFILE CONTENT ("Vibe Check") ───────────────────────────
+// Generated once from 2-3 uploaded photos + a few taps, persisted to
+// dogs/{uid}.ai by the server (web/app/api/ai/vibe-check/route.ts), and
+// never written by the client directly — see the "ai" field guard in
+// firestore.rules. Stable once generated (a personality that changes on
+// reload is worse than no personality) — regenerated only on an explicit
+// user-initiated "redo" action, which bumps promptVersion.
+
+export interface DogArchetype {
+  name: string; // e.g. "Chaos Gremlin" — never a rarity/percentage claim, see getFoundingPackPitch
+  code: string; // 4-letter axis code across energy/sociability/boldness/focus, e.g. "ESBF"
+  description: string; // 1 sentence, grounded in specific profile fields — no generic filler
+}
+
+export interface DogVibeCheck {
+  breedGuess: {
+    name: string; // must resolve via shared/types/breeds.ts's resolveBreed()
+    confidence: 'low' | 'medium' | 'high';
+  };
+  sizeEstimate?: DogSize;
+  energyEstimate?: number; // 0-100
+  playStyleGuesses?: PlayStyle[]; // must be drawn from the PlayStyle union — never freeform
+  temperamentGuesses?: string[];
+  bio: string; // written in the dog's voice, 1-3 sentences
+  archetype: DogArchetype;
+  heroPhotoIndex?: number; // which uploaded photo index Claude judged best for the swipe card
+  basis: string; // dev-only: what in the input the model reasoned from — never shown in UI
+}
+
+export interface DogAIProfile {
+  vibeCheck?: DogVibeCheck;
+  model: string;
+  promptVersion: string;
+  generatedAt: number; // unix ms
 }
 
 export interface UserProfile {

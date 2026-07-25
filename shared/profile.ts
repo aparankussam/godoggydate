@@ -1,4 +1,4 @@
-import type { DogProfile, PlayStyle } from './types';
+import type { DogAIProfile, DogProfile, PlayStyle } from './types';
 
 export interface SavedDogProfile {
   name: string;
@@ -23,6 +23,13 @@ export interface SavedDogProfile {
   // Server-assigned by the onDogProfileCreated Cloud Function trigger —
   // never set by the client. Real, permanent, numbered soft-launch scarcity.
   foundingPackNumber?: number;
+  // Server-computed by the onRatingCreated Cloud Function — never set by
+  // the client (see the 'ai'/trust-field guard in firestore.rules' dogs match).
+  trustScore?: number;
+  ratingCount?: number;
+  meetAgainRate?: number;
+  // Server-generated Vibe Check content — never set by the client directly.
+  ai?: DogAIProfile;
 }
 
 export interface SavedDogPrivateProfile {
@@ -206,13 +213,23 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     specialNeeds: [],
     behaviorFlags: [],
     mode: 'playdate',
-    trustScore: 70,
-    totalMeetups: 0,
+    // Was hardcoded to a fixed 70 regardless of the real value onRatingCreated
+    // computes and writes to this same doc — every dog with real ratings
+    // showed a fabricated baseline everywhere this ran. Left undefined (not
+    // defaulted) for never-rated dogs, matching the real system: the
+    // function only fires — and only ever writes trustScore — once a rating
+    // exists, so there is no honest baseline value to substitute here.
+    trustScore: saved.trustScore,
+    ratingCount: saved.ratingCount,
+    meetAgainRate: saved.meetAgainRate,
+    totalMeetups: saved.ratingCount ?? 0,
     temperament: saved.temperament ?? [],
     location: saved.location,
     lat: saved.lat,
     lng: saved.lng,
     prompts: saved.prompts,
+    foundingPackNumber: saved.foundingPackNumber,
+    ai: saved.ai,
     createdAt: saved.createdAt ?? Date.now(),
     updatedAt: saved.updatedAt ?? saved.createdAt ?? Date.now(),
   };
