@@ -17,9 +17,27 @@ export async function exportCardImage(node: HTMLElement): Promise<Blob> {
   });
 }
 
-export async function shareOrDownloadCard(node: HTMLElement, fileName: string): Promise<'shared' | 'downloaded'> {
+export interface ShareCardOptions {
+  /** Public /d/[slug] URL for this dog — poster-centric share copy needs a
+   *  real link, since screenshots strip metadata and most re-shares strip
+   *  the original share-sheet URL. Without this the card was a dead end:
+   *  no opengraph-image existed anywhere, so past shares just unfurled as
+   *  bare links with nothing to tap through to. */
+  publicUrl?: string;
+  dogName?: string;
+}
+
+export async function shareOrDownloadCard(
+  node: HTMLElement,
+  fileName: string,
+  options: ShareCardOptions = {},
+): Promise<'shared' | 'downloaded'> {
   const blob = await exportCardImage(node);
   const file = new File([blob], fileName, { type: 'image/png' });
+  const { publicUrl, dogName } = options;
+  const shareText = publicUrl
+    ? `That's ${dogName ?? 'my dog'} on GoDoggyDate — see her page: ${publicUrl}`
+    : 'My dog needs friends and honestly so do I.';
 
   if (
     typeof navigator !== 'undefined' &&
@@ -30,7 +48,8 @@ export async function shareOrDownloadCard(node: HTMLElement, fileName: string): 
       await navigator.share({
         files: [file],
         title: 'My dog on GoDoggyDate',
-        text: 'My dog needs friends and honestly so do I.',
+        text: shareText,
+        url: publicUrl,
       });
       return 'shared';
     } catch {
