@@ -11,11 +11,14 @@ import { useState } from 'react';
 import { createHouseholdInvite, removeHouseholdMember } from '../lib/household';
 
 interface Props {
+  /** The signed-in user's own dog. The invite text used to hardcode "Kaju",
+   *  so every user's invite named the founder's dog instead of theirs. */
+  dogName: string;
   memberIds: string[];
   memberNames?: Record<string, string>;
 }
 
-export default function HouseholdSection({ memberIds, memberNames }: Props) {
+export default function HouseholdSection({ dogName, memberIds, memberNames }: Props) {
   const [inviting, setInviting] = useState(false);
   const [invite, setInvite] = useState<{ code: string; expiresAt: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,7 @@ export default function HouseholdSection({ memberIds, memberNames }: Props) {
     if (!invite) return;
     try {
       await navigator.clipboard.writeText(
-        `Join Kaju's household on GoDoggyDate — code ${invite.code}. ${window.location.origin}/app/household/join?code=${invite.code}`,
+        `Join ${dogName || 'my dog'}'s household on GoDoggyDate — code ${invite.code}. ${window.location.origin}/app/household/join?code=${invite.code}`,
       );
       setCopied(true);
     } catch {

@@ -280,6 +280,24 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                     </span>
                   ))}
                 </div>
+
+                {/* Safety warnings from detectUnsafePairings(). These were
+                    computed but rendered nowhere — the entire safety branch of
+                    the matching engine was invisible. They belong on the card
+                    itself, before a like, since that's the decision they're
+                    meant to inform. */}
+                {dog.compat.warnings.length > 0 && (
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {dog.compat.warnings.slice(0, 3).map((warning) => (
+                      <span
+                        key={warning}
+                        className="rounded-full border border-amber-300/60 bg-amber-950/55 px-3 py-1 text-[11px] font-semibold text-amber-100 shadow-[0_4px_14px_rgba(0,0,0,0.3)] backdrop-blur-md"
+                      >
+                        ⚠ {warning}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

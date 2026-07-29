@@ -241,7 +241,19 @@ export async function POST(request: Request) {
   try {
     response = await anthropic.messages.create({
       model: VIBE_CHECK_MODEL,
-      max_tokens: 1024,
+      // On Opus 5 thinking is ON by default (omitting `thinking` runs adaptive)
+      // and max_tokens caps thinking PLUS output together. The old 1024 was
+      // sized for the tool payload alone, so with three full-res photos and a
+      // forced tool_choice it truncated before the tool_use block closed —
+      // which surfaced as the generic "no tool_use block" 502 below.
+      //
+      // Thinking stays on: with it disabled, Opus 5 can emit a tool call as
+      // plain text instead of a tool_use block, which is exactly the one shape
+      // this route cannot recover from. `effort: 'low'` keeps the thinking
+      // budget small — this is a bounded extraction, not a reasoning task.
+      max_tokens: 4096,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'low' },
       system: SYSTEM_PROMPT,
       tools: [VIBE_CHECK_TOOL],
       tool_choice: { type: 'tool', name: 'submit_vibe_check' },
@@ -269,6 +281,14 @@ export async function POST(request: Request) {
   // block — never blindly index content[0] here.
   if (response.stop_reason === 'refusal') {
     return NextResponse.json({ error: 'Could not read these photos — try different ones' }, { status: 422 });
+  }
+
+  // Distinct from the no-tool_use case below: this one means the response was
+  // cut off at max_tokens, so the fix is the cap, not the prompt. Without this
+  // branch both failures log identically.
+  if (response.stop_reason === 'max_tokens') {
+    console.error('vibe-check: response truncated at max_tokens', JSON.stringify(response.usage));
+    return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
   }
 
   const toolUseBlock = response.content.find(

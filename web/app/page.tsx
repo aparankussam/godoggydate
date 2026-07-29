@@ -40,15 +40,23 @@ export default function HomePage() {
   }
 
   const features = [
-    { emoji: '🛡️', title: 'Safety First', desc: 'Our matching engine prevents incompatible pairings before you swipe.' },
-    { emoji: '🧠', title: 'Smart Compatibility', desc: 'Scored on size, energy, play style, health, and 10+ signals.' },
+    // Copy is deliberately scoped to what the code actually does. It previously
+    // claimed the engine "prevents incompatible pairings" and scored "10+
+    // signals" — but nothing collected the two fields detectUnsafePairings()
+    // reads, so it could never produce a warning, and the engine scores 7 axes.
+    // Owners now declare these, and warnings render on the card. It flags; it
+    // does not prevent, and it can only reflect what owners tell us.
+    { emoji: '🛡️', title: 'Flags before you meet', desc: 'Owners declare what their dog struggles with — size, rough play, slow intros — and we surface it on the card.' },
+    { emoji: '🧠', title: 'Smart Compatibility', desc: 'Scored across breed group, size, energy, play style, health, and distance.' },
     { emoji: '📍', title: 'Truly Local', desc: 'Connect with dogs in your neighborhood — real meetups, not endless scrolling.' },
     { emoji: '🐾', title: 'Founding Pack', desc: 'Get in early — a permanent, numbered spot and soft-launch pricing that won\'t last.' },
   ];
 
   const steps = [
-    { n: '01', title: "Create your dog's profile", desc: 'Add their personality, play style, and safety preferences in under 60 seconds.' },
-    { n: '02', title: 'Swipe through compatible dogs', desc: 'Every card shows a compatibility score, energy match, and safety notes.' },
+    // "under 60 seconds" was not true: the form is 9 sections and requires 3
+    // photos. Don't promise a number the form can't hit.
+    { n: '01', title: "Create your dog's profile", desc: 'Photos, personality, play style, and anything another owner should know before meeting.' },
+    { n: '02', title: 'Swipe through compatible dogs', desc: 'Every card shows a compatibility score, energy match, and any flags the owner declared.' },
     { n: '03', title: 'Match & start chatting', desc: "When it's mutual, head to chat and plan your first playdate meetup." },
     { n: '04', title: 'Meet up & give feedback', desc: 'After every playdate, let us know how it went. Your feedback shapes the community.' },
   ];

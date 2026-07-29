@@ -281,13 +281,19 @@ export default function AppPage() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // distanceMiles uses -1 as a sentinel for "no coordinates on one side, so
+  // distance is unknown" (see milesBetween in lib/discover.ts). -1 is still a
+  // number and is still <= 5, so an unknown distance was being counted as
+  // "within 5 miles" — telling a user there were dogs a few blocks away when
+  // the app had no idea where those dogs were.
+  const hasKnownDistance = (miles: number) => typeof miles === 'number' && miles >= 0;
   const visibleDogs = activeFeed;
   const visibleWithinFive = visibleDogs.filter(
-    (dog) => typeof dog.distanceMiles === 'number' && dog.distanceMiles <= 5,
+    (dog) => hasKnownDistance(dog.distanceMiles) && dog.distanceMiles <= 5,
   ).length;
   const visibleWithinRadius = visibleDogs.filter(
     (dog) =>
-      typeof dog.distanceMiles !== 'number' ||
+      !hasKnownDistance(dog.distanceMiles) ||
       dog.distanceMiles <= DEFAULT_DISCOVER_RADIUS_MILES,
   ).length;
   const densityLine =

@@ -20,14 +20,6 @@ service cloud.firestore {
           );
     }
 
-    function isDog1Party(matchData) {
-      return request.auth.uid == matchData.dog1UserId || request.auth.uid == matchData.userAId;
-    }
-
-    function isDog2Party(matchData) {
-      return request.auth.uid == matchData.dog2UserId || request.auth.uid == matchData.userBId;
-    }
-
     function hasLifetimeUnlocks() {
       // Founding Member entitlement, written server-side by the Stripe webhook.
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)/private/entitlements)
@@ -221,11 +213,44 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Ratings feed the trust score that onRatingCreated aggregates onto
+    // dogs/{dogId}. The previous rule was forgeable in several independent
+    // ways: {ratingId} was unconstrained (so the duplicate-check looked at a
+    // DIFFERENT path than the doc being written), matchId was an arbitrary
+    // client string, nothing required the rater to be party to the match,
+    // dogId was attacker-chosen, and stars was unvalidated — so any account
+    // could mint unlimited five-star self-ratings or bury another user's
+    // score. Every clause below closes one of those.
     match /ratings/{ratingId} {
-      allow read:   if isSignedIn();
+      // Aggregate trust is shown publicly; individual ratings are not, so a
+      // rater can only read their own row back (used by hasRatedPlaydate).
+      allow read:   if isSignedIn()
+                    && resource.data.raterId == request.auth.uid;
+
       allow create: if isSignedIn()
+                    // The doc id must BE the canonical id. This is what makes
+                    // one-rating-per-rater-per-match actually enforceable:
+                    // Firestore rejects a create on an existing doc, so
+                    // pinning the id removes the need for an exists() check
+                    // and closes the random-id bypass at the same time.
+                    && ratingId == request.auth.uid + '_' + request.resource.data.matchId
                     && request.resource.data.raterId == request.auth.uid
-                    && !exists(/databases/$(database)/documents/ratings/$(request.auth.uid + '_' + request.resource.data.matchId));
+                    // Must actually be a participant in the match being rated.
+                    && isPartyToMatch(
+                         get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data
+                       )
+                    // Can only rate the OTHER dog, never yourself.
+                    && request.resource.data.dogId != request.auth.uid
+                    && request.resource.data.dogId in [
+                         get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.dog1UserId,
+                         get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.dog2UserId
+                       ]
+                    // Bound the numbers the trust aggregation multiplies.
+                    && request.resource.data.stars is int
+                    && request.resource.data.stars >= 1
+                    && request.resource.data.stars <= 5
+                    && request.resource.data.wouldMeetAgain is bool;
+
       allow update: if false;
       allow delete: if false;
     }

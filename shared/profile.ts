@@ -20,6 +20,13 @@ export interface SavedDogProfile {
   lat?: number;
   lng?: number;
   prompts?: { prompt: string; answer: string }[];
+  // Safety screening — the ONLY inputs detectUnsafePairings() reads
+  // (shared/utils/matchingEngine.ts). Until these were collected, the whole
+  // safety branch of the matching engine was unreachable: warnings.length was
+  // always 0 for every real dog because toFullProfile hardcoded empty arrays,
+  // while the homepage advertised incompatibility prevention.
+  notGoodWith?: string[];
+  behaviorFlags?: string[];
   // Server-assigned by the onDogProfileCreated Cloud Function trigger —
   // never set by the client. Real, permanent, numbered soft-launch scarcity.
   foundingPackNumber?: number;
@@ -212,15 +219,20 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     fixed: false,
     energyLevel: saved.energyLevel,
     photos: saved.photos ?? [],
+    // goodWith stays permissive-by-default (it only ADDS score, never warns).
+    // notGoodWith/behaviorFlags were ALSO hardcoded empty here, which silently
+    // disabled every safety warning detectUnsafePairings() can produce — the
+    // engine read these two fields and always got []. Now passed through from
+    // what the owner actually declared.
     goodWith: ['all dogs'],
-    notGoodWith: [],
+    notGoodWith: (saved.notGoodWith ?? []) as DogProfile['notGoodWith'],
     playStyles: saved.playStyles as PlayStyle[],
     boundaries: [],
     allergies: [],
     vaccinated: saved.vaccinated,
     vetChecked: false,
     specialNeeds: [],
-    behaviorFlags: [],
+    behaviorFlags: (saved.behaviorFlags ?? []) as DogProfile['behaviorFlags'],
     mode: 'playdate',
     // Was hardcoded to a fixed 70 regardless of the real value onRatingCreated
     // computes and writes to this same doc — every dog with real ratings

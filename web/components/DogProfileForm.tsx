@@ -32,6 +32,21 @@ const PLAY_STYLE_OPTIONS = [
   'high-energy runner ⚡', 'calm 🧘', 'explorer 👃',
 ];
 
+// Safety screening. These two lists are the ONLY inputs
+// detectUnsafePairings() reads (shared/utils/matchingEngine.ts) — nothing
+// collected them before, so the engine could never produce a single warning
+// while the homepage advertised that it prevented incompatible pairings.
+// Values must match the NotGoodWith / BehaviorFlag unions in shared/types.
+const NOT_GOOD_WITH_OPTIONS = [
+  'small dogs', 'large dogs', 'puppies',
+  'high-energy dogs', 'rough play', 'off-leash dogs',
+];
+
+const BEHAVIOR_FLAG_OPTIONS = [
+  'needs slow introduction', 'easily overstimulated', 'resource guarding',
+  'anxious with dogs', 'prefers calm dogs', 'not comfortable with kids',
+];
+
 const DEFAULT_PROMPTS = [
   "My dog's personality in 3 words:",
   'Perfect playdate looks like:',
@@ -145,6 +160,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
   const [energyLevel, setEnergyLevel] = useState(60);
   const [temperament, setTemperament] = useState<string[]>([]);
   const [playStyles, setPlayStyles] = useState<string[]>([]);
+  const [notGoodWith, setNotGoodWith] = useState<string[]>([]);
+  const [behaviorFlags, setBehaviorFlags] = useState<string[]>([]);
   const [zip, setZip] = useState('');
   const [city, setCity] = useState('');
   const [usState, setUsState] = useState('');
@@ -196,6 +213,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
     setEnergyLevel(initialProfile.energyLevel ?? 60);
     setTemperament(initialProfile.temperament ?? []);
     setPlayStyles(initialProfile.playStyles ?? []);
+    setNotGoodWith(initialProfile.notGoodWith ?? []);
+    setBehaviorFlags(initialProfile.behaviorFlags ?? []);
     setVaccinated(initialProfile.vaccinated ?? true);
     setPrompts(
       DEFAULT_PROMPTS.map((prompt) => {
@@ -484,6 +503,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
         energyLevel,
         temperament,
         playStyles,
+        notGoodWith,
+        behaviorFlags,
         photos: photosFinal,
         location: locationStr,
         city: cityStr || undefined,
@@ -751,6 +772,50 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
                 type="button"
                 onClick={() => toggleTag(option, playStyles, setPlayStyles)}
                 className={`chip text-xs ${playStyles.includes(option) ? 'chip-active' : ''}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Safety screening — the only inputs the matching engine's
+            detectUnsafePairings() reads. Optional on purpose: most dogs have
+            nothing to declare, and forcing a choice would push people to
+            click something untrue. */}
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+          <p className="text-sm font-bold text-brown">Safety</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
+            Only what you tell us here can warn another owner before a meetup. Skip anything that
+            doesn&apos;t apply.
+          </p>
+
+          <label className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+            Not a good match with
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {NOT_GOOD_WITH_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => toggleTag(option, notGoodWith, setNotGoodWith)}
+                className={`chip text-xs ${notGoodWith.includes(option) ? 'chip-active' : ''}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+
+          <label className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+            Good to know before meeting
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {BEHAVIOR_FLAG_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => toggleTag(option, behaviorFlags, setBehaviorFlags)}
+                className={`chip text-xs ${behaviorFlags.includes(option) ? 'chip-active' : ''}`}
               >
                 {option}
               </button>

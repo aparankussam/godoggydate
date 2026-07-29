@@ -400,23 +400,50 @@ export const onRatingCreated = functions.firestore
     let weightTotal = 0;
     let meetAgainCount = 0;
 
+    // Defence in depth alongside the ratings rule: clamp stars here too, so a
+    // malformed or legacy document can never poison the aggregate. Without
+    // this, a non-numeric or out-of-range `stars` propagated straight into
+    // weightedSum and produced a NaN trustScore that no later rating could
+    // repair.
+    let counted = 0;
     for (const r of ratings) {
+      const stars = typeof r.stars === 'number' && Number.isFinite(r.stars)
+        ? Math.min(5, Math.max(1, r.stars))
+        : null;
+      if (stars === null) continue;
       const ageMs = now - (r.createdAt?.toMillis?.() ?? now);
       const weight = Math.pow(0.5, ageMs / HALF_LIFE_MS);
-      weightedSum += r.stars * weight;
+      weightedSum += stars * weight;
       weightTotal += weight;
-      if (r.wouldMeetAgain) meetAgainCount++;
+      if (r.wouldMeetAgain === true) meetAgainCount++;
+      counted++;
     }
 
     const avgStars = weightTotal > 0 ? weightedSum / weightTotal : 0;
     const normalizedScore = avgStars / 5;
-    const confidenceBonus = Math.min(ratings.length / 30, 1) * 0.1;
+    // No usable ratings — clear the fields rather than writing zeros. Writing
+    // trustScore: 0 would mark the dog with the WORST possible score, which
+    // reads identically to "rated terribly" in every consumer, when the truth
+    // is "not rated yet". The UI distinguishes absent from 0, so this matters.
+    if (counted === 0) {
+      await db.doc(`dogs/${dogId}`).update({
+        trustScore: admin.firestore.FieldValue.delete(),
+        ratingCount: admin.firestore.FieldValue.delete(),
+        meetAgainRate: admin.firestore.FieldValue.delete(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+
+    // Use `counted`, not ratings.length — a skipped malformed row must not
+    // inflate the confidence bonus or dilute the meet-again rate.
+    const confidenceBonus = Math.min(counted / 30, 1) * 0.1;
     const trustScore = Math.min(Math.round((normalizedScore + confidenceBonus) * 100) / 100, 1);
-    const meetAgainRate = ratings.length > 0 ? meetAgainCount / ratings.length : 0;
+    const meetAgainRate = meetAgainCount / counted;
 
     await db.doc(`dogs/${dogId}`).update({
       trustScore,
-      ratingCount: ratings.length,
+      ratingCount: counted,
       meetAgainRate,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -477,7 +504,52 @@ export const deleteAccount = functions
     await db.recursiveDelete(db.doc(`swipes/${uid}`));
     await db.recursiveDelete(db.doc(`blocks/${uid}`));
     await db.recursiveDelete(db.doc(`users/${uid}`));
-    await db.doc(`dogs/${uid}`).delete();
+    // recursiveDelete, not delete(): a plain delete removed the dog document
+    // but ORPHANED its subcollections. dogs/{uid}/reminders holds medication,
+    // rabies and vet dates, and sendReminderNotifications would keep sweeping
+    // those orphans daily forever.
+    await db.recursiveDelete(db.doc(`dogs/${uid}`));
+
+    // Remove this user from every OTHER dog's household. Without this, a
+    // deleted user's uid and display label stay embedded in a third party's
+    // world-readable dog document indefinitely.
+    try {
+      const households = await db
+        .collection('dogs')
+        .where('householdMemberIds', 'array-contains', uid)
+        .get();
+      for (const d of households.docs) {
+        await d.ref.update({
+          householdMemberIds: admin.firestore.FieldValue.arrayRemove(uid),
+          [`householdMemberNames.${uid}`]: admin.firestore.FieldValue.delete(),
+        });
+      }
+    } catch (error) {
+      // A missing index must not strand the rest of the deletion.
+      console.error('deleteAccount: could not clear household memberships', { uid, error });
+    }
+
+    // Invites this user created (they carry dogId + createdBy).
+    try {
+      const invites = await db.collection('householdInvites').where('createdBy', '==', uid).get();
+      const batch = db.batch();
+      invites.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    } catch (error) {
+      console.error('deleteAccount: could not delete household invites', { uid, error });
+    }
+
+    // Uploaded images. Firestore deletion alone left every photo permanently
+    // fetchable: Storage download URLs carry their own ?alt=media&token=,
+    // which bypasses storage.rules entirely, so "delete my account" was
+    // leaving photographs public on the open internet.
+    for (const prefix of [`dogs/${uid}/`, `avatars/${uid}/`]) {
+      try {
+        await admin.storage().bucket().deleteFiles({ prefix });
+      } catch (error) {
+        console.error('deleteAccount: could not delete storage prefix', { uid, prefix, error });
+      }
+    }
 
     // payments/matchUnlocks/stripeEvents are retained: financial records
     // needed for refund/dispute defense (legitimate-interest retention).
@@ -692,16 +764,38 @@ export const sendReminderNotifications = functions.pubsub
       const data = doc.data() as {
         dueDate?: FirebaseFirestore.Timestamp;
         notifiedAt?: FirebaseFirestore.Timestamp;
+        recurrenceDays?: number;
         label?: string;
       };
       const dogId = doc.ref.parent.parent?.id;
       if (!dogId || !data.dueDate) continue;
 
       const dueMs = data.dueDate.toMillis();
-      // Already sent for this exact due date (not just "sent recently") —
-      // a recurring reminder's due date moves forward on completion, and
-      // notifiedAt is cleared then, so this only skips a true duplicate.
-      if (data.notifiedAt && Math.abs(data.notifiedAt.toMillis() - dueMs) < 60_000) continue;
+      const alreadyNotified = data.notifiedAt
+        && Math.abs(data.notifiedAt.toMillis() - dueMs) < 60_000;
+
+      if (alreadyNotified) {
+        // A recurring reminder only advanced when the user pressed "Done", so
+        // ignoring one notification silenced it FOREVER — a monthly heartworm
+        // reminder fired once, ever, and then sat overdue in perpetuity. The
+        // schedule is the schedule; pressing Done is acknowledgement, not a
+        // precondition for the next cycle. Once an occurrence is a full day
+        // past due, roll forward to the next one so the cadence survives an
+        // ignored notification without ever nagging daily.
+        const recurrence = typeof data.recurrenceDays === 'number' && data.recurrenceDays > 0
+          ? data.recurrenceDays
+          : null;
+        if (recurrence && dueMs < now - 24 * 60 * 60 * 1000) {
+          const intervalMs = recurrence * 24 * 60 * 60 * 1000;
+          let nextDue = dueMs + intervalMs;
+          while (nextDue <= now) nextDue += intervalMs;
+          await doc.ref.update({
+            dueDate: admin.firestore.Timestamp.fromMillis(nextDue),
+            notifiedAt: admin.firestore.FieldValue.delete(),
+          });
+        }
+        continue;
+      }
 
       const dogName = await getDogName(dogId);
       const overdue = dueMs < now;
@@ -854,12 +948,16 @@ export const acceptHouseholdInvite = functions.https.onCall(async (data, context
 
     // users/{uid} is owner-read-only (see firestore.rules), so the dog's
     // owner has no way to look up a member's display name themselves — the
-    // token's own name/email claim is captured here, once, at accept-time,
-    // purely for display. Falls back to a generic label rather than an
-    // empty name if the invitee's auth provider didn't supply one.
-    const displayLabel = context.auth?.token.name
-      || context.auth?.token.email
-      || 'Household member';
+    // token's name claim is captured here, once, at accept-time, purely for
+    // display.
+    //
+    // Deliberately does NOT fall back to token.email. This value is stored on
+    // the dog document, which is readable by every signed-in user and is the
+    // source for the public /d/[slug] page — an email fallback published a
+    // real address to anyone who looked, including crawlers. A generic label
+    // is the correct degradation when a provider supplies no display name.
+    const rawName = typeof context.auth?.token.name === 'string' ? context.auth.token.name.trim() : '';
+    const displayLabel = rawName ? rawName.slice(0, 60) : 'Household member';
 
     transaction.update(dogRef, {
       householdMemberIds: admin.firestore.FieldValue.arrayUnion(uid),

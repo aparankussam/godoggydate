@@ -43,6 +43,21 @@ const PLAY_STYLE_OPTIONS = [
   'explorer 👃',
 ] as const;
 
+// Safety screening — mirrors web/components/DogProfileForm.tsx. These two
+// lists are the ONLY inputs detectUnsafePairings() reads
+// (shared/utils/matchingEngine.ts); nothing collected them on either platform
+// before, so the engine could never emit a warning. Values must match the
+// NotGoodWith / BehaviorFlag unions in shared/types.
+const NOT_GOOD_WITH_OPTIONS = [
+  'small dogs', 'large dogs', 'puppies',
+  'high-energy dogs', 'rough play', 'off-leash dogs',
+] as const;
+
+const BEHAVIOR_FLAG_OPTIONS = [
+  'needs slow introduction', 'easily overstimulated', 'resource guarding',
+  'anxious with dogs', 'prefers calm dogs', 'not comfortable with kids',
+] as const;
+
 const ENERGY_OPTIONS = [20, 40, 60, 80, 100];
 
 type ValidationErrors = Partial<Record<
@@ -82,6 +97,8 @@ export default function ProfileEditor({
   const [size, setSize] = useState<SavedDogProfile['size']>(initialProfile?.size ?? 'M');
   const [energyLevel, setEnergyLevel] = useState(initialProfile?.energyLevel ?? 60);
   const [playStyles, setPlayStyles] = useState<string[]>(initialProfile?.playStyles ?? []);
+  const [notGoodWith, setNotGoodWith] = useState<string[]>(initialProfile?.notGoodWith ?? []);
+  const [behaviorFlags, setBehaviorFlags] = useState<string[]>(initialProfile?.behaviorFlags ?? []);
   const [vaccinated, setVaccinated] = useState(initialProfile?.vaccinated ?? true);
   const [zip, setZip] = useState(initialProfile?.zip ?? '');
   const [city, setCity] = useState(initialProfile?.city ?? '');
@@ -214,6 +231,8 @@ export default function ProfileEditor({
         size,
         energyLevel,
         playStyles,
+        notGoodWith,
+        behaviorFlags,
         vaccinated,
         photos: safePhotos,
         location: locationLabel,
@@ -349,6 +368,36 @@ export default function ProfileEditor({
               label={option}
               active={playStyles.includes(option)}
               onPress={() => setPlayStyles((prev: string[]) => (
+                prev.includes(option) ? prev.filter((item: string) => item !== option) : [...prev, option]
+              ))}
+            />
+          ))}
+        </View>
+      </Field>
+
+      <Field label="Not a good match with">
+        <View style={styles.wrap}>
+          {NOT_GOOD_WITH_OPTIONS.map((option) => (
+            <ChoiceChip
+              key={option}
+              label={option}
+              active={notGoodWith.includes(option)}
+              onPress={() => setNotGoodWith((prev: string[]) => (
+                prev.includes(option) ? prev.filter((item: string) => item !== option) : [...prev, option]
+              ))}
+            />
+          ))}
+        </View>
+      </Field>
+
+      <Field label="Good to know before meeting">
+        <View style={styles.wrap}>
+          {BEHAVIOR_FLAG_OPTIONS.map((option) => (
+            <ChoiceChip
+              key={option}
+              label={option}
+              active={behaviorFlags.includes(option)}
+              onPress={() => setBehaviorFlags((prev: string[]) => (
                 prev.includes(option) ? prev.filter((item: string) => item !== option) : [...prev, option]
               ))}
             />

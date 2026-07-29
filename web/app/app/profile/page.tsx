@@ -23,7 +23,8 @@ import { getRenderablePhotos } from '../../../lib/photos';
 import { deleteAccount } from '../../../lib/account';
 import DogTradingCard from '../../../components/DogTradingCard';
 import { shareOrDownloadCard } from '../../../lib/shareCard';
-import { onEntitlements } from '../../../lib/entitlements';
+import { onEntitlements, getFoundingMemberLink } from '../../../lib/entitlements';
+import { getFoundingPackPitch } from '../../../shared/utils/stripe';
 import { toDogSlug } from '../../../lib/dogSlug';
 import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
@@ -352,9 +353,30 @@ export default function ProfilePage() {
 
         {savedProfile && (
           <HouseholdSection
+            dogName={savedProfile.name}
             memberIds={savedProfile.householdMemberIds ?? []}
             memberNames={savedProfile.householdMemberNames}
           />
+        )}
+
+        {/* Founding Member CTA. Lives here rather than only inside the chat
+            paywall: that CTA was nested in a !canChat block, so turning chat
+            free removed the last reachable purchase path in the whole product.
+            The profile is always reachable and doesn't interrupt a
+            conversation to sell something. */}
+        {authUser && !hasLifetime && getFoundingMemberLink(authUser.uid) && (
+          <a
+            href={getFoundingMemberLink(authUser.uid)!}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent('founding_member_cta_click', { source: 'profile' })}
+            className="card block rounded-[1.8rem] border border-gold/40 bg-gold/10 px-4 py-4 transition-colors hover:bg-gold/20"
+          >
+            <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
+            <p className="mt-1 text-xs leading-relaxed text-brown-light">
+              {getFoundingPackPitch()}
+            </p>
+          </a>
         )}
 
         {/* Photo strip */}

@@ -67,7 +67,19 @@ export default function RemindersSection({ dogId, reminders }: Props) {
         setError('Enter a valid month, day, and year');
         return;
       }
-      dueDate = new Date(y, m - 1, d, 12).getTime();
+      // Range checks alone accept impossible dates: JS silently rolls them
+      // over, so "02/30/2026" became March 2 without telling the user. Confirm
+      // the constructed date reads back as the one they typed.
+      const candidate = new Date(y, m - 1, d, 12);
+      if (
+        candidate.getFullYear() !== y ||
+        candidate.getMonth() !== m - 1 ||
+        candidate.getDate() !== d
+      ) {
+        setError(`There's no such date as ${m}/${d}/${y}`);
+        return;
+      }
+      dueDate = candidate.getTime();
     }
 
     setSaving(true);

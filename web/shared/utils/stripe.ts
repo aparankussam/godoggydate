@@ -6,6 +6,12 @@
  * Web:     uses @stripe/stripe-js + @stripe/react-stripe-js
  */
 
+// Reaches into the root shared/ tree on purpose. web/shared/ is a partial
+// duplicate that has no matchAccess.ts, and copying one in would give
+// CHAT_FREE_LAUNCH_MODE two definitions that silently drift — the flag decides
+// whether chat is free, so a stale copy would charge users the rules already
+// let through. Other web files already import the root shared/matchAccess
+// directly (see app/app/messages/[matchId]/page.tsx).
 import { CHAT_FREE_LAUNCH_MODE } from '../../../shared/matchAccess';
 
 // SOFT-LAUNCH "FOUNDING PACK" PRICING: 50 (Stripe's $0.50 USD minimum
@@ -14,8 +20,7 @@ import { CHAT_FREE_LAUNCH_MODE } from '../../../shared/matchAccess';
 // than a fake countdown. Revert to 499 once the Founding Pack fills or
 // launch broadens beyond the soft-launch neighborhood.
 //
-// NOTE: CHAT_FREE_LAUNCH_MODE (repo-root shared/matchAccess.ts — not
-// duplicated under web/shared, unlike this file) currently makes chat
+// NOTE: CHAT_FREE_LAUNCH_MODE (shared/matchAccess.ts) currently makes chat
 // itself free regardless of this price — see getChatUnlockPitch below. This
 // constant stays live because the create-intent route and ChatUnlockPanel
 // still exist ready to re-enable, and formatPrice(CHAT_UNLOCK_PRICE_CENTS)
@@ -37,10 +42,25 @@ export function getChatUnlockPitch(): string {
     : `${price} unlocks this chat forever. No subscription, no auto-renew. One of you pays, both of you talk.`;
 }
 
-/** Founding Pack scarcity framing — only meaningful while soft-launch pricing is active. */
+/**
+ * Founding Pack scarcity framing.
+ *
+ * This used to return null whenever CHAT_FREE_LAUNCH_MODE was on, because the
+ * pitch was written around chat pricing. That silently removed the ONLY
+ * remaining purchase path in the product the moment chat went free — the
+ * homepage section and the in-chat CTA both early-return on a null pitch.
+ *
+ * The Founding Pack is a numbered, capped membership; its scarcity has nothing
+ * to do with what chat costs. So the pitch now stands on its own, and only the
+ * price-anchored variant depends on chat pricing.
+ */
 export function getFoundingPackPitch(): string | null {
-  if (CHAT_FREE_LAUNCH_MODE) return null;
-  if (CHAT_UNLOCK_PRICE_CENTS > 100) return null;
+  if (CHAT_FREE_LAUNCH_MODE) {
+    return `Only ${FOUNDING_PACK_SIZE} dogs ever get a Founding Pack number. Yours is permanent, and it stops at ${FOUNDING_PACK_SIZE} for good.`;
+  }
+  if (CHAT_UNLOCK_PRICE_CENTS > 100) {
+    return `Only ${FOUNDING_PACK_SIZE} dogs ever get a Founding Pack number. Yours is permanent, and it stops at ${FOUNDING_PACK_SIZE} for good.`;
+  }
   return `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} chats until the Founding Pack hits ${FOUNDING_PACK_SIZE} dogs. After that, ${formatPrice(499)}. Your number never expires — the price does.`;
 }
 

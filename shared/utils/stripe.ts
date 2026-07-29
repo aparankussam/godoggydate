@@ -36,10 +36,25 @@ export function getChatUnlockPitch(): string {
     : `${price} unlocks this chat forever. No subscription, no auto-renew. One of you pays, both of you talk.`;
 }
 
-/** Founding Pack scarcity framing — only meaningful while soft-launch pricing is active. */
+/**
+ * Founding Pack scarcity framing.
+ *
+ * This used to return null whenever CHAT_FREE_LAUNCH_MODE was on, because the
+ * pitch was written around chat pricing. That silently removed the ONLY
+ * remaining purchase path in the product the moment chat went free — the
+ * homepage section and the in-chat CTA both early-return on a null pitch.
+ *
+ * The Founding Pack is a numbered, capped membership; its scarcity has nothing
+ * to do with what chat costs. So the pitch now stands on its own, and only the
+ * price-anchored variant depends on chat pricing.
+ */
 export function getFoundingPackPitch(): string | null {
-  if (CHAT_FREE_LAUNCH_MODE) return null;
-  if (CHAT_UNLOCK_PRICE_CENTS > 100) return null;
+  if (CHAT_FREE_LAUNCH_MODE) {
+    return `Only ${FOUNDING_PACK_SIZE} dogs ever get a Founding Pack number. Yours is permanent, and it stops at ${FOUNDING_PACK_SIZE} for good.`;
+  }
+  if (CHAT_UNLOCK_PRICE_CENTS > 100) {
+    return `Only ${FOUNDING_PACK_SIZE} dogs ever get a Founding Pack number. Yours is permanent, and it stops at ${FOUNDING_PACK_SIZE} for good.`;
+  }
   return `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} chats until the Founding Pack hits ${FOUNDING_PACK_SIZE} dogs. After that, ${formatPrice(499)}. Your number never expires — the price does.`;
 }
 

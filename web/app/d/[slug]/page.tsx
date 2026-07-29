@@ -39,14 +39,38 @@ async function loadDog(slug: string): Promise<{ uid: string; profile: SavedDogPr
     if (!snap.exists) return null;
     const raw = snap.data() as SavedDogProfile;
     if (!raw?.name) return null;
-    // Admin SDK returns Firestore Timestamp class instances for any timestamp
-    // field (createdAt/updatedAt, and ai.generatedAt if present) — passing
-    // those into a 'use client' component (DogTradingCard) as props throws
-    // "Only plain objects... can be passed to Client Components", since RSC
-    // prop serialization requires plain JSON-shaped data. DogTradingCard
-    // doesn't render any timestamp field, so this only needs to strip them,
-    // not preserve their value.
-    const profile = JSON.parse(JSON.stringify(raw)) as SavedDogProfile;
+    // STRICT ALLOWLIST — do not replace with a spread or a JSON round-trip.
+    //
+    // This page is public and pre-auth, and anything on this object crosses
+    // into a 'use client' component, which means it is serialized into the
+    // HTML/RSC payload and readable by anyone (including crawlers) via view
+    // source. Passing the whole document previously published ownerId, exact
+    // stored lat/lng, householdMemberIds and householdMemberNames to
+    // anonymous visitors.
+    //
+    // These 12 fields are exactly what DogTradingCard renders. If the card
+    // ever needs another field, add it here consciously — and never add
+    // ownerId, lat, lng, zip, ai, household*, trustScore, ratingCount,
+    // meetAgainRate, or prompts.
+    //
+    // (Allowlisting also incidentally solves the Firestore Timestamp problem:
+    // Admin SDK returns Timestamp class instances, which RSC refuses to
+    // serialize — none of the fields below are timestamps.)
+    const profile: SavedDogProfile = {
+      name: raw.name,
+      breed: raw.breed,
+      age: raw.age,
+      size: raw.size,
+      energyLevel: raw.energyLevel,
+      playStyles: Array.isArray(raw.playStyles) ? raw.playStyles : [],
+      temperament: Array.isArray(raw.temperament) ? raw.temperament : [],
+      photos: Array.isArray(raw.photos) ? raw.photos : [],
+      location: raw.location,
+      city: raw.city,
+      state: raw.state,
+      foundingPackNumber: raw.foundingPackNumber,
+      vaccinated: raw.vaccinated,
+    };
     return { uid, profile };
   } catch (error) {
     console.error('public dog page: failed to load dog', uid, error);
@@ -71,6 +95,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: { title, description, type: 'profile' },
     twitter: { card: 'summary_large_image', title, description },
     alternates: { canonical: `/d/${canonicalSlug}` },
+    // Shareable by link, but deliberately NOT search-indexable. Nobody opted
+    // in to their dog having a Google-discoverable page, and the point of this
+    // route is to give a shared card somewhere to land — which link unfurling
+    // (openGraph above) does without needing a crawler to index it. `follow`
+    // stays on so the links back into the site still count.
+    robots: { index: false, follow: true },
   };
 }
 

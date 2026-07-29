@@ -271,6 +271,20 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
               </View>
             )}
 
+            {/* Safety warnings from detectUnsafePairings() — computed by the
+                engine but rendered nowhere until now, on either platform. */}
+            {dog.compat.warnings.length > 0 && (
+              <View style={styles.tagRow}>
+                {dog.compat.warnings.slice(0, 2).map((warning) => (
+                  <View key={warning} style={styles.warnTag}>
+                    <Text style={styles.warnTagText} numberOfLines={1}>
+                      ⚠ {warning}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Tagline */}
             <Text style={styles.tagline} numberOfLines={2}>
               {dog.tagline}
@@ -467,6 +481,19 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.28)',
+  },
+  warnTag: {
+    backgroundColor: 'rgba(69,26,3,0.62)',
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(252,211,77,0.55)',
+  },
+  warnTagText: {
+    color: '#FDE68A',
+    fontFamily: fonts.semibold,
+    fontSize: 11,
   },
   tagText: {
     color: '#fff',

@@ -49,6 +49,13 @@
         { "queryScope": "COLLECTION", "order": "ASCENDING" },
         { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "dogs",
+      "fieldPath": "householdMemberIds",
+      "indexes": [
+        { "queryScope": "COLLECTION", "arrayConfig": "CONTAINS" }
+      ]
     }
   ]
 }
