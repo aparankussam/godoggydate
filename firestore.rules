@@ -77,7 +77,14 @@ service cloud.firestore {
           && request.resource.data.get('trustScore', null)        == resource.data.get('trustScore', null)
           && request.resource.data.get('ratingCount', null)       == resource.data.get('ratingCount', null)
           && request.resource.data.get('meetAgainRate', null)     == resource.data.get('meetAgainRate', null)
-          && request.resource.data.get('ai', null)                == resource.data.get('ai', null);
+          && request.resource.data.get('ai', null)                == resource.data.get('ai', null)
+          // householdMemberIds only ever changes via the acceptHouseholdInvite
+          // / removeHouseholdMember callables (Admin SDK, bypasses this rule
+          // entirely) — never directly by the client, even the owner. A
+          // direct client write would skip invite validation and the
+          // HOUSEHOLD_MAX_MEMBERS cap those callables enforce.
+          && request.resource.data.get('householdMemberIds', null)  == resource.data.get('householdMemberIds', null)
+          && request.resource.data.get('householdMemberNames', null) == resource.data.get('householdMemberNames', null);
     }
 
     // On create there is no resource.data to diff against (resource doesn't
@@ -90,7 +97,19 @@ service cloud.firestore {
           && !('trustScore' in request.resource.data)
           && !('ratingCount' in request.resource.data)
           && !('meetAgainRate' in request.resource.data)
-          && !('ai' in request.resource.data);
+          && !('ai' in request.resource.data)
+          && !('householdMemberIds' in request.resource.data)
+          && !('householdMemberNames' in request.resource.data);
+    }
+
+    // True if the caller is either the dog's owner or has been granted
+    // household access (invited via acceptHouseholdInvite). Used to extend
+    // read/write on a dog's private subcollections — reminders today —
+    // without touching the dog doc's own read rule (already public to any
+    // signed-in user) or its update rule (owner-only, unaffected by this).
+    function isHouseholdMember(dogId) {
+      return request.auth.uid in
+        get(/databases/$(database)/documents/dogs/$(dogId)).data.get('householdMemberIds', []);
     }
 
     match /dogs/{dogId} {
@@ -103,6 +122,18 @@ service cloud.firestore {
                     && preservesServerOnlyDogFields();
       allow delete: if isSignedIn()
                     && request.auth.uid == dogId;
+
+      // Cadence — private reminders (dose dates, licence renewal, the
+      // insurance claim window). Owner OR an invited household member —
+      // "did you already give her the pill" is the whole point of
+      // Household, so a sitter/partner needs to actually see and complete
+      // these, not just the dog's public profile. Nothing here is
+      // server-computed, so no field guard is needed the way the parent doc
+      // needs one for trustScore/ai/foundingPackNumber.
+      match /reminders/{reminderId} {
+        allow read, write: if isSignedIn()
+          && (request.auth.uid == dogId || isHouseholdMember(dogId));
+      }
     }
 
     match /swipes/{userId}/decisions/{targetDogId} {
@@ -212,6 +243,15 @@ service cloud.firestore {
     }
 
     match /stripeEvents/{eventId} {
+      allow read, create, update, delete: if false;
+    }
+
+    // Household invite codes — entirely server-mediated (createHouseholdInvite
+    // / acceptHouseholdInvite, both Admin SDK). No direct client read: an
+    // invite code readable by anyone who could `get` this doc would let a
+    // client enumerate or brute-force codes instead of the server validating
+    // one at a time.
+    match /householdInvites/{code} {
       allow read, create, update, delete: if false;
     }
 

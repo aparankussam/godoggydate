@@ -29,6 +29,7 @@ import { hasRatedPlaydate, submitPlaydateRating } from '../../../../lib/ratings'
 import PlaydateRatingModal from '../../../../components/PlaydateRatingModal';
 import PlaydateMemoryCard from '../../../../components/PlaydateMemoryCard';
 import { shareOrDownloadCard } from '../../../../lib/shareCard';
+import { setBestFriend, clearBestFriend } from '../../../../lib/bestFriend';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -141,6 +142,8 @@ export default function ChatPage() {
   const [memoryCardStars, setMemoryCardStars] = useState<number | null>(null);
   const [sharingMemoryCard, setSharingMemoryCard] = useState(false);
   const memoryCardRef = useRef<HTMLDivElement>(null);
+  const [myBestFriendMatchId, setMyBestFriendMatchId] = useState<string | null>(null);
+  const [togglingBestFriend, setTogglingBestFriend] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -180,6 +183,31 @@ export default function ChatPage() {
     if (!authUser) return;
     return onEntitlements(authUser.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
   }, [authUser]);
+
+  // ── Best Friend — live so the star updates if toggled from another tab ──────
+  useEffect(() => {
+    if (!authUser) return;
+    const { db } = getFirebase();
+    return onSnapshot(doc(db, 'dogs', authUser.uid), (snap) => {
+      setMyBestFriendMatchId((snap.data()?.bestFriendMatchId as string | undefined) ?? null);
+    });
+  }, [authUser]);
+
+  async function handleToggleBestFriend() {
+    if (!authUser || togglingBestFriend) return;
+    setTogglingBestFriend(true);
+    try {
+      if (myBestFriendMatchId === matchId) {
+        await clearBestFriend(authUser.uid);
+      } else {
+        await setBestFriend(authUser.uid, matchId);
+      }
+    } catch {
+      // Non-critical — the star just doesn't update, user can retry.
+    } finally {
+      setTogglingBestFriend(false);
+    }
+  }
 
   // Effective chat access: per-match unlock OR lifetime entitlement.
   const canChat = chatUnlocked || hasLifetime;
@@ -576,6 +604,15 @@ export default function ChatPage() {
         <div className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1">
           {canChat ? 'Chat unlocked' : 'Chat locked'}
         </div>
+        <button
+          onClick={handleToggleBestFriend}
+          disabled={togglingBestFriend}
+          aria-label={myBestFriendMatchId === matchId ? 'Remove Best Friend' : `Make ${dogName} Best Friend`}
+          title={myBestFriendMatchId === matchId ? 'Best Friend' : 'Make Best Friend'}
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors disabled:opacity-50 text-lg"
+        >
+          {myBestFriendMatchId === matchId ? '⭐' : '☆'}
+        </button>
         <button
           onClick={() => setShowReportMenu(true)}
           className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-brown-light hover:text-brown"

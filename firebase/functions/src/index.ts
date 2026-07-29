@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
+import * as crypto from 'crypto';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -660,6 +661,61 @@ export const cleanupStaleMatches = functions.pubsub
     console.log(`Deleted ${deleted} stale matches (${snap.size - deleted} skipped for activity)`);
   });
 
+// ── Cadence: reminder notifications ─────────────────────────────────────────
+// This backend's first scheduled job that CREATES a notification instead of
+// deleting something — see the strategy research from 2026-07-25: a
+// reminder calendar is the one feature identified as genuinely recurring,
+// as opposed to the one-shot document generators proposed alongside it.
+//
+// Fires once per due date, not once per day it's overdue — a reminder that
+// nags every day it's overdue is exactly the "notification guilt" pattern
+// the Gen Z research explicitly flagged as a retention killer. notifiedAt
+// records which due-date value already fired; it's cleared whenever
+// completeReminder() advances a recurring reminder, so the next occurrence
+// notifies again on its own schedule.
+//
+// dogId doubles as the owning user's uid today (see dogs/{uid} elsewhere in
+// this file) — sendPushToUser expects a uid, and this collection lives
+// under that same dog/user id.
+export const sendReminderNotifications = functions.pubsub
+  .schedule('every 24 hours')
+  .onRun(async () => {
+    const now = Date.now();
+    const windowEnd = admin.firestore.Timestamp.fromMillis(now + 24 * 60 * 60 * 1000);
+
+    const snap = await db.collectionGroup('reminders')
+      .where('dueDate', '<=', windowEnd)
+      .get();
+
+    let sent = 0;
+    for (const doc of snap.docs) {
+      const data = doc.data() as {
+        dueDate?: FirebaseFirestore.Timestamp;
+        notifiedAt?: FirebaseFirestore.Timestamp;
+        label?: string;
+      };
+      const dogId = doc.ref.parent.parent?.id;
+      if (!dogId || !data.dueDate) continue;
+
+      const dueMs = data.dueDate.toMillis();
+      // Already sent for this exact due date (not just "sent recently") —
+      // a recurring reminder's due date moves forward on completion, and
+      // notifiedAt is cleared then, so this only skips a true duplicate.
+      if (data.notifiedAt && Math.abs(data.notifiedAt.toMillis() - dueMs) < 60_000) continue;
+
+      const dogName = await getDogName(dogId);
+      const overdue = dueMs < now;
+      await sendPushToUser(dogId, {
+        title: overdue ? `${dogName} has something overdue` : `${dogName} has something due`,
+        body: data.label ?? 'Check your reminders',
+        data: { type: 'reminder', dogId, link: 'https://godoggydate.com/app/profile' },
+      });
+      await doc.ref.update({ notifiedAt: data.dueDate });
+      sent += 1;
+    }
+    console.log(`Sent ${sent} reminder notifications`);
+  });
+
 // ── Founding Pack numbering ─────────────────────────────────────────────────
 // Assigns each new dog a permanent, sequential Founding Pack number
 // (Dog #137 of the Founding Pack) — real, numbered scarcity for the
@@ -682,3 +738,157 @@ export const onDogProfileCreated = functions.firestore
 
     await snap.ref.set({ foundingPackNumber: number }, { merge: true });
   });
+
+// ── Household ────────────────────────────────────────────────────────────────
+// The only viral/retention mechanic identified in this week's strategy
+// research that genuinely works at four total users: it needs no other dog
+// owner, doubles the humans actively using the product per dog, and turns
+// "I'll cancel this" into a conversation ("wait, I use this to remind you to
+// give her the pill"). Free — no payment gating.
+//
+// Invites are entirely server-mediated (no direct client Firestore access to
+// householdInvites at all — see firestore.rules) so a code can't be
+// enumerated or guessed via a read. Membership itself lives on the dog doc
+// as householdMemberIds, which the OWNER already exclusively controls via
+// the existing dogs/{dogId} update rule (request.auth.uid == dogId) — no
+// additional guard is needed there since a household member's own writes to
+// the dog doc are already blocked by that same rule.
+
+const HOUSEHOLD_MAX_MEMBERS = 4; // owner + up to 3 more, per the research's "up to 4 humans"
+const HOUSEHOLD_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const INVITE_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L — easier to type from a screen
+
+function generateInviteCode(): string {
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += INVITE_CODE_CHARS[crypto.randomInt(INVITE_CODE_CHARS.length)];
+  }
+  return code;
+}
+
+export const createHouseholdInvite = functions.https.onCall(async (_data, context) => {
+  const uid = context.auth?.uid;
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in to invite someone.');
+  }
+
+  const dogSnap = await db.doc(`dogs/${uid}`).get();
+  if (!dogSnap.exists) {
+    throw new functions.https.HttpsError('failed-precondition', 'Create your dog profile first.');
+  }
+  const currentMembers = (dogSnap.data()?.householdMemberIds as string[] | undefined) ?? [];
+  if (currentMembers.length + 1 >= HOUSEHOLD_MAX_MEMBERS) {
+    throw new functions.https.HttpsError('resource-exhausted', `Household is full (max ${HOUSEHOLD_MAX_MEMBERS} people).`);
+  }
+
+  // Retry on the (very unlikely) collision of a freshly generated code.
+  let code = '';
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateInviteCode();
+    const existing = await db.doc(`householdInvites/${candidate}`).get();
+    if (!existing.exists) {
+      code = candidate;
+      break;
+    }
+  }
+  if (!code) {
+    throw new functions.https.HttpsError('internal', 'Could not generate an invite — try again.');
+  }
+
+  const now = Date.now();
+  await db.doc(`householdInvites/${code}`).set({
+    dogId: uid,
+    createdBy: uid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromMillis(now + HOUSEHOLD_INVITE_TTL_MS),
+    used: false,
+  });
+
+  return { code, expiresAt: now + HOUSEHOLD_INVITE_TTL_MS };
+});
+
+export const acceptHouseholdInvite = functions.https.onCall(async (data, context) => {
+  const uid = context.auth?.uid;
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in to join a household.');
+  }
+  const code = typeof data?.code === 'string' ? data.code.trim().toUpperCase() : '';
+  if (!code) {
+    throw new functions.https.HttpsError('invalid-argument', 'Enter an invite code.');
+  }
+
+  const inviteRef = db.doc(`householdInvites/${code}`);
+
+  const dogId = await db.runTransaction(async (transaction) => {
+    const inviteSnap = await transaction.get(inviteRef);
+    if (!inviteSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'That code doesn\'t match an invite.');
+    }
+    const invite = inviteSnap.data() as {
+      dogId: string;
+      used: boolean;
+      expiresAt: FirebaseFirestore.Timestamp;
+    };
+    if (invite.used) {
+      throw new functions.https.HttpsError('failed-precondition', 'That invite has already been used.');
+    }
+    if (invite.expiresAt.toMillis() < Date.now()) {
+      throw new functions.https.HttpsError('failed-precondition', 'That invite has expired.');
+    }
+
+    const dogRef = db.doc(`dogs/${invite.dogId}`);
+    const dogSnap = await transaction.get(dogRef);
+    if (!dogSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'That dog no longer exists.');
+    }
+    const currentMembers = (dogSnap.data()?.householdMemberIds as string[] | undefined) ?? [];
+    if (currentMembers.includes(uid) || invite.dogId === uid) {
+      // Already a member (or the owner themself) — treat as a harmless no-op
+      // rather than erroring, since a re-tapped invite link is easy to hit.
+      transaction.update(inviteRef, { used: true, usedBy: uid });
+      return invite.dogId;
+    }
+    if (currentMembers.length + 1 >= HOUSEHOLD_MAX_MEMBERS) {
+      throw new functions.https.HttpsError('resource-exhausted', `That household is full (max ${HOUSEHOLD_MAX_MEMBERS} people).`);
+    }
+
+    // users/{uid} is owner-read-only (see firestore.rules), so the dog's
+    // owner has no way to look up a member's display name themselves — the
+    // token's own name/email claim is captured here, once, at accept-time,
+    // purely for display. Falls back to a generic label rather than an
+    // empty name if the invitee's auth provider didn't supply one.
+    const displayLabel = context.auth?.token.name
+      || context.auth?.token.email
+      || 'Household member';
+
+    transaction.update(dogRef, {
+      householdMemberIds: admin.firestore.FieldValue.arrayUnion(uid),
+      [`householdMemberNames.${uid}`]: displayLabel,
+    });
+    transaction.update(inviteRef, { used: true, usedBy: uid });
+    return invite.dogId;
+  });
+
+  return { dogId };
+});
+
+export const removeHouseholdMember = functions.https.onCall(async (data, context) => {
+  const uid = context.auth?.uid;
+  if (!uid) {
+    throw new functions.https.HttpsError('unauthenticated', 'Sign in first.');
+  }
+  const memberUid = typeof data?.memberUid === 'string' ? data.memberUid : '';
+  if (!memberUid) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing memberUid.');
+  }
+
+  // Only the dog's owner may remove a household member — dogId === uid for
+  // the caller's OWN dog, so this rejects anyone trying to edit a household
+  // they were merely invited into.
+  await db.doc(`dogs/${uid}`).update({
+    householdMemberIds: admin.firestore.FieldValue.arrayRemove(memberUid),
+    [`householdMemberNames.${memberUid}`]: admin.firestore.FieldValue.delete(),
+  });
+
+  return { removed: memberUid };
+});

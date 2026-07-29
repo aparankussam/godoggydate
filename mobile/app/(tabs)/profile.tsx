@@ -10,6 +10,9 @@ import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
 import { onEntitlements } from '../../lib/entitlements';
+import { onReminders } from '../../lib/reminders';
+import RemindersSection from '../../components/RemindersSection';
+import type { Reminder } from '../../../shared/types';
 
 function openLegalLink(path: string) {
   const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
@@ -25,6 +28,7 @@ export default function ProfileTab() {
   const [deleting, setDeleting] = useState(false);
   const [sharingCard, setSharingCard] = useState(false);
   const [hasLifetime, setHasLifetime] = useState(false);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const cardRef = useRef<View>(null);
 
   // Founding Member badge — the $39 checkout copy promises "Badge included"
@@ -32,6 +36,12 @@ export default function ProfileTab() {
   useEffect(() => {
     if (!user) return;
     return onEntitlements(user.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
+  }, [user]);
+
+  // Cadence — the reminder calendar.
+  useEffect(() => {
+    if (!user) return;
+    return onReminders(user.uid, setReminders);
   }, [user]);
 
   async function handleShareCard() {
@@ -160,6 +170,8 @@ export default function ProfileTab() {
             )}
           </View>
         </View>
+
+        {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
 
         {profileComplete && (
           <View style={styles.tradingCardSection}>

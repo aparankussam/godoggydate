@@ -14,6 +14,7 @@ import {
   isProfileComplete,
   saveUserDogProfile,
 } from '../../../lib/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '../../../shared/utils/firebase';
 import type { User, SavedDogProfile } from '../../../lib/auth';
 import DogProfileForm from '../../../components/DogProfileForm';
@@ -24,6 +25,10 @@ import DogTradingCard from '../../../components/DogTradingCard';
 import { shareOrDownloadCard } from '../../../lib/shareCard';
 import { onEntitlements } from '../../../lib/entitlements';
 import { toDogSlug } from '../../../lib/dogSlug';
+import { onReminders } from '../../../lib/reminders';
+import RemindersSection from '../../../components/RemindersSection';
+import HouseholdSection from '../../../components/HouseholdSection';
+import type { Reminder } from '../../../shared/types';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -40,6 +45,8 @@ export default function ProfilePage() {
   const [deleteError,  setDeleteError]  = useState<string | null>(null);
   const [sharingCard,  setSharingCard]  = useState(false);
   const [hasLifetime,  setHasLifetime]  = useState(false);
+  const [reminders,    setReminders]    = useState<Reminder[]>([]);
+  const [bestFriendName, setBestFriendName] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   async function handleShareCard() {
@@ -93,6 +100,64 @@ export default function ProfilePage() {
     if (!authUser) return;
     return onEntitlements(authUser.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
   }, [authUser]);
+
+  // Cadence — live so completing/adding a reminder on one tab (or a push
+  // deep-link) reflects immediately without a manual refresh.
+  useEffect(() => {
+    if (!authUser) return;
+    return onReminders(authUser.uid, setReminders);
+  }, [authUser]);
+
+  // Household + Best Friend — the public dog doc is otherwise only fetched
+  // once, on sign-in (getUserDogProfile above), so accepting/removing a
+  // household member (both round-trip through a Cloud Function, not this
+  // tab's own state) previously left the list stale until a manual reload.
+  // Scoped to just these fields rather than replacing the full profile
+  // fetch, since that one also merges in private-only fields (zip/lat/lng)
+  // this listener has no reason to touch.
+  useEffect(() => {
+    if (!authUser) return;
+    const { db } = getFirebase();
+    return onSnapshot(doc(db, 'dogs', authUser.uid), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setSavedProfile((prev) => (prev ? {
+        ...prev,
+        householdMemberIds: data.householdMemberIds,
+        householdMemberNames: data.householdMemberNames,
+        bestFriendMatchId: data.bestFriendMatchId,
+      } : prev));
+    });
+  }, [authUser]);
+
+  // Best Friend name lookup — the field only stores a matchId (set from the
+  // chat screen), so resolving it to a display name means reading the match
+  // doc for the other party's dogId, then that dog's own (public) doc.
+  useEffect(() => {
+    const matchId = savedProfile?.bestFriendMatchId;
+    if (!authUser || !matchId) {
+      setBestFriendName(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { db } = getFirebase();
+        const matchSnap = await getDoc(doc(db, 'matches', matchId));
+        if (!matchSnap.exists()) return;
+        const matchData = matchSnap.data() as { dog1UserId?: string; dog2UserId?: string };
+        const otherUid = matchData.dog1UserId === authUser.uid ? matchData.dog2UserId : matchData.dog1UserId;
+        if (!otherUid) return;
+        const dogSnap = await getDoc(doc(db, 'dogs', otherUid));
+        if (!cancelled && dogSnap.exists()) {
+          setBestFriendName((dogSnap.data()?.name as string | undefined) ?? null);
+        }
+      } catch {
+        // Non-critical — badge just doesn't render.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authUser, savedProfile?.bestFriendMatchId]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -248,7 +313,7 @@ export default function ProfilePage() {
                 for why we never show a raw trust score (it reads as a public
                 rating; a positive "would meet again" rate is the honest,
                 non-gameable framing instead). */}
-            {(typeof savedProfile.foundingPackNumber === 'number' || (savedProfile.ratingCount ?? 0) > 0 || hasLifetime) && (
+            {(typeof savedProfile.foundingPackNumber === 'number' || (savedProfile.ratingCount ?? 0) > 0 || hasLifetime || bestFriendName) && (
               <div className="flex flex-wrap gap-2 px-5 pb-4 -mt-1">
                 {typeof savedProfile.foundingPackNumber === 'number' && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 border border-gold/40 px-3 py-1.5 text-xs font-bold text-brown">
@@ -258,6 +323,11 @@ export default function ProfilePage() {
                 {hasLifetime && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-brown text-cream px-3 py-1.5 text-xs font-bold">
                     ⭐ Founding Member
+                  </span>
+                )}
+                {bestFriendName && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-800">
+                    ⭐ Best Friends with {bestFriendName}
                   </span>
                 )}
                 {(savedProfile.ratingCount ?? 0) > 0 && (
@@ -271,6 +341,20 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Cadence — reminders, kept visible even on an incomplete profile
+            since it's useful with just a saved dog and doesn't need a
+            match/swipe to have value. */}
+        {authUser && savedProfile && (
+          <RemindersSection dogId={authUser.uid} reminders={reminders} />
+        )}
+
+        {savedProfile && (
+          <HouseholdSection
+            memberIds={savedProfile.householdMemberIds ?? []}
+            memberNames={savedProfile.householdMemberNames}
+          />
         )}
 
         {/* Photo strip */}
