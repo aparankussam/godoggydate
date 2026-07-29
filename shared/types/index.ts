@@ -108,6 +108,18 @@ export interface DogProfile {
 
   // AI-generated content (Vibe Check onboarding). See DogAIProfile.
   ai?: DogAIProfile;
+
+  // Household — uids granted access to this dog's private data (Cadence
+  // reminders today). Written ONLY by the acceptHouseholdInvite /
+  // removeHouseholdMember Cloud Functions (Admin SDK) — never directly by
+  // the client, even the owner; see firestore.rules' preservesServerOnlyDogFields.
+  householdMemberIds?: string[];
+  // Display labels captured once at invite-accept time (users/{uid} is
+  // owner-read-only, so there's no other way to show a member's name).
+  householdMemberNames?: Record<string, string>;
+  // The dog's designated Best Friend — a matchId, owner's own preference,
+  // freely client-writable (not server-computed, so no guard needed).
+  bestFriendMatchId?: string;
 }
 
 // ─── AI-GENERATED PROFILE CONTENT ("Vibe Check") ───────────────────────────
@@ -144,6 +156,27 @@ export interface DogAIProfile {
   model: string;
   promptVersion: string;
   generatedAt: number; // unix ms
+}
+
+// ─── CADENCE (reminders) ────────────────────────────────────────────────────
+// dogs/{dogId}/reminders/{reminderId}. Client-owned (owner reads/writes their
+// own dog's reminders directly — no server computation here, unlike
+// trustScore/foundingPackNumber/ai). A scheduled Cloud Function
+// (sendReminderNotifications) pushes a notification once per due date and
+// advances recurring reminders when marked complete.
+export type ReminderType =
+  | 'heartworm' | 'flea_tick' | 'booster' | 'rabies' | 'license'
+  | 'grooming' | 'vet_visit' | 'insurance_claim' | 'custom';
+
+export interface Reminder {
+  id: string;
+  label: string;
+  type: ReminderType;
+  dueDate: number; // unix ms
+  recurrenceDays?: number; // undefined = one-time (e.g. an insurance claim window)
+  lastCompletedAt?: number;
+  notifiedAt?: number; // last due date (unix ms) a push already fired for — prevents duplicate sends
+  createdAt: number;
 }
 
 export interface UserProfile {

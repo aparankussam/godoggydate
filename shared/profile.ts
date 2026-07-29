@@ -30,6 +30,15 @@ export interface SavedDogProfile {
   meetAgainRate?: number;
   // Server-generated Vibe Check content — never set by the client directly.
   ai?: DogAIProfile;
+  // Written only by the household Cloud Functions — never set by the client
+  // directly, even the owner. See firestore.rules for the guard.
+  householdMemberIds?: string[];
+  // Display labels captured once at invite-accept time (users/{uid} is
+  // owner-read-only, so there's no other way to show a member's name).
+  householdMemberNames?: Record<string, string>;
+  // The dog's designated Best Friend — a matchId, owner's own preference,
+  // freely client-writable (not server-computed, so no guard needed).
+  bestFriendMatchId?: string;
 }
 
 export interface SavedDogPrivateProfile {
@@ -230,6 +239,9 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     prompts: saved.prompts,
     foundingPackNumber: saved.foundingPackNumber,
     ai: saved.ai,
+    householdMemberIds: saved.householdMemberIds,
+    householdMemberNames: saved.householdMemberNames,
+    bestFriendMatchId: saved.bestFriendMatchId,
     createdAt: saved.createdAt ?? Date.now(),
     updatedAt: saved.updatedAt ?? saved.createdAt ?? Date.now(),
   };
