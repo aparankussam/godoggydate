@@ -43,6 +43,7 @@ import PlaydateRatingModal from '../../components/PlaydateRatingModal';
 import PlaydateMemoryCard from '../../components/PlaydateMemoryCard';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
+import { setBestFriend, clearBestFriend } from '../../lib/bestFriend';
 
 const SAFETY_TIP =
   'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
@@ -77,6 +78,8 @@ export default function ChatScreen() {
   const [alreadyRated, setAlreadyRated] = useState(true);
   const [memoryCardStars, setMemoryCardStars] = useState<number | null>(null);
   const [sharingMemoryCard, setSharingMemoryCard] = useState(false);
+  const [myBestFriendMatchId, setMyBestFriendMatchId] = useState<string | null>(null);
+  const [togglingBestFriend, setTogglingBestFriend] = useState(false);
   const memoryCardRef = useRef<View>(null);
   const listRef = useRef<FlatList>(null);
   const paymentConfigured = isPaymentConfigured();
@@ -94,6 +97,31 @@ export default function ChatScreen() {
     if (!user) return;
     return onEntitlements(user.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
   }, [user]);
+
+  // Best Friend — live so the star updates if toggled from another device.
+  useEffect(() => {
+    if (!user) return;
+    const db = getFirebase().db;
+    return onSnapshot(doc(db, 'dogs', user.uid), (snap) => {
+      setMyBestFriendMatchId((snap.data()?.bestFriendMatchId as string | undefined) ?? null);
+    });
+  }, [user]);
+
+  async function handleToggleBestFriend() {
+    if (!user || !resolvedMatchId || togglingBestFriend) return;
+    setTogglingBestFriend(true);
+    try {
+      if (myBestFriendMatchId === resolvedMatchId) {
+        await clearBestFriend(user.uid);
+      } else {
+        await setBestFriend(user.uid, resolvedMatchId);
+      }
+    } catch {
+      // Non-critical — the star just doesn't update, user can retry.
+    } finally {
+      setTogglingBestFriend(false);
+    }
+  }
 
   async function submitReport(reason: 'block' | 'spam' | 'inappropriate') {
     if (!user || !resolvedMatchId || !match?.dog.id) return;
@@ -551,6 +579,18 @@ export default function ChatScreen() {
           <Text style={styles.headerName}>{resolvedName || match?.dog.name || 'Chat'}</Text>
           <Text style={styles.headerSub}>GoDoggyDate match</Text>
         </View>
+        {resolvedMatchId && (
+          <Pressable
+            style={styles.bestFriendBtn}
+            onPress={handleToggleBestFriend}
+            disabled={togglingBestFriend}
+            hitSlop={8}
+          >
+            <Text style={styles.bestFriendBtnText}>
+              {myBestFriendMatchId === resolvedMatchId ? '⭐' : '☆'}
+            </Text>
+          </Pressable>
+        )}
         <Pressable style={styles.moreBtn} onPress={openSafetyMenu}>
           <Text style={styles.moreBtnText}>•••</Text>
         </Pressable>
@@ -822,6 +862,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.brownLight,
     fontFamily: fonts.bold,
+  },
+  bestFriendBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bestFriendBtnText: {
+    fontSize: 20,
   },
   loadingWrap: {
     flex: 1,

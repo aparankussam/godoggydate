@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import ProfileEditor from '../../components/ProfileEditor';
 import DogTradingCard from '../../components/DogTradingCard';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
@@ -11,7 +12,9 @@ import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
 import { onEntitlements } from '../../lib/entitlements';
 import { onReminders } from '../../lib/reminders';
+import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
+import HouseholdSection from '../../components/HouseholdSection';
 import type { Reminder } from '../../../shared/types';
 
 function openLegalLink(path: string) {
@@ -29,6 +32,10 @@ export default function ProfileTab() {
   const [sharingCard, setSharingCard] = useState(false);
   const [hasLifetime, setHasLifetime] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [householdMemberIds, setHouseholdMemberIds] = useState<string[]>([]);
+  const [householdMemberNames, setHouseholdMemberNames] = useState<Record<string, string> | undefined>(undefined);
+  const [bestFriendMatchId, setBestFriendMatchId] = useState<string | null>(null);
+  const [bestFriendName, setBestFriendName] = useState<string | null>(null);
   const cardRef = useRef<View>(null);
 
   // Founding Member badge — the $39 checkout copy promises "Badge included"
@@ -43,6 +50,52 @@ export default function ProfileTab() {
     if (!user) return;
     return onReminders(user.uid, setReminders);
   }, [user]);
+
+  // Household + Best Friend — the public dog doc is otherwise only fetched
+  // once, on sign-in (getUserDogProfile in lib/profile.ts), so accepting or
+  // removing a household member (both round-trip through a Cloud Function,
+  // not this screen's own state) would otherwise leave the list stale until
+  // the app restarted. Scoped to just these fields, mirroring the web
+  // profile page's listener.
+  useEffect(() => {
+    if (!user) return;
+    const { db } = getFirebase();
+    return onSnapshot(doc(db, 'dogs', user.uid), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setHouseholdMemberIds((data.householdMemberIds as string[] | undefined) ?? []);
+      setHouseholdMemberNames(data.householdMemberNames as Record<string, string> | undefined);
+      setBestFriendMatchId((data.bestFriendMatchId as string | undefined) ?? null);
+    });
+  }, [user]);
+
+  // Best Friend name lookup — the field only stores a matchId (set from the
+  // chat screen), so resolving it to a display name means reading the match
+  // doc for the other party's dogId, then that dog's own (public) doc.
+  useEffect(() => {
+    if (!user || !bestFriendMatchId) {
+      setBestFriendName(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { db } = getFirebase();
+        const matchSnap = await getDoc(doc(db, 'matches', bestFriendMatchId));
+        if (!matchSnap.exists()) return;
+        const matchData = matchSnap.data() as { dog1UserId?: string; dog2UserId?: string };
+        const otherUid = matchData.dog1UserId === user.uid ? matchData.dog2UserId : matchData.dog1UserId;
+        if (!otherUid) return;
+        const dogSnap = await getDoc(doc(db, 'dogs', otherUid));
+        if (!cancelled && dogSnap.exists()) {
+          setBestFriendName((dogSnap.data()?.name as string | undefined) ?? null);
+        }
+      } catch {
+        // Non-critical — badge just doesn't render.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, bestFriendMatchId]);
 
   async function handleShareCard() {
     if (!cardRef.current || sharingCard) return;
@@ -144,7 +197,7 @@ export default function ProfileTab() {
             {/* Founding Pack + trust badges — computed server-side, never
                 shown before now. No raw trust score (0-1 reads as a public
                 rating); a positive "would meet again" rate instead. */}
-            {(typeof profile.foundingPackNumber === 'number' || (profile.ratingCount ?? 0) > 0 || hasLifetime) && (
+            {(typeof profile.foundingPackNumber === 'number' || (profile.ratingCount ?? 0) > 0 || hasLifetime || bestFriendName) && (
               <View style={styles.statusBadgeRow}>
                 {typeof profile.foundingPackNumber === 'number' && (
                   <View style={styles.foundingBadge}>
@@ -166,12 +219,25 @@ export default function ProfileTab() {
                     </Text>
                   </View>
                 )}
+                {bestFriendName && (
+                  <View style={styles.bestFriendBadge}>
+                    <Text style={styles.bestFriendBadgeText}>⭐ Best Friends with {bestFriendName}</Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
         </View>
 
         {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
+
+        {user && profile && (
+          <HouseholdSection
+            dogName={profile.name}
+            memberIds={householdMemberIds}
+            memberNames={householdMemberNames}
+          />
+        )}
 
         {profileComplete && (
           <View style={styles.tradingCardSection}>
@@ -322,6 +388,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontWeight: '400',
     color: '#2d7a2d',
+  },
+  bestFriendBadge: {
+    backgroundColor: `${colors.gold}26`, // ~15% opacity
+    borderWidth: 1,
+    borderColor: `${colors.gold}66`, // ~40% opacity
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  bestFriendBadgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    color: colors.brown,
   },
   primaryButton: {
     backgroundColor: colors.primary,
