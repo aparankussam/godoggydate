@@ -429,12 +429,14 @@ const styles = StyleSheet.create({
     color: colors.brown,
   },
   tradingCardSection: {
-    alignItems: 'center',
+    // Not alignItems:'center' — that made every child shrink to its own
+    // content width, so "Share this card" rendered as a narrow pill directly
+    // above the full-width "Edit profile" button. The wrapper below centers
+    // the card itself; buttons stay full-width like every other action.
     gap: 12,
     marginBottom: 16,
   },
   tradingCardLabel: {
-    alignSelf: 'flex-start',
     fontFamily: fonts.semibold,
     fontSize: 14,
     color: colors.brown,

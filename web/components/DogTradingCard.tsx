@@ -51,8 +51,16 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
       {/* Photo */}
       <div className="absolute inset-0">
         {photo ? (
+          // No crossOrigin here: Firebase Storage isn't CORS-configured for
+          // this origin, so requesting the image as CORS makes the browser
+          // refuse to load it at all (falls back to the gradient below,
+          // which is why the photo went missing on screen). The share/
+          // download capture (web/lib/shareCard.ts) already re-fetches this
+          // image with its own useCORS option during html2canvas capture,
+          // independent of this element's crossOrigin — so nothing here is
+          // needed for that path to keep working.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt={profile.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
+          <img src={photo} alt={profile.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-8xl">🐕</div>
         )}

@@ -730,7 +730,15 @@ export default function ChatScreen() {
             data={messages}
             keyExtractor={(item) => item.id}
             renderItem={renderMessage}
-            contentContainerStyle={styles.messageList}
+            // flexGrow:1 alone stretched the container to the full viewport
+            // and left the messages pinned to the TOP, so a short thread had
+            // a large dead gap above the input. Anchoring to the end is the
+            // normal chat behaviour; only applied when messages exist so the
+            // empty-state component can still center itself.
+            contentContainerStyle={[
+              styles.messageList,
+              messages.length > 0 && styles.messageListAnchored,
+            ]}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyChat}>
@@ -881,6 +889,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexGrow: 1,
+  },
+  messageListAnchored: {
+    justifyContent: 'flex-end',
   },
   safetyBanner: {
     marginHorizontal: 16,
