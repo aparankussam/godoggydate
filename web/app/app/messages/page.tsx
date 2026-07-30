@@ -179,7 +179,10 @@ export default function MessagesPage() {
         <span className="font-display text-xl text-brown">💬 Messages</span>
       </header>
 
-      <div className="p-4">
+      {/* Conversations stay a single readable column — a grid of chat rows
+          scans worse than a list. Capped so rows don't stretch the viewport
+          beside the sidebar; mobile keeps the original full-bleed p-4. */}
+      <div className="p-4 lg:max-w-3xl lg:mx-auto lg:px-8 lg:py-8">
         {/* Skeleton */}
         {loading && (
           <div className="flex flex-col gap-3">

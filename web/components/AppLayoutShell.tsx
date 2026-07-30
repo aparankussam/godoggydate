@@ -1,7 +1,7 @@
 'use client';
 // web/components/AppLayoutShell.tsx
 // Client wrapper for the /app/* sub-layout.
-// Renders BottomNav only when: authenticated + profile complete.
+// Renders AppNav only when: authenticated + profile complete.
 // Live-listens to matches to compute unread badge counts:
 //   unreadMatches  — new matches with no chat yet (lastMessage === null)
 //   unreadMessages — matches where last msg was from the OTHER user
@@ -15,7 +15,7 @@ import { onAuthStateChanged, getUserDogProfile, isProfileComplete } from '../lib
 import type { User, SavedDogProfile } from '../lib/auth';
 import { setAnalyticsUser, trackEvent } from '../lib/analytics';
 import { ensurePushRegisteredIfGranted } from '../lib/push';
-import BottomNav from './BottomNav';
+import AppNav from './AppNav';
 
 interface Props {
   children: React.ReactNode;
@@ -111,12 +111,13 @@ export default function AppLayoutShell({ children }: Props) {
 
   return (
     <>
-      {/* pb-20 only when BottomNav is visible so content isn't clipped */}
-      <div className={showNav ? 'pb-20' : undefined}>
+      {/* Offsets for whichever nav form is showing: bottom padding for the
+          mobile tab bar, left padding for the desktop sidebar rail. */}
+      <div className={showNav ? 'pb-20 lg:pb-0 lg:pl-64' : undefined}>
         {children}
       </div>
       {showNav && (
-        <BottomNav
+        <AppNav
           unreadMessages={unreadMessages}
           unreadMatches={unreadMatches}
         />

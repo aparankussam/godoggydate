@@ -175,7 +175,10 @@ export default function MatchesPage() {
         <span className="font-display text-xl text-brown">💛 Matches</span>
       </header>
 
-      <div className="p-4">
+      {/* Mobile keeps the original full-bleed p-4 column. Desktop gets a
+          capped width — without it the rows stretched the full viewport
+          beside the sidebar, which reads as a stretched table, not cards. */}
+      <div className="p-4 lg:max-w-6xl lg:mx-auto lg:px-8 lg:py-8">
         <EnablePushBanner userId={authUser.uid} />
 
         {/* Loading skeleton */}
@@ -218,9 +221,10 @@ export default function MatchesPage() {
           </div>
         )}
 
-        {/* Matches list */}
+        {/* Matches list — a single column on mobile (identical to the native
+            app), a card grid once there's room for one. */}
         {!loading && !error && matches.length > 0 && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3">
             {matches.map((m) => {
               const dog = m.otherProfile;
               const photo = getPrimaryRenderablePhoto(dog?.photos);

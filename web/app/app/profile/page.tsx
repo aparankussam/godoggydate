@@ -263,8 +263,16 @@ export default function ProfilePage() {
         <span className="font-display text-xl text-brown">🐕 Profile</span>
       </header>
 
-      <div className="max-w-md mx-auto px-5 py-6 flex flex-col gap-5">
+      {/* Below lg this is the original single phone-width column, so mobile
+          web stays identical to the native app. At lg+ it becomes a real
+          two-column app layout — the page was previously locked to max-w-md
+          at every size, which on a desktop viewport left a phone-width strip
+          of form rows floating in an empty field. */}
+      <div className="max-w-md lg:max-w-6xl mx-auto px-5 lg:px-8 py-6 lg:py-10">
+        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-8 lg:items-start">
 
+        {/* Full-width across both columns */}
+        <div className="contents lg:block lg:col-span-2">
         {/* Profile incomplete warning */}
         {!complete && savedProfile && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
@@ -283,6 +291,10 @@ export default function ProfilePage() {
             <p className="text-brown-light text-sm">Set up your dog&apos;s profile to start swiping.</p>
           </div>
         )}
+        </div>
+
+        {/* ── Left column: identity, details, actions ────────────────────── */}
+        <div className="contents lg:flex lg:flex-col lg:gap-5">
 
         {savedProfile && (
           <div className="card rounded-[2rem] overflow-hidden">
@@ -344,41 +356,6 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Cadence — reminders, kept visible even on an incomplete profile
-            since it's useful with just a saved dog and doesn't need a
-            match/swipe to have value. */}
-        {authUser && savedProfile && (
-          <RemindersSection dogId={authUser.uid} reminders={reminders} />
-        )}
-
-        {savedProfile && (
-          <HouseholdSection
-            dogName={savedProfile.name}
-            memberIds={savedProfile.householdMemberIds ?? []}
-            memberNames={savedProfile.householdMemberNames}
-          />
-        )}
-
-        {/* Founding Member CTA. Lives here rather than only inside the chat
-            paywall: that CTA was nested in a !canChat block, so turning chat
-            free removed the last reachable purchase path in the whole product.
-            The profile is always reachable and doesn't interrupt a
-            conversation to sell something. */}
-        {authUser && !hasLifetime && getFoundingMemberLink(authUser.uid) && (
-          <a
-            href={getFoundingMemberLink(authUser.uid)!}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackEvent('founding_member_cta_click', { source: 'profile' })}
-            className="card block rounded-[1.8rem] border border-gold/40 bg-gold/10 px-4 py-4 transition-colors hover:bg-gold/20"
-          >
-            <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
-            <p className="mt-1 text-xs leading-relaxed text-brown-light">
-              {getFoundingPackPitch()}
-            </p>
-          </a>
-        )}
-
         {/* Photo strip */}
         {photos.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -434,32 +411,6 @@ export default function ProfilePage() {
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Trading card share */}
-        {savedProfile && complete && (
-          <div className="flex flex-col items-center gap-4 py-2">
-            <p className="text-sm font-semibold text-brown self-start">Your dog&apos;s card</p>
-            <div className="scale-[0.72] origin-top -mb-24 sm:scale-100 sm:mb-0">
-              <DogTradingCard profile={savedProfile} innerRef={cardRef} />
-            </div>
-            <button
-              onClick={handleShareCard}
-              disabled={sharingCard}
-              className="btn-secondary px-6 py-2.5 text-sm disabled:opacity-50"
-            >
-              {sharingCard ? 'Rendering…' : '📤 Share this card'}
-            </button>
-            {authUser && (
-              <Link
-                href={`/d/${toDogSlug(savedProfile.name, authUser.uid)}`}
-                target="_blank"
-                className="text-xs text-brown-light hover:text-brown transition-colors"
-              >
-                View {savedProfile.name}&apos;s public page →
-              </Link>
             )}
           </div>
         )}
@@ -545,6 +496,80 @@ export default function ProfilePage() {
             ← Back to discover
           </Link>
         </div>
+        </div>
+        {/* ── /Left column ───────────────────────────────────────────────── */}
+
+        {/* ── Right column: the card, plus the day-to-day tools ──────────── */}
+        {/* Sticky on desktop so the card stays visible while the left column
+            scrolls — it's the most visually distinctive thing on the page and
+            the reason to come back to it. */}
+        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24">
+
+        {/* Trading card share */}
+        {savedProfile && complete && (
+          <div className="card rounded-[1.8rem] flex flex-col items-center gap-4 px-5 py-5">
+            <p className="text-sm font-semibold text-brown self-start">Your dog&apos;s card</p>
+            <div className="scale-[0.72] origin-top -mb-24 sm:scale-100 sm:mb-0">
+              <DogTradingCard profile={savedProfile} innerRef={cardRef} />
+            </div>
+            <button
+              onClick={handleShareCard}
+              disabled={sharingCard}
+              className="btn-secondary px-6 py-2.5 text-sm disabled:opacity-50"
+            >
+              {sharingCard ? 'Rendering…' : '📤 Share this card'}
+            </button>
+            {authUser && (
+              <Link
+                href={`/d/${toDogSlug(savedProfile.name, authUser.uid)}`}
+                target="_blank"
+                className="text-xs text-brown-light hover:text-brown transition-colors"
+              >
+                View {savedProfile.name}&apos;s public page →
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* Cadence — reminders, kept visible even on an incomplete profile
+            since it's useful with just a saved dog and doesn't need a
+            match/swipe to have value. */}
+        {authUser && savedProfile && (
+          <RemindersSection dogId={authUser.uid} reminders={reminders} />
+        )}
+
+        {savedProfile && (
+          <HouseholdSection
+            dogName={savedProfile.name}
+            memberIds={savedProfile.householdMemberIds ?? []}
+            memberNames={savedProfile.householdMemberNames}
+          />
+        )}
+
+        {/* Founding Member CTA. Lives here rather than only inside the chat
+            paywall: that CTA was nested in a !canChat block, so turning chat
+            free removed the last reachable purchase path in the whole product.
+            The profile is always reachable and doesn't interrupt a
+            conversation to sell something. */}
+        {authUser && !hasLifetime && getFoundingMemberLink(authUser.uid) && (
+          <a
+            href={getFoundingMemberLink(authUser.uid)!}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent('founding_member_cta_click', { source: 'profile' })}
+            className="card block rounded-[1.8rem] border border-gold/40 bg-gold/10 px-4 py-4 transition-colors hover:bg-gold/20"
+          >
+            <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
+            <p className="mt-1 text-xs leading-relaxed text-brown-light">
+              {getFoundingPackPitch()}
+            </p>
+          </a>
+        )}
+
+        </div>
+        {/* ── /Right column ──────────────────────────────────────────────── */}
+
+      </div>
       </div>
     </div>
   );

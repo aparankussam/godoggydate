@@ -623,7 +623,9 @@ export default function ChatPage() {
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+      {/* Capped on desktop: full-viewport-wide chat bubbles beside the
+          sidebar read as a log file, not a conversation. Mobile unchanged. */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 w-full lg:max-w-3xl lg:mx-auto">
         {!canChat && (
           <div className="rounded-[1.5rem] border border-border bg-white px-4 py-4 text-center shadow-sm">
             {isSeedUserId(otherUserId) ? (
@@ -801,7 +803,7 @@ export default function ChatPage() {
       )}
 
       {/* Context-aware smart prompts */}
-      <div className="shrink-0 overflow-x-auto flex gap-2 px-4 py-2.5 bg-white border-t border-border">
+      <div className="shrink-0 overflow-x-auto flex gap-2 px-4 py-2.5 bg-white border-t border-border w-full lg:max-w-3xl lg:mx-auto">
         <button
           onClick={() => setShowPlaydateForm((v) => !v)}
           disabled={!canChat || sending}
@@ -822,7 +824,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="shrink-0 flex gap-2 px-4 py-3 bg-white border-t border-border pb-safe">
+      <div className="shrink-0 flex gap-2 px-4 py-3 bg-white border-t border-border pb-safe w-full lg:max-w-3xl lg:mx-auto">
         <input
           className="flex-1 bg-cream rounded-full px-4 py-3 text-sm text-brown placeholder:text-brown-light outline-none border border-transparent focus:border-primary/30"
           placeholder={`Message ${dogName}…`}
