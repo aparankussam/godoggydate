@@ -654,6 +654,64 @@ async function getDogName(dogId: string | undefined): Promise<string> {
   }
 }
 
+// ── Neighborhood density → real chat pricing ────────────────────────────────
+// CHAT_FREE_LAUNCH_MODE (shared/matchAccess.ts) is a manual global kill
+// switch, currently on: every match is free regardless of the density logic
+// below. This trigger keeps a live dog-count per ZIP and stamps each new
+// match with whether BOTH participants sit in a saturated neighborhood, so
+// that flipping CHAT_FREE_LAUNCH_MODE off later turns on real per-match
+// paywalls immediately, with no backfill needed for matches created while
+// this ran silently underneath the global free mode.
+//
+// Requiring BOTH sides dense (not either) is deliberate: it's the
+// conservative direction for a mistake — a false "free" costs a few cents of
+// forgone revenue; a false "must pay" reads as a bait-and-switch to a user
+// who just matched. ZIP never leaves this file: it's read from the PRIVATE
+// profile doc via the Admin SDK (which bypasses firestore.rules) and only a
+// boolean, never the ZIP itself, gets written back to the match doc that
+// both participants can read.
+const ZIP_DENSITY_THRESHOLD = 20;
+
+function normalizeZip(zip: string | undefined | null): string | null {
+  const trimmed = (zip ?? '').trim();
+  const match = /^(\d{5})(-\d{4})?$/.exec(trimmed);
+  return match ? match[1] : null;
+}
+
+async function adjustZipDensity(zip: string, delta: 1 | -1): Promise<void> {
+  const zipRef = db.doc(`zipDensity/${zip}`);
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(zipRef);
+    const current = (snap.data()?.count as number | undefined) ?? 0;
+    const next = Math.max(0, current + delta);
+    transaction.set(zipRef, { count: next }, { merge: true });
+  });
+}
+
+export const onPrivateDogProfileWrite = functions.firestore
+  .document('users/{uid}/private/dogProfile')
+  .onWrite(async (change) => {
+    const beforeZip = normalizeZip(change.before.exists ? change.before.data()?.zip as string | undefined : undefined);
+    const afterZip = normalizeZip(change.after.exists ? change.after.data()?.zip as string | undefined : undefined);
+    if (beforeZip === afterZip) return; // no zip change — nothing to reconcile
+
+    if (beforeZip) await adjustZipDensity(beforeZip, -1);
+    if (afterZip) await adjustZipDensity(afterZip, 1);
+  });
+
+async function isDenseZip(uid: string): Promise<boolean> {
+  try {
+    const privateSnap = await db.doc(`users/${uid}/private/dogProfile`).get();
+    const zip = normalizeZip(privateSnap.data()?.zip as string | undefined);
+    if (!zip) return false; // no ZIP on file — can't confirm density, so don't gate
+    const densitySnap = await db.doc(`zipDensity/${zip}`).get();
+    return ((densitySnap.data()?.count as number | undefined) ?? 0) >= ZIP_DENSITY_THRESHOLD;
+  } catch (error) {
+    console.error('isDenseZip: lookup failed, defaulting to not-dense', { uid, error });
+    return false;
+  }
+}
+
 export const onMatchCreatedNotify = functions.firestore
   .document('matches/{matchId}')
   .onCreate(async (snap, context) => {
@@ -675,6 +733,15 @@ export const onMatchCreatedNotify = functions.firestore
         },
       });
     }));
+
+    // Stamp density at creation time, once, rather than recomputing on every
+    // rules evaluation — see the "Neighborhood density" section above.
+    try {
+      const [dense1, dense2] = await Promise.all(participants.map(isDenseZip));
+      await snap.ref.update({ chatFreeZone: !(dense1 && dense2) });
+    } catch (error) {
+      console.error('onMatchCreatedNotify: density stamp failed, leaving match unstamped (fails open to free)', { matchId, error });
+    }
   });
 
 export const onMessageCreatedNotify = functions.firestore

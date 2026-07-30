@@ -34,12 +34,19 @@ service cloud.firestore {
       return true;
     }
 
+    // onMatchCreatedNotify (firebase/functions) stamps chatFreeZone once,
+    // right after match creation, based on both participants' neighborhood
+    // density. Anything other than an explicit `false` reads as free —
+    // covers matches created before this stamp existed, and the brief
+    // window between match creation and the trigger completing — so a
+    // stamping failure or race fails open to free chat, never to a paywall
+    // the user didn't expect.
     function canCurrentUserChat(matchData) {
       // One payment (from either side) unlocks the conversation for both —
       // or, during the soft launch, no payment is required at all.
       return isSignedIn()
           && isPartyToMatch(matchData)
-          && (chatFreeLaunchMode() || matchData.chatUnlocked == true || hasLifetimeUnlocks());
+          && (chatFreeLaunchMode() || matchData.chatFreeZone != false || matchData.chatUnlocked == true || hasLifetimeUnlocks());
     }
 
     match /users/{userId} {
@@ -166,7 +173,10 @@ service cloud.firestore {
                     && request.resource.data.chatUnlocked == false
                     && request.resource.data.dog1ChatUnlocked == false
                     && request.resource.data.dog2ChatUnlocked == false
-                    && !request.resource.data.keys().hasAny(['paymentId'])
+                    // chatFreeZone is server-stamped by onMatchCreatedNotify right
+                    // after creation — a client setting it at create time could
+                    // hand itself a permanent free pass once density gating is on.
+                    && !request.resource.data.keys().hasAny(['paymentId', 'chatFreeZone'])
                     && exists(/databases/$(database)/documents/swipes/$(request.resource.data.dog1UserId)/decisions/$(request.resource.data.dog2Id))
                     && exists(/databases/$(database)/documents/swipes/$(request.resource.data.dog2UserId)/decisions/$(request.resource.data.dog1Id))
                     && get(/databases/$(database)/documents/swipes/$(request.resource.data.dog1UserId)/decisions/$(request.resource.data.dog2Id)).data.action == 'like'
@@ -211,6 +221,15 @@ service cloud.firestore {
       // Cloud Function (admin SDK, bypasses rules) ever writes it.
       allow read:  if true;
       allow write: if false;
+    }
+
+    match /zipDensity/{zip} {
+      // Per-ZIP active-dog count, maintained by onPrivateDogProfileWrite and
+      // read by onMatchCreatedNotify (both admin SDK, bypass rules). Unlike
+      // counters/ above, this is never client-readable: a ZIP code is
+      // exactly the private location signal the rest of this file goes out
+      // of its way never to expose (see the public dogs/{dogId} rule below).
+      allow read, write: if false;
     }
 
     // Ratings feed the trust score that onRatingCreated aggregates onto

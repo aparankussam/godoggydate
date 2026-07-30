@@ -7,11 +7,18 @@
 // flag) instead of gating conversations.
 //
 // Flip this back to false once a launch neighborhood/ZIP crosses real
-// density (see the Neighborhood Unlock Meter in the roadmap) and real per-
-// match paid unlocks should resume. This flag must be flipped in lockstep
-// with the identical constant in firestore.rules (canCurrentUserChat) —
-// Firestore security rules are a separate deployable artifact and can't
-// import this file directly.
+// density and real per-match paid unlocks should resume. This flag must be
+// flipped in lockstep with the identical constant in firestore.rules
+// (canCurrentUserChat) — Firestore security rules are a separate deployable
+// artifact and can't import this file directly.
+//
+// The density check itself already runs underneath this flag: every match
+// is stamped with `chatFreeZone` at creation (see onMatchCreatedNotify in
+// firebase/functions) based on whether BOTH participants' ZIP has crossed
+// the density threshold. While CHAT_FREE_LAUNCH_MODE is true that stamp is
+// inert — chat is free regardless — but flipping this flag off turns on
+// real per-neighborhood pricing immediately, with no backfill needed, since
+// every match created up to that point already carries an accurate stamp.
 export const CHAT_FREE_LAUNCH_MODE = true;
 
 export interface MatchAccessLike {
@@ -22,6 +29,9 @@ export interface MatchAccessLike {
   chatUnlocked?: boolean | null;
   dog1ChatUnlocked?: boolean | null;
   dog2ChatUnlocked?: boolean | null;
+  /** Server-stamped at match creation — see the CHAT_FREE_LAUNCH_MODE note
+   *  above. Anything other than an explicit `false` reads as free. */
+  chatFreeZone?: boolean | null;
 }
 
 export type ParticipantSlot = 'dog1' | 'dog2';
@@ -59,6 +69,11 @@ export function isUserChatUnlocked(
   // user to actually be a party to this match (checked above) — this is
   // not a blanket bypass, just a price of $0 for a legitimate participant.
   if (CHAT_FREE_LAUNCH_MODE) return true;
+
+  // Neither neighborhood has crossed the density threshold yet (or the
+  // stamp hasn't landed, or this match predates it) — still free. Only an
+  // explicit `false` means both sides are dense enough to charge for.
+  if (matchData.chatFreeZone !== false) return true;
 
   // One payment unlocks the conversation for both sides — see anyChatUnlocked.
   return anyChatUnlocked(matchData);
