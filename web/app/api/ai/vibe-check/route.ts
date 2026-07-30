@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
 import { resolveBreed } from '../../../../../shared/types/breeds';
 import type { DogSize, DogVibeCheck, PlayStyle } from '../../../../../shared/types';
@@ -10,10 +9,19 @@ import type { DogSize, DogVibeCheck, PlayStyle } from '../../../../../shared/typ
 // that delivers real value at N=1, with zero other users required. See the
 // research notes captured 2026-07-25 for the full rationale.
 //
-// Model choice is deliberate: Opus-grade or nothing. Haiku-tier personality
-// copy is exactly the failure mode that makes this read as slop instead of
-// delight — see the banned-phrase list and stop_reason handling below.
-const VIBE_CHECK_MODEL = 'claude-opus-5';
+// Model: Google Gemini Flash. Chosen deliberately for the pre-seed stage —
+// it has a genuine no-card free tier that comfortably covers soft-launch
+// volume, and its vision + JSON-schema output is well suited to this bounded
+// extraction (photo in → structured profile out). The quality bar this
+// feature must clear is enforced downstream by sanitizeVibeCheck + the
+// banned-phrase list, not by the model tier, so a Flash-class model is the
+// right cost/quality point here. Revisit if this becomes a paid, high-volume
+// surface.
+//
+// The exact model id is env-overridable so the free-tier model can be swapped
+// (or bumped to a newer Flash) without a code change — set GEMINI_MODEL in the
+// host env to override the default.
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
 const PROMPT_VERSION = 'v1';
 
 const MAX_PHOTOS = 3;
@@ -54,59 +62,60 @@ interface VibeCheckRequestBody {
   name?: string;
 }
 
-const VIBE_CHECK_TOOL: Anthropic.Tool = {
-  name: 'submit_vibe_check',
-  description: "Submit the generated dog profile content based on the uploaded photos.",
-  input_schema: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['breedGuess', 'bio', 'archetype', 'basis'],
-    properties: {
-      breedGuess: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['name', 'confidence'],
-        properties: {
-          name: { type: 'string', description: 'Your best single breed or mix guess, e.g. "Labrador Retriever" or "Goldendoodle".' },
-          confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
-        },
+// Gemini responseSchema (OpenAPI subset). Deliberately shape-only: it pins the
+// keys, types, and nesting but pushes value bounds (0-100 energy, max array
+// lengths) into descriptions rather than schema constraints, because Gemini's
+// schema support for numeric/array constraints is partial and an unsupported
+// keyword can 400 the whole request. sanitizeVibeCheck below is the real
+// enforcement layer — it clamps, filters, and rejects — so the schema only has
+// to guarantee the model returns the right *shape*. `enum` on the simple
+// string fields is well-supported and worth keeping for output quality.
+const VIBE_CHECK_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    breedGuess: {
+      type: 'OBJECT',
+      properties: {
+        name: { type: 'STRING', description: 'Your best single breed or mix guess, e.g. "Labrador Retriever" or "Goldendoodle".' },
+        confidence: { type: 'STRING', enum: ['low', 'medium', 'high'] },
       },
-      sizeEstimate: { type: 'string', enum: ['S', 'M', 'L', 'XL'] },
-      energyEstimate: { type: 'integer', minimum: 0, maximum: 100, description: 'Guessed energy level from body language/build, 0=couch potato, 100=zoomies machine.' },
-      playStyleGuesses: {
-        type: 'array',
-        maxItems: 3,
-        items: { type: 'string', enum: VALID_PLAY_STYLES },
+      required: ['name', 'confidence'],
+    },
+    sizeEstimate: { type: 'STRING', enum: ['S', 'M', 'L', 'XL'] },
+    energyEstimate: { type: 'INTEGER', description: 'Guessed energy level from body language/build, 0=couch potato, 100=zoomies machine.' },
+    playStyleGuesses: {
+      type: 'ARRAY',
+      description: 'Up to 3 play styles.',
+      items: { type: 'STRING', enum: VALID_PLAY_STYLES },
+    },
+    temperamentGuesses: {
+      type: 'ARRAY',
+      description: 'Up to 4 short temperament words.',
+      items: { type: 'STRING' },
+    },
+    bio: {
+      type: 'STRING',
+      description: "A 1-3 sentence bio written IN THE DOG'S VOICE (first person, as the dog). Specific and a little funny. Grounded in what you can actually see. Never generic pet-copy phrasing.",
+    },
+    archetype: {
+      type: 'OBJECT',
+      properties: {
+        name: { type: 'STRING', description: 'A punchy 2-3 word named archetype, e.g. "Chaos Gremlin" or "Velvet Couch Potato". Specific to this dog, not generic.' },
+        code: { type: 'STRING', description: 'A 4-letter code across energy/sociability/boldness/focus axes, e.g. "ESBF" style but with real letters you choose per axis.' },
+        description: { type: 'STRING', description: 'One sentence explaining why this archetype fits THIS dog specifically, citing something visible in the photos.' },
       },
-      temperamentGuesses: {
-        type: 'array',
-        maxItems: 4,
-        items: { type: 'string' },
-      },
-      bio: {
-        type: 'string',
-        description: 'A 1-3 sentence bio written IN THE DOG\'S VOICE (first person, as the dog). Specific and a little funny. Grounded in what you can actually see. Never generic pet-copy phrasing.',
-      },
-      archetype: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['name', 'code', 'description'],
-        properties: {
-          name: { type: 'string', description: 'A punchy 2-3 word named archetype, e.g. "Chaos Gremlin" or "Velvet Couch Potato". Specific to this dog, not generic.' },
-          code: { type: 'string', description: 'A 4-letter code across energy/sociability/boldness/focus axes, e.g. "ESBF" style but with real letters you choose per axis.' },
-          description: { type: 'string', description: 'One sentence explaining why this archetype fits THIS dog specifically, citing something visible in the photos.' },
-        },
-      },
-      heroPhotoIndex: { type: 'integer', minimum: 0, description: 'Index (0-based) of the best photo for a swipe-card hero image — clearest face, good lighting, dog is the clear subject.' },
-      basis: {
-        type: 'string',
-        description: 'Internal only, never shown to the user: 1 sentence on what in the photos/input you actually reasoned from, for prompt QA.',
-      },
+      required: ['name', 'code', 'description'],
+    },
+    heroPhotoIndex: { type: 'INTEGER', description: 'Index (0-based) of the best photo for a swipe-card hero image — clearest face, good lighting, dog is the clear subject.' },
+    basis: {
+      type: 'STRING',
+      description: 'Internal only, never shown to the user: 1 sentence on what in the photos/input you actually reasoned from, for prompt QA.',
     },
   },
+  required: ['breedGuess', 'bio', 'archetype', 'basis'],
 };
 
-const SYSTEM_PROMPT = `You are generating a dog's profile for GoDoggyDate, a playdate-matching app. You will be shown 1-3 real photos of a real dog and must call the submit_vibe_check tool with your best read.
+const SYSTEM_PROMPT = `You are generating a dog's profile for GoDoggyDate, a playdate-matching app. You will be shown 1-3 real photos of a real dog and must return JSON matching the required schema with your best read.
 
 Ground rules:
 - Only describe what is visibly true in the photos. Never invent facts you can't see.
@@ -180,6 +189,23 @@ function sanitizeVibeCheck(raw: unknown, photoCount: number): DogVibeCheck | nul
   };
 }
 
+// ── Gemini response shapes (only the fields we read) ────────────────────────
+interface GeminiPart {
+  text?: string;
+}
+interface GeminiCandidate {
+  content?: { parts?: GeminiPart[] };
+  finishReason?: string;
+}
+interface GeminiResponse {
+  candidates?: GeminiCandidate[];
+  promptFeedback?: { blockReason?: string };
+}
+
+// finishReason values that mean the model declined / was filtered rather than
+// produced a usable answer — surfaced to the user as "try different photos".
+const BLOCKED_FINISH_REASONS = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION']);
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';
   if (!authHeader.startsWith('Bearer ')) {
@@ -196,9 +222,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid Firebase ID token' }, { status: 401 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error('vibe-check: ANTHROPIC_API_KEY not configured');
+    console.error('vibe-check: GEMINI_API_KEY not configured');
     return NextResponse.json({ error: 'Vibe Check is not configured yet' }, { status: 503 });
   }
 
@@ -214,7 +240,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Send 1-${MAX_PHOTOS} photos` }, { status: 400 });
   }
 
-  const imageBlocks: Anthropic.ImageBlockParam[] = [];
+  const imageParts: GeminiPart[] = [];
   for (const photo of photos) {
     const dataUri = photo?.dataUri;
     const match = typeof dataUri === 'string' ? dataUri.match(/^data:([^;]+);base64,(.+)$/) : null;
@@ -229,79 +255,101 @@ export async function POST(request: Request) {
     if (base64Data.length * 0.75 > MAX_PHOTO_BYTES) {
       return NextResponse.json({ error: 'Photo too large (max 5MB each)' }, { status: 400 });
     }
-    imageBlocks.push({
-      type: 'image',
-      source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: base64Data },
+    // Gemini inline image part.
+    (imageParts as Array<Record<string, unknown>>).push({
+      inline_data: { mime_type: mimeType, data: base64Data },
     });
   }
 
-  const anthropic = new Anthropic({ apiKey });
+  const promptText = body.name
+    ? `This dog's name is ${body.name}. Generate the vibe check.`
+    : 'Generate the vibe check.';
 
-  let response: Anthropic.Message;
+  let data: GeminiResponse;
   try {
-    response = await anthropic.messages.create({
-      model: VIBE_CHECK_MODEL,
-      // On Opus 5 thinking is ON by default (omitting `thinking` runs adaptive)
-      // and max_tokens caps thinking PLUS output together. The old 1024 was
-      // sized for the tool payload alone, so with three full-res photos and a
-      // forced tool_choice it truncated before the tool_use block closed —
-      // which surfaced as the generic "no tool_use block" 502 below.
-      //
-      // Thinking stays on: with it disabled, Opus 5 can emit a tool call as
-      // plain text instead of a tool_use block, which is exactly the one shape
-      // this route cannot recover from. `effort: 'low'` keeps the thinking
-      // budget small — this is a bounded extraction, not a reasoning task.
-      max_tokens: 4096,
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'low' },
-      system: SYSTEM_PROMPT,
-      tools: [VIBE_CHECK_TOOL],
-      tool_choice: { type: 'tool', name: 'submit_vibe_check' },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            ...imageBlocks,
+    // API key goes in the x-goog-api-key header, never the URL — a query-string
+    // secret can leak into access logs and proxies.
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [
             {
-              type: 'text',
-              text: body.name
-                ? `This dog's name is ${body.name}. Generate the vibe check.`
-                : 'Generate the vibe check.',
+              role: 'user',
+              parts: [...imageParts, { text: promptText }],
             },
           ],
-        },
-      ],
-    });
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: VIBE_CHECK_SCHEMA,
+            maxOutputTokens: 2048,
+            temperature: 1,
+          },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error('vibe-check: Gemini API error', res.status, errText.slice(0, 500));
+      return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
+    }
+
+    data = (await res.json()) as GeminiResponse;
   } catch (error) {
-    console.error('vibe-check: Anthropic API call failed', error);
+    console.error('vibe-check: Gemini API call failed', error);
     return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
   }
 
-  // Opus can return a 200 with stop_reason 'refusal' and no usable tool_use
-  // block — never blindly index content[0] here.
-  if (response.stop_reason === 'refusal') {
+  // Prompt-level block (whole request refused before generation).
+  if (data.promptFeedback?.blockReason) {
+    console.warn('vibe-check: prompt blocked', data.promptFeedback.blockReason);
     return NextResponse.json({ error: 'Could not read these photos — try different ones' }, { status: 422 });
   }
 
-  // Distinct from the no-tool_use case below: this one means the response was
-  // cut off at max_tokens, so the fix is the cap, not the prompt. Without this
-  // branch both failures log identically.
-  if (response.stop_reason === 'max_tokens') {
-    console.error('vibe-check: response truncated at max_tokens', JSON.stringify(response.usage));
+  const candidate = data.candidates?.[0];
+  const finishReason = candidate?.finishReason;
+
+  // Safety/filter decline — the equivalent of Claude's refusal stop reason.
+  if (finishReason && BLOCKED_FINISH_REASONS.has(finishReason)) {
+    console.warn('vibe-check: candidate blocked', finishReason);
+    return NextResponse.json({ error: 'Could not read these photos — try different ones' }, { status: 422 });
+  }
+
+  // Truncated before the JSON closed — the response is unparseable, and the fix
+  // is maxOutputTokens, not the prompt. Logged distinctly so the two failure
+  // modes don't blur together.
+  if (finishReason === 'MAX_TOKENS') {
+    console.error('vibe-check: response truncated at maxOutputTokens');
     return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
   }
 
-  const toolUseBlock = response.content.find(
-    (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use' && block.name === 'submit_vibe_check',
-  );
-  if (!toolUseBlock) {
-    console.error('vibe-check: no tool_use block in response', JSON.stringify(response.content));
+  const rawText = (candidate?.content?.parts ?? [])
+    .map((p) => p.text ?? '')
+    .join('')
+    .trim();
+  if (!rawText) {
+    console.error('vibe-check: empty Gemini response', JSON.stringify(candidate));
     return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
   }
 
-  const vibeCheck = sanitizeVibeCheck(toolUseBlock.input, photos.length);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (error) {
+    console.error('vibe-check: Gemini output was not valid JSON', error, rawText.slice(0, 300));
+    return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
+  }
+
+  const vibeCheck = sanitizeVibeCheck(parsed, photos.length);
   if (!vibeCheck) {
-    console.error('vibe-check: model output failed sanitization', JSON.stringify(toolUseBlock.input));
+    console.error('vibe-check: model output failed sanitization', JSON.stringify(parsed));
     return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
   }
 
@@ -315,7 +363,7 @@ export async function POST(request: Request) {
 
   const aiProfile = {
     vibeCheck,
-    model: VIBE_CHECK_MODEL,
+    model: GEMINI_MODEL,
     promptVersion: PROMPT_VERSION,
     generatedAt: Date.now(),
   };
