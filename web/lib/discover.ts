@@ -3,7 +3,7 @@
 
 import { collection, getDocs } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
-import { SEED_DOGS, SEED_DISTANCES } from '../shared/data/seedDogs';
+import { SEED_DOGS, SEED_DISTANCES } from '../../shared/data/seedDogs';
 import { calculateCompatibility } from '../../shared/utils/matchingEngine';
 import { isProfileComplete, toFullProfile } from './auth';
 import { getBlockedUserIds } from './blocks';
