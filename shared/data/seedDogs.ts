@@ -88,9 +88,9 @@ export const SEED_DOGS: Omit<DogProfile, 'id' | 'ownerId' | 'trustScore' | 'tota
     notGoodWith: ['puppies', 'overstimulated'],
     playStyles: ['loves fetch 🎾', 'high-energy runner ⚡', 'wrestling 🤼'],
     boundaries: [], allergies: [], specialNeeds: [],
-    behaviorFlags: ['easily overstimulated'],
+    behaviorFlags: ['easily overstimulated', 'reactive on leash only'],
     vaccinated: true, vetChecked: false, mode: 'playdate',
-    bio: 'Agility champion. Needs a partner who can match pure intensity.',
+    bio: 'Agility champion. A menace on a leash, an angel off it. Needs a partner who can match pure intensity.',
   },
   {
     name: 'Pretzel', breed: 'Corgi', purebred: true,

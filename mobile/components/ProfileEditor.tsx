@@ -56,6 +56,7 @@ const NOT_GOOD_WITH_OPTIONS = [
 const BEHAVIOR_FLAG_OPTIONS = [
   'needs slow introduction', 'easily overstimulated', 'resource guarding',
   'anxious with dogs', 'prefers calm dogs', 'not comfortable with kids',
+  'reactive on leash only',
 ] as const;
 
 const ENERGY_OPTIONS = [20, 40, 60, 80, 100];

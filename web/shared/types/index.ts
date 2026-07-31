@@ -33,7 +33,8 @@ export type BehaviorFlag =
   | 'prefers calm dogs'
   | 'needs slow introduction'
   | 'easily overstimulated'
-  | 'resource guarding';
+  | 'resource guarding'
+  | 'reactive on leash only';
 
 export type RatingTag =
   | 'Friendly 😊' | 'Great match ✨' | 'Calm 🧘'

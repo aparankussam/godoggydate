@@ -221,9 +221,9 @@ export const SEED_DOGS: Omit<DogProfile, 'id' | 'ownerId' | 'trustScore' | 'tota
       { prompt: DEFAULT_PROMPTS[2], answer: 'Any dog who can actually tire him out' },
     ],
     boundaries: [],
-    allergies: [], specialNeeds: [], behaviorFlags: ['easily overstimulated'],
+    allergies: [], specialNeeds: [], behaviorFlags: ['easily overstimulated', 'reactive on leash only'],
     vaccinated: true, vetChecked: false, mode: 'playdate',
-    bio: 'Agility champion. Needs a partner who can match pure, unrelenting intensity.',
+    bio: 'Agility champion. A menace on a leash, an angel off it. Needs a partner who can match pure, unrelenting intensity.',
   },
 
   // ── Royalty on tiny legs ──────────────────────────────────────────────────

@@ -164,6 +164,15 @@ export function calculateCompatibility(
   if (breedScore >= 22)           reasons.push('Compatible breed groups');
   if (goodWithScore >= 12)        reasons.push("Good with your dog's type");
   if (sharedStyles.length >= 1)   reasons.push('Similar play style');
+  // Leash reactivity is a walking-route problem, not a playdate problem — most
+  // matches here happen off-leash (parks, yards), so this flag is reassuring
+  // rather than a warning. Surfaced as a reason, not an 8th scoring axis, so it
+  // doesn't reshuffle the existing 100-point weight balance. Placed ahead of
+  // the vaccinated/vetChecked/distance reasons (administrative facts, not
+  // insight) so it isn't the first thing bumped off by the 4-reason cap below.
+  if (candidate.behaviorFlags?.includes('reactive on leash only')) {
+    reasons.push('Great off-leash, even if leash walks are tough');
+  }
   if (candidate.vaccinated)       reasons.push('Both vaccinated');
   if (candidate.vetChecked)       reasons.push('Recently vet checked');
   if (distanceMiles < 0.5)        reasons.push('Very close by');
