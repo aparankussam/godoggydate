@@ -7,7 +7,7 @@ import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
 import { trackEvent, trackOncePerSession } from '../lib/analytics';
 import { recordSwipe } from '../lib/matching';
 import { recordDemoSwipeLocally } from '../lib/discover';
-import type { CompatibilityResult } from '../shared/types';
+import type { CompatibilityResult } from '../../shared/types';
 
 interface FeedDog {
   id: string;

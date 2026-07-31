@@ -4,11 +4,11 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
 import { SEED_DOGS, SEED_DISTANCES } from '../shared/data/seedDogs';
-import { calculateCompatibility } from '../shared/utils/matchingEngine';
+import { calculateCompatibility } from '../../shared/utils/matchingEngine';
 import { isProfileComplete, toFullProfile } from './auth';
 import { getBlockedUserIds } from './blocks';
 import type { SavedDogProfile } from './auth';
-import type { DogProfile, CompatibilityResult } from '../shared/types';
+import type { DogProfile, CompatibilityResult } from '../../shared/types';
 
 export interface DiscoverFeedDog {
   id: string;

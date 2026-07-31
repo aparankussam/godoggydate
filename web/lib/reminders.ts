@@ -18,7 +18,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
-import type { Reminder, ReminderType } from '../shared/types';
+import type { Reminder, ReminderType } from '../../shared/types';
 
 export interface ReminderPreset {
   type: ReminderType;

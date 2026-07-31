@@ -7,7 +7,7 @@ import type { SavedDogProfile } from '../lib/auth';
 import { isProfileComplete } from '../lib/auth';
 import { uploadDogPhoto } from '../lib/storage';
 import { getFirebase } from '../shared/utils/firebase';
-import { BREEDS } from '../shared/types/breeds';
+import { BREEDS } from '../../shared/types/breeds';
 
 const SIZES: { value: 'S' | 'M' | 'L' | 'XL'; label: string }[] = [
   { value: 'S', label: 'Small' },

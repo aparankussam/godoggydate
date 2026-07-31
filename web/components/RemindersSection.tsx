@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from 'react';
 import { REMINDER_PRESETS, completeReminder, createReminder, deleteReminder } from '../lib/reminders';
-import type { Reminder, ReminderType } from '../shared/types';
+import type { Reminder, ReminderType } from '../../shared/types';
 
 interface Props {
   dogId: string;

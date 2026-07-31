@@ -3,7 +3,7 @@
 //   photos.length >= 3, name + breed + age + size + energyLevel,
 //   playStyles.length >= 1 (serves as temperament), location exists.
 
-import type { DogProfile } from '../types';
+import type { DogProfile } from '../../../shared/types';
 
 // Photo helpers — all verified Unsplash dog photos
 const U = (id: string) => `https://images.unsplash.com/photo-${id}?w=600&q=80&auto=format&fit=crop`;

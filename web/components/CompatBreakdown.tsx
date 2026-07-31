@@ -7,7 +7,7 @@
 // (the demo), and nowhere in the actual swiping experience it exists to
 // explain.
 
-import type { CompatibilityResult } from '../shared/types';
+import type { CompatibilityResult } from '../../shared/types';
 
 /** The seven axes calculateCompatibility() scores, with their max weights.
  *  Mirrors shared/utils/matchingEngine.ts — if the weights there change,

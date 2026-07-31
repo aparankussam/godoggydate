@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import type { CompatibilityResult } from '../shared/types';
+import type { CompatibilityResult } from '../../shared/types';
 import { getPrimaryRenderablePhoto } from '../lib/photos';
 import { getChatUnlockPitch } from '../shared/utils/stripe';
 

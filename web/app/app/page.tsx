@@ -16,7 +16,7 @@ import {
 } from '../../lib/auth';
 import { getFirebase } from '../../shared/utils/firebase';
 import type { User, SavedDogProfile } from '../../lib/auth';
-import type { DogProfile } from '../../shared/types';
+import type { DogProfile } from '../../../shared/types';
 import DogProfileForm from '../../components/DogProfileForm';
 import SwipeStack from '../../components/SwipeStack';
 import AuthModal from '../../components/AuthModal';

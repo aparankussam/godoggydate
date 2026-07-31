@@ -1,3 +1,7 @@
+// Intentionally web-specific — NOT a stale copy of the root shared/utils/firebase.ts.
+// This one guards against server-side init (Next.js renders on the server too;
+// mobile never does) and validates NEXT_PUBLIC_FIREBASE_* env vars before
+// initializing. Root shared/utils/firebase.ts is what mobile imports directly.
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';

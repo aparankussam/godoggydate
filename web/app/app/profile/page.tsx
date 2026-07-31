@@ -29,7 +29,7 @@ import { toDogSlug } from '../../../lib/dogSlug';
 import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
-import type { Reminder } from '../../../shared/types';
+import type { Reminder } from '../../../../shared/types';
 
 export default function ProfilePage() {
   const router = useRouter();

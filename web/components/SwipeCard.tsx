@@ -5,7 +5,7 @@
 // Drag left/right to pass/like.
 
 import { forwardRef, useState, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
-import type { CompatibilityResult } from '../shared/types';
+import type { CompatibilityResult } from '../../shared/types';
 import { QUALITY_STYLES } from './CompatBreakdown';
 
 interface CardDog {
