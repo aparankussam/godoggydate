@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -18,9 +19,12 @@ import Animated, {
   withSequence,
   withSpring,
 } from 'react-native-reanimated';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
-import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, QUALITY_RING_COLORS, type SwipeCardRef } from '../../components/SwipeCard';
+import SwipeCard, { QUALITY_RING_COLORS, type SwipeCardRef } from '../../components/SwipeCard';
 import CompatBreakdown from '../../components/CompatBreakdown';
+import DogTradingCard from '../../components/DogTradingCard';
 import { fetchDiscoverFeed, DEFAULT_DISCOVER_RADIUS_MILES, type DiscoverDog } from '../../lib/discover';
 import { recordSwipe } from '../../lib/matching';
 import { trackEvent } from '../../lib/analytics';
@@ -66,8 +70,10 @@ export default function DiscoverTab() {
   const [matchHeadline, setMatchHeadline] = useState(MATCH_HEADLINES[0]);
   const [locationStatus, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
   const [swipeError, setSwipeError] = useState<string | null>(null);
+  const [sharingRecruitCard, setSharingRecruitCard] = useState(false);
   const locationRequestedRef = useRef(false);
   const topCardRef = useRef<SwipeCardRef>(null);
+  const recruitCardRef = useRef<View>(null);
 
   const likeScale = useSharedValue(1);
   const passScale = useSharedValue(1);
@@ -206,6 +212,32 @@ export default function DiscoverTab() {
       });
     } catch {
       // User likely cancelled the share sheet.
+    }
+  }
+
+  // Recruit Card — the empty-deck invite previously shared a bare text
+  // link. Sharing an actual image of the user's own dog (reusing the same
+  // Trading Card export as the profile tab) is a far stronger ask, and
+  // doubles as free advertising the moment it's posted. Mirrors
+  // web/app/app/page.tsx's handleShareRecruitCard.
+  async function handleShareRecruitCard() {
+    if (!recruitCardRef.current || sharingRecruitCard) return;
+    setSharingRecruitCard(true);
+    trackEvent('recruit_card_share_click');
+    try {
+      const uri = await captureRef(recruitCardRef, { format: 'png', quality: 1 });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png' });
+        trackEvent('recruit_card_shared', { method: 'native_share' });
+      } else {
+        Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+      }
+    } catch (error) {
+      console.warn('Failed to share recruit card', error);
+      Alert.alert('Could not share card', 'Please try again in a moment.');
+    } finally {
+      setSharingRecruitCard(false);
     }
   }
 
@@ -408,19 +440,46 @@ export default function DiscoverTab() {
       {/* Card stack area */}
       <View style={styles.stackArea}>
         {isDeckEmpty ? (
-          <View style={styles.emptyCard}>
+          <ScrollView contentContainerStyle={styles.emptyScrollContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.emptyEmoji}>🐕</Text>
             <Text style={styles.emptyTitle}>That&apos;s everyone for now</Text>
             <Text style={styles.emptyBody}>
-              We&apos;ll keep looking for new dogs within your radius. Invite a friend or check back soon to see who joins next.
+              We&apos;ll keep looking for new dogs within your radius. New dogs drop daily-ish.
             </Text>
-            <Pressable style={styles.resetButton} onPress={handleReset}>
-              <Text style={styles.resetButtonText}>Check again</Text>
-            </Pressable>
-            <Pressable style={styles.emptySecondaryButton} onPress={handleInviteFriends}>
-              <Text style={styles.emptySecondaryButtonText}>Invite a dog parent</Text>
-            </Pressable>
-          </View>
+
+            {/* Recruit Card — the actual growth lever here is a stranger
+                seeing this dog's card and wanting one for their own, not a
+                bare text link. Same Trading Card export the profile tab
+                uses, framed as an invitation instead of an identity card. */}
+            {profile && (
+              <>
+                <Text style={styles.recruitCaption}>
+                  {profile.name}{profile.ai?.vibeCheck?.archetype.name ? ` (a ${profile.ai.vibeCheck.archetype.name})` : ''} is the first dog here — be their first friend.
+                </Text>
+                <View style={styles.recruitCardWrap}>
+                  <DogTradingCard ref={recruitCardRef} profile={profile} />
+                </View>
+                <Pressable
+                  style={[styles.resetButton, sharingRecruitCard && { opacity: 0.6 }]}
+                  onPress={handleShareRecruitCard}
+                  disabled={sharingRecruitCard}
+                >
+                  <Text style={styles.resetButtonText}>
+                    {sharingRecruitCard ? 'Preparing…' : `Share ${profile.name}'s Card`}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+            <View style={styles.emptySecondaryRow}>
+              <Pressable style={styles.emptySecondaryButton} onPress={handleReset}>
+                <Text style={styles.emptySecondaryButtonText}>Check again</Text>
+              </Pressable>
+              <Pressable style={styles.emptySecondaryButton} onPress={handleInviteFriends}>
+                <Text style={styles.emptySecondaryButtonText}>Invite a dog parent</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
         ) : (
           <>
             {peekDog && (
@@ -882,15 +941,27 @@ const styles = StyleSheet.create({
   },
   passIcon: { fontSize: 22, color: colors.danger },
   likeIcon: { fontSize: 28 },
-  emptyCard: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    backgroundColor: '#fff',
-    borderRadius: radius.lg,
+  emptyScrollContent: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    ...shadow.card,
+    paddingHorizontal: 32,
+    paddingVertical: 24,
+  },
+  recruitCaption: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.brownLight,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+    maxWidth: 280,
+    lineHeight: 20,
+  },
+  recruitCardWrap: {
+    marginBottom: 18,
+  },
+  emptySecondaryRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTitle: {

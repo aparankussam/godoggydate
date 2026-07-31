@@ -5,8 +5,8 @@
 // yet, and adding one needs a native rebuild that can't be verified in this
 // pass, so due dates are set via relative intervals (works for every preset
 // except a truly arbitrary date, which falls back to typed month/day/year).
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, fonts, radius } from '../constants/theme';
 import { REMINDER_PRESETS, completeReminder, createReminder, deleteReminder } from '../lib/reminders';
 import type { Reminder, ReminderType } from '../../shared/types';
@@ -47,6 +47,18 @@ export default function RemindersSection({ dogId, reminders }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [celebrateId, setCelebrateId] = useState<string | null>(null);
+  const celebrateOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!celebrateId) return;
+    celebrateOpacity.setValue(0);
+    Animated.sequence([
+      Animated.timing(celebrateOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+      Animated.delay(900),
+      Animated.timing(celebrateOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(() => setCelebrateId(null));
+  }, [celebrateId, celebrateOpacity]);
 
   const preset = useMemo(() => REMINDER_PRESETS.find((p) => p.type === presetType) ?? REMINDER_PRESETS[0], [presetType]);
   const sorted = useMemo(() => [...reminders].sort((a, b) => a.dueDate - b.dueDate), [reminders]);
@@ -104,7 +116,13 @@ export default function RemindersSection({ dogId, reminders }: Props) {
   async function handleComplete(reminder: Reminder) {
     setBusyId(reminder.id);
     try {
-      await completeReminder(dogId, reminder);
+      const result = await completeReminder(dogId, reminder);
+      // Only celebrate a REAL streak (2+ on-time completions in a row) —
+      // a single completion isn't a streak yet, and a reset-to-0 (late
+      // completion) shouldn't look like a win.
+      if (result && result.streak >= 2) {
+        setCelebrateId(reminder.id);
+      }
     } finally {
       setBusyId(null);
     }
@@ -242,12 +260,26 @@ export default function RemindersSection({ dogId, reminders }: Props) {
       {sorted.map((r) => {
         const due = dueLabel(r.dueDate);
         const busy = busyId === r.id;
+        const hasStreak = !!r.recurrenceDays && (r.currentStreak ?? 0) >= 2;
         return (
           <View key={r.id} style={styles.row}>
+            {/* Streak celebration — a real, honest count (consecutive
+                on-time completions of THIS recurring reminder, tracked
+                forward from when currentStreak shipped), not a vanity
+                number. Only fires on the completion that reaches 2+. */}
+            {celebrateId === r.id && (
+              <Animated.View
+                style={[styles.celebrateOverlay, { opacity: celebrateOpacity }]}
+                pointerEvents="none"
+              >
+                <Text style={styles.celebrateText}>🔥 🐾 🔥</Text>
+              </Animated.View>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>{r.label}</Text>
               <Text style={[styles.rowDue, due.urgent && styles.rowDueUrgent]}>
                 {due.text}{r.recurrenceDays ? ' · repeats' : ''}
+                {hasStreak && <Text style={styles.streakText}>  🔥 {r.currentStreak} in a row</Text>}
               </Text>
             </View>
             <Pressable
@@ -339,10 +371,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: colors.border,
+    position: 'relative', overflow: 'hidden',
   },
   rowLabel: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown },
   rowDue: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 2 },
   rowDueUrgent: { color: '#DC2626', fontFamily: fonts.semibold },
+  streakText: { fontFamily: fonts.bold, color: '#B45309' },
+  celebrateOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,251,235,0.92)', zIndex: 10,
+  },
+  celebrateText: { fontSize: 20 },
   doneBtn: {
     backgroundColor: '#E2F2E9', borderWidth: 1, borderColor: '#BBE3CC',
     borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 7,

@@ -68,6 +68,17 @@ function getContentWidthClass(hasScore: boolean): string {
   return hasScore ? 'max-w-[72%] sm:max-w-[74%]' : 'max-w-[78%]';
 }
 
+// Fixed scatter offsets for the like-swipe paw burst — a handful of divs at
+// varied angles/distances reads as a burst without needing per-render
+// randomness (which would also fight React's reconciliation on re-render).
+const PAW_BURST_OFFSETS = [
+  { tx: '54px',  ty: '-46px', rot: '-18deg' },
+  { tx: '-38px', ty: '-58px', rot: '22deg' },
+  { tx: '62px',  ty: '18px',  rot: '8deg' },
+  { tx: '-56px', ty: '4px',   rot: '-30deg' },
+  { tx: '10px',  ty: '-70px', rot: '4deg' },
+];
+
 const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   dog,
   zIndex,
@@ -350,6 +361,29 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
               style={{ opacity: Math.min(passStrength * 1.5, 1), transform: 'rotate(-10deg)' }}
             >
               <span className="font-display text-white text-2xl font-black drop-shadow">PASS</span>
+            </div>
+          )}
+
+          {/* Swipe-completion reactions — everything above only fires
+              during the drag itself; the card previously just flew off with
+              no feedback at the moment a like/pass actually committed. */}
+          {gone === 'right' && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+              {PAW_BURST_OFFSETS.map((offset, i) => (
+                <span
+                  key={i}
+                  className="absolute animate-paw-burst text-3xl"
+                  style={{ '--tx': offset.tx, '--ty': offset.ty, '--rot': offset.rot } as React.CSSProperties}
+                >
+                  🐾
+                </span>
+              ))}
+            </div>
+          )}
+          {gone === 'left' && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+              <span className="absolute h-24 w-24 rounded-full bg-white/40 animate-dust-puff" />
+              <span className="absolute h-16 w-16 rounded-full bg-white/30 animate-dust-puff" style={{ animationDelay: '80ms' }} />
             </div>
           )}
 

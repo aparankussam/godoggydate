@@ -619,20 +619,26 @@ export default function ChatPage() {
         <Link href="/app/messages" className="text-2xl text-brown-light hover:text-brown transition-colors" aria-label="Back">
           ←
         </Link>
-        <div className="w-11 h-11 rounded-[0.9rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center shadow-sm">
-          {dogPhoto ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={dogPhoto} alt={dogName} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-xl">🐕</span>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-brown leading-tight truncate">{dogName}</p>
-          {otherProfile?.breed && (
-            <p className="text-xs text-brown-light truncate">{otherProfile.breed}</p>
-          )}
-        </div>
+        <Link
+          href={`/app/dog/${matchId}`}
+          aria-label={`View ${dogName}'s profile`}
+          className="flex items-center gap-3 flex-1 min-w-0"
+        >
+          <div className="w-11 h-11 rounded-[0.9rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center shadow-sm">
+            {dogPhoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={dogPhoto} alt={dogName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xl">🐕</span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-brown leading-tight truncate">{dogName}</p>
+            {otherProfile?.breed && (
+              <p className="text-xs text-brown-light truncate">{otherProfile.breed}</p>
+            )}
+          </div>
+        </Link>
         <div className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1">
           {canChat ? 'Chat unlocked' : 'Chat locked'}
         </div>

@@ -584,10 +584,13 @@ export default function ChatScreen() {
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Text style={styles.backText}>‹</Text>
         </Pressable>
-        <View style={styles.headerCenter}>
+        <Pressable
+          style={styles.headerCenter}
+          onPress={() => resolvedMatchId && router.push({ pathname: '/dog/[matchId]', params: { matchId: resolvedMatchId } })}
+        >
           <Text style={styles.headerName}>{resolvedName || match?.dog.name || 'Chat'}</Text>
-          <Text style={styles.headerSub}>GoDoggyDate match</Text>
-        </View>
+          <Text style={styles.headerSub}>Tap to view profile</Text>
+        </Pressable>
         {resolvedMatchId && (
           <Pressable
             style={styles.bestFriendBtn}

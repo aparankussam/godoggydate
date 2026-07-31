@@ -27,6 +27,9 @@ import { buildDiscoverFeed, buildDemoGalleryDogs, type DiscoverFeedDog } from '.
 import DemoGalleryGrid from '../../components/DemoGalleryGrid';
 import { requestApproxLocation } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
+import DogTradingCard from '../../components/DogTradingCard';
+import { shareOrDownloadCard } from '../../lib/shareCard';
+import { toDogSlug } from '../../lib/dogSlug';
 
 // ── Seed feed ─────────────────────────────────────────────────────────────────
 type FeedDog = DiscoverFeedDog;
@@ -51,6 +54,8 @@ export default function AppPage() {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileSaving,   setProfileSaving]   = useState(false);
   const [showAuthModal,   setShowAuthModal]   = useState(false);
+  const [sharingRecruitCard, setSharingRecruitCard] = useState(false);
+  const recruitCardRef = useRef<HTMLDivElement>(null);
 
   // ── Swipe / match ─────────────────────────────────────────────────────────
   const [matchedDog,       setMatchedDog]       = useState<FeedDog | null>(null);
@@ -259,6 +264,29 @@ export default function AppPage() {
     // State reset + redirect happen via onAuthStateChanged → user=null branch above
   }
 
+  // Recruit Card — the empty-deck "Invite" action previously shared a bare
+  // text link. Sharing an actual image of the user's own dog (reusing the
+  // same Trading Card export as the profile page) is a far stronger ask
+  // than plain text, and doubles as free advertising the moment it's posted.
+  async function handleShareRecruitCard() {
+    if (!recruitCardRef.current || sharingRecruitCard || !authUser || !savedProfile) return;
+    setSharingRecruitCard(true);
+    trackEvent('recruit_card_share_click');
+    try {
+      const publicUrl = `${window.location.origin}/d/${toDogSlug(savedProfile.name, authUser.uid)}`;
+      const result = await shareOrDownloadCard(
+        recruitCardRef.current,
+        `${savedProfile.name.toLowerCase().replace(/\s+/g, '-')}-needs-friends.png`,
+        { publicUrl, dogName: savedProfile.name },
+      );
+      trackEvent('recruit_card_shared', { method: result });
+    } catch {
+      // html2canvas/share failures are non-critical — just let them retry.
+    } finally {
+      setSharingRecruitCard(false);
+    }
+  }
+
   function handleInviteFriend() {
     trackEvent('invite_friend_clicked', {
       source: feedDepleted ? 'empty_state' : 'discover',
@@ -462,15 +490,36 @@ export default function AppPage() {
               real feed stays empty, and the demo gallery is opt-in and
               clearly labeled instead of auto-injected. */}
           {!authLoading && authUser && profileIsComplete && feedDepleted && (
-            <div className="flex flex-1 flex-col items-center justify-center py-24 gap-4 text-center px-4">
+            <div className="flex flex-1 flex-col items-center justify-center py-16 gap-4 text-center px-4">
               <span className="text-6xl">🐾</span>
               <p className="font-display text-2xl text-brown">No dogs nearby yet</p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
                 You might be the first dog parent in your neighborhood. New dogs drop daily-ish.
               </p>
-              <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                Recruit a dog parent{dogName ? ` — ${dogName} will remember this` : ''}.
-              </p>
+
+              {/* Recruit Card — the actual growth lever here is a stranger
+                  seeing this dog's card and wanting one for their own, not a
+                  bare text link. Same Trading Card export the profile page
+                  uses, framed as an invitation instead of an identity card. */}
+              {savedProfile && (
+                <>
+                  <p className="text-brown-light text-sm max-w-xs leading-relaxed">
+                    {dogName}{savedProfile.ai?.vibeCheck?.archetype.name ? ` (a ${savedProfile.ai.vibeCheck.archetype.name})` : ''} is the first dog here — be their first friend.
+                  </p>
+                  <div className="scale-[0.85] origin-top -mb-8">
+                    <DogTradingCard profile={savedProfile} innerRef={recruitCardRef} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleShareRecruitCard}
+                    disabled={sharingRecruitCard}
+                    className="btn-primary px-8 py-3 disabled:opacity-60"
+                  >
+                    {sharingRecruitCard ? 'Preparing…' : `Share ${dogName}'s Card`}
+                  </button>
+                </>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
@@ -480,7 +529,7 @@ export default function AppPage() {
                         .catch(() => { /* handled inside refreshDiscoverFeed */ });
                     }
                   }}
-                  className="btn-primary px-8 py-3"
+                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
                 >
                   Check Again
                 </button>

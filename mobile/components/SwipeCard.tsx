@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
+import type { DimensionValue } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -13,6 +15,29 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import type { DiscoverDog } from '../lib/discover';
+
+// Fixed scatter positions for the like-swipe paw burst — mirrors
+// web/components/SwipeCard.tsx's PAW_BURST_OFFSETS. A handful of paws at
+// varied fixed spots reads as a burst without needing a separate
+// useAnimatedStyle per paw (each paw shares one opacity/scale animation).
+const PAW_BURST_SPOTS: { top: DimensionValue; left: DimensionValue }[] = [
+  { top: '32%', left: '20%' },
+  { top: '24%', left: '62%' },
+  { top: '48%', left: '72%' },
+  { top: '52%', left: '14%' },
+  { top: '18%', left: '42%' },
+];
+
+function triggerHaptic(direction: 'like' | 'pass') {
+  // Drag-to-swipe previously had no haptic at all — only the Like/Pass
+  // buttons did (see app/(tabs)/discover.tsx's handleLikePress/handlePassPress),
+  // so the far more common gesture-swipe path felt inert by comparison.
+  if (direction === 'like') {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  } else {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const CARD_WIDTH = SCREEN_WIDTH - 32;
@@ -51,6 +76,8 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     const tx = useSharedValue(0);
     const ty = useSharedValue(0);
     const swipeHandled = useSharedValue(false);
+    const burstAnim = useSharedValue(0);
+    const reactionKind = useSharedValue<0 | 1 | 2>(0); // 0 none, 1 like-burst, 2 pass-puff
     const [photoIndex, setPhotoIndex] = useState(0);
 
     // Filter out placeholder strings
@@ -69,6 +96,10 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
       triggerSwipe: (direction: 'like' | 'pass') => {
         if (swipeHandled.value) return;
         swipeHandled.value = true;
+        runOnJS(triggerHaptic)(direction);
+        reactionKind.value = direction === 'like' ? 1 : 2;
+        burstAnim.value = 0;
+        burstAnim.value = withTiming(1, { duration: 300 });
         const exitX =
           direction === 'like' ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
         tx.value = withTiming(exitX, { duration: 280 }, () => {
@@ -107,6 +138,12 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
           if (swipeHandled.value) return;
           swipeHandled.value = true;
           const dir = e.translationX > 0 ? 'like' : 'pass';
+          // Drag-to-swipe previously had zero feedback at the moment of
+          // commit — haptic + burst only existed on the Like/Pass buttons.
+          runOnJS(triggerHaptic)(dir);
+          reactionKind.value = dir === 'like' ? 1 : 2;
+          burstAnim.value = 0;
+          burstAnim.value = withTiming(1, { duration: 300 });
           const exitX =
             e.translationX > 0 ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
           tx.value = withTiming(exitX, { duration: 260 }, () => {
@@ -177,6 +214,18 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
       ),
     }));
 
+    // Swipe-completion reactions — everything above only fires during the
+    // drag itself; the card previously just flew off with no feedback at
+    // the moment a like/pass actually committed.
+    const pawBurstStyle = useAnimatedStyle(() => ({
+      opacity: reactionKind.value === 1 ? interpolate(burstAnim.value, [0, 0.15, 1], [0, 1, 0], Extrapolation.CLAMP) : 0,
+      transform: [{ scale: interpolate(burstAnim.value, [0, 1], [0.5, 1.3], Extrapolation.CLAMP) }],
+    }));
+    const dustPuffStyle = useAnimatedStyle(() => ({
+      opacity: reactionKind.value === 2 ? interpolate(burstAnim.value, [0, 1], [0.55, 0], Extrapolation.CLAMP) : 0,
+      transform: [{ scale: interpolate(burstAnim.value, [0, 1], [0.4, 2.2], Extrapolation.CLAMP) }],
+    }));
+
     const currentPhoto = photos[photoIndex] ?? null;
     const ageLabel =
       dog.age === 'puppy' ? 'Puppy' : dog.age === 'senior' ? 'Senior' : 'Adult';
@@ -224,6 +273,16 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
           <Animated.View style={[styles.passBadge, passOverlayStyle]} pointerEvents="none">
             <Text style={styles.passText}>PASS</Text>
           </Animated.View>
+
+          {/* Like-swipe paw burst */}
+          <Animated.View style={[StyleSheet.absoluteFill, pawBurstStyle]} pointerEvents="none">
+            {PAW_BURST_SPOTS.map((spot, i) => (
+              <Text key={i} style={[styles.burstPaw, spot]}>🐾</Text>
+            ))}
+          </Animated.View>
+
+          {/* Pass-swipe dust puff */}
+          <Animated.View style={[styles.dustPuff, dustPuffStyle]} pointerEvents="none" />
 
           {/* Info overlay */}
           <LinearGradient
@@ -401,6 +460,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 24,
     letterSpacing: 2,
+  },
+
+  // Swipe-completion reactions
+  burstPaw: {
+    position: 'absolute',
+    fontSize: 30,
+  },
+  dustPuff: {
+    position: 'absolute',
+    top: '38%',
+    left: '38%',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255,255,255,0.5)',
   },
 
   // Gradient info area

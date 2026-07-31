@@ -1,12 +1,12 @@
-// web/lib/photos.ts
-// Shared helpers for filtering non-renderable photo values.
+// mobile/lib/photos.ts
+// Mirrors web/lib/photos.ts — shared helpers for filtering non-renderable
+// photo values and picking the Vibe Check hero photo.
 
 export function getRenderablePhotos(
   photos?: Array<string | null | undefined>,
 ): string[] {
   return (photos ?? []).filter((photo): photo is string => {
     if (typeof photo !== 'string') return false;
-
     const trimmed = photo.trim();
     return trimmed !== '' && trimmed !== '_placeholder_';
   });
@@ -18,11 +18,8 @@ export function getPrimaryRenderablePhoto(
   return getRenderablePhotos(photos)[0] ?? null;
 }
 
-/** Prefers the Vibe Check-picked hero photo (ai.vibeCheck.heroPhotoIndex —
- *  the model's own read of which uploaded photo is the best swipe-card
- *  shot) over the first photo, falling back to it if the index is stale
- *  (photos re-ordered/deleted since generation) or missing (never ran
- *  Vibe Check). */
+/** Prefers the Vibe Check-picked hero photo (ai.vibeCheck.heroPhotoIndex)
+ *  over the first photo, falling back if the index is stale or missing. */
 export function getHeroPhoto(
   photos?: Array<string | null | undefined>,
   heroIndex?: number,

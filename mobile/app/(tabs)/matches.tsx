@@ -124,18 +124,14 @@ export default function MatchesTab() {
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
           {matches.map((match) => (
-            <Pressable
-              key={match.id}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              onPress={() =>
-                router.push({
-                  pathname: '/chat/[matchId]',
-                  params: { matchId: match.id, name: match.dog.name },
-                })
-              }
-            >
-              {/* Avatar */}
-              <View style={styles.avatarWrap}>
+            <View key={match.id} style={styles.row}>
+              {/* Avatar — its own pressable, to the dog's profile. Previously
+                  the whole row (avatar included) went straight to chat, with
+                  no way to see a matched dog's profile again. */}
+              <Pressable
+                style={styles.avatarWrap}
+                onPress={() => router.push({ pathname: '/dog/[matchId]', params: { matchId: match.id } })}
+              >
                 {match.dog.photos[0] ? (
                   <Image source={{ uri: match.dog.photos[0] }} style={styles.avatar} />
                 ) : (
@@ -144,10 +140,18 @@ export default function MatchesTab() {
                   </View>
                 )}
                 {match.unread && <View style={styles.unreadDot} />}
-              </View>
+              </Pressable>
 
-              {/* Text */}
-              <View style={styles.rowBody}>
+              {/* Text — its own pressable, to the chat thread. */}
+              <Pressable
+                style={({ pressed }) => [styles.rowBody, pressed && styles.rowPressed]}
+                onPress={() =>
+                  router.push({
+                    pathname: '/chat/[matchId]',
+                    params: { matchId: match.id, name: match.dog.name },
+                  })
+                }
+              >
                 <View style={styles.rowTop}>
                   <Text style={[styles.dogName, match.unread && styles.dogNameBold]} numberOfLines={1}>
                     {match.dog.name}
@@ -166,8 +170,8 @@ export default function MatchesTab() {
                     ? (match.lastMessage ?? 'Say hello! 👋')
                     : 'Open chat to send the first hello'}
                 </Text>
-              </View>
-            </Pressable>
+              </Pressable>
+            </View>
           ))}
         </ScrollView>
       )}

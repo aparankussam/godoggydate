@@ -22,6 +22,7 @@ import { trackEvent } from '../../../lib/analytics';
 import { getRenderablePhotos } from '../../../lib/photos';
 import { deleteAccount } from '../../../lib/account';
 import DogTradingCard from '../../../components/DogTradingCard';
+import VibeTypeCard from '../../../components/VibeTypeCard';
 import { shareOrDownloadCard } from '../../../lib/shareCard';
 import { onEntitlements, getFoundingMemberLink } from '../../../lib/entitlements';
 import { getFoundingPackPitch } from '../../../shared/utils/stripe';
@@ -336,6 +337,15 @@ export default function ProfilePage() {
               <p className="px-5 pb-4 -mt-1 text-sm italic leading-relaxed text-brown-mid">
                 “{vibeCheck.bio}”
               </p>
+            )}
+
+            {/* Full type card: decodes the archetype code and surfaces the
+                per-dog description the model writes — previously only the
+                name rendered anywhere, in the compact eyebrow above. */}
+            {vibeCheck?.archetype && (
+              <div className="px-5 pb-4 -mt-1">
+                <VibeTypeCard archetype={vibeCheck.archetype} />
+              </div>
             )}
 
             {/* Founding Pack + trust + Founding Member badges — computed/granted

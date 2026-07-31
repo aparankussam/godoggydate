@@ -233,48 +233,55 @@ export default function MatchesPage() {
               const hasLastMsg = !!m.lastMessage;
 
               return (
-                <Link
+                <div
                   key={m.matchId}
-                  href={`/app/messages/${m.matchId}`}
                   className="card rounded-[1.6rem] flex items-center gap-3 p-3 hover:-translate-y-0.5 hover:shadow-lg transition-all"
                 >
-                  {/* Photo */}
-                  <div className="w-20 h-20 rounded-[1.2rem] bg-gradient-to-br from-gold to-primary flex items-center justify-center shrink-0 overflow-hidden">
+                  {/* Photo — its own link, to the dog's profile. Previously
+                      the whole row (photo included) went straight to chat,
+                      with no way to see a matched dog's profile again. */}
+                  <Link
+                    href={`/app/dog/${m.matchId}`}
+                    aria-label={`View ${name}'s profile`}
+                    className="w-20 h-20 rounded-[1.2rem] bg-gradient-to-br from-gold to-primary flex items-center justify-center shrink-0 overflow-hidden"
+                  >
                     {photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={photo} alt={name} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-4xl">🐕</span>
                     )}
-                  </div>
+                  </Link>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-brown text-base truncate">{name}</p>
+                  {/* Info + chat icon — link to the chat thread. */}
+                  <Link href={`/app/messages/${m.matchId}`} className="flex-1 min-w-0 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-brown text-base truncate">{name}</p>
+                        {!hasLastMsg && (
+                          <span className="shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
+                            New match
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-brown-light truncate mt-0.5">{breed}</p>
+                      {hasLastMsg && (
+                        <p className="text-xs text-brown-mid mt-1 truncate">{m.lastMessage}</p>
+                      )}
                       {!hasLastMsg && (
-                        <span className="shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
-                          New match
-                        </span>
+                        <p className="text-xs text-primary font-medium mt-1">
+                          {m.chatUnlocked ? 'Open chat and say hello 👋' : `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlocks it forever`}
+                        </p>
                       )}
                     </div>
-                    <p className="text-xs text-brown-light truncate mt-0.5">{breed}</p>
-                    {hasLastMsg && (
-                      <p className="text-xs text-brown-mid mt-1 truncate">{m.lastMessage}</p>
-                    )}
-                    {!hasLastMsg && (
-                      <p className="text-xs text-primary font-medium mt-1">
-                        {m.chatUnlocked ? 'Open chat and say hello 👋' : `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlocks it forever`}
-                      </p>
-                    )}
-                  </div>
 
-                  <div className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center shadow-md ${
-                    m.chatUnlocked ? 'bg-primary text-white' : 'bg-brown-light/15 text-brown'
-                  }`}>
-                    {m.chatUnlocked ? '💬' : '🔒'}
-                  </div>
-                </Link>
+                    <div className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center shadow-md ${
+                      m.chatUnlocked ? 'bg-primary text-white' : 'bg-brown-light/15 text-brown'
+                    }`}>
+                      {m.chatUnlocked ? '💬' : '🔒'}
+                    </div>
+                  </Link>
+                </div>
               );
             })}
           </div>

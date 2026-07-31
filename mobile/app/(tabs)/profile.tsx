@@ -6,6 +6,7 @@ import { captureRef } from 'react-native-view-shot';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import ProfileEditor from '../../components/ProfileEditor';
 import DogTradingCard from '../../components/DogTradingCard';
+import VibeTypeCard from '../../components/VibeTypeCard';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
@@ -208,6 +209,15 @@ export default function ProfileTab() {
         <View style={styles.card}>
           {photos[0] ? <Image source={{ uri: photos[0] }} style={styles.hero} /> : null}
           <View style={styles.cardBody}>
+            {/* Photos 1+ never rendered anywhere outside the editor — an
+                owner had no way to see the rest of what they uploaded. */}
+            {photos.length > 1 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoStrip}>
+                {photos.slice(1).map((url: string, i: number) => (
+                  <Image key={i} source={{ uri: url }} style={styles.photoStripItem} />
+                ))}
+              </ScrollView>
+            )}
             {/* Vibe Check generates a named archetype and a bio in the dog's
                 own voice — already loaded into memory here (profile.ai)
                 since the onboarding flow shipped, and rendered nowhere on
@@ -225,6 +235,15 @@ export default function ProfileTab() {
             </Text>
             {profile.ai?.vibeCheck?.bio && (
               <Text style={styles.vibeBio}>“{profile.ai.vibeCheck.bio}”</Text>
+            )}
+
+            {/* Full type card: decodes the archetype code and surfaces the
+                per-dog description the model writes — previously only the
+                name rendered anywhere, in the compact eyebrow above. */}
+            {profile.ai?.vibeCheck?.archetype && (
+              <View style={styles.vibeTypeCardWrap}>
+                <VibeTypeCard archetype={profile.ai.vibeCheck.archetype} />
+              </View>
             )}
 
             {/* Founding Pack + trust badges — computed server-side, never
@@ -376,6 +395,14 @@ const styles = StyleSheet.create({
   },
   hero: { width: '100%', height: 280, backgroundColor: colors.creamDark },
   cardBody: { padding: 18 },
+  photoStrip: { marginBottom: 14 },
+  photoStripItem: {
+    width: 84,
+    height: 84,
+    borderRadius: radius.md,
+    marginRight: 8,
+    backgroundColor: colors.creamDark,
+  },
   archetype: {
     fontFamily: fonts.bold,
     fontSize: 12,
@@ -411,6 +438,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.brownMid,
   },
+  vibeTypeCardWrap: { marginTop: 12 },
   statusBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

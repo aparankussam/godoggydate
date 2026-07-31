@@ -6,7 +6,9 @@
 // is the first virality mechanic worth shipping: it works on day one.
 
 import type { SavedDogProfile } from '../lib/auth';
-import { getPrimaryRenderablePhoto } from '../lib/photos';
+import { getHeroPhoto } from '../lib/photos';
+import { breedConfidencePhrase } from '../lib/vibeCheck';
+import { FOUNDING_PACK_SIZE } from '../../shared/utils/stripe';
 
 interface Props {
   profile: SavedDogProfile;
@@ -27,7 +29,11 @@ function locationLabel(profile: SavedDogProfile): string {
 }
 
 export default function DogTradingCard({ profile, innerRef }: Props) {
-  const photo = getPrimaryRenderablePhoto(profile.photos);
+  const vibeCheck = profile.ai?.vibeCheck;
+  // The Vibe Check model already judges which uploaded photo is the
+  // clearest, best-lit shot of the dog for a card exactly like this one —
+  // previously ignored in favor of whichever photo happened to be first.
+  const photo = getHeroPhoto(profile.photos, vibeCheck?.heroPhotoIndex);
   const energy = Math.max(0, Math.min(100, profile.energyLevel ?? 50));
   const tags = [...(profile.playStyles ?? []), ...(profile.temperament ?? [])].slice(0, 3);
 
@@ -37,16 +43,28 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
       className="relative w-[360px] aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
       style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #E8633A 100%)' }}
     >
-      {/* Founding Pack badge */}
+      {/* Founding Pack badge — "1 of {SIZE}" makes the scarcity legible on
+          the card itself, not just on the profile page it's exported from. */}
       {typeof profile.foundingPackNumber === 'number' && (
         <div className="absolute top-5 left-5 z-10 rounded-full bg-black/25 backdrop-blur-sm px-3 py-1.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gold">
-            Founding Pack #{profile.foundingPackNumber}
+            #{profile.foundingPackNumber} · 1 of {FOUNDING_PACK_SIZE}
           </p>
         </div>
       )}
 
-      <div className="absolute top-5 right-5 z-10 text-2xl select-none" aria-hidden="true">🐾</div>
+      {/* Vibe Check type-code stamp — the model's 4-letter read on this dog,
+          previously computed and stored but never shown anywhere. Replaces
+          the purely decorative paw emoji that used to sit here. */}
+      {vibeCheck?.archetype.code ? (
+        <div className="absolute top-5 right-5 z-10 rounded-md bg-black/30 backdrop-blur-sm px-2.5 py-1.5">
+          <p className="font-mono text-xs font-bold tracking-[0.2em] text-gold">
+            {vibeCheck.archetype.code}
+          </p>
+        </div>
+      ) : (
+        <div className="absolute top-5 right-5 z-10 text-2xl select-none" aria-hidden="true">🐾</div>
+      )}
 
       {/* Photo */}
       <div className="absolute inset-0">
@@ -75,9 +93,9 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
         {/* Vibe Check's named archetype — the most shareable, distinctive
             thing the app generates about this dog, previously rendered on
             no surface at all including this one. */}
-        {profile.ai?.vibeCheck?.archetype.name && (
+        {vibeCheck?.archetype.name && (
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold">
-            ✨ {profile.ai.vibeCheck.archetype.name}
+            ✨ {vibeCheck.archetype.name}
           </p>
         )}
         <h3 className="font-display text-4xl text-white leading-tight">{profile.name}</h3>
@@ -85,6 +103,14 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
           {[profile.breed, profile.age, profile.size].filter(Boolean).join(' · ')}
         </p>
         <p className="mt-0.5 text-white/65 text-xs">{locationLabel(profile)}</p>
+        {/* Mutt Meter — the breed guess Vibe Check already makes, framed
+            honestly as a guess (never certain fact — see the vibe-check
+            prompt's trust-sensitivity note for mixes/rescues). */}
+        {vibeCheck?.breedGuess && (
+          <p className="mt-1 text-white/55 text-[11px]">
+            🔍 AI&apos;s read: {vibeCheck.breedGuess.name} · {breedConfidencePhrase(vibeCheck.breedGuess.confidence)}
+          </p>
+        )}
 
         {/* Energy stat bar */}
         <div className="mt-4">

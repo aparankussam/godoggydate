@@ -41,6 +41,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [celebrateId, setCelebrateId] = useState<string | null>(null);
 
   const preset = useMemo(() => REMINDER_PRESETS.find((p) => p.type === presetType) ?? REMINDER_PRESETS[0], [presetType]);
 
@@ -79,7 +80,14 @@ export default function RemindersSection({ dogId, reminders }: Props) {
   async function handleComplete(reminder: Reminder) {
     setBusyId(reminder.id);
     try {
-      await completeReminder(dogId, reminder);
+      const result = await completeReminder(dogId, reminder);
+      // Only celebrate a REAL streak (2+ on-time completions in a row) —
+      // a single completion isn't a streak yet, and a reset-to-0 (late
+      // completion) shouldn't look like a win.
+      if (result && result.streak >= 2) {
+        setCelebrateId(reminder.id);
+        setTimeout(() => setCelebrateId(null), 1400);
+      }
     } catch {
       // Non-critical — the reminder just stays as-is, user can retry.
     } finally {
@@ -169,12 +177,36 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           {sorted.map((r) => {
             const due = dueLabel(r.dueDate);
             const busy = busyId === r.id;
+            const hasStreak = !!r.recurrenceDays && (r.currentStreak ?? 0) >= 2;
+            const celebrating = celebrateId === r.id;
             return (
-              <div key={r.id} className="px-4 py-3 flex items-center justify-between gap-3">
+              <div key={r.id} className="relative px-4 py-3 flex items-center justify-between gap-3 overflow-hidden">
+                {/* Streak celebration — a real, honest count (consecutive
+                    on-time completions of THIS recurring reminder, tracked
+                    forward from when currentStreak shipped), not a vanity
+                    number. Only fires on the completion that reaches 2+. */}
+                {celebrating && (
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-1">
+                    {['🔥', '🐾', '🔥'].map((emoji, i) => (
+                      <span
+                        key={i}
+                        className="animate-confetti text-2xl"
+                        style={{ animationDuration: '1.1s', animationDelay: `${i * 90}ms` }}
+                      >
+                        {emoji}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-brown truncate">{r.label}</p>
                   <p className={`text-xs ${due.urgent ? 'text-red-600 font-semibold' : 'text-brown-light'}`}>
                     {due.text}{r.recurrenceDays ? ' · repeats' : ''}
+                    {hasStreak && (
+                      <span className="ml-1.5 font-bold text-amber-600">
+                        🔥 {r.currentStreak} in a row
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

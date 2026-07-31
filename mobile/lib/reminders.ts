@@ -53,6 +53,7 @@ function toReminder(id: string, data: Record<string, unknown>): Reminder {
     lastCompletedAt: toMillis(data.lastCompletedAt),
     notifiedAt: toMillis(data.notifiedAt),
     createdAt: toMillis(data.createdAt) ?? Date.now(),
+    currentStreak: typeof data.currentStreak === 'number' ? data.currentStreak : undefined,
   };
 }
 
@@ -89,23 +90,31 @@ export async function deleteReminder(dogId: string, reminderId: string): Promise
   await deleteDoc(doc(db, 'dogs', dogId, 'reminders', reminderId));
 }
 
-export async function completeReminder(dogId: string, reminder: Reminder): Promise<void> {
+export async function completeReminder(dogId: string, reminder: Reminder): Promise<{ streak: number } | null> {
   const { db } = getFirebase();
   const ref = doc(db, 'dogs', dogId, 'reminders', reminder.id);
   const now = Date.now();
 
   if (!reminder.recurrenceDays) {
     await deleteDoc(ref);
-    return;
+    return null;
   }
 
   const intervalMs = reminder.recurrenceDays * 24 * 60 * 60 * 1000;
   let nextDue = reminder.dueDate + intervalMs;
   while (nextDue <= now) nextDue += intervalMs;
 
+  // On-time (at or before the original due date) extends the streak;
+  // completing it late resets it — no credit for catching up.
+  const wasOnTime = now <= reminder.dueDate;
+  const nextStreak = wasOnTime ? (reminder.currentStreak ?? 0) + 1 : 0;
+
   await updateDoc(ref, {
     dueDate: Timestamp.fromMillis(nextDue),
     lastCompletedAt: serverTimestamp(),
     notifiedAt: null,
+    currentStreak: nextStreak,
   });
+
+  return { streak: nextStreak };
 }

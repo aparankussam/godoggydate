@@ -2,6 +2,9 @@ import { forwardRef } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
+import { getHeroPhoto } from '../lib/photos';
+import { breedConfidencePhrase } from '../lib/vibeCheck';
+import { FOUNDING_PACK_SIZE } from '../../shared/utils/stripe';
 import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
@@ -25,7 +28,11 @@ function locationLabel(profile: SavedDogProfile): string {
  * Wrapped in forwardRef so react-native-view-shot can capture it as a PNG.
  */
 const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
-  const photo = (profile.photos ?? []).find((p) => p && !p.startsWith('_'));
+  const vibeCheck = profile.ai?.vibeCheck;
+  // The Vibe Check model already judges which uploaded photo is the
+  // clearest, best-lit shot for a card exactly like this one — previously
+  // ignored in favor of whichever photo happened to be uploaded first.
+  const photo = getHeroPhoto(profile.photos, vibeCheck?.heroPhotoIndex);
   const energy = Math.max(0, Math.min(100, profile.energyLevel ?? 50));
   const tags = [...(profile.playStyles ?? []), ...(profile.temperament ?? [])].slice(0, 3);
 
@@ -58,7 +65,15 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
 
         {typeof profile.foundingPackNumber === 'number' && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>Founding Pack #{profile.foundingPackNumber}</Text>
+            <Text style={styles.badgeText}>#{profile.foundingPackNumber} · 1 of {FOUNDING_PACK_SIZE}</Text>
+          </View>
+        )}
+
+        {/* Vibe Check type-code stamp — the model's 4-letter read on this
+            dog, previously computed and stored but never shown anywhere. */}
+        {vibeCheck?.archetype.code && (
+          <View style={styles.codeBadge}>
+            <Text style={styles.codeBadgeText}>{vibeCheck.archetype.code}</Text>
           </View>
         )}
       </View>
@@ -67,14 +82,21 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
         {/* Vibe Check's named archetype — the most shareable, distinctive
             thing the app generates about this dog, previously rendered on
             no surface at all including this one. */}
-        {profile.ai?.vibeCheck?.archetype.name && (
-          <Text style={styles.archetype}>✨ {profile.ai.vibeCheck.archetype.name}</Text>
+        {vibeCheck?.archetype.name && (
+          <Text style={styles.archetype}>✨ {vibeCheck.archetype.name}</Text>
         )}
         <Text style={styles.name}>{profile.name}</Text>
         <Text style={styles.meta}>
           {[profile.breed, profile.age, profile.size].filter(Boolean).join(' · ')}
         </Text>
         <Text style={styles.location}>{locationLabel(profile)}</Text>
+        {/* Mutt Meter — the breed guess Vibe Check already makes, framed
+            honestly as a guess (never certain fact). */}
+        {vibeCheck?.breedGuess && (
+          <Text style={styles.muttMeter}>
+            🔍 AI&apos;s read: {vibeCheck.breedGuess.name} · {breedConfidencePhrase(vibeCheck.breedGuess.confidence)}
+          </Text>
+        )}
 
         <View style={styles.energyRow}>
           <Text style={styles.energyLabel}>{energyLabel(energy)}</Text>
@@ -140,6 +162,22 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  codeBadge: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  codeBadgeText: {
+    color: colors.gold,
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    letterSpacing: 2,
+  },
   photo: {
     width: '100%',
     height: '100%',
@@ -187,6 +225,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 11,
     marginTop: 2,
+  },
+  muttMeter: {
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: fonts.body,
+    fontSize: 11,
+    marginTop: 4,
   },
   energyRow: {
     flexDirection: 'row',

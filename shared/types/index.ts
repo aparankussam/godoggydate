@@ -178,6 +178,12 @@ export interface Reminder {
   lastCompletedAt?: number;
   notifiedAt?: number; // last due date (unix ms) a push already fired for — prevents duplicate sends
   createdAt: number;
+  // Consecutive on-time completions of a RECURRING reminder (undefined/0 for
+  // one-time reminders, which get deleted on completion rather than
+  // repeating). Incremented in completeReminder() when completed at or
+  // before dueDate; reset to 0 on a late completion. Only ever counts
+  // forward from when this field shipped — no retroactive history exists.
+  currentStreak?: number;
 }
 
 export interface UserProfile {
