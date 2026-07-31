@@ -501,7 +501,10 @@ export default function AppPage() {
               </button>
               {showDemoGallery && (
                 <div className="mt-2 w-full">
-                  <DemoGalleryGrid dogs={buildDemoGalleryDogs(userDog ?? undefined)} />
+                  <DemoGalleryGrid
+                    dogs={buildDemoGalleryDogs(userDog ?? undefined)}
+                    againstDogName={userDog?.name}
+                  />
                 </div>
               )}
             </div>
