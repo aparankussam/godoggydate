@@ -1,11 +1,16 @@
 import type { FirebaseError } from 'firebase/app';
 
-const INDEX_LINK_RE = /https:\/\/console\.firebase\.google\.com\/\S+/i;
-
 function isFirebaseError(error: unknown): error is FirebaseError {
   return !!error && typeof error === 'object' && 'code' in error;
 }
 
+// Every branch below used to return the message straight from here to the
+// end user — a dog owner, not a developer. "Run firebase deploy --only
+// firestore:indexes" and "Check your signed-in user and Firestore rules"
+// are CLI commands and infra jargon that mean nothing to them and make the
+// app look broken/unfinished. Callers already console.error the raw error
+// before showing this string, so nothing here is lost for debugging — only
+// what the USER sees changes.
 export function formatFirestoreLoadError(
   error: unknown,
   fallbackMessage: string,
@@ -13,20 +18,19 @@ export function formatFirestoreLoadError(
   if (!isFirebaseError(error)) return fallbackMessage;
 
   if (error.code === 'failed-precondition') {
-    const indexLink = error.message.match(INDEX_LINK_RE)?.[0];
-    if (indexLink) {
-      return 'This Firestore query needs a composite index for the matches/messages list. Deploy firestore indexes, or use the Firebase create-index link from the browser console, then refresh.';
-    }
-
-    return 'This Firestore query needs a composite index for the matches/messages list. Run firebase deploy --only firestore:indexes, then refresh this page.';
+    // A missing composite index is an operator problem, not a user mistake —
+    // frame it that way rather than surfacing what actually went wrong.
+    // Doesn't claim anyone's been notified: there's no error monitoring
+    // wired up yet, and that would just be a different false claim.
+    return "Something didn't load right on our end. Please try again in a few minutes.";
   }
 
   if (error.code === 'permission-denied') {
-    return 'Firestore denied this query. Check your signed-in user and Firestore rules.';
+    return 'You don’t have access to view this right now. Try signing out and back in.';
   }
 
   if (error.code === 'unavailable') {
-    return 'Could not reach Firestore right now. Check your connection and try again.';
+    return 'Could not reach the server right now. Check your connection and try again.';
   }
 
   return fallbackMessage;

@@ -132,6 +132,8 @@ export default function ChatPage() {
   const [chatUnlocked, setChatUnlocked]     = useState(false);
   const [hasLifetime, setHasLifetime]       = useState(false);
   const [accessDenied, setAccessDenied]     = useState(false);
+  const [loadError, setLoadError]           = useState(false);
+  const [loadRetryToken, setLoadRetryToken] = useState(0);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [showReportMenu, setShowReportMenu] = useState(false);
   const [reportDone, setReportDone]         = useState<string | null>(null);
@@ -223,6 +225,8 @@ export default function ChatPage() {
     let profileLoaded = false;
 
     const unsub = onSnapshot(doc(db, 'matches', matchId), async (matchSnap) => {
+      setLoadError(false); // a successful delivery means we're not actually stuck
+
       if (!matchSnap.exists()) {
         setAccessDenied(true);
         setLoadingProfile(false);
@@ -262,12 +266,21 @@ export default function ChatPage() {
       }
 
       setLoadingProfile(false);
-    }, () => {
+    }, (error) => {
+      // A transient read failure here used to leave chatUnlocked/accessDenied
+      // at their initial `false` values and just stop the spinner — which
+      // fell straight through to the paywall branch below, presenting a
+      // Stripe checkout headlined "Unlock chat with Your Match" for what was
+      // actually a dropped connection, not an unpaid chat. Route this to its
+      // own error state instead so it never gets mistaken for either "access
+      // denied" or "payment required".
+      console.error('Failed to subscribe to match:', error);
+      setLoadError(true);
       setLoadingProfile(false);
     });
 
     return unsub;
-  }, [authUser, matchId]);
+  }, [authUser, matchId, loadRetryToken]);
 
   // ── Real-time messages listener ───────────────────────────────────────────────
   useEffect(() => {
@@ -500,6 +513,25 @@ export default function ChatPage() {
   if (!authUser) {
     router.replace('/app');
     return null;
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
+        <span className="text-4xl">😕</span>
+        <p className="font-display text-2xl text-brown">Couldn&apos;t load this chat</p>
+        <p className="text-brown-light text-sm">Check your connection and try again.</p>
+        <button
+          onClick={() => {
+            setLoadingProfile(true);
+            setLoadRetryToken((t) => t + 1);
+          }}
+          className="btn-primary px-8 py-3"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   if (accessDenied) {

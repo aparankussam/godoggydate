@@ -195,6 +195,12 @@ export default function MessagesPage() {
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <span className="text-4xl">😕</span>
             <p className="text-brown-mid text-sm">{error}</p>
+            <button
+              onClick={() => loadConversations(authUser.uid, setConvos, setError, setLoading)}
+              className="btn-primary px-6 py-2 text-sm"
+            >
+              Retry
+            </button>
           </div>
         )}
 

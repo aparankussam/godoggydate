@@ -25,7 +25,7 @@ function openLegalLink(path: string) {
 }
 
 export default function ProfileTab() {
-  const { user, profile, profileComplete, saveProfile, signOutUser } = useSession();
+  const { user, profile, profileComplete, saveProfile, signOutUser, loading: sessionLoading } = useSession();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -146,7 +146,29 @@ export default function ProfileTab() {
     );
   }
 
-  if (!user) return null;
+  // Check session resolution BEFORE treating the user as signed out. Firebase
+  // auth reports `user: null` until it finishes restoring a previous session
+  // on launch, so this used to return null outright — a blank cream screen
+  // with no indication anything was happening, on every cold launch, for
+  // every returning user, however briefly.
+  if (sessionLoading) {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <Text style={styles.gateTitle}>Sign in to view your profile</Text>
+        <Text style={styles.gateBody}>
+          Start a session from the welcome screen to see your dog's profile.
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   if (editing || !profile) {
     return (
@@ -180,7 +202,7 @@ export default function ProfileTab() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Profile</Text>
         <Text style={styles.subtitle}>
-          {profileComplete ? 'Your mobile profile is ready for Phase 2 discover.' : 'Complete your dog profile to unlock the next phase.'}
+          {profileComplete ? 'Your profile is ready — start discovering nearby pups.' : "Complete your dog's profile to start discovering nearby pups."}
         </Text>
 
         <View style={styles.card}>
@@ -300,6 +322,27 @@ export default function ProfileTab() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.cream },
   content: { padding: 20, paddingBottom: 40 },
+  gateContainer: {
+    flex: 1,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  gateTitle: {
+    fontFamily: fonts.display,
+    fontSize: 24,
+    color: colors.brown,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  gateBody: {
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.brownLight,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   title: {
     fontFamily: fonts.display,
     fontSize: 30,

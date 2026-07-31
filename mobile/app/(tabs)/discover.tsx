@@ -51,7 +51,7 @@ function formatDensityLine(withinFive: number, withinRadius: number, radiusMiles
 }
 
 export default function DiscoverTab() {
-  const { user, profile, profileComplete, saveProfile } = useSession();
+  const { user, profile, profileComplete, saveProfile, loading: sessionLoading } = useSession();
   const [deck, setDeck] = useState<DiscoverDog[]>([]);
   const [radiusApplied, setRadiusApplied] = useState(false);
   const [index, setIndex] = useState(0);
@@ -69,7 +69,6 @@ export default function DiscoverTab() {
 
   const likeScale = useSharedValue(1);
   const passScale = useSharedValue(1);
-  const starScale = useSharedValue(1);
 
   // Ask for approximate location once per session if the dog profile has none stored.
   // Persists rounded coords to the user's own dog doc; respects denial silently.
@@ -185,13 +184,6 @@ export default function DiscoverTab() {
     topCardRef.current?.triggerSwipe('like');
   }
 
-  function handleSuperLike() {
-    bounce(starScale);
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Superlike = like for now; wire to separate action in Phase 3
-    topCardRef.current?.triggerSwipe('like');
-  }
-
   function handleReset() {
     if (!user) return;
     setLoading(true);
@@ -227,7 +219,19 @@ export default function DiscoverTab() {
 
   const likeButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
   const passButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: passScale.value }] }));
-  const starButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: starScale.value }] }));
+
+  // Check session resolution BEFORE the sign-in/profile gates. Firebase auth
+  // reports `user: null` and `profile: null` until it finishes restoring a
+  // previous session on launch, so a returning signed-in user briefly saw
+  // "Sign in to discover pups" then "Finish your profile first" flash before
+  // their real deck loaded — the app appeared to forget them on every launch.
+  if (sessionLoading) {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </SafeAreaView>
+    );
+  }
 
   if (!user) {
     return (
@@ -443,13 +447,6 @@ export default function DiscoverTab() {
           <Animated.View style={passButtonStyle}>
             <Pressable style={[styles.actionBtn, styles.passBtn]} onPress={handlePassPress}>
               <Text style={styles.passIcon}>✕</Text>
-            </Pressable>
-          </Animated.View>
-
-          {/* Superlike */}
-          <Animated.View style={starButtonStyle}>
-            <Pressable style={[styles.actionBtn, styles.starBtn]} onPress={handleSuperLike}>
-              <Text style={styles.starIcon}>⭐</Text>
             </Pressable>
           </Animated.View>
 
@@ -851,15 +848,6 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
     shadowColor: colors.danger,
   },
-  starBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: colors.gold,
-    shadowColor: colors.gold,
-  },
   likeBtn: {
     width: 68,
     height: 68,
@@ -868,7 +856,6 @@ const styles = StyleSheet.create({
     shadowColor: colors.primary,
   },
   passIcon: { fontSize: 22, color: colors.danger },
-  starIcon: { fontSize: 20 },
   likeIcon: { fontSize: 28 },
   emptyCard: {
     width: CARD_WIDTH,

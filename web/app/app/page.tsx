@@ -469,7 +469,7 @@ export default function AppPage() {
                 You might be the first dog parent in your neighborhood. New dogs drop daily-ish.
               </p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                Recruit a dog parent — Kaju will remember this.
+                Recruit a dog parent{dogName ? ` — ${dogName} will remember this` : ''}.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button

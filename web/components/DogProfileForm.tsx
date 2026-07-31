@@ -444,10 +444,16 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
     ? `${cityStr}, ${stateStr}`
     : '';
 
-  const uploadedUrls = photos.map((photo) => photo.url).filter(Boolean);
-  const photosForCheck = uploadedUrls.length > 0
-    ? [...uploadedUrls, ...Array(Math.max(0, MIN_PHOTOS - uploadedUrls.length)).fill('_placeholder_')]
-    : [];
+  // isProfileComplete only checks photos.length >= 3 — it never reads the
+  // values. This used to build photosForCheck from already-uploaded Storage
+  // URLs only, so a brand-new user who just picked 3 photos (still local
+  // Files, url === '' until submit) saw uploadedUrls.length === 0 and got
+  // told their profile was incomplete at the exact moment it wasn't — an
+  // orange progress bar, "Save Profile" instead of "Save & Start Swiping",
+  // and a "To unlock swiping, add:" heading over an empty list, since every
+  // other requirement was in fact met. Count every selected photo, local or
+  // uploaded — the local ones upload for real on submit either way.
+  const photosForCheck = Array(photos.length).fill('_placeholder_');
 
   const complete = isProfileComplete({
     name: name.trim(),
@@ -549,7 +555,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-5">
         <div ref={photosRef} tabIndex={-1}>
           <label className="mb-1.5 block text-sm font-semibold text-brown-mid">
-            Photos <span className="font-normal text-brown-light">(1 required, up to {MAX_PHOTOS})</span>
+            Photos <span className="font-normal text-brown-light">({MIN_PHOTOS} required, up to {MAX_PHOTOS})</span>
           </label>
           {photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">

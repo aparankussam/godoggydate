@@ -80,6 +80,8 @@ export default function ChatScreen() {
   const [sharingMemoryCard, setSharingMemoryCard] = useState(false);
   const [myBestFriendMatchId, setMyBestFriendMatchId] = useState<string | null>(null);
   const [togglingBestFriend, setTogglingBestFriend] = useState(false);
+  const [matchLoadError, setMatchLoadError] = useState(false);
+  const [matchLoadRetryToken, setMatchLoadRetryToken] = useState(0);
   const memoryCardRef = useRef<View>(null);
   const listRef = useRef<FlatList>(null);
   const paymentConfigured = isPaymentConfigured();
@@ -261,6 +263,8 @@ export default function ChatScreen() {
     const unsubscribe = onSnapshot(
       doc(db, 'matches', resolvedMatchId),
       (matchDoc) => {
+        setMatchLoadError(false); // a successful delivery means we're not actually stuck
+
         if (!matchDoc.exists()) {
           setChatUnlocked(false);
           return;
@@ -283,12 +287,17 @@ export default function ChatScreen() {
           : currentMatch));
       },
       (error) => {
+        // This used to only log — chatUnlocked stayed at its initial `false`,
+        // which combined with hasLifetime=false fell straight into the
+        // !canChat paywall branch below and presented a real payment button
+        // for what was actually a dropped connection, not an unpaid chat.
         console.warn('Failed to subscribe to match state:', error);
+        setMatchLoadError(true);
       },
     );
 
     return unsubscribe;
-  }, [resolvedMatchId, user, hasLifetime]);
+  }, [resolvedMatchId, user, hasLifetime, matchLoadRetryToken]);
 
   useEffect(() => {
     if (!canChat) return;
@@ -607,6 +616,17 @@ export default function ChatScreen() {
       ) : loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : matchLoadError ? (
+        <View style={styles.emptyChat}>
+          <Text style={styles.emptyChatEmoji}>😕</Text>
+          <Text style={styles.emptyChatText}>Couldn’t load this chat. Check your connection and try again.</Text>
+          <Pressable
+            style={styles.statusButton}
+            onPress={() => setMatchLoadRetryToken((t) => t + 1)}
+          >
+            <Text style={styles.statusButtonText}>Retry</Text>
+          </Pressable>
         </View>
       ) : match && isSeedUserId(match.dog.id) ? (
         <View style={styles.emptyChat}>

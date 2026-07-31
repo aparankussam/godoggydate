@@ -31,7 +31,7 @@ export default function IndexScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>GoDoggyDate</Text>
-        <Text style={styles.subtitle}>Preparing your mobile beta…</Text>
+        <Text style={styles.subtitle}>Sniffing things out…</Text>
         <ActivityIndicator color={colors.primary} />
       </View>
     </SafeAreaView>

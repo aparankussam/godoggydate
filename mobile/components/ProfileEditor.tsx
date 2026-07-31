@@ -261,7 +261,7 @@ export default function ProfileEditor({
           ? 'Update photos, details, and play preferences for your returning profile.'
           : hasExistingProfile
             ? 'Your profile is saved, but a few required details are still missing before discovery unlocks.'
-            : 'This Phase 1 mobile beta focuses on auth, profile setup, and photo upload.'}
+            : 'Add your dog’s photos and a few details to get started.'}
       </Text>
 
       <View style={styles.section}>

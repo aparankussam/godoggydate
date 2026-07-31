@@ -502,8 +502,13 @@ export default function ProfilePage() {
         {/* ── Right column: the card, plus the day-to-day tools ──────────── */}
         {/* Sticky on desktop so the card stays visible while the left column
             scrolls — it's the most visually distinctive thing on the page and
-            the reason to come back to it. */}
-        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24">
+            the reason to come back to it. Capped to the viewport height with
+            its own scroll: sticky alone (no max-height) left the Founding
+            Member CTA at the bottom permanently unreachable whenever this
+            column's own content — card + reminders + household + CTA — ran
+            taller than the screen, since a sticky element with no shorter
+            sibling to scroll past never gets the chance to un-stick. */}
+        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
 
         {/* Trading card share */}
         {savedProfile && complete && (

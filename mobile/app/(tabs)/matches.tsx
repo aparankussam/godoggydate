@@ -15,9 +15,11 @@ import { fetchMatches, formatMatchTime, type MatchItem } from '../../lib/matches
 import { useSession } from '../../lib/session';
 
 export default function MatchesTab() {
-  const { user } = useSession();
+  const { user, loading: sessionLoading } = useSession();
   const [matches, setMatches] = useState<MatchItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -25,6 +27,7 @@ export default function MatchesTab() {
       if (!user) {
         if (active) {
           setMatches([]);
+          setError(null);
           setLoading(false);
         }
         return () => {
@@ -33,9 +36,17 @@ export default function MatchesTab() {
       }
 
       setLoading(true);
+      setError(null);
       fetchMatches(user.uid)
         .then((nextMatches) => {
           if (active) setMatches(nextMatches);
+        })
+        .catch((err) => {
+          // A failed load must not render as "No matches yet" — that tells
+          // the user their dog has no matches when the truth is the app
+          // couldn't check, and the user has no way to tell the difference.
+          console.warn('Failed to load matches:', err);
+          if (active) setError(err instanceof Error ? err.message : 'Could not load your matches.');
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -44,8 +55,21 @@ export default function MatchesTab() {
       return () => {
         active = false;
       };
-    }, [user]),
+    }, [user, retryToken]),
   );
+
+  // Check session resolution BEFORE the sign-in gate. On a cold launch,
+  // Firebase auth reports `user: null` until it finishes restoring the
+  // previous session, so a returning signed-in user briefly saw "Sign in to
+  // view matches" flash before their real matches loaded — the app appeared
+  // to sign them out on every launch.
+  if (sessionLoading) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   if (!user) {
     return (
@@ -77,7 +101,19 @@ export default function MatchesTab() {
         </Text>
       </View>
 
-      {matches.length === 0 ? (
+      {error ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyEmoji}>😕</Text>
+          <Text style={styles.emptyTitle}>Couldn&apos;t load matches</Text>
+          <Text style={styles.emptyBody}>{error}</Text>
+          <Pressable
+            style={styles.retryBtn}
+            onPress={() => setRetryToken((t) => t + 1)}
+          >
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : matches.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyEmoji}>💛</Text>
           <Text style={styles.emptyTitle}>No matches yet</Text>
@@ -247,5 +283,17 @@ const styles = StyleSheet.create({
     color: colors.brownLight,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  retryBtn: {
+    marginTop: 18,
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  retryBtnText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: '#fff',
   },
 });

@@ -183,39 +183,46 @@ export function formatMatchTime(ts: number): string {
 export async function fetchMatches(userId: string): Promise<MatchItem[]> {
   if (!userId) return [];
 
-  try {
-    const db = getFirebase().db;
-    const [matchQueries, blockedIds, entitlements] = await Promise.all([
-      Promise.allSettled([
-        getDocs(query(collection(db, 'matches'), where('dog1UserId', '==', userId))),
-        getDocs(query(collection(db, 'matches'), where('dog2UserId', '==', userId))),
-      ]),
-      getBlockedUserIds(userId),
-      getEntitlements(userId),
-    ]);
+  const db = getFirebase().db;
+  const [matchQueries, blockedIds, entitlements] = await Promise.all([
+    Promise.allSettled([
+      getDocs(query(collection(db, 'matches'), where('dog1UserId', '==', userId))),
+      getDocs(query(collection(db, 'matches'), where('dog2UserId', '==', userId))),
+    ]),
+    getBlockedUserIds(userId),
+    getEntitlements(userId),
+  ]);
 
-    const docs = new Map<string, FirestoreMatchDoc>();
-    for (const result of matchQueries) {
-      if (result.status !== 'fulfilled') continue;
-      for (const snap of result.value.docs) {
-        docs.set(snap.id, snap.data() as FirestoreMatchDoc);
-      }
-    }
-
-    if (docs.size > 0) {
-      const normalized = await Promise.all(
-        [...docs.entries()].map(([id, data]) =>
-          normalizeMatchDoc(id, data, userId, blockedIds, entitlements.lifetimeChatUnlocks)),
-      );
-      return normalized
-        .filter((match): match is MatchItem => Boolean(match))
-        .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
-    }
-  } catch (err) {
-    console.warn('Could not load Firestore matches', err);
+  // If EVERY match query failed, we have no idea how many matches exist —
+  // that is not the same fact as "zero matches", and the caller must not
+  // treat it as one. This used to be swallowed into a `catch` that returned
+  // [] unconditionally, so a Firestore outage rendered as a cheerful "No
+  // matches yet" and the user blamed their own dog rather than the app.
+  // A single query failing (the other direction still succeeded) degrades
+  // gracefully instead — better to show the real matches we do have.
+  if (matchQueries.every((result) => result.status === 'rejected')) {
+    const reason = matchQueries[0].status === 'rejected' ? matchQueries[0].reason : undefined;
+    console.warn('Could not load Firestore matches', reason);
+    throw new Error('Could not load your matches — check your connection and try again.');
   }
 
-  return [];
+  const docs = new Map<string, FirestoreMatchDoc>();
+  for (const result of matchQueries) {
+    if (result.status !== 'fulfilled') continue;
+    for (const snap of result.value.docs) {
+      docs.set(snap.id, snap.data() as FirestoreMatchDoc);
+    }
+  }
+
+  if (docs.size === 0) return [];
+
+  const normalized = await Promise.all(
+    [...docs.entries()].map(([id, data]) =>
+      normalizeMatchDoc(id, data, userId, blockedIds, entitlements.lifetimeChatUnlocks)),
+  );
+  return normalized
+    .filter((match): match is MatchItem => Boolean(match))
+    .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
 }
 
 export async function fetchMessages(matchId: string): Promise<ChatMessage[]> {
