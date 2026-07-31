@@ -560,7 +560,9 @@ export default function AppPage() {
               </button>
               {showDemoGallery && (
                 <div className="mt-2 w-full">
-                  <DemoGalleryGrid dogs={buildDemoGalleryDogs()} />
+                  {/* Signed out: no dog to score against, so let them sketch
+                      one and watch the engine re-score live. */}
+                  <DemoGalleryGrid dogs={[]} interactive />
                 </div>
               )}
             </div>

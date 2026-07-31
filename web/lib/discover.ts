@@ -187,39 +187,55 @@ function getSeedCandidateDogs(excludedIds: Set<string>): DogProfile[] {
 // gallery, computed against the viewer's own dog when known.
 export function buildDemoGalleryDogs(baseDog?: DogProfile): DiscoverFeedDog[] {
   const dogs = getSeedCandidateDogs(new Set());
-  const unscored: CompatibilityResult = {
-    score: 0,
-    quality: 'good',
-    label: '',
-    microcopy: '',
-    reasons: [],
-    warnings: [],
-    breakdown: {
-      breedScore: 0, sizeScore: 0, energyScore: 0,
-      goodWithScore: 0, playStyleScore: 0,
-      healthScore: 0, distanceScore: 0, penalty: 0,
-    },
-  };
+  // Every dog is scored, always. This used to substitute a hardcoded zeroed
+  // CompatibilityResult whenever baseDog was undefined — i.e. for every
+  // signed-out visitor, which is the entire audience the demo exists for.
+  // The result was that "see how matching works" showed a photo grid to
+  // strangers and the working engine only to people who had already signed
+  // up. Guests now get scored against an explicitly-labeled sample dog
+  // (buildDemoViewerDog) that they can adjust, so the demo shows the
+  // mechanism rather than a verdict.
+  const viewer = baseDog ?? buildDemoViewerDog();
   return dogs
-    .map((dog) => (baseDog ? toFeedDog(baseDog, dog, true) : {
-      id:            dog.id,
-      firestoreId:   dog.id,
-      ownerId:       dog.ownerId,
-      name:          dog.name,
-      breed:         dog.breed,
-      age:           dog.age,
-      sex:           dog.sex,
-      size:          dog.size,
-      energyLevel:   dog.energyLevel,
-      photos:        dog.photos,
-      vaccinated:    dog.vaccinated,
-      playStyles:    dog.playStyles,
-      prompts:       dog.prompts,
-      distanceMiles: SEED_DISTANCES[dog.name] ?? 1.2,
-      compat:        unscored,
-      isDemo:        true,
-    }))
+    .map((dog) => toFeedDog(viewer, dog, true))
     .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
+}
+
+/**
+ * A stand-in "your dog" for signed-out visitors playing with the demo.
+ *
+ * Deliberately a plausible middle-of-the-road dog: medium, moderately
+ * energetic, no restrictions — so the seed cast produces a spread of
+ * verdicts (some perfect, some slow-intro, some blocked) rather than
+ * clustering at one end and making the engine look like it always says the
+ * same thing. Overrides let the demo's controls move size and energy and
+ * re-score live, which is what actually demonstrates that the score is
+ * caused by the inputs.
+ *
+ * Never written to Firestore and never presented as a real dog.
+ */
+export function buildDemoViewerDog(overrides: Partial<DogProfile> = {}): DogProfile {
+  return {
+    id:          'demo-viewer',
+    ownerId:     'demo-viewer',
+    name:        'your dog',
+    breed:       'Mixed Breed',
+    purebred:    false,
+    size:        'M',
+    age:         'adult',
+    sex:         'female',
+    fixed:       true,
+    energyLevel: 60,
+    photos:      [],
+    goodWith:    ['all dogs'],
+    notGoodWith: [],
+    playStyles:  ['loves fetch 🎾', 'gentle play 🐾'],
+    boundaries:  [],
+    allergies:   [],
+    vaccinated:  true,
+    vetChecked:  true,
+    ...overrides,
+  } as DogProfile;
 }
 
 // Real matches only. Previously fell back to recycling all 15 (mostly

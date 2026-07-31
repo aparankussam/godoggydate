@@ -16,15 +16,29 @@
 // Now it renders that result: the score, why the engine reached it, and what
 // it would warn you about before a meetup. Expanding a dog shows the per-axis
 // breakdown, which is the actual answer to "how does matching work".
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { buildDemoGalleryDogs, buildDemoViewerDog } from '../lib/discover';
 import type { DiscoverFeedDog } from '../lib/discover';
+import type { DogSize } from '../../shared/types';
 
 interface Props {
   dogs: DiscoverFeedDog[];
   /** The signed-in user's dog name, when there is one. Scores are computed
    *  against THEIR dog, and saying so out loud is most of the point. */
   againstDogName?: string;
+  /** Signed-out mode: the viewer has no dog, so let them sketch one and
+   *  re-score live. A demo that only shows a verdict teaches nothing; one
+   *  where the number moves as you drag proves the score is caused by the
+   *  inputs rather than decoration. */
+  interactive?: boolean;
 }
+
+const SIZES: { value: DogSize; label: string }[] = [
+  { value: 'S',  label: 'Small'  },
+  { value: 'M',  label: 'Medium' },
+  { value: 'L',  label: 'Large'  },
+  { value: 'XL', label: 'Giant'  },
+];
 
 /** The seven axes calculateCompatibility() scores, with their max weights.
  *  Mirrors shared/utils/matchingEngine.ts — if the weights there change,
@@ -45,30 +59,83 @@ const QUALITY_STYLES: Record<string, { chip: string; ring: string }> = {
   blocked: { chip: 'bg-red-100 text-red-800 border-red-300',       ring: 'ring-red-400'   },
 };
 
-export default function DemoGalleryGrid({ dogs, againstDogName }: Props) {
+export default function DemoGalleryGrid({ dogs, againstDogName, interactive = false }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [size, setSize] = useState<DogSize>('M');
+  const [energy, setEnergy] = useState(60);
 
-  // Without a signed-in dog there is nothing to score against, so
-  // buildDemoGalleryDogs returns a zeroed CompatibilityResult. Rendering a 0
-  // beside every dog would read as "these are all terrible matches" rather
-  // than "we don't know your dog yet" — so fall back to the plain gallery.
-  const hasScores = dogs.some((d) => d.compat.score > 0);
+  // In interactive mode the component owns the viewer dog and re-scores the
+  // whole cast on every change. calculateCompatibility is a pure synchronous
+  // function over in-memory seed data — no Firestore read, no API call, no
+  // auth — so re-scoring 15 dogs on a slider drag is trivially cheap.
+  const scored = useMemo(
+    () => (interactive
+      ? buildDemoGalleryDogs(buildDemoViewerDog({ size, energyLevel: energy }))
+      : dogs),
+    [interactive, dogs, size, energy],
+  );
+
+  const hasScores = scored.some((d) => d.compat.score > 0);
 
   return (
     <div className="w-full max-w-3xl mx-auto text-left">
       <div className="mb-3 rounded-2xl border border-border bg-white/70 px-4 py-3">
-        <p className="text-sm font-bold text-brown">
-          {hasScores ? 'How matching works' : 'Sample dogs'}
-        </p>
+        <p className="text-sm font-bold text-brown">How matching works</p>
         <p className="mt-0.5 text-xs leading-relaxed text-brown-light">
-          {hasScores
-            ? `These dogs are samples, but the scores are real — each one runs through the same engine that scores live matches, against ${againstDogName || 'your dog'}.`
-            : 'Add your dog’s profile and these samples get scored against yours, so you can see exactly how the engine reaches a number.'}
+          {interactive
+            ? 'These dogs are samples, but the scoring is the real engine. Describe a dog below and watch every score change — including the ones it refuses to recommend.'
+            : `These dogs are samples, but the scores are real — each one runs through the same engine that scores live matches, against ${againstDogName || 'your dog'}.`}
         </p>
+
+        {interactive && (
+          <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-brown-light">
+                Your dog’s size
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {SIZES.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setSize(s.value)}
+                    aria-pressed={size === s.value}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      size === s.value
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-border bg-white text-brown hover:bg-cream-dark/60'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-brown-light">
+                  Energy
+                </p>
+                <span className="text-[11px] font-bold text-brown">{energy}/100</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={energy}
+                onChange={(e) => setEnergy(Number(e.target.value))}
+                aria-label="Your dog’s energy level"
+                className="mt-1.5 w-full accent-primary"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {dogs.map((dog) => {
+        {scored.map((dog) => {
           const { compat } = dog;
           const open = openId === dog.id;
           const styles = QUALITY_STYLES[compat.quality] ?? QUALITY_STYLES.good;
