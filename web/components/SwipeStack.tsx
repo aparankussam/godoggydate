@@ -3,6 +3,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import SwipeCard, { type SwipeCardHandle } from './SwipeCard';
+import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
 import { trackEvent, trackOncePerSession } from '../lib/analytics';
 import { recordSwipe } from '../lib/matching';
 import { recordDemoSwipeLocally } from '../lib/discover';
@@ -52,6 +53,7 @@ export default function SwipeStack({
   const [index, setIndex] = useState(0);
   const [selectedDog, setSelectedDog] = useState<FeedDog | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [swipeError, setSwipeError] = useState<string | null>(null);
 
   const topCardRef = useRef<SwipeCardHandle | null>(null);
@@ -69,6 +71,7 @@ export default function SwipeStack({
 
   useEffect(() => {
     setSelectedPhotoIndex(0);
+    setShowBreakdown(false);
   }, [selectedDog?.firestoreId, selectedDog?.id]);
 
   const advance = useCallback(() => {
@@ -293,8 +296,19 @@ export default function SwipeStack({
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Why you&apos;ll click</p>
                       <p className="mt-1 text-sm font-semibold text-brown">{selectedDog.compat.label}</p>
+                      {selectedDog.compat.microcopy && (
+                        <p className="mt-0.5 text-xs text-brown-light">{selectedDog.compat.microcopy}</p>
+                      )}
                     </div>
-                    <div className="score-ring h-12 w-12 shrink-0 text-sm border-primary text-primary">
+                    {/* Ring color signals compat.quality — was a flat
+                        primary-orange ring regardless of tier, so a blocked
+                        match and a perfect one looked identically inviting. */}
+                    <div
+                      className={`score-ring h-12 w-12 shrink-0 text-sm border-2 ring-[3px] ${
+                        QUALITY_STYLES[selectedDog.compat.quality]?.ring ?? ''
+                      }`}
+                      style={{ borderColor: QUALITY_STYLES[selectedDog.compat.quality]?.ringHex }}
+                    >
                       {selectedDog.compat.score}
                     </div>
                   </div>
@@ -310,10 +324,30 @@ export default function SwipeStack({
                     </div>
                   )}
 
+                  {/* All warnings, not just the first — a second safety flag
+                      silently dropped is exactly the kind of detail an owner
+                      needs before agreeing to a meetup. */}
                   {(selectedDog.compat.warnings?.length ?? 0) > 0 && (
                     <div className="mt-3 rounded-xl bg-[rgba(180,83,9,0.08)] px-3 py-2">
                       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">Worth knowing</p>
-                      <p className="mt-1 text-sm text-brown">{selectedDog.compat.warnings[0]}</p>
+                      {selectedDog.compat.warnings.map((warning) => (
+                        <p key={warning} className="mt-1 text-sm text-brown">{warning}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowBreakdown((v) => !v)}
+                    aria-expanded={showBreakdown}
+                    className="mt-3 text-xs font-semibold text-primary underline underline-offset-2 transition-colors hover:text-primary-dark"
+                  >
+                    {showBreakdown ? 'Hide the math' : 'Show the math'}
+                  </button>
+
+                  {showBreakdown && (
+                    <div className="mt-2">
+                      <CompatBreakdown breakdown={selectedDog.compat.breakdown} score={selectedDog.compat.score} />
                     </div>
                   )}
                 </div>

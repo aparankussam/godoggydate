@@ -27,6 +27,14 @@ function getEnergyLabel(energyLevel: number): string {
   return 'Balanced';
 }
 
+/** Mirrors web/components/CompatBreakdown.tsx's QUALITY_STYLES.ringHex —
+ *  keep the two in sync if the palette changes. */
+export const QUALITY_RING_COLORS: Record<string, string> = {
+  perfect: '#4ade80',
+  good: '#fbbf24',
+  blocked: '#f87171',
+};
+
 export interface SwipeCardRef {
   triggerSwipe: (direction: 'like' | 'pass') => void;
 }
@@ -244,9 +252,23 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
               📍 {distLabel}
             </Text>
 
+            {/* compat.microcopy — the engine's own one-line verdict, written
+                specifically to be shown on the card (see its type comment
+                in shared/types). compat.label is the same information in
+                shorter form, so it's reserved for the detail modal instead
+                of repeating the same phrase twice on one card. */}
+            {dog.compat.score > 0 && dog.compat.microcopy && (
+              <Text style={styles.microcopy} numberOfLines={2}>
+                {dog.compat.microcopy}
+              </Text>
+            )}
+
             {dog.compat.score > 0 && (
               <View style={styles.matchBadgeWrap}>
-                <View style={styles.matchRing}>
+                {/* Ring color signals compat.quality — was a flat white ring
+                    regardless of tier, so a blocked match and a perfect one
+                    looked identically inviting. */}
+                <View style={[styles.matchRing, { borderColor: QUALITY_RING_COLORS[dog.compat.quality] ?? 'rgba(255,255,255,0.9)' }]}>
                   <Text style={styles.matchRingScore}>{dog.compat.score}</Text>
                 </View>
                 <Text style={styles.matchRingLabel}>MATCH</Text>
@@ -467,6 +489,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255,255,255,0.75)',
     marginBottom: 10,
+  },
+  microcopy: {
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#fff',
+    marginBottom: 10,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   tagRow: {
     flexDirection: 'row',

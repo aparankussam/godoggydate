@@ -208,6 +208,14 @@ export default function ProfileTab() {
         <View style={styles.card}>
           {photos[0] ? <Image source={{ uri: photos[0] }} style={styles.hero} /> : null}
           <View style={styles.cardBody}>
+            {/* Vibe Check generates a named archetype and a bio in the dog's
+                own voice — already loaded into memory here (profile.ai)
+                since the onboarding flow shipped, and rendered nowhere on
+                the one screen an owner actually looks at their own dog's
+                profile. */}
+            {profile.ai?.vibeCheck?.archetype.name && (
+              <Text style={styles.archetype}>✨ {profile.ai.vibeCheck.archetype.name}</Text>
+            )}
             <Text style={styles.name}>{profile.name}</Text>
             <Text style={styles.meta}>
               {[profile.breed, profile.age, profile.sex, profile.location].filter(Boolean).join(' · ')}
@@ -215,6 +223,9 @@ export default function ProfileTab() {
             <Text style={styles.badge}>
               {profileComplete ? 'Ready for mobile discover' : 'Profile still needs a few details'}
             </Text>
+            {profile.ai?.vibeCheck?.bio && (
+              <Text style={styles.vibeBio}>“{profile.ai.vibeCheck.bio}”</Text>
+            )}
 
             {/* Founding Pack + trust badges — computed server-side, never
                 shown before now. No raw trust score (0-1 reads as a public
@@ -365,6 +376,14 @@ const styles = StyleSheet.create({
   },
   hero: { width: '100%', height: 280, backgroundColor: colors.creamDark },
   cardBody: { padding: 18 },
+  archetype: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.gold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+    marginBottom: 2,
+  },
   name: {
     fontFamily: fonts.display,
     fontSize: 28,
@@ -383,6 +402,14 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+  },
+  vibeBio: {
+    marginTop: 10,
+    fontFamily: fonts.body,
+    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.brownMid,
   },
   statusBadgeRow: {
     flexDirection: 'row',

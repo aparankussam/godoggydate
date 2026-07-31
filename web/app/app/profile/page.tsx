@@ -255,6 +255,11 @@ export default function ProfilePage() {
   const complete    = isProfileComplete(savedProfile);
   const photos      = getRenderablePhotos(savedProfile?.photos);
   const name        = savedProfile?.name ?? '';
+  // Vibe Check generates a named archetype and a bio in the dog's own voice
+  // — already loaded into memory here (savedProfile.ai) since the onboarding
+  // flow shipped, and rendered nowhere on the one page an owner actually
+  // looks at their own dog's profile.
+  const vibeCheck   = savedProfile?.ai?.vibeCheck;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -308,6 +313,11 @@ export default function ProfilePage() {
                 )}
               </div>
               <div className="min-w-0 flex-1">
+                {vibeCheck?.archetype.name && (
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">
+                    ✨ {vibeCheck.archetype.name}
+                  </p>
+                )}
                 <p className="font-display text-3xl text-brown leading-tight">{savedProfile.name}</p>
                 <p className="text-sm text-brown-light mt-1 truncate">
                   {[savedProfile.breed, savedProfile.age, savedProfile.location].filter(Boolean).join(' · ')}
@@ -319,6 +329,14 @@ export default function ProfilePage() {
                 </p>
               </div>
             </div>
+
+            {/* Vibe Check bio — written in the dog's own voice at onboarding,
+                shown here for the first time. */}
+            {vibeCheck?.bio && (
+              <p className="px-5 pb-4 -mt-1 text-sm italic leading-relaxed text-brown-mid">
+                “{vibeCheck.bio}”
+              </p>
+            )}
 
             {/* Founding Pack + trust + Founding Member badges — computed/granted
                 server-side, none shown before now: a database field with no UI

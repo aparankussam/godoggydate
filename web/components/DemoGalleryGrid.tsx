@@ -20,6 +20,7 @@ import { useMemo, useState } from 'react';
 import { buildDemoGalleryDogs, buildDemoViewerDog } from '../lib/discover';
 import type { DiscoverFeedDog } from '../lib/discover';
 import type { DogSize } from '../../shared/types';
+import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
 
 interface Props {
   dogs: DiscoverFeedDog[];
@@ -39,25 +40,6 @@ const SIZES: { value: DogSize; label: string }[] = [
   { value: 'L',  label: 'Large'  },
   { value: 'XL', label: 'Giant'  },
 ];
-
-/** The seven axes calculateCompatibility() scores, with their max weights.
- *  Mirrors shared/utils/matchingEngine.ts — if the weights there change,
- *  these must change with them or the bars will misreport. */
-const AXES = [
-  { key: 'breedScore',     label: 'Breed group', max: 30 },
-  { key: 'sizeScore',      label: 'Size safety', max: 20 },
-  { key: 'energyScore',    label: 'Energy',      max: 15 },
-  { key: 'goodWithScore',  label: 'Gets along',  max: 15 },
-  { key: 'playStyleScore', label: 'Play style',  max: 10 },
-  { key: 'healthScore',    label: 'Health',      max: 5  },
-  { key: 'distanceScore',  label: 'Distance',    max: 5  },
-] as const;
-
-const QUALITY_STYLES: Record<string, { chip: string; ring: string }> = {
-  perfect: { chip: 'bg-green-100 text-green-800 border-green-300', ring: 'ring-green-400' },
-  good:    { chip: 'bg-amber-100 text-amber-800 border-amber-300', ring: 'ring-amber-400' },
-  blocked: { chip: 'bg-red-100 text-red-800 border-red-300',       ring: 'ring-red-400'   },
-};
 
 export default function DemoGalleryGrid({ dogs, againstDogName, interactive = false }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -213,32 +195,8 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
                     </button>
 
                     {open && (
-                      <div className="mt-1 flex flex-col gap-1.5 rounded-xl border border-border bg-cream/70 px-3 py-2.5">
-                        {AXES.map((axis) => {
-                          const value = compat.breakdown[axis.key] ?? 0;
-                          const pct = Math.max(0, Math.min(100, (value / axis.max) * 100));
-                          return (
-                            <div key={axis.key}>
-                              <div className="flex items-center justify-between text-[10px] font-semibold text-brown-light">
-                                <span>{axis.label}</span>
-                                <span>{Math.round(value)}/{axis.max}</span>
-                              </div>
-                              <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-border">
-                                <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {compat.breakdown.penalty > 0 && (
-                          <div className="flex items-center justify-between border-t border-border pt-1.5 text-[10px] font-bold text-red-600">
-                            <span>Safety penalty</span>
-                            <span>−{compat.breakdown.penalty}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between border-t border-border pt-1.5 text-[11px] font-black text-brown">
-                          <span>Match score</span>
-                          <span>{compat.score}/100</span>
-                        </div>
+                      <div className="mt-1">
+                        <CompatBreakdown breakdown={compat.breakdown} score={compat.score} />
                       </div>
                     )}
                   </>

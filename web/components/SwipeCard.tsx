@@ -6,6 +6,7 @@
 
 import { forwardRef, useState, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
 import type { CompatibilityResult } from '../shared/types';
+import { QUALITY_STYLES } from './CompatBreakdown';
 
 interface CardDog {
   id: string;
@@ -267,6 +268,17 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                 <p className="mt-1 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
                   {distanceLabel}
                 </p>
+                {/* compat.microcopy — the engine's own one-line verdict,
+                    written specifically to be "shown on card" (see its type
+                    comment in shared/types). Was computed for every dog and
+                    rendered nowhere; compat.label is the same information in
+                    a shorter form, so it's reserved for the detail sheet
+                    instead of repeating the same phrase twice on one card. */}
+                {hasScore && dog.compat.microcopy && (
+                  <p className="mt-1.5 text-[0.92rem] font-semibold text-white/95 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
+                    {dog.compat.microcopy}
+                  </p>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <span className="rounded-full border border-white/30 bg-black/34 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_4px_14px_rgba(0,0,0,0.28)] backdrop-blur-md">
                     {energyLabel}
@@ -304,7 +316,15 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
           {hasScore && (
             <div className="absolute left-4 top-16 flex flex-col items-center gap-1">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/95 bg-[rgba(24,18,12,0.34)] text-xl font-black text-white shadow-[0_10px_28px_rgba(0,0,0,0.34)] ring-1 ring-black/18 backdrop-blur-md">
+              {/* Ring color now signals compat.quality (green/amber/red) —
+                  previously a plain white ring regardless of tier, so a
+                  "Safety mismatch" score looked exactly as inviting as a
+                  "Perfect play buddy" one. */}
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/95 bg-[rgba(24,18,12,0.34)] text-xl font-black text-white shadow-[0_10px_28px_rgba(0,0,0,0.34)] ring-[3px] backdrop-blur-md ${
+                  QUALITY_STYLES[dog.compat.quality]?.ring ?? 'ring-black/18'
+                }`}
+              >
                 {dog.compat.score}
               </div>
               <span className="rounded-full bg-black/38 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] backdrop-blur-sm">

@@ -19,7 +19,8 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
-import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, type SwipeCardRef } from '../../components/SwipeCard';
+import SwipeCard, { CARD_HEIGHT, CARD_WIDTH, QUALITY_RING_COLORS, type SwipeCardRef } from '../../components/SwipeCard';
+import CompatBreakdown from '../../components/CompatBreakdown';
 import { fetchDiscoverFeed, DEFAULT_DISCOVER_RADIUS_MILES, type DiscoverDog } from '../../lib/discover';
 import { recordSwipe } from '../../lib/matching';
 import { trackEvent } from '../../lib/analytics';
@@ -59,6 +60,7 @@ export default function DiscoverTab() {
   const [swiping, setSwiping] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [matchedDog, setMatchedDog] = useState<DiscoverDog | null>(null);
   const [matchedMatchId, setMatchedMatchId] = useState<string | null>(null);
   const [matchHeadline, setMatchHeadline] = useState(MATCH_HEADLINES[0]);
@@ -321,10 +323,12 @@ export default function DiscoverTab() {
                     {reason}
                   </Text>
                 ))}
-                {matchedDog.compat.warnings[0] ? (
+                {matchedDog.compat.warnings.length > 0 ? (
                   <View style={styles.matchWarningBox}>
                     <Text style={styles.matchWarningLabel}>Worth knowing</Text>
-                    <Text style={styles.matchWarningText}>{matchedDog.compat.warnings[0]}</Text>
+                    {matchedDog.compat.warnings.map((warning) => (
+                      <Text key={warning} style={styles.matchWarningText}>{warning}</Text>
+                    ))}
                   </View>
                 ) : null}
               </View>
@@ -371,7 +375,7 @@ export default function DiscoverTab() {
           {topDog && (
             <Pressable
               style={styles.infoBtn}
-              onPress={() => setDetailDog(topDog)}
+              onPress={() => { setShowBreakdown(false); setDetailDog(topDog); }}
             >
               <Text style={styles.infoBtnText}>ℹ</Text>
             </Pressable>
@@ -499,8 +503,14 @@ export default function DiscoverTab() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.compatEyebrow}>Why you&apos;ll click</Text>
                     <Text style={styles.compatTitle}>{detailDog.compat.label}</Text>
+                    {detailDog.compat.microcopy ? (
+                      <Text style={styles.compatMicrocopy}>{detailDog.compat.microcopy}</Text>
+                    ) : null}
                   </View>
-                  <View style={styles.compatScoreRing}>
+                  {/* Ring color signals compat.quality — was a flat primary
+                      border regardless of tier, so a blocked match and a
+                      perfect one looked identically inviting. */}
+                  <View style={[styles.compatScoreRing, { borderColor: QUALITY_RING_COLORS[detailDog.compat.quality] ?? colors.primary }]}>
                     <Text style={styles.compatScoreText}>{detailDog.compat.score}</Text>
                   </View>
                 </View>
@@ -510,12 +520,27 @@ export default function DiscoverTab() {
                     {reason}
                   </Text>
                 ))}
-                {detailDog.compat.warnings[0] ? (
+                {/* All warnings, not just the first — a second safety flag
+                    silently dropped is exactly the kind of detail an owner
+                    needs before agreeing to a meetup. */}
+                {detailDog.compat.warnings.length > 0 ? (
                   <View style={styles.compatWarningBox}>
                     <Text style={styles.compatWarningLabel}>Worth knowing</Text>
-                    <Text style={styles.compatWarningText}>{detailDog.compat.warnings[0]}</Text>
+                    {detailDog.compat.warnings.map((warning) => (
+                      <Text key={warning} style={styles.compatWarningText}>{warning}</Text>
+                    ))}
                   </View>
                 ) : null}
+                <Pressable onPress={() => setShowBreakdown((v) => !v)} hitSlop={8}>
+                  <Text style={styles.compatShowMath}>
+                    {showBreakdown ? 'Hide the math' : 'Show the math'}
+                  </Text>
+                </Pressable>
+                {showBreakdown && (
+                  <View style={{ marginTop: 8 }}>
+                    <CompatBreakdown breakdown={detailDog.compat.breakdown} score={detailDog.compat.score} />
+                  </View>
+                )}
               </View>
               {detailDog.tagline ? (
                 <>
@@ -989,6 +1014,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.brown,
     marginTop: 6,
+  },
+  compatMicrocopy: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.brownLight,
+    marginTop: 2,
+  },
+  compatShowMath: {
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 12,
+    textDecorationLine: 'underline',
   },
   compatScoreRing: {
     width: 48,

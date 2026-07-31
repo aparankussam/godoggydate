@@ -31,7 +31,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const photo = getPrimaryRenderablePhoto(dog.photos);
   const topReasons = dog.compat.reasons.slice(0, 3);
-  const topWarning = dog.compat.warnings[0];
+  const warnings = dog.compat.warnings;
   const distanceSummary =
     typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0
       ? `${dog.distanceMiles.toFixed(1)} mi apart`
@@ -127,10 +127,12 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           </div>
         )}
 
-        {topWarning && (
+        {warnings.length > 0 && (
           <div className="mt-4 rounded-2xl bg-black/15 px-3 py-3">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/60">Worth knowing</p>
-            <p className="mt-1 text-sm text-white/88">{topWarning}</p>
+            {warnings.map((warning) => (
+              <p key={warning} className="mt-1 text-sm text-white/88">{warning}</p>
+            ))}
           </div>
         )}
       </div>

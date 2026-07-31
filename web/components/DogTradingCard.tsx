@@ -72,6 +72,14 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
 
       {/* Info panel */}
       <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 pt-10">
+        {/* Vibe Check's named archetype — the most shareable, distinctive
+            thing the app generates about this dog, previously rendered on
+            no surface at all including this one. */}
+        {profile.ai?.vibeCheck?.archetype.name && (
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-gold">
+            ✨ {profile.ai.vibeCheck.archetype.name}
+          </p>
+        )}
         <h3 className="font-display text-4xl text-white leading-tight">{profile.name}</h3>
         <p className="mt-1 text-white/85 text-sm font-semibold">
           {[profile.breed, profile.age, profile.size].filter(Boolean).join(' · ')}

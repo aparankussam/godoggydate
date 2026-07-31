@@ -64,6 +64,12 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
       </View>
 
       <View style={styles.infoPanel}>
+        {/* Vibe Check's named archetype — the most shareable, distinctive
+            thing the app generates about this dog, previously rendered on
+            no surface at all including this one. */}
+        {profile.ai?.vibeCheck?.archetype.name && (
+          <Text style={styles.archetype}>✨ {profile.ai.vibeCheck.archetype.name}</Text>
+        )}
         <Text style={styles.name}>{profile.name}</Text>
         <Text style={styles.meta}>
           {[profile.breed, profile.age, profile.size].filter(Boolean).join(' · ')}
@@ -156,6 +162,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 22,
     paddingTop: 16,
+  },
+  archetype: {
+    color: colors.gold,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+    marginBottom: 2,
   },
   name: {
     color: '#fff',
