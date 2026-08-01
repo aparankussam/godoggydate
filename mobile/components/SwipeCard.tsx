@@ -291,6 +291,23 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
             style={styles.gradient}
             pointerEvents="none"
           >
+            {/* The dog's Vibe Check identity — generated at onboarding and,
+                until now, visible only AFTER a mutual match. Deciding whether
+                you like a dog is exactly when it's useful. Renders nothing at
+                all for dogs without a Vibe Check. */}
+            {dog.ai?.vibeCheck?.archetype && (
+              <View style={styles.archetypeRow}>
+                {!!dog.ai.vibeCheck.archetype.code && (
+                  <View style={styles.archetypeCode}>
+                    <Text style={styles.archetypeCodeText}>{dog.ai.vibeCheck.archetype.code}</Text>
+                  </View>
+                )}
+                <Text style={styles.archetypeName} numberOfLines={1}>
+                  ✨ {dog.ai.vibeCheck.archetype.name}
+                </Text>
+              </View>
+            )}
+
             {/* Name + sex */}
             <View style={styles.nameLine}>
               <Text style={styles.name} numberOfLines={1}>
@@ -522,6 +539,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 10,
     letterSpacing: 1.3,
+  },
+  archetypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  archetypeCode: {
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  archetypeCodeText: {
+    color: colors.gold,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 1.8,
+  },
+  archetypeName: {
+    flex: 1,
+    color: colors.gold,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   nameLine: {
     flexDirection: 'row',

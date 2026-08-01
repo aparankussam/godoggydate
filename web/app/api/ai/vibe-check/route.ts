@@ -417,6 +417,18 @@ export async function POST(request: Request) {
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
       console.error('vibe-check: Gemini API error', res.status, errText.slice(0, 500));
+      // 429 = quota/credits exhausted on the Gemini project. "Try again" is
+      // actively wrong advice here: no amount of retrying clears it, only
+      // topping up billing does, and a user hammering the button just burns
+      // requests. Say it's unavailable rather than implying user error or a
+      // transient blip. 503 (not 502) so it reads as "capacity", and the
+      // client can distinguish it if it ever wants to hide the button.
+      if (res.status === 429) {
+        return NextResponse.json(
+          { error: 'Vibe Check is temporarily unavailable — this one is on us, not you. Try again later.' },
+          { status: 503 },
+        );
+      }
       return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
     }
 

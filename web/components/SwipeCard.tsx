@@ -5,7 +5,7 @@
 // Drag left/right to pass/like.
 
 import { forwardRef, useState, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
-import type { CompatibilityResult } from '../../shared/types';
+import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { QUALITY_STYLES } from './CompatBreakdown';
 
 interface CardDog {
@@ -23,6 +23,7 @@ interface CardDog {
   playStyles?: string[];
   location?: string;
   prompts?: { prompt: string; answer: string }[];
+  ai?: DogProfile['ai'];
   distanceMiles: number;
   compat: CompatibilityResult;
 }
@@ -205,6 +206,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const distanceLabel = getLocationLabel(dog);
   const energyLabel = getEnergyLabel(dog.energyLevel);
   const hasScore = dog.compat.score > 0;
+  const archetype = dog.ai?.vibeCheck?.archetype;
 
   return (
     <div
@@ -270,6 +272,22 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
           >
             <div className="px-5 pb-5 pt-14">
               <div className={`min-w-0 ${getContentWidthClass(hasScore)}`}>
+                {/* The dog's Vibe Check identity — generated at onboarding and,
+                    until now, visible only AFTER a mutual match. Deciding
+                    whether you like a dog is exactly when it's useful. No
+                    fallback: dogs without a Vibe Check render as before. */}
+                {archetype && (
+                  <div className="mb-1.5 flex items-center gap-2">
+                    {archetype.code && (
+                      <span className="rounded-md bg-black/40 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.18em] text-gold backdrop-blur-sm">
+                        {archetype.code}
+                      </span>
+                    )}
+                    <span className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-gold drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]">
+                      ✨ {archetype.name}
+                    </span>
+                  </div>
+                )}
                 <p className="font-display text-[2.55rem] leading-[0.94] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)]">
                   {dog.name}
                 </p>

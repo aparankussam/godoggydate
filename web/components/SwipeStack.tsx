@@ -4,10 +4,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import SwipeCard, { type SwipeCardHandle } from './SwipeCard';
 import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
+import { breedConfidencePhrase } from '../lib/vibeCheck';
 import { trackEvent, trackOncePerSession } from '../lib/analytics';
 import { recordSwipe } from '../lib/matching';
 import { recordDemoSwipeLocally } from '../lib/discover';
-import type { CompatibilityResult } from '../../shared/types';
+import type { CompatibilityResult, DogProfile } from '../../shared/types';
 
 interface FeedDog {
   id: string;
@@ -24,6 +25,7 @@ interface FeedDog {
   playStyles?: string[];
   location?: string;
   prompts?: { prompt: string; answer: string }[];
+  ai?: DogProfile['ai'];
   distanceMiles: number;
   compat: CompatibilityResult;
   firestoreId?: string;
@@ -270,6 +272,25 @@ export default function SwipeStack({
                   </div>
                 );
               })()}
+
+              {/* Vibe Check bio + breed read — the dog's own voice, written
+                  at onboarding and previously shown nowhere in discovery.
+                  Renders nothing at all for dogs without a Vibe Check. */}
+              {selectedDog.ai?.vibeCheck && (
+                <div className="mt-4 rounded-2xl border border-gold/30 bg-gold/5 px-4 py-3">
+                  {selectedDog.ai.vibeCheck.bio && (
+                    <p className="text-sm italic leading-relaxed text-brown-mid">
+                      &ldquo;{selectedDog.ai.vibeCheck.bio}&rdquo;
+                    </p>
+                  )}
+                  {selectedDog.ai.vibeCheck.breedGuess && (
+                    <p className="mt-2 text-[11px] text-brown-light">
+                      🔍 AI&apos;s read: {selectedDog.ai.vibeCheck.breedGuess.name} ·{' '}
+                      {breedConfidencePhrase(selectedDog.ai.vibeCheck.breedGuess.confidence)}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {[

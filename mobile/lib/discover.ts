@@ -20,6 +20,10 @@ export interface DiscoverDog {
   location: string;
   distanceMiles?: number;
   tagline: string;
+  /** Vibe Check output for THIS dog (archetype, dog's-voice bio, breed read).
+   *  Optional: dogs created before Vibe Check shipped, or whose generation
+   *  failed, have none — consumers render nothing rather than a placeholder. */
+  ai?: DogProfile['ai'];
   compat: CompatibilityResult;
 }
 
@@ -138,10 +142,16 @@ export async function fetchDiscoverFeed(
         playStyles: dog.playStyles,
         location,
         distanceMiles: distanceMiles > 0 ? distanceMiles : undefined,
+        // dog.bio is never populated for real dogs — toFullProfile doesn't
+        // set it — so this chain always fell through to a prompt or the
+        // engine's microcopy. The Vibe Check bio IS the dog's-voice line
+        // this was reaching for, and it was sitting unused on dog.ai.
         tagline:
+          dog.ai?.vibeCheck?.bio?.trim() ||
           dog.bio?.trim() ||
           dog.prompts?.find((prompt) => prompt.answer?.trim())?.answer?.trim() ||
           compat.microcopy,
+        ai: dog.ai,
         compat,
       } satisfies DiscoverDog;
     })

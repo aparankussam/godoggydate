@@ -27,6 +27,11 @@ export interface DiscoverFeedDog {
   playStyles?: string[];
   location?: string;
   prompts?: { prompt: string; answer: string }[];
+  /** Vibe Check output for THIS dog (archetype, dog's-voice bio, breed read).
+   *  Optional: dogs created before Vibe Check shipped, or whose generation
+   *  failed, have none — every consumer must render nothing rather than a
+   *  placeholder. */
+  ai?: DogProfile['ai'];
   distanceMiles: number;
   compat: CompatibilityResult;
   isDemo: boolean;
@@ -89,6 +94,11 @@ function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean):
     playStyles: candidate.playStyles,
     location,
     prompts: candidate.prompts,
+    // The dog's Vibe Check identity. toFullProfile() has always carried this
+    // through (shared/profile.ts), and it was dropped here — so the app's
+    // most distinctive content was invisible on the one screen where you
+    // decide whether you like a dog, and only appeared after a mutual match.
+    ai: candidate.ai,
     distanceMiles,
     compat: calculateCompatibility(baseDog, candidate, distanceMiles),
     isDemo,
