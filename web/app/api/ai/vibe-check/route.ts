@@ -57,8 +57,111 @@ interface VibeCheckRequestPhoto {
   dataUri: string; // "data:image/jpeg;base64,...."
 }
 
+// Only Firebase Storage download URLs are ever fetched server-side, and only
+// ones read out of the caller's OWN dog doc — see loadStoredPhotoParts. The
+// client is never trusted to name a URL: that would be a straightforward SSRF
+// (the server would fetch any address an attacker put in the body, including
+// cloud metadata endpoints and internal hosts).
+const ALLOWED_PHOTO_HOSTS = new Set([
+  'firebasestorage.googleapis.com',
+  'storage.googleapis.com',
+]);
+
+/** Builds Gemini image parts from the photos ALREADY stored on the caller's
+ *  own dog doc.
+ *
+ *  Why this exists: DogProfileForm could only ever run a Vibe Check on photos
+ *  still held in memory as File objects (it gated on `photos.some(p => p.file)`
+ *  and filtered `photos.filter(p => p.file)`). Any dog whose photos were
+ *  already uploaded — i.e. every existing user, including the founder's own —
+ *  could never generate one, which is why archetypes were blank across the app.
+ *
+ *  Fetching happens here on the server rather than in the browser on purpose:
+ *  the Storage bucket is not CORS-configured for this origin, so a client-side
+ *  fetch of the same URLs fails outright (the same trap already hit by
+ *  DogTradingCard's crossOrigin attribute). The server has no CORS constraint.
+ *
+ *  The URL list comes from Firestore under the caller's uid, never from the
+ *  request body, so a caller can only ever cause a fetch of their own photos. */
+// Deliberately NOT a discriminated union: this project builds with
+// `strict: false`, under which TS does not reliably narrow one, and a silent
+// narrowing failure here would be a compile error at best and a wrong branch
+// at worst. `error` present === failure.
+interface StoredPhotoResult {
+  parts: Array<Record<string, unknown>>;
+  count: number;
+  error?: string;
+  status?: number;
+}
+
+function storedPhotoFailure(error: string, status: number): StoredPhotoResult {
+  return { parts: [], count: 0, error, status };
+}
+
+async function loadStoredPhotoParts(uid: string): Promise<StoredPhotoResult> {
+  const snap = await getAdminDb().doc(`dogs/${uid}`).get();
+  if (!snap.exists) {
+    return storedPhotoFailure('No dog profile to read photos from', 404);
+  }
+  const stored = snap.data()?.photos;
+  const urls: string[] = (Array.isArray(stored) ? stored : [])
+    .filter((p: unknown): p is string => typeof p === 'string' && p.trim() !== '' && !p.startsWith('_'))
+    .slice(0, MAX_PHOTOS);
+
+  if (urls.length === 0) {
+    return storedPhotoFailure('Add at least one photo first', 400);
+  }
+
+  const parts: Array<Record<string, unknown>> = [];
+  for (const url of urls) {
+    let host: string;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:') throw new Error('non-https');
+      host = parsed.hostname;
+    } catch {
+      return storedPhotoFailure('Stored photo URL is unreadable', 422);
+    }
+    // Defense in depth: even though these came from our own Firestore doc, a
+    // compromised/legacy doc must not turn this into an open fetch proxy.
+    if (!ALLOWED_PHOTO_HOSTS.has(host)) {
+      return storedPhotoFailure('Stored photo is not in Firebase Storage', 422);
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(url);
+    } catch (error) {
+      console.error('vibe-check: stored photo fetch failed', error);
+      return storedPhotoFailure('Could not read your saved photos — try again', 502);
+    }
+    if (!res.ok) {
+      console.error('vibe-check: stored photo fetch status', res.status);
+      return storedPhotoFailure('Could not read your saved photos — try again', 502);
+    }
+
+    const mimeType = (res.headers.get('content-type') ?? '').split(';')[0].trim();
+    if (!ALLOWED_MIME.has(mimeType)) {
+      return storedPhotoFailure(`Unsupported photo type: ${mimeType || 'unknown'}`, 400);
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.byteLength > MAX_PHOTO_BYTES) {
+      return storedPhotoFailure('Saved photo too large (max 5MB each)', 400);
+    }
+
+    parts.push({ inline_data: { mime_type: mimeType, data: buf.toString('base64') } });
+  }
+
+  return { parts, count: parts.length };
+}
+
 interface VibeCheckRequestBody {
-  photos: VibeCheckRequestPhoto[];
+  photos?: VibeCheckRequestPhoto[];
+  /** Ignore `photos` and read the caller's already-uploaded photos from their
+   *  own dog doc instead. The only path available to an existing user, whose
+   *  photos live in Storage rather than in memory. */
+  useStoredPhotos?: boolean;
   name?: string;
 }
 
@@ -235,30 +338,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const photos = Array.isArray(body?.photos) ? body.photos : [];
-  if (photos.length === 0 || photos.length > MAX_PHOTOS) {
-    return NextResponse.json({ error: `Send 1-${MAX_PHOTOS} photos` }, { status: 400 });
-  }
-
   const imageParts: GeminiPart[] = [];
-  for (const photo of photos) {
-    const dataUri = photo?.dataUri;
-    const match = typeof dataUri === 'string' ? dataUri.match(/^data:([^;]+);base64,(.+)$/) : null;
-    if (!match) {
-      return NextResponse.json({ error: 'Each photo must be a base64 data URI' }, { status: 400 });
+  let photoCount: number;
+
+  if (body?.useStoredPhotos) {
+    // Existing-dog path: photos already live in Storage, so the server reads
+    // them from the caller's own doc. See loadStoredPhotoParts.
+    const loaded = await loadStoredPhotoParts(uid);
+    if (loaded.error) {
+      return NextResponse.json({ error: loaded.error }, { status: loaded.status ?? 500 });
     }
-    const [, mimeType, base64Data] = match;
-    if (!ALLOWED_MIME.has(mimeType)) {
-      return NextResponse.json({ error: `Unsupported photo type: ${mimeType}` }, { status: 400 });
+    (imageParts as Array<Record<string, unknown>>).push(...loaded.parts);
+    photoCount = loaded.count;
+  } else {
+    // Onboarding path: photos are still in memory in the browser and arrive
+    // as data URIs.
+    const photos = Array.isArray(body?.photos) ? body.photos : [];
+    if (photos.length === 0 || photos.length > MAX_PHOTOS) {
+      return NextResponse.json({ error: `Send 1-${MAX_PHOTOS} photos` }, { status: 400 });
     }
-    // Rough size check without decoding: base64 is ~4/3 the byte size.
-    if (base64Data.length * 0.75 > MAX_PHOTO_BYTES) {
-      return NextResponse.json({ error: 'Photo too large (max 5MB each)' }, { status: 400 });
+
+    for (const photo of photos) {
+      const dataUri = photo?.dataUri;
+      const match = typeof dataUri === 'string' ? dataUri.match(/^data:([^;]+);base64,(.+)$/) : null;
+      if (!match) {
+        return NextResponse.json({ error: 'Each photo must be a base64 data URI' }, { status: 400 });
+      }
+      const [, mimeType, base64Data] = match;
+      if (!ALLOWED_MIME.has(mimeType)) {
+        return NextResponse.json({ error: `Unsupported photo type: ${mimeType}` }, { status: 400 });
+      }
+      // Rough size check without decoding: base64 is ~4/3 the byte size.
+      if (base64Data.length * 0.75 > MAX_PHOTO_BYTES) {
+        return NextResponse.json({ error: 'Photo too large (max 5MB each)' }, { status: 400 });
+      }
+      // Gemini inline image part.
+      (imageParts as Array<Record<string, unknown>>).push({
+        inline_data: { mime_type: mimeType, data: base64Data },
+      });
     }
-    // Gemini inline image part.
-    (imageParts as Array<Record<string, unknown>>).push({
-      inline_data: { mime_type: mimeType, data: base64Data },
-    });
+    photoCount = photos.length;
   }
 
   const promptText = body.name
@@ -347,7 +466,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
   }
 
-  const vibeCheck = sanitizeVibeCheck(parsed, photos.length);
+  const vibeCheck = sanitizeVibeCheck(parsed, photoCount);
   if (!vibeCheck) {
     console.error('vibe-check: model output failed sanitization', JSON.stringify(parsed));
     return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });

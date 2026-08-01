@@ -6,10 +6,27 @@ interface Props {
   dogName: string;
   dogBreed?: string;
   photo?: string;
-  stars: number;
+  /** null = this playdate has no rating. Renders no star row and no verdict
+   *  line rather than inventing either. */
+  stars: number | null;
+}
+
+/** Mirrors web/components/PlaydateMemoryCard.tsx. The card used to hardcode
+ *  "It went great." under every rating, so a 1-star playdate still minted a
+ *  card claiming it went great — a shareable artifact contradicting what the
+ *  owner actually said. Say only what the rating supports. */
+function verdictLine(stars: number | null): string | null {
+  if (stars === null) return null;
+  if (stars >= 5) return 'Best playdate yet.';
+  if (stars === 4) return 'It went great.';
+  if (stars === 3) return 'A good hang.';
+  return null;
 }
 
 const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, stars }, ref) => {
+  const clampedStars = stars === null ? null : Math.max(0, Math.min(5, stars));
+  const verdict = verdictLine(clampedStars);
+
   return (
     <View ref={ref} style={styles.card}>
       <View style={styles.badge}>
@@ -27,10 +44,12 @@ const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, 
       <View style={styles.overlay} />
 
       <View style={styles.infoPanel}>
-        <Text style={styles.stars}>{'⭐'.repeat(Math.max(1, Math.min(5, stars)))}</Text>
+        {clampedStars !== null && clampedStars > 0 && (
+          <Text style={styles.stars}>{'⭐'.repeat(clampedStars)}</Text>
+        )}
         <Text style={styles.name}>Playdate with {dogName}</Text>
         {dogBreed && <Text style={styles.breed}>{dogBreed}</Text>}
-        <Text style={styles.tagline}>Our dogs played. It went great.</Text>
+        {verdict && <Text style={styles.tagline}>Our dogs played. {verdict}</Text>}
 
         <View style={styles.footer}>
           <Text style={styles.brand}>GoDoggyDate</Text>

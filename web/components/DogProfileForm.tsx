@@ -312,12 +312,18 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
 
   async function handleVibeCheck() {
     if (vibeChecking) return;
-    // Only newly-picked photos have a raw File to read as base64 — already-
-    // uploaded photos (edit mode) are Storage URLs, not local files. Scoped
-    // to new photos only rather than also fetching+re-encoding remote URLs.
+    // Newly-picked photos carry a raw File and can be sent inline as base64.
+    // Already-uploaded photos (edit mode / any returning user) are Storage
+    // URLs with no File — those go through useStoredPhotos, where the SERVER
+    // reads the caller's own dog doc and fetches them. This branch used to
+    // bail out entirely, which meant every existing dog — including the
+    // founder's — could never generate a Vibe Check at all, and every
+    // archetype/bio surface in the app rendered blank for them.
     const candidates = photos.filter((p) => p.file).slice(0, 3);
-    if (candidates.length === 0) {
-      setVibeCheckError('Add at least one new photo first');
+    const useStoredPhotos = candidates.length === 0;
+
+    if (useStoredPhotos && photos.length === 0) {
+      setVibeCheckError('Add at least one photo first');
       return;
     }
 
@@ -329,15 +335,18 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       if (!currentUser) throw new Error('Not signed in');
       const idToken = await currentUser.getIdToken();
 
-      const dataUris = await Promise.all(candidates.map((p) => fileToDataUri(p.file as File)));
+      const body: Record<string, unknown> = { name: name.trim() || undefined };
+      if (useStoredPhotos) {
+        body.useStoredPhotos = true;
+      } else {
+        const dataUris = await Promise.all(candidates.map((p) => fileToDataUri(p.file as File)));
+        body.photos = dataUris.map((dataUri) => ({ dataUri }));
+      }
 
       const res = await fetch('/api/ai/vibe-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({
-          photos: dataUris.map((dataUri) => ({ dataUri })),
-          name: name.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ai?.vibeCheck) {
@@ -604,14 +613,24 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
           </p>
           {errors.photos && <p className="mt-1 text-xs text-red-500">{errors.photos}</p>}
 
-          {photos.some((p) => p.file) && !vibeCheckResult && (
+          {/* Was gated on `photos.some(p => p.file)` — i.e. only ever offered
+              when a photo was still in memory. Every returning user's photos
+              are Storage URLs with no File, so the button simply never
+              appeared for them and their dog could never get an archetype.
+              Now offered whenever there is any photo at all; the handler
+              picks the inline-base64 or server-fetch path. */}
+          {photos.length > 0 && !vibeCheckResult && (
             <button
               type="button"
               onClick={handleVibeCheck}
               disabled={vibeChecking}
               className="mt-3 w-full rounded-xl border border-gold/50 bg-gold/10 px-4 py-2.5 text-sm font-bold text-brown transition-colors hover:bg-gold/20 disabled:opacity-50"
             >
-              {vibeChecking ? 'Reading the photos…' : '✨ Fill this in from the photos'}
+              {vibeChecking
+                ? 'Reading the photos…'
+                : initialProfile?.ai?.vibeCheck
+                  ? '✨ Redo the Vibe Check'
+                  : '✨ Fill this in from the photos'}
             </button>
           )}
           {vibeCheckError && <p className="mt-1.5 text-xs text-red-500">{vibeCheckError}</p>}
