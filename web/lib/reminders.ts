@@ -57,6 +57,7 @@ function toReminder(id: string, data: Record<string, unknown>): Reminder {
     lastCompletedAt: toMillis(data.lastCompletedAt),
     notifiedAt: toMillis(data.notifiedAt),
     createdAt: toMillis(data.createdAt) ?? Date.now(),
+    currentStreak: typeof data.currentStreak === 'number' ? data.currentStreak : undefined,
   };
 }
 
@@ -93,6 +94,44 @@ export async function deleteReminder(dogId: string, reminderId: string): Promise
   await deleteDoc(doc(db, 'dogs', dogId, 'reminders', reminderId));
 }
 
+// ── What currentStreak means (one definition, three writers) ────────────────
+// currentStreak is the number of CONSECUTIVE occurrences of a recurring
+// reminder that were completed on or before their due date, where "on or
+// before" is judged by LOCAL CALENDAR DAY. Nothing else counts toward it and
+// there is no retroactive history. Note the counts already in Firestore predate
+// this rule: mobile wrote them with a raw-millisecond compare and nothing reset
+// them on a lapse, so an existing number can read higher than it should until
+// the next lapse or late completion overwrites it. We don't backfill, so don't
+// read a stored count as proof the rule above held for every occurrence in it.
+//
+// Exactly three code paths write it, and they must agree or the number the UI
+// shows is a lie:
+//   1. completeReminder() below — on-time completion increments, late
+//      completion resets to 0.
+//   2. mobile/lib/reminders.ts completeReminder() — a deliberate mirror of
+//      this file; keep the two in sync.
+//   3. sendReminderNotifications() in firebase/functions/src/index.ts — when
+//      it rolls a NEVER-COMPLETED occurrence forward to the next due date it
+//      writes currentStreak: 0. Rolling forward means the user let that
+//      occurrence lapse, and a lapse breaks the streak. Leaving the old value
+//      there (what it used to do) let both clients keep displaying a streak
+//      the user hadn't actually earned.
+// One-time reminders never carry a streak — they're deleted on completion.
+
+/**
+ * Start of the local calendar day containing `ms`.
+ *
+ * Uses the local getters (getFullYear/getMonth/getDate), NOT the UTC ones:
+ * "due today" is a wall-clock idea in the user's own timezone. Comparing in
+ * UTC would move the boundary — for a US user, anything after ~5-8pm local
+ * is already tomorrow in UTC, so an evening completion of a task due today
+ * would be scored as late.
+ */
+function startOfLocalDay(ms: number): number {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
 /**
  * Marks a reminder done. Recurring reminders advance from their ORIGINAL due
  * date (not from "now") so a late completion doesn't push every future
@@ -113,9 +152,13 @@ export async function completeReminder(dogId: string, reminder: Reminder): Promi
   let nextDue = reminder.dueDate + intervalMs;
   while (nextDue <= now) nextDue += intervalMs;
 
-  // On-time (at or before the original due date) extends the streak;
-  // completing it late resets it — no credit for catching up.
-  const wasOnTime = now <= reminder.dueDate;
+  // On-time (on or before the due DAY) extends the streak; completing it late
+  // resets it — no credit for catching up. Compared by calendar day, not by
+  // instant: a reminder due today is done on time whether it's ticked off at
+  // 9am or at 11pm, and a millisecond comparison against the stored dueDate
+  // (which carries whatever time-of-day it was created with) would call the
+  // evening one late.
+  const wasOnTime = startOfLocalDay(now) <= startOfLocalDay(reminder.dueDate);
   const nextStreak = wasOnTime ? (reminder.currentStreak ?? 0) + 1 : 0;
 
   await updateDoc(ref, {

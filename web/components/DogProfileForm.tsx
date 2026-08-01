@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
 import { isProfileComplete } from '../lib/auth';
+import { getVaccinationStatus, parseLocalIsoDate } from '../../shared/profile';
 import { uploadDogPhoto } from '../lib/storage';
 import { getFirebase } from '../shared/utils/firebase';
 import { BREEDS } from '../../shared/types/breeds';
@@ -111,6 +112,7 @@ interface ValidationErrors {
   city: string;
   state: string;
   personality: string;
+  rabiesExpiry: string;
 }
 
 function countComplete(p: {
@@ -150,6 +152,7 @@ const EMPTY_ERRORS: ValidationErrors = {
   city: '',
   state: '',
   personality: '',
+  rabiesExpiry: '',
 };
 
 export default function DogProfileForm({ onSaved, saving, initialProfile }: Props) {
@@ -166,7 +169,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
   const [zip, setZip] = useState('');
   const [city, setCity] = useState('');
   const [usState, setUsState] = useState('');
-  const [vaccinated, setVaccinated] = useState(true);
+  // null, not true. This started as useState(true), which meant every profile
+  // ever saved carried a vaccination "yes" the owner was never asked for — and
+  // that default was rendered as a green ✓ pill and published on the public
+  // page. null is genuinely unanswered and stays distinguishable from an
+  // explicit "no" (the only value the matching engine blocks on).
+  const [vaccinated, setVaccinated] = useState<boolean | null>(null);
+  const [rabiesExpiry, setRabiesExpiry] = useState('');
   const [prompts, setPrompts] = useState(
     DEFAULT_PROMPTS.map((prompt) => ({ prompt, answer: '' })),
   );
@@ -196,6 +205,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
   const zipRef = useRef<HTMLInputElement | null>(null);
   const locationRef = useRef<HTMLInputElement | null>(null);
   const stateRef = useRef<HTMLSelectElement | null>(null);
+  const rabiesExpiryRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -216,7 +226,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
     setPlayStyles(initialProfile.playStyles ?? []);
     setNotGoodWith(initialProfile.notGoodWith ?? []);
     setBehaviorFlags(initialProfile.behaviorFlags ?? []);
-    setVaccinated(initialProfile.vaccinated ?? true);
+    setVaccinated(initialProfile.vaccinated ?? null);
+    setRabiesExpiry(initialProfile.rabiesExpiry ?? '');
     setPrompts(
       DEFAULT_PROMPTS.map((prompt) => {
         const existing = initialProfile.prompts?.find((item) => item.prompt === prompt);
@@ -390,6 +401,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : '',
       state: !hasZip && hasCity && !hasState ? 'Select a state' : '',
       personality: temperament.length === 0 && playStyles.length === 0 ? 'Pick at least one' : '',
+      // Optional field — only a value that isn't a real calendar date is an
+      // error. An expiry in the past is valid input and must stay savable:
+      // "expired" is the state this field exists to surface.
+      rabiesExpiry: rabiesExpiry.trim() && !parseLocalIsoDate(rabiesExpiry)
+        ? 'Use the date on the certificate (YYYY-MM-DD)'
+        : '',
     };
   }
 
@@ -406,6 +423,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       'city',
       'state',
       'personality',
+      'rabiesExpiry',
     ];
 
     const firstInvalid = order.find((field) => nextErrors[field]);
@@ -423,6 +441,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       city: locationRef.current,
       state: stateRef.current,
       personality: null,
+      rabiesExpiry: rabiesExpiryRef.current,
     };
 
     const target = targets[firstInvalid];
@@ -444,6 +463,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
     city: zip.trim() || city,
   });
   const progressPct = Math.round((completedCount / 9) * 100);
+
+  // Same helper every rendering surface uses, so the preview below the form
+  // cannot drift from what the swipe card actually says.
+  const vaccinationPreview = getVaccinationStatus({ rabiesExpiry, vaccinated });
 
   const zipStr = zip.trim();
   const cityStr = city.trim();
@@ -527,6 +550,20 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
         state: stateStr || undefined,
         zip: zipStr || undefined,
         vaccinated,
+        // null rather than undefined when empty: saves are { merge: true } and
+        // stripUndefined drops undefined keys, so an omitted field would leave
+        // a date the owner just deleted sitting in Firestore.
+        //
+        // TODO(reminders): once a rabies expiry is saved here, seed a Cadence
+        // reminder from it — call createReminder(uid, { type: 'rabies', label:
+        // 'Rabies booster', dueDate: <local-midnight ms of rabiesExpiry>,
+        // recurrenceDays: 365 }) from web/lib/reminders.ts. Deliberately not
+        // wired up in this change (reminders.ts is owned elsewhere), and it
+        // needs two decisions first: don't create a duplicate when the owner
+        // re-saves an unchanged date, and derive dueDate with
+        // parseLocalIsoDate(...).getTime() so the reminder doesn't fire a day
+        // early west of Greenwich.
+        rabiesExpiry: rabiesExpiry.trim() || null,
         prompts: prompts.filter((prompt) => prompt.answer.trim()),
       });
     } finally {
@@ -911,14 +948,50 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
           </div>
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">Vaccination status</label>
+        {/* Vaccination. The date is the real artifact here: `vaccinated` was a
+            boolean initialised to true, so it recorded a default rather than an
+            answer — and that default was rendered as a green ✓ pill on the swipe
+            card and published on the public /d page. A rabies expiry is read off
+            an actual certificate, and it's the date owners hunt for at every
+            boarding, daycare, grooming and lease check-in. Optional: with no
+            date, everything downstream degrades to an attributed "owner
+            marked …" or an honest blank — never a verification. */}
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <p className="text-sm font-bold text-brown">Vaccination</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
+            Nobody verifies any of this. Other owners see it attributed to you, exactly as you enter it.
+          </p>
+
+          <label htmlFor="rabies-expiry" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+            Rabies expiry date <span className="font-normal text-brown-light">(optional)</span>
+          </label>
+          <input
+            id="rabies-expiry"
+            ref={rabiesExpiryRef}
+            type="date"
+            value={rabiesExpiry}
+            onChange={(e) => setRabiesExpiry(e.target.value)}
+            className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+          />
+          <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
+            The date printed on the certificate — the one boarding, daycare, groomers and landlords all
+            ask for. Keep it here and you&apos;ll stop digging through email for it.
+          </p>
+          {errors.rabiesExpiry && <p className="mt-1 text-xs text-red-500">{errors.rabiesExpiry}</p>}
+
+          <label className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+            No certificate handy?
+          </label>
           <div className="flex gap-3">
             {([true, false] as const).map((value) => (
               <button
                 key={String(value)}
                 type="button"
-                onClick={() => setVaccinated(value)}
+                // Tapping the selected answer clears it back to null. Without a
+                // route back to "unanswered", a mis-tap would be permanent — and
+                // "unanswered" is the whole point of this field now.
+                onClick={() => setVaccinated(vaccinated === value ? null : value)}
+                aria-pressed={vaccinated === value}
                 className={`flex-1 rounded-xl border-2 py-2.5 text-sm font-semibold transition-colors ${
                   vaccinated === value
                     ? value
@@ -927,10 +1000,20 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
                     : 'border-border bg-white text-brown-mid'
                 }`}
               >
-                {value ? '✅ Vaccinated' : 'Not yet'}
+                {value ? 'Vaccinated' : 'Not currently'}
               </button>
             ))}
           </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
+            Leave both off if you&apos;d rather not say — tap a selected answer to clear it.
+          </p>
+
+          {/* The exact string other owners will read, so there's no gap between
+              what you entered and what the app claims on your behalf. */}
+          <p className="mt-3 rounded-xl bg-cream-dark px-3 py-2 text-[11px] leading-relaxed text-brown-mid">
+            Others will see:{' '}
+            <span className="font-semibold text-brown">{vaccinationPreview.label}</span>
+          </p>
         </div>
 
         {!complete && (

@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -15,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { uploadDogPhoto } from '../lib/storage';
 import { isProfileComplete, type SavedDogProfile } from '../lib/profile';
+import { getVaccinationStatus, parseLocalIsoDate } from '../../shared/profile';
 
 const AGE_OPTIONS = [
   { value: 'puppy', label: 'Puppy' },
@@ -61,8 +61,17 @@ const BEHAVIOR_FLAG_OPTIONS = [
 
 const ENERGY_OPTIONS = [20, 40, 60, 80, 100];
 
+// Two explicit answers plus a third state — neither selected — which is the
+// initial one. "Vaccinated" carries no ✓ or checkmark styling anywhere: it is
+// the owner's word, not a record.
+const VACCINATED_CHOICES = [
+  { value: true, label: 'Vaccinated' },
+  { value: false, label: 'Not currently' },
+] as const;
+
 type ValidationErrors = Partial<Record<
-  'photos' | 'name' | 'breed' | 'age' | 'sex' | 'size' | 'playStyles' | 'zip' | 'city' | 'state',
+  'photos' | 'name' | 'breed' | 'age' | 'sex' | 'size' | 'playStyles' | 'zip' | 'city' | 'state'
+  | 'rabiesExpiry',
   string
 >>;
 
@@ -100,7 +109,12 @@ export default function ProfileEditor({
   const [playStyles, setPlayStyles] = useState<string[]>(initialProfile?.playStyles ?? []);
   const [notGoodWith, setNotGoodWith] = useState<string[]>(initialProfile?.notGoodWith ?? []);
   const [behaviorFlags, setBehaviorFlags] = useState<string[]>(initialProfile?.behaviorFlags ?? []);
-  const [vaccinated, setVaccinated] = useState(initialProfile?.vaccinated ?? true);
+  // `?? true` before, which recorded a default as though it were an answer —
+  // and the swipe card rendered it as a verification. null is genuinely
+  // unanswered and stays distinct from an explicit false, the only value the
+  // matching engine treats as blocking.
+  const [vaccinated, setVaccinated] = useState<boolean | null>(initialProfile?.vaccinated ?? null);
+  const [rabiesExpiry, setRabiesExpiry] = useState(initialProfile?.rabiesExpiry ?? '');
   const [zip, setZip] = useState(initialProfile?.zip ?? '');
   const [city, setCity] = useState(initialProfile?.city ?? '');
   const [usState, setUsState] = useState(initialProfile?.state ?? '');
@@ -122,6 +136,13 @@ export default function ProfileEditor({
   const cityRef = useRef<TextInput | null>(null);
   const stateRef = useRef<TextInput | null>(null);
 
+  // Same helper the web form and the swipe card use, so the preview below
+  // cannot drift from what other owners are actually shown.
+  const vaccinationPreview = useMemo(
+    () => getVaccinationStatus({ rabiesExpiry, vaccinated }),
+    [rabiesExpiry, vaccinated],
+  );
+
   const locationLabel = useMemo(() => {
     if (zip.trim()) return zip.trim();
     if (city.trim() && usState.trim()) return `${city.trim()}, ${usState.trim().toUpperCase()}`;
@@ -137,6 +158,13 @@ export default function ProfileEditor({
     if (!sex) next.sex = 'Choose male or female';
     if (!size) next.size = 'Choose a size';
     if (playStyles.length === 0) next.playStyles = 'Pick at least 1 play style';
+
+    // Optional. Only a string that isn't a real calendar date is an error — a
+    // date in the past is valid input and must stay savable, since "expired" is
+    // exactly what this field is for.
+    if (rabiesExpiry.trim() && !parseLocalIsoDate(rabiesExpiry)) {
+      next.rabiesExpiry = 'Use YYYY-MM-DD, like 2027-04-18';
+    }
 
     const trimmedZip = zip.trim();
     const trimmedCity = city.trim();
@@ -235,6 +263,10 @@ export default function ProfileEditor({
         notGoodWith,
         behaviorFlags,
         vaccinated,
+        // null, not undefined, when empty: saves are { merge: true } and
+        // stripUndefined drops undefined keys, so omitting it would leave a
+        // date the owner just deleted in place.
+        rabiesExpiry: rabiesExpiry.trim() || null,
         photos: safePhotos,
         location: locationLabel,
         city: city.trim() || undefined,
@@ -445,12 +477,57 @@ export default function ProfileEditor({
         />
       </Field>
 
-      <View style={styles.switchRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Vaccinated</Text>
-          <Text style={styles.helper}>Shown on your profile card.</Text>
+      {/* Vaccination — mirrors web/components/DogProfileForm.tsx. The Switch
+          that used to sit here could not express "unanswered": it defaulted to
+          on, so every mobile save recorded a vaccination "yes" the owner was
+          never asked for, and the swipe card rendered that default as a green
+          ✓. The date is the real artifact — read off the certificate, and the
+          one boarding, daycare, groomers and landlords all ask for. */}
+      <View style={styles.vaccinationCard}>
+        <Text style={styles.label}>Vaccination</Text>
+        <Text style={styles.helper}>
+          Nobody verifies any of this. Other owners see it attributed to you, exactly as you enter it.
+        </Text>
+
+        <Text style={styles.subLabel}>Rabies expiry date (optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="2027-04-18"
+          placeholderTextColor={colors.brownLight}
+          value={rabiesExpiry}
+          onChangeText={setRabiesExpiry}
+          keyboardType="numbers-and-punctuation"
+          autoCapitalize="none"
+          maxLength={10}
+        />
+        <Text style={styles.helper}>
+          The date printed on the certificate. Keep it here and you’ll stop digging through email for
+          it at every check-in.
+        </Text>
+        {errors.rabiesExpiry ? <Text style={styles.error}>{errors.rabiesExpiry}</Text> : null}
+
+        <Text style={styles.subLabel}>No certificate handy?</Text>
+        <View style={styles.row}>
+          {VACCINATED_CHOICES.map((choice) => (
+            <ChoiceChip
+              key={String(choice.value)}
+              label={choice.label}
+              active={vaccinated === choice.value}
+              // Tapping the selected answer clears it back to null — without a
+              // route back to "unanswered", a mis-tap would be permanent.
+              onPress={() => setVaccinated(vaccinated === choice.value ? null : choice.value)}
+            />
+          ))}
         </View>
-        <Switch value={vaccinated} onValueChange={setVaccinated} />
+        <Text style={styles.helper}>
+          Leave both off if you’d rather not say — tap a selected answer to clear it.
+        </Text>
+
+        {/* The exact string other owners will read, so there is no gap between
+            what you entered and what the app claims on your behalf. */}
+        <Text style={styles.previewText}>
+          Others will see: <Text style={styles.previewValue}>{vaccinationPreview.label}</Text>
+        </Text>
       </View>
 
       <Pressable
@@ -618,12 +695,34 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  vaccinationCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: 16,
     marginBottom: 24,
-    paddingVertical: 6,
+  },
+  subLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.brownMid,
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  previewText: {
+    marginTop: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.creamDark,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.brownMid,
+  },
+  previewValue: {
+    fontFamily: fonts.semibold,
+    color: colors.brown,
   },
   submitButton: {
     backgroundColor: colors.primary,

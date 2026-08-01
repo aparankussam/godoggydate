@@ -856,9 +856,18 @@ export const sendReminderNotifications = functions.pubsub
           const intervalMs = recurrence * 24 * 60 * 60 * 1000;
           let nextDue = dueMs + intervalMs;
           while (nextDue <= now) nextDue += intervalMs;
+          // Reaching here means this occurrence was notified and then never
+          // completed — completeReminder() clears notifiedAt when it advances
+          // a reminder, so a completed one can't take this branch. The user
+          // let the occurrence lapse, and currentStreak counts CONSECUTIVE
+          // on-time completions (the single definition lives in
+          // web/lib/reminders.ts), so a lapse breaks it. Without this reset
+          // the stale count survived the miss and both clients went on
+          // showing a streak that hadn't been earned.
           await doc.ref.update({
             dueDate: admin.firestore.Timestamp.fromMillis(nextDue),
             notifiedAt: admin.firestore.FieldValue.delete(),
+            currentStreak: 0,
           });
         }
         continue;

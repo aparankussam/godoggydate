@@ -294,15 +294,27 @@ export default function SwipeStack({
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Match', value: selectedDog.compat.score > 0 ? `${selectedDog.compat.score}%` : '—' },
+                  // Not a "%" — the score isn't a percentage of anything measured,
+                  // and labelling it one primes the user to read it as a probability.
+                  { label: 'Fit score', value: selectedDog.compat.score > 0 ? `${selectedDog.compat.score}` : '—' },
                   {
                     label: 'Distance',
                     value: selectedDog.distanceMiles >= 0
                       ? `${selectedDog.distanceMiles.toFixed(1)} mi`
-                      : (selectedDog.location ?? 'Nearby'),
+                      : (selectedDog.location ?? 'Not shared'),
                   },
                   { label: 'Energy', value: `${selectedDog.energyLevel}%` },
-                  { label: 'Vaccinated', value: selectedDog.vaccinated ? 'Yes ✓' : 'Unknown' },
+                  // `false` is an explicit "no" from the owner, not an absence of
+                  // information — collapsing it into "Unknown" hid the one health
+                  // answer that flips the pairing's quality tier.
+                  {
+                    label: 'Vaccinated',
+                    value: selectedDog.vaccinated === true
+                      ? 'Marked yes'
+                      : selectedDog.vaccinated === false
+                        ? 'Marked no ⚠'
+                        : 'Not stated',
+                  },
                 ].map((item) => (
                   <div key={item.label} className="rounded-2xl border border-border bg-white px-3 py-3">
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">{item.label}</p>

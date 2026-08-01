@@ -5,7 +5,19 @@ export interface SavedDogProfile {
   size: 'S' | 'M' | 'L' | 'XL';
   energyLevel: number;
   playStyles: string[];
-  vaccinated: boolean;
+  // Optional and nullable on purpose. This was a required boolean that both
+  // forms initialised to `true`, so every dog in Firestore carries a "yes"
+  // nobody was ever asked for. undefined (legacy doc, field absent) and null
+  // (owner cleared / never answered) both mean NOT STATED — never render them
+  // as a "no", and never coerce them to false: false is the explicit answer
+  // that flips a pairing to 'blocked' in the matching engine.
+  vaccinated?: boolean | null;
+  // Owner-typed rabies certificate expiry, 'YYYY-MM-DD'. The one health fact
+  // in this document that a real record backs. null is written (not omitted)
+  // when the owner clears it, because saves are { merge: true } — an omitted
+  // field would leave the stale date in place. Read it through
+  // getVaccinationStatus below, never with a raw Date comparison.
+  rabiesExpiry?: string | null;
   createdAt?: number;
   updatedAt?: number;
   breed?: string;
@@ -206,6 +218,96 @@ export function isPubliclyDiscoverable(
   return false;
 }
 
+// ─── VACCINATION STATUS ─────────────────────────────────────────────────────
+// One helper so every surface says the same thing about the same data. The
+// wording is deliberately graded: a date the owner typed off a certificate is
+// allowed to be specific, a boolean is only ever allowed to be attributed
+// ("Owner marked: …"), and an absence is stated as an absence. Nothing here
+// renders as a verification — nobody checks these.
+
+const MONTH_LABELS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/**
+ * Parse 'YYYY-MM-DD' into a Date at LOCAL midnight, or null if it isn't a real
+ * calendar date.
+ *
+ * `new Date('2026-08-01')` is UTC midnight, which is July 31st for every US
+ * timezone — a certificate would read as expired a day early for the entire
+ * user base. Building the Date from parts keeps it on the owner's own calendar.
+ */
+export function parseLocalIsoDate(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  // JS rolls 2026-02-30 forward to March 2nd rather than rejecting it, so
+  // round-trip the parts to reject dates that don't actually exist.
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+// Fixed month names rather than toLocaleDateString: this string is rendered by
+// a client component that Next also renders on the server, and a locale that
+// differs between the two produces a hydration mismatch.
+export function formatLocalIsoDate(iso: string | null | undefined): string | null {
+  const date = parseLocalIsoDate(iso);
+  if (!date) return null;
+  return `${MONTH_LABELS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
+export type VaccinationTone =
+  | 'dated'          // a real owner-supplied expiry, still in the future
+  | 'expired'        // a real owner-supplied expiry, now in the past
+  | 'self-reported'  // boolean yes, no date behind it
+  | 'unvaccinated'   // explicit no from the owner
+  | 'unstated';      // never answered
+
+export interface VaccinationStatus {
+  tone: VaccinationTone;
+  /** Ready-to-render copy. Callers style by tone; they never rewrite this. */
+  label: string;
+}
+
+export function getVaccinationStatus(
+  profile: { rabiesExpiry?: string | null; vaccinated?: boolean | null } | null | undefined,
+  today: Date = new Date(),
+): VaccinationStatus {
+  const expiry = parseLocalIsoDate(profile?.rabiesExpiry);
+
+  if (expiry) {
+    // Compare calendar days, not timestamps: `today` carries a time-of-day and
+    // `expiry` is local midnight, so a raw > comparison would call a
+    // certificate that expires today "expired" from 00:00 onward.
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const label = formatLocalIsoDate(profile?.rabiesExpiry) ?? '';
+    // Expiring today still counts as valid today — that's what the paperwork says.
+    return expiry.getTime() >= startOfToday.getTime()
+      ? { tone: 'dated', label: `Rabies: valid through ${label}` }
+      : { tone: 'expired', label: `Rabies: expired ${label}` };
+  }
+
+  // No usable date — fall back to the boolean, attributed to the owner. An
+  // unparseable date lands here too rather than being shown as-is.
+  if (profile?.vaccinated === true) return { tone: 'self-reported', label: 'Owner marked: vaccinated' };
+  if (profile?.vaccinated === false) return { tone: 'unvaccinated', label: 'Owner marked: not vaccinated' };
+  return { tone: 'unstated', label: 'Vaccination not stated' };
+}
+
 export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
   return {
     id: uid,
@@ -229,7 +331,11 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     playStyles: saved.playStyles as PlayStyle[],
     boundaries: [],
     allergies: [],
-    vaccinated: saved.vaccinated,
+    // undefined (legacy doc with no field) and null (never answered / cleared)
+    // both collapse to null — "not stated". Never to false, which the engine
+    // reads as an explicit no and turns into a 'blocked' tier.
+    vaccinated: saved.vaccinated ?? null,
+    rabiesExpiry: saved.rabiesExpiry ?? undefined,
     vetChecked: false,
     specialNeeds: [],
     behaviorFlags: (saved.behaviorFlags ?? []) as DogProfile['behaviorFlags'],

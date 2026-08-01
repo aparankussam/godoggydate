@@ -51,7 +51,22 @@ async function loadDog(slug: string): Promise<{ uid: string; profile: SavedDogPr
     // These 12 fields are exactly what DogTradingCard renders. If the card
     // ever needs another field, add it here consciously — and never add
     // ownerId, lat, lng, zip, ai, household*, trustScore, ratingCount,
-    // meetAgainRate, or prompts.
+    // meetAgainRate, prompts, vaccinated, or rabiesExpiry.
+    //
+    // Health status is deliberately absent from this list — both fields.
+    //   `vaccinated` used to be here. DogTradingCard never rendered it, so it
+    //   bought nothing, and it was a boolean the profile form initialised to
+    //   true — meaning we serialised a verification-shaped "yes" about dogs
+    //   whose owners were never asked, into a page any crawler or stranger can
+    //   read via view-source. Removed.
+    //   `rabiesExpiry` is not added. It's a real answer rather than a default,
+    //   which makes it MORE sensitive, not less: an exact date is a
+    //   fingerprint-grade personal detail (it dates a specific vet visit, and
+    //   it tells a stranger when a specific dog's paperwork lapses) attached to
+    //   a named dog in a named city on a page with no auth wall. Signed-in
+    //   members who might actually meet this dog get it from dogs/{uid} — see
+    //   SwipeCard — which is the audience the field exists for. Anonymous
+    //   visitors are here to look at a shared card, not to vet a playdate.
     //
     // (Allowlisting also incidentally solves the Firestore Timestamp problem:
     // Admin SDK returns Timestamp class instances, which RSC refuses to
@@ -69,7 +84,6 @@ async function loadDog(slug: string): Promise<{ uid: string; profile: SavedDogPr
       city: raw.city,
       state: raw.state,
       foundingPackNumber: raw.foundingPackNumber,
-      vaccinated: raw.vaccinated,
     };
     return { uid, profile };
   } catch (error) {

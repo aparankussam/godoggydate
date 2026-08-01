@@ -53,6 +53,17 @@ export default function DogSocializationTipsPage() {
         </p>
         <div className="mt-10 rounded-[1.5rem] bg-cream-dark px-5 py-5">
           <p className="text-sm leading-7 text-brown-light">
+            Before a first meeting, read the{' '}
+            <Link
+              href="/playdate-safety"
+              className="font-semibold text-primary underline underline-offset-2"
+            >
+              play-or-fight first-meeting reference
+            </Link>{' '}
+            — the introduction protocol professionals use, and how to tell play from conflict
+            while it is happening.
+          </p>
+          <p className="mt-4 text-sm leading-7 text-brown-light">
             Looking for compatible dogs instead of random encounters? Read our guide to{' '}
             <Link
               href="/dog-playdates"

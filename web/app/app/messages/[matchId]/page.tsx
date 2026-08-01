@@ -28,6 +28,7 @@ import { getChatUnlockPitch } from '../../../../../shared/utils/stripe';
 import { hasRatedPlaydate, submitPlaydateRating } from '../../../../lib/ratings';
 import PlaydateRatingModal from '../../../../components/PlaydateRatingModal';
 import PlaydateMemoryCard from '../../../../components/PlaydateMemoryCard';
+import PlaydateHeadsUpCard from '../../../../components/PlaydateHeadsUpCard';
 import { shareOrDownloadCard } from '../../../../lib/shareCard';
 import { setBestFriend, clearBestFriend } from '../../../../lib/bestFriend';
 
@@ -124,6 +125,7 @@ export default function ChatPage() {
   // token has had a chance to sign the user in.
   const [handoffAttempted, setHandoffAttempted] = useState(!handoffToken);
   const [otherProfile, setOtherProfile]     = useState<SavedDogProfile | null>(null);
+  const [myProfile, setMyProfile]           = useState<SavedDogProfile | null>(null);
   const [otherUserId, setOtherUserId]       = useState<string | null>(null);
   const [messages, setMessages]             = useState<Message[]>([]);
   const [chatInput, setChatInput]           = useState('');
@@ -187,11 +189,17 @@ export default function ChatPage() {
   }, [authUser]);
 
   // ── Best Friend — live so the star updates if toggled from another tab ──────
+  // Also the source for myProfile: this snapshot already carries the whole dog
+  // doc and was throwing all of it away except one field. The Heads-Up card
+  // needs the owner's own declarations to compute crossings and to mirror them
+  // back, so keep the document instead of one property. No extra read.
   useEffect(() => {
     if (!authUser) return;
     const { db } = getFirebase();
     return onSnapshot(doc(db, 'dogs', authUser.uid), (snap) => {
-      setMyBestFriendMatchId((snap.data()?.bestFriendMatchId as string | undefined) ?? null);
+      const data = snap.data() as SavedDogProfile | undefined;
+      setMyBestFriendMatchId((data?.bestFriendMatchId as string | undefined) ?? null);
+      setMyProfile(data ?? null);
     });
   }, [authUser]);
 
@@ -391,6 +399,25 @@ export default function ChatPage() {
     messages.filter((m) => m.type === 'playdate_confirmed').map((m) => playdateKey(m.playdate)),
   );
 
+  // The soonest confirmed playdate that hasn't happened yet — what the Heads-Up
+  // card briefs for. 'en-CA' formats as YYYY-MM-DD, matching the <input
+  // type="date"> value, so these compare lexicographically as local calendar
+  // days (a UTC-based comparison would roll the date over early for anyone west
+  // of Greenwich and late for anyone east).
+  const todayIso = new Date().toLocaleDateString('en-CA');
+  const confirmedPlaydates = messages
+    .filter((m) => m.type === 'playdate_confirmed' && m.playdate)
+    .map((m) => m.playdate!);
+  const upcomingPlaydate =
+    confirmedPlaydates
+      .filter((p) => p.date >= todayIso)
+      .sort((a, b) => (a.date + (a.time ?? '')).localeCompare(b.date + (b.time ?? '')))[0] ?? null;
+  // A rating is only honest once the meetup has actually happened. This used to
+  // fire the moment a playdate was CONFIRMED — so a date a week out prompted
+  // "How did it go?", and the resulting ratings doc is folded into the other
+  // dog's trustScore by the onRatingCreated Cloud Function.
+  const hasPastPlaydate = confirmedPlaydates.some((p) => p.date < todayIso);
+
   const proposePlaydate = useCallback(async () => {
     const { date, time, place } = playdateDraft;
     if (!date || !place.trim()) return;
@@ -418,16 +445,15 @@ export default function ChatPage() {
     }
   }, [sendMessage, matchId]);
 
-  // ── Playdate Payout: rating prompt once a playdate is confirmed ───────────────
-  const hasConfirmedPlaydate = confirmedPlaydateKeys.size > 0;
+  // ── Playdate Payout: rating prompt once a playdate has actually HAPPENED ──────
   useEffect(() => {
-    if (!authUser || !matchId || !hasConfirmedPlaydate) return;
+    if (!authUser || !matchId || !hasPastPlaydate) return;
     let cancelled = false;
     hasRatedPlaydate(authUser.uid, matchId).then((rated) => {
       if (!cancelled) setAlreadyRated(rated);
     });
     return () => { cancelled = true; };
-  }, [authUser, matchId, hasConfirmedPlaydate]);
+  }, [authUser, matchId, hasPastPlaydate]);
 
   async function handleSubmitRating(stars: number, wouldMeetAgain: boolean) {
     if (!authUser || !otherUserId) return;
@@ -697,12 +723,15 @@ export default function ChatPage() {
             </p>
           </div>
         )}
-        {canChat && (
+        {/* Generic advice yields to the specific briefing once a playdate is
+            actually on the calendar — otherwise the two say the same thing
+            twice and the one that matters reads as boilerplate. */}
+        {canChat && !upcomingPlaydate && (
           <div className="rounded-[1.25rem] border border-primary/15 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-brown-light">
             {SAFETY_TIP}
           </div>
         )}
-        {canChat && hasConfirmedPlaydate && !alreadyRated && (
+        {canChat && hasPastPlaydate && !alreadyRated && (
           <button
             onClick={() => setShowRatingModal(true)}
             className="rounded-[1.25rem] border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-semibold text-brown flex items-center justify-between gap-3"
@@ -793,6 +822,17 @@ export default function ChatPage() {
         })}
         <div ref={bottomRef} />
       </div>
+
+      {/* Pinned so it can't scroll away — this is the one thing in the thread
+          you want to re-read on the way to the park. */}
+      {canChat && upcomingPlaydate && otherProfile && (
+        <PlaydateHeadsUpCard
+          dogName={dogName}
+          otherProfile={otherProfile}
+          myProfile={myProfile}
+          playdate={upcomingPlaydate}
+        />
+      )}
 
       {/* Playdate proposal form */}
       {showPlaydateForm && canChat && (

@@ -6,8 +6,10 @@
 // All mutation happens server-side (see firebase/functions/src/index.ts) —
 // this file is just the callable-function wiring.
 
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getFirebase } from '../shared/utils/firebase';
+import type { SavedDogProfile } from '../../shared/profile';
 
 export async function createHouseholdInvite(): Promise<{ code: string; expiresAt: number }> {
   const { app } = getFirebase();
@@ -23,6 +25,35 @@ export async function acceptHouseholdInvite(code: string): Promise<{ dogId: stri
   const callable = httpsCallable<{ code: string }, { dogId: string }>(functions, 'acceptHouseholdInvite');
   const result = await callable({ code });
   return result.data;
+}
+
+export interface HouseholdDog {
+  dogId: string;
+  profile: SavedDogProfile;
+}
+
+/**
+ * The dogs this user has been INVITED onto — i.e. dogs whose
+ * householdMemberIds contains their uid.
+ *
+ * This is the read side of Household, and until now nothing in web/ ran it.
+ * Everything it needs already existed: firestore.rules makes dogs/{dogId}
+ * readable by any signed-in user (so both the `get` and the `list` this query
+ * performs are permitted) and firestore.indexes.json already carries the
+ * dogs.householdMemberIds array-contains fieldOverride. Without this query an
+ * invited partner/sitter accepted an invite and then landed on a profile tab
+ * that only ever read THEIR OWN (nonexistent) dog.
+ *
+ * Never returns the caller's own dog: acceptHouseholdInvite refuses to add an
+ * owner to their own householdMemberIds (see firebase/functions/src/index.ts),
+ * so an owner's array never contains their own uid.
+ */
+export async function getHouseholdDogsForUser(uid: string): Promise<HouseholdDog[]> {
+  const { db } = getFirebase();
+  const snap = await getDocs(
+    query(collection(db, 'dogs'), where('householdMemberIds', 'array-contains', uid)),
+  );
+  return snap.docs.map((d) => ({ dogId: d.id, profile: d.data() as SavedDogProfile }));
 }
 
 export async function removeHouseholdMember(memberUid: string): Promise<void> {

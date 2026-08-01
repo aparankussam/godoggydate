@@ -90,6 +90,18 @@ export async function deleteReminder(dogId: string, reminderId: string): Promise
   await deleteDoc(doc(db, 'dogs', dogId, 'reminders', reminderId));
 }
 
+/**
+ * Start of the local calendar day containing `ms`. Mirrors the web helper —
+ * see web/lib/reminders.ts for the full definition of what a streak is and
+ * why this uses the LOCAL getters rather than the UTC ones ("due today" is a
+ * wall-clock idea in the user's own timezone, and a UTC compare would score
+ * an evening completion as late).
+ */
+function startOfLocalDay(ms: number): number {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
 export async function completeReminder(dogId: string, reminder: Reminder): Promise<{ streak: number } | null> {
   const { db } = getFirebase();
   const ref = doc(db, 'dogs', dogId, 'reminders', reminder.id);
@@ -104,9 +116,13 @@ export async function completeReminder(dogId: string, reminder: Reminder): Promi
   let nextDue = reminder.dueDate + intervalMs;
   while (nextDue <= now) nextDue += intervalMs;
 
-  // On-time (at or before the original due date) extends the streak;
-  // completing it late resets it — no credit for catching up.
-  const wasOnTime = now <= reminder.dueDate;
+  // On-time (on or before the due DAY) extends the streak; completing it late
+  // resets it — no credit for catching up. Compared by calendar day, not by
+  // instant: a reminder due today is done on time whether it's ticked off at
+  // 9am or at 11pm, and a millisecond comparison against the stored dueDate
+  // (which carries whatever time-of-day it was created with) would call the
+  // evening one late.
+  const wasOnTime = startOfLocalDay(now) <= startOfLocalDay(reminder.dueDate);
   const nextStreak = wasOnTime ? (reminder.currentStreak ?? 0) + 1 : 0;
 
   await updateDoc(ref, {

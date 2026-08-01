@@ -14,7 +14,9 @@ import {
   toFullProfile, onAuthStateChanged,
   isProfileComplete,
 } from '../../lib/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '../../shared/utils/firebase';
+import { calculateCompatibility } from '../../../shared/utils/matchingEngine';
 import type { User, SavedDogProfile } from '../../lib/auth';
 import type { DogProfile } from '../../../shared/types';
 import DogProfileForm from '../../components/DogProfileForm';
@@ -28,6 +30,7 @@ import DemoGalleryGrid from '../../components/DemoGalleryGrid';
 import { requestApproxLocation } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
 import DogTradingCard from '../../components/DogTradingCard';
+import TodayPanel from '../../components/TodayPanel';
 import { shareOrDownloadCard } from '../../lib/shareCard';
 import { toDogSlug } from '../../lib/dogSlug';
 
@@ -35,12 +38,30 @@ import { toDogSlug } from '../../lib/dogSlug';
 type FeedDog = DiscoverFeedDog;
 const DEFAULT_DISCOVER_RADIUS_MILES = 50;
 
-function formatDensityLine(withinFive: number, withinRadius: number, radiusMiles: number): string {
-  if (withinRadius === 0) return `We’ll keep looking within ${radiusMiles} mi`;
-  if (withinFive === withinRadius) {
-    return `${withinRadius} within ${withinRadius === 1 ? '5 mile' : '5 mi'}`;
+// Every dog in the deck lands in exactly one bucket, so the line can only ever
+// under-describe the deck — never claim a proximity it didn't measure.
+interface DensityCounts {
+  withinFive: number;
+  withinRadius: number;
+  beyondRadius: number;
+  unknownDistance: number;
+}
+
+function formatDensityLine(counts: DensityCounts, radiusMiles: number): string {
+  const parts: string[] = [];
+  if (counts.withinFive > 0) parts.push(`${counts.withinFive} within 5 mi`);
+  if (counts.withinRadius > counts.withinFive) {
+    parts.push(`${counts.withinRadius} within ${radiusMiles} mi`);
   }
-  return `${withinFive} within 5 mi · ${withinRadius} within ${radiusMiles} mi`;
+  if (counts.beyondRadius > 0) parts.push(`${counts.beyondRadius} farther out`);
+  // A dog with no shared coordinates isn't "nearby" — we don't know where it
+  // is. It used to be folded into the within-50-mi count, which told people
+  // there were dogs in their radius that the app had never located.
+  if (counts.unknownDistance > 0) {
+    parts.push(`${counts.unknownDistance} at an unknown distance`);
+  }
+  if (parts.length === 0) return `We’ll keep looking within ${radiusMiles} mi`;
+  return parts.join(' · ');
 }
 
 export default function AppPage() {
@@ -63,6 +84,7 @@ export default function AppPage() {
   const [feedDepleted,     setFeedDepleted]     = useState(false);
   const [feedLoading,      setFeedLoading]      = useState(false);
   const [activeFeed,       setActiveFeed]       = useState<FeedDog[]>([]);
+  const [lastCheckedAt,    setLastCheckedAt]    = useState<number | null>(null);
   const [profileSavedToast, setProfileSavedToast] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const [showDemoGallery,  setShowDemoGallery]  = useState(false);
@@ -139,14 +161,21 @@ export default function AppPage() {
     }
   }
 
+  // Deliberately does NOT clear feedDepleted up front. Clearing it swapped the
+  // whole empty state for a skeleton card mid-query, so "Check again" flashed
+  // the screen and then returned an identical-looking page — the user couldn't
+  // tell a real re-query from a no-op. Leaving the empty state mounted lets the
+  // button own its own pending state; the result below sets the flag either way.
   async function refreshDiscoverFeed(nextAuthUser: User, nextUserDog: DogProfile) {
     setFeedLoading(true);
-    setFeedDepleted(false);
 
     try {
       const feed = await buildDiscoverFeed(nextAuthUser.uid, nextUserDog);
       setActiveFeed(feed);
       setFeedDepleted(feed.length === 0);
+      // Only a completed query counts as a check — a failed one must not be
+      // able to render a timestamp claiming we looked.
+      setLastCheckedAt(Date.now());
     } catch {
       setActiveFeed([]);
       setFeedDepleted(true);
@@ -239,16 +268,44 @@ export default function AppPage() {
   const dogName           = savedProfile?.name ?? userDog?.name ?? '';
 
   // ── SwipeStack callbacks ──────────────────────────────────────────────────
-  function handleMatch(dog: FeedDog, matchId: string) {
-    setMatchedDog(dog);
+  // The compat object rides along from feed-build time. The feed rebuilds on
+  // mount/visibilitychange/focus but NOT at the moment of the match, so if the
+  // other owner changed their vaccination checkbox, energy or size in between,
+  // the modal presented stale values as current — including the quality tier,
+  // which vaccinated===false flips to 'blocked' on its own. Re-read and
+  // recompute before showing it; fall back to the cached compat on any failure.
+  async function refreshCompat(dog: FeedDog): Promise<FeedDog> {
+    if (dog.isDemo) return dog;
+    const ownerId = dog.ownerId ?? dog.firestoreId ?? dog.id;
+    if (!ownerId || !userDog) return dog;
+    try {
+      const { db } = getFirebase();
+      const snap = await getDoc(doc(db, 'dogs', ownerId));
+      if (!snap.exists()) return dog;
+      const fresh = toFullProfile(snap.data() as SavedDogProfile, ownerId);
+      return {
+        ...dog,
+        vaccinated: fresh.vaccinated,
+        compat: calculateCompatibility(userDog, fresh, dog.distanceMiles),
+      };
+    } catch {
+      return dog;
+    }
+  }
+
+  async function handleMatch(dog: FeedDog, matchId: string) {
+    const fresh = await refreshCompat(dog);
+    setMatchedDog(fresh);
     setActiveMatchId(matchId);
     trackEvent('match_created', {
       match_id: matchId,
-      dog_id: dog.firestoreId ?? dog.id,
-      is_demo: dog.isDemo,
-      compatibility_score: dog.compat.score,
+      dog_id: fresh.firestoreId ?? fresh.id,
+      is_demo: fresh.isDemo,
+      compatibility_score: fresh.compat.score,
     });
-    if (!hasHadFirstMatch) {
+    // A pairing the engine flagged as a safety mismatch shouldn't get a 🎉
+    // retention toast three seconds after the (deliberately sober) match modal.
+    if (!hasHadFirstMatch && fresh.compat.quality !== 'blocked') {
       setHasHadFirstMatch(true);
       setTimeout(() => setShowRetentionHook(true), 3000);
     }
@@ -316,18 +373,25 @@ export default function AppPage() {
   // the app had no idea where those dogs were.
   const hasKnownDistance = (miles: number) => typeof miles === 'number' && miles >= 0;
   const visibleDogs = activeFeed;
-  const visibleWithinFive = visibleDogs.filter(
-    (dog) => hasKnownDistance(dog.distanceMiles) && dog.distanceMiles <= 5,
-  ).length;
-  const visibleWithinRadius = visibleDogs.filter(
-    (dog) =>
-      !hasKnownDistance(dog.distanceMiles) ||
-      dog.distanceMiles <= DEFAULT_DISCOVER_RADIUS_MILES,
-  ).length;
-  const densityLine =
-    visibleDogs.length === 0
-      ? `We’ll keep looking within ${DEFAULT_DISCOVER_RADIUS_MILES} mi`
-      : formatDensityLine(visibleWithinFive, visibleWithinRadius, DEFAULT_DISCOVER_RADIUS_MILES);
+  const locatedDogs = visibleDogs.filter((dog) => hasKnownDistance(dog.distanceMiles));
+  const densityCounts: DensityCounts = {
+    withinFive: locatedDogs.filter((dog) => dog.distanceMiles <= 5).length,
+    withinRadius: locatedDogs.filter(
+      (dog) => dog.distanceMiles <= DEFAULT_DISCOVER_RADIUS_MILES,
+    ).length,
+    beyondRadius: locatedDogs.filter(
+      (dog) => dog.distanceMiles > DEFAULT_DISCOVER_RADIUS_MILES,
+    ).length,
+    unknownDistance: visibleDogs.length - locatedDogs.length,
+  };
+  const densityLine = formatDensityLine(densityCounts, DEFAULT_DISCOVER_RADIUS_MILES);
+  const lastCheckedLabel =
+    lastCheckedAt === null
+      ? null
+      : new Date(lastCheckedAt).toLocaleTimeString(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+        });
 
   return (
     <div className="min-h-screen w-full bg-cream flex flex-col relative overflow-x-hidden">
@@ -456,8 +520,10 @@ export default function AppPage() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex h-full w-full flex-col px-1 sm:px-2 pt-2 pb-0">
 
-          {/* Skeleton while auth + profile resolve */}
-          {(authLoading || (authUser && profileIsComplete && feedLoading)) && (
+          {/* Skeleton while auth + profile resolve. Suppressed once we already
+              know the feed is empty — that state re-queries in place instead of
+              replacing itself with a loading card. */}
+          {(authLoading || (authUser && profileIsComplete && feedLoading && !feedDepleted)) && (
             <div className="relative flex-1 min-h-[82vh]">
               <SkeletonCard />
             </div>
@@ -491,10 +557,22 @@ export default function AppPage() {
               clearly labeled instead of auto-injected. */}
           {!authLoading && authUser && profileIsComplete && feedDepleted && (
             <div className="flex flex-1 flex-col items-center justify-center py-16 gap-4 text-center px-4">
+              {/* Today — reminders, profile gaps, the things that are true for
+                  THIS dog right now. Renders null when there's nothing real to
+                  say, so an idle account still falls through to the empty
+                  state below rather than reading a made-up feed. */}
+              <TodayPanel
+                dogId={authUser.uid}
+                savedProfile={savedProfile}
+                variant="full"
+                onEditProfile={() => setShowProfileForm(true)}
+              />
+
               <span className="text-6xl">🐾</span>
               <p className="font-display text-2xl text-brown">No dogs nearby yet</p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                You might be the first dog parent in your neighborhood. New dogs drop daily-ish.
+                You might be the first dog parent in your neighborhood. We re-check every time
+                you open this tab.
               </p>
 
               {/* Recruit Card — the actual growth lever here is a stranger
@@ -521,17 +599,23 @@ export default function AppPage() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-3">
+                {/* Genuine re-query: buildDiscoverFeed re-reads the dogs
+                    collection every call (no cached candidate list). The
+                    button used to be indistinguishable from a no-op, so it now
+                    reports when the last query actually completed — the only
+                    honest answer when nothing changed. */}
                 <button
                   type="button"
+                  disabled={feedLoading}
                   onClick={() => {
                     if (authUser && userDog) {
                       refreshDiscoverFeed(authUser, userDog)
                         .catch(() => { /* handled inside refreshDiscoverFeed */ });
                     }
                   }}
-                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
+                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:opacity-60"
                 >
-                  Check Again
+                  {feedLoading ? 'Checking…' : 'Check again'}
                 </button>
                 <button
                   type="button"
@@ -541,6 +625,11 @@ export default function AppPage() {
                   Invite a Dog Parent
                 </button>
               </div>
+              {lastCheckedLabel && (
+                <p className="text-[11px] text-brown-light/80">
+                  Last checked {lastCheckedLabel}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => setShowDemoGallery((v) => !v)}
@@ -562,6 +651,15 @@ export default function AppPage() {
           {/* Swipe feed — authenticated */}
           {!authLoading && !feedLoading && authUser && profileIsComplete && !feedDepleted && (
             <>
+              {/* Same panel, one line: above a live deck only something already
+                  due (overdue or today) earns space — swiping is the job here,
+                  and a profile nudge can wait for the empty state. */}
+              <TodayPanel
+                dogId={authUser.uid}
+                savedProfile={savedProfile}
+                variant="strip"
+                onEditProfile={() => setShowProfileForm(true)}
+              />
               <div className="mx-auto w-full max-w-sm mb-2 px-2 text-center">
                 <p className="text-xs font-medium text-brown-light">
                   {densityLine}

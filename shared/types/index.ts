@@ -68,7 +68,18 @@ export interface DogProfile {
   allergies: string[];
 
   // Health (self-reported)
+  // null = the owner never answered. Distinct from false, which is an explicit
+  // "no" and is the ONLY value that flips a pairing to 'blocked' in
+  // calculateCompatibility — null must never be coerced to false on its way here.
   vaccinated: boolean | null;
+  // Owner-typed rabies certificate expiry, 'YYYY-MM-DD'. Optional and usually
+  // absent, which is the point: unlike `vaccinated` (a boolean that used to be
+  // initialised to true by the form, so it said nothing about any real dog), a
+  // date here was read off an actual certificate. Compare it only through
+  // getVaccinationStatus/parseLocalIsoDate in shared/profile.ts — never
+  // new Date(iso), which parses 'YYYY-MM-DD' as UTC midnight and therefore
+  // reads as expired a day early everywhere west of Greenwich.
+  rabiesExpiry?: string;
   vetChecked: boolean;
   lastVetVisit?: string; // ISO date string
   healthNotes?: string;

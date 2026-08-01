@@ -14,8 +14,9 @@
 // Same emoji, labels, badges, palette, and active treatment in both forms:
 // the design language is identical, only the layout adapts.
 //
-// Only rendered when the user is authenticated AND their profile is
-// complete (gated by AppLayoutShell).
+// Only rendered when the user is authenticated AND either their profile is
+// complete or they've been invited onto someone else's dog (gated by
+// AppLayoutShell, which also decides householdOnly).
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -23,6 +24,11 @@ import { usePathname } from 'next/navigation';
 interface Props {
   unreadMessages?: number;
   unreadMatches?: number;
+  /** The signed-in user has no dog of their own — they were invited onto
+   *  someone else's via Household. Discover/Matches/Messages all require a
+   *  dog to swipe with, so showing them would be four tabs of which three
+   *  are guaranteed dead ends. */
+  householdOnly?: boolean;
 }
 
 const TABS = [
@@ -31,6 +37,9 @@ const TABS = [
   { href: '/app/messages',  label: 'Messages',  emoji: '💬', badge: 'unreadMessages' as const },
   { href: '/app/profile',   label: 'Profile',   emoji: '🐕' },
 ] as const;
+
+/** The only destination that works without a dog of your own. */
+const HOUSEHOLD_TABS = TABS.filter((tab) => tab.href === '/app/profile');
 
 /** Shared by both nav forms so a count never renders differently between them. */
 function Badge({ count, className = '' }: { count: number; className?: string }) {
@@ -44,9 +53,10 @@ function Badge({ count, className = '' }: { count: number; className?: string })
   );
 }
 
-export default function AppNav({ unreadMessages = 0, unreadMatches = 0 }: Props) {
+export default function AppNav({ unreadMessages = 0, unreadMatches = 0, householdOnly = false }: Props) {
   const pathname = usePathname();
   const badges = { unreadMessages, unreadMatches };
+  const tabs: readonly (typeof TABS)[number][] = householdOnly ? HOUSEHOLD_TABS : TABS;
 
   function isActive(href: string) {
     // Exact match for root /app, prefix match for sub-routes
@@ -63,7 +73,7 @@ export default function AppNav({ unreadMessages = 0, unreadMatches = 0 }: Props)
         </Link>
 
         <nav className="flex flex-col gap-1">
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const count = 'badge' in tab ? badges[tab.badge] : 0;
             const active = isActive(tab.href);
             return (
@@ -90,7 +100,7 @@ export default function AppNav({ unreadMessages = 0, unreadMatches = 0 }: Props)
 
       {/* ── Mobile: bottom tab bar (matches the native app) ──────────────── */}
       <nav className="lg:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/96 backdrop-blur-xl border-t border-border shadow-[0_-10px_30px_rgba(45,26,14,0.08)] flex z-40 pb-safe">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const count = 'badge' in tab ? badges[tab.badge] : 0;
           const active = isActive(tab.href);
           return (

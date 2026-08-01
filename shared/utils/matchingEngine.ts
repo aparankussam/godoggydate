@@ -8,7 +8,9 @@ import { resolveBreed, type BreedGroup } from '../types/breeds';
 const SIZE_VALUE: Record<string, number> = { S: 1, M: 2, L: 3, XL: 4 };
 
 // ─── UNSAFE PAIRING DETECTION ─────────────────────────────────────────────────
-function detectUnsafePairings(a: DogProfile, b: DogProfile): string[] {
+// Exported so the pre-meetup Heads-Up card can show the SAME crossings the score
+// was computed from, rather than a second, hand-maintained list that drifts.
+export function detectUnsafePairings(a: DogProfile, b: DogProfile): string[] {
   const warnings: string[] = [];
 
   // Check notGoodWith crossings
@@ -119,6 +121,12 @@ function calcHealthScore(b: DogProfile): number {
 
 // ─── DISTANCE SCORE (5%) ─────────────────────────────────────────────────────
 function calcDistanceScore(distanceMiles: number): number {
+  // discover.ts's milesBetween returns the sentinel -1 when either dog has no
+  // lat/lng (coords only arrive via an optional geolocation prompt, and BOTH
+  // dogs need them — so "unknown" is the common path, not the edge case).
+  // Without this guard -1 falls through to `< 0.3` and scores the MAXIMUM:
+  // an unknown distance was scoring as "closer than 0.3 miles".
+  if (!(distanceMiles >= 0)) return 0;
   if (distanceMiles < 0.3)  return 5;
   if (distanceMiles < 0.75) return 4;
   if (distanceMiles < 1.5)  return 3;
@@ -148,22 +156,41 @@ export function calculateCompatibility(
   // Also check reverse
   const reverseWarnings = detectUnsafePairings(candidate, userDog);
   const allWarnings = [...new Set([...warnings, ...reverseWarnings])];
-  const penalty = allWarnings.length * 15;
+  // Diminishing, not linear. A flat −15 each is a tax on honesty: the owner who
+  // truthfully declares three things about their dog was scored 45 points below
+  // the one who declared nothing, and at this density that can empty their feed.
+  // The first crossing carries most of the signal; later ones add less. Still
+  // monotonic (more crossings always scores lower), just not a spiral — and the
+  // warnings themselves are now surfaced in full by every consumer, so the score
+  // no longer has to be the thing that carries the caution.
+  const penalty = allWarnings.length === 0 ? 0 : 15 + (allWarnings.length - 1) * 8;
 
   // Raw score
   const raw = breedScore + sizeScore + energyScore +
               goodWithScore + playScore + healthScore + distScore - penalty;
 
-  // Normalize to 0-100
-  const maxPossible = 30 + 20 + 15 + 15 + 10 + 5 + 5; // = 100
-  const score = Math.round(Math.min(99, Math.max(30, (raw / maxPossible) * 100)));
+  // The axes are weighted to sum to 100, so `raw` is already on a 0-100 scale.
+  // The old line divided by that sum (an identity op) and then clamped to 30-99 —
+  // the clamp was its only real effect. Since `penalty` is 15 per warning, raw goes
+  // deeply negative, and a raw of -4 and a raw of 30 both displayed as "30". That
+  // floor existed purely to make bad numbers look presentable. Clamp to the honest
+  // range instead. (This does not move the `score < 45` blocked boundary: everything
+  // the floor used to lift to 30 was already below 45.)
+  const score = Math.round(Math.min(100, Math.max(0, raw)));
 
   // ─── Build reasons (human-readable, shown as ✔ in UI) ───────────────────────
-  if (sizeScore >= 18)            reasons.push('Safe size match');
-  if (energyScore >= 12)          reasons.push('Same energy level');
-  if (breedScore >= 22)           reasons.push('Compatible breed groups');
+  // Each string below says only what its threshold actually establishes. Previously
+  // "Safe size match" asserted safety from an identical size bucket, and "Same energy
+  // level" fired at a 19-point gap on a self-reported slider.
+  if (sizeScore >= 18)            reasons.push('Same size class');
+  const energyDiff = Math.abs(userDog.energyLevel - candidate.energyLevel);
+  if (energyDiff < 10)            reasons.push('Same energy level');
+  else if (energyDiff < 20)       reasons.push(`Energy within ${energyDiff} points`);
+  if (breedScore >= 30)           reasons.push('Same breed group');
+  else if (breedScore >= 22)      reasons.push('Related breed groups');
   if (goodWithScore >= 12)        reasons.push("Good with your dog's type");
-  if (sharedStyles.length >= 1)   reasons.push('Similar play style');
+  // Naming the shared style is both more honest and more useful than "Similar".
+  if (sharedStyles.length >= 1)   reasons.push(`Both listed ${sharedStyles.join(' and ')}`);
   // Leash reactivity is a walking-route problem, not a playdate problem — most
   // matches here happen off-leash (parks, yards), so this flag is reassuring
   // rather than a warning. Surfaced as a reason, not an 8th scoring axis, so it
@@ -173,9 +200,15 @@ export function calculateCompatibility(
   if (candidate.behaviorFlags?.includes('reactive on leash only')) {
     reasons.push('Great off-leash, even if leash walks are tough');
   }
-  if (candidate.vaccinated)       reasons.push('Both vaccinated');
-  if (candidate.vetChecked)       reasons.push('Recently vet checked');
-  if (distanceMiles < 0.5)        reasons.push('Very close by');
+  // "Both vaccinated" was asserted from the CANDIDATE's flag alone — userDog.vaccinated
+  // is never read here — so an owner whose own dog is unvaccinated was still told
+  // "both". "marked" is load-bearing in all of these: vaccinated is a checkbox that
+  // defaults to true (DogProfileForm), not a record anyone verified.
+  if (userDog.vaccinated && candidate.vaccinated) reasons.push('Both marked vaccinated');
+  else if (candidate.vaccinated)  reasons.push(`${candidate.name} is marked vaccinated`);
+  // vetChecked carries no recency — lastVetVisit is a separate field this never reads.
+  if (candidate.vetChecked)       reasons.push('Vet check on file');
+  if (distanceMiles >= 0 && distanceMiles < 0.5) reasons.push('Very close by');
 
   // ─── Vaccination blocker ──────────────────────────────────────────────────
   if (candidate.vaccinated === false) {
@@ -212,7 +245,12 @@ export function calculateCompatibility(
     label,
     microcopy,
     reasons: reasons.slice(0, 4),
-    warnings: allWarnings.slice(0, 2),
+    // NOT capped. The vaccination blocker is unshift()ed to the front above, so a
+    // 2-item cap silently dropped the third warning off the end — and a pairing with
+    // a vaccination problem plus two behavioral crossings is exactly the case where
+    // the dropped one matters most. Dropping a positive is a cosmetic loss; dropping
+    // a warning is a safety event. Consumers scroll instead of truncating.
+    warnings: allWarnings,
     breakdown: {
       breedScore,
       sizeScore,

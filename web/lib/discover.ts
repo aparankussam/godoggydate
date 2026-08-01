@@ -23,6 +23,11 @@ export interface DiscoverFeedDog {
   energyLevel: number;
   photos?: string[];
   vaccinated?: boolean | null;
+  /** Owner-typed rabies expiry, 'YYYY-MM-DD'. Usually absent. Consumers must
+   *  render it via getVaccinationStatus (shared/profile.ts) rather than
+   *  reading the boolean above on its own — the boolean predates this field
+   *  and was defaulted to true for every dog that ever saved a profile. */
+  rabiesExpiry?: string;
   temperament?: string[];
   playStyles?: string[];
   location?: string;
@@ -90,6 +95,7 @@ function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean):
     energyLevel: candidate.energyLevel,
     photos: candidate.photos,
     vaccinated: candidate.vaccinated,
+    rabiesExpiry: candidate.rabiesExpiry,
     temperament: candidate.temperament,
     playStyles: candidate.playStyles,
     location,

@@ -227,6 +227,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex gap-4 text-sm text-brown-light">
+            <Link href="/playdate-safety" className="hover:text-primary transition-colors">Play or Fight?</Link>
             <Link href="/dog-playdates" className="hover:text-primary transition-colors">Dog Playdates</Link>
             <Link href="/dog-socialization-tips" className="hover:text-primary transition-colors">Socialization Tips</Link>
             <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>

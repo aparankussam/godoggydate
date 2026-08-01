@@ -1,7 +1,9 @@
 'use client';
 // web/components/AppLayoutShell.tsx
 // Client wrapper for the /app/* sub-layout.
-// Renders AppNav only when: authenticated + profile complete.
+// Renders AppNav when: authenticated + (profile complete OR invited onto
+// someone else's dog via Household — that user has no dog of their own by
+// design, so a completeness-only gate left them with no navigation at all).
 // Live-listens to matches to compute unread badge counts:
 //   unreadMatches  — new matches with no chat yet (lastMessage === null)
 //   unreadMessages — matches where last msg was from the OTHER user
@@ -15,6 +17,7 @@ import { onAuthStateChanged, getUserDogProfile, isProfileComplete } from '../lib
 import type { User, SavedDogProfile } from '../lib/auth';
 import { setAnalyticsUser, trackEvent } from '../lib/analytics';
 import { ensurePushRegisteredIfGranted } from '../lib/push';
+import { getHouseholdDogsForUser } from '../lib/household';
 import AppNav from './AppNav';
 
 interface Props {
@@ -27,6 +30,7 @@ export default function AppLayoutShell({ children }: Props) {
   const [ready, setReady]                   = useState(false);
   const [unreadMatches, setUnreadMatches]   = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [isHouseholdMember, setIsHouseholdMember] = useState(false);
 
   // ── Auth observer ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -34,6 +38,10 @@ export default function AppLayoutShell({ children }: Props) {
     const unsub = onAuthStateChanged(auth, async (user) => {
       setAuthUser(user);
       setAnalyticsUser(user?.uid ?? null);
+      // Reset per-account so a sign-out (or an account switch in the same
+      // page session) can't leave the previous user's household access
+      // deciding this user's nav.
+      setIsHouseholdMember(false);
       if (!user) {
         trackEvent('signed_out');
       }
@@ -41,6 +49,15 @@ export default function AppLayoutShell({ children }: Props) {
         try {
           const p = await getUserDogProfile(user.uid);
           setSavedProfile(p);
+          // Only when they have NO dog doc at all. A user with a dog — even
+          // an incomplete one — keeps exactly the nav behaviour they had
+          // before, and never pays for this extra query.
+          if (!p) {
+            try {
+              const householdDogs = await getHouseholdDogsForUser(user.uid);
+              setIsHouseholdMember(householdDogs.length > 0);
+            } catch { /* offline — falls back to no nav, as before */ }
+          }
         } catch { /* offline — no nav */ }
         // Fire-and-forget: retries silently if a prior visit's token save
         // failed (e.g. a transient Firebase Installations error) without
@@ -107,7 +124,13 @@ export default function AppLayoutShell({ children }: Props) {
     return () => { unsubA(); unsubB(); };
   }, [authUser]);
 
-  const showNav = ready && !!authUser && isProfileComplete(savedProfile);
+  // hasOwnDog is the pre-existing condition, untouched. The household clause
+  // can only add nav for someone it was already withheld from, and
+  // householdOnly is derived from hasOwnDog rather than from the household
+  // flag, so a stale flag can never strip an owner's tabs.
+  const hasOwnDog     = isProfileComplete(savedProfile);
+  const showNav       = ready && !!authUser && (hasOwnDog || isHouseholdMember);
+  const householdOnly = !hasOwnDog;
 
   return (
     <>
@@ -120,6 +143,7 @@ export default function AppLayoutShell({ children }: Props) {
         <AppNav
           unreadMessages={unreadMessages}
           unreadMatches={unreadMatches}
+          householdOnly={householdOnly}
         />
       )}
     </>

@@ -22,6 +22,7 @@ import { trackEvent } from '../../../lib/analytics';
 import { getRenderablePhotos } from '../../../lib/photos';
 import { deleteAccount } from '../../../lib/account';
 import DogTradingCard from '../../../components/DogTradingCard';
+import HandoffCard from '../../../components/HandoffCard';
 import VibeTypeCard from '../../../components/VibeTypeCard';
 import { shareOrDownloadCard } from '../../../lib/shareCard';
 import { onEntitlements, getFoundingMemberLink } from '../../../lib/entitlements';
@@ -30,6 +31,8 @@ import { toDogSlug } from '../../../lib/dogSlug';
 import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
+import { getHouseholdDogsForUser } from '../../../lib/household';
+import type { HouseholdDog } from '../../../lib/household';
 import type { Reminder } from '../../../../shared/types';
 
 export default function ProfilePage() {
@@ -46,10 +49,17 @@ export default function ProfilePage() {
   const [deleting,     setDeleting]     = useState(false);
   const [deleteError,  setDeleteError]  = useState<string | null>(null);
   const [sharingCard,  setSharingCard]  = useState(false);
+  const [sharingHandoff, setSharingHandoff] = useState(false);
   const [hasLifetime,  setHasLifetime]  = useState(false);
   const [reminders,    setReminders]    = useState<Reminder[]>([]);
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
+  // Household member state — only ever populated for a user with NO dog of
+  // their own (see the effect below). An owner never enters this path.
+  const [householdDogs,      setHouseholdDogs]      = useState<HouseholdDog[]>([]);
+  const [householdChecked,   setHouseholdChecked]   = useState(false);
+  const [householdReminders, setHouseholdReminders] = useState<Record<string, Reminder[]>>({});
   const cardRef = useRef<HTMLDivElement>(null);
+  const handoffRef = useRef<HTMLDivElement>(null);
 
   async function handleShareCard() {
     if (!cardRef.current || sharingCard || !authUser) return;
@@ -67,6 +77,29 @@ export default function ProfilePage() {
       // html2canvas/share failures are non-critical — just let them retry.
     } finally {
       setSharingCard(false);
+    }
+  }
+
+  // The Handoff Card exports through the same pipeline as the trading card
+  // (web/lib/shareCard.ts, unchanged) with its own ref and filename.
+  // Deliberately passes no publicUrl: that option exists to append
+  // "see her page: <link>" recruiting copy to a public share, which is the
+  // wrong thing to staple to a private care sheet going to a sitter.
+  async function handleShareHandoff() {
+    if (!handoffRef.current || sharingHandoff || !savedProfile) return;
+    setSharingHandoff(true);
+    trackEvent('handoff_card_share_click');
+    try {
+      const result = await shareOrDownloadCard(
+        handoffRef.current,
+        `${(savedProfile.name ?? 'dog').toLowerCase().replace(/\s+/g, '-')}-care-sheet.png`,
+        { dogName: savedProfile.name },
+      );
+      trackEvent('handoff_card_shared', { method: result });
+    } catch {
+      // html2canvas/share failures are non-critical — just let them retry.
+    } finally {
+      setSharingHandoff(false);
     }
   }
 
@@ -109,6 +142,49 @@ export default function ProfilePage() {
     if (!authUser) return;
     return onReminders(authUser.uid, setReminders);
   }, [authUser]);
+
+  // ── Household member fallback ─────────────────────────────────────────────
+  // Someone invited onto a dog's household needs no dog of their own — the
+  // invite copy promises exactly that — but this page only ever read
+  // dogs/{their own uid}, so they landed on "No profile yet. Set up your
+  // dog's profile to start swiping": a dead end for the one person the
+  // feature was built for.
+  //
+  // Gated on hasOwnDog so a user WITH a dog never runs this query, never
+  // holds this state, and cannot reach the household branch below. That
+  // gate is the whole regression guard: for an owner this block is inert.
+  const hasOwnDog = !!savedProfile;
+
+  useEffect(() => {
+    if (!authUser || loading || hasOwnDog) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const dogs = await getHouseholdDogsForUser(authUser.uid);
+        if (!cancelled) setHouseholdDogs(dogs);
+      } catch {
+        // Offline or query failed — fall through to the existing empty state
+        // rather than blocking the page on it.
+      } finally {
+        if (!cancelled) setHouseholdChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authUser, loading, hasOwnDog]);
+
+  // Live reminders for each household dog. Same collection and same rules
+  // path the owner uses — firestore.rules already grants an invited member
+  // read AND write on dogs/{dogId}/reminders, so these rows are completable
+  // by them, which is the entire point ("did you already give her the pill").
+  useEffect(() => {
+    if (householdDogs.length === 0) return;
+    const unsubs = householdDogs.map((dog) =>
+      onReminders(dog.dogId, (list) =>
+        setHouseholdReminders((prev) => ({ ...prev, [dog.dogId]: list })),
+      ),
+    );
+    return () => unsubs.forEach((unsub) => unsub());
+  }, [householdDogs]);
 
   // Household + Best Friend — the public dog doc is otherwise only fetched
   // once, on sign-in (getUserDogProfile above), so accepting/removing a
@@ -261,6 +337,10 @@ export default function ProfilePage() {
   // flow shipped, and rendered nowhere on the one page an owner actually
   // looks at their own dog's profile.
   const vibeCheck   = savedProfile?.ai?.vibeCheck;
+  // True only for someone who has NO dog of their own but was invited onto
+  // someone else's. Every household-specific branch below hangs off this, and
+  // it is false for any user with a saved dog — an owner's page is unchanged.
+  const householdOnly = !savedProfile && householdDogs.length > 0;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -289,8 +369,54 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* No profile yet */}
-        {!savedProfile && (
+        {/* Still deciding which empty state applies — the household lookup
+            below hasn't answered yet. Without this the invited-partner case
+            flashed "No profile yet" before its own view replaced it. */}
+        {!savedProfile && !householdChecked && (
+          <div className="flex justify-center py-12">
+            <span className="text-4xl animate-spin">🐾</span>
+          </div>
+        )}
+
+        {/* Household member view — no dog of their own, but invited onto one.
+            This is what the invite promised ("no dog of your own required")
+            and what this page used to answer with a dead end. Everything
+            shown here is already readable by them under firestore.rules:
+            the dog doc is public to any signed-in user, and reminders are
+            explicitly granted to household members. */}
+        {householdOnly && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="font-display text-2xl text-brown">Your household</p>
+              <p className="mt-1 text-sm text-brown-light">
+                {householdDogs.length === 1
+                  ? `You help look after ${householdDogs[0].profile.name}.`
+                  : 'You help look after these dogs.'}{' '}
+                You can see and complete their reminders — no dog of your own required.
+              </p>
+            </div>
+
+            {householdDogs.map((dog) => (
+              <div key={dog.dogId} className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                <div className="w-full max-w-[360px] shrink-0">
+                  <HandoffCard
+                    profile={dog.profile}
+                    reminders={householdReminders[dog.dogId] ?? []}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <RemindersSection
+                    dogId={dog.dogId}
+                    reminders={householdReminders[dog.dogId] ?? []}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* No profile yet — and not in anyone's household either. */}
+        {!savedProfile && householdChecked && householdDogs.length === 0 && (
           <div className="flex flex-col items-center gap-4 py-12 text-center">
             <span className="text-6xl">🐾</span>
             <p className="font-display text-2xl text-brown">No profile yet</p>
@@ -454,11 +580,14 @@ export default function ProfilePage() {
             </button>
           )}
 
+          {/* For a household member this is a real but secondary option —
+              they were invited to help with someone else's dog, so it
+              shouldn't be the loudest button on their page. */}
           <button
               onClick={() => setShowEdit(true)}
-              className="btn-primary py-3 shadow-lg"
+              className={householdOnly ? 'btn-secondary py-3' : 'btn-primary py-3 shadow-lg'}
             >
-            {savedProfile ? 'Edit Profile' : 'Create Profile'}
+            {savedProfile ? 'Edit Profile' : householdOnly ? 'Add a dog of your own' : 'Create Profile'}
           </button>
 
           <div className="card rounded-[1.8rem] divide-y divide-border">
@@ -517,12 +646,16 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <Link
-            href="/app"
-            className="text-center text-xs text-brown-light hover:text-brown transition-colors py-2"
-          >
-            ← Back to discover
-          </Link>
+          {/* Discover needs a dog of your own to score against, so it's not a
+              destination for a household member — don't offer it to them. */}
+          {!householdOnly && (
+            <Link
+              href="/app"
+              className="text-center text-xs text-brown-light hover:text-brown transition-colors py-2"
+            >
+              ← Back to discover
+            </Link>
+          )}
         </div>
         </div>
         {/* ── /Left column ───────────────────────────────────────────────── */}
@@ -564,6 +697,30 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* The Handoff Card — the sitter/walker/groomer care sheet. Gated on
+            savedProfile only, NOT on `complete`: unlike the trading card this
+            has nothing to do with swiping, so a profile missing a third photo
+            or a neighborhood still has a perfectly useful care sheet. */}
+        {savedProfile && (
+          <div className="card rounded-[1.8rem] flex flex-col items-center gap-4 px-5 py-5">
+            <div className="self-start">
+              <p className="text-sm font-semibold text-brown">Handoff card</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-brown-light">
+                One image for a sitter, walker, or groomer — only what you told us, marked as
+                yours rather than ours.
+              </p>
+            </div>
+            <HandoffCard profile={savedProfile} reminders={reminders} innerRef={handoffRef} />
+            <button
+              onClick={handleShareHandoff}
+              disabled={sharingHandoff}
+              className="btn-secondary px-6 py-2.5 text-sm disabled:opacity-50"
+            >
+              {sharingHandoff ? 'Rendering…' : '📤 Share this card'}
+            </button>
+          </div>
+        )}
+
         {/* Cadence — reminders, kept visible even on an incomplete profile
             since it's useful with just a saved dog and doesn't need a
             match/swipe to have value. */}
@@ -584,7 +741,10 @@ export default function ProfilePage() {
             free removed the last reachable purchase path in the whole product.
             The profile is always reachable and doesn't interrupt a
             conversation to sell something. */}
-        {authUser && !hasLifetime && getFoundingMemberLink(authUser.uid) && (
+        {/* Not shown to a dogless household member: every benefit it sells
+            (chat unlocks, Founding Pack number) attaches to a dog they don't
+            have. */}
+        {authUser && !householdOnly && !hasLifetime && getFoundingMemberLink(authUser.uid) && (
           <a
             href={getFoundingMemberLink(authUser.uid)!}
             target="_blank"

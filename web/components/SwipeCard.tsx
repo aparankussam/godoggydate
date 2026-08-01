@@ -6,6 +6,7 @@
 
 import { forwardRef, useState, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
+import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
 import { QUALITY_STYLES } from './CompatBreakdown';
 
 interface CardDog {
@@ -19,6 +20,7 @@ interface CardDog {
   energyLevel: number;
   photos?: string[];
   vaccinated?: boolean | null;
+  rabiesExpiry?: string;
   temperament?: string[];
   playStyles?: string[];
   location?: string;
@@ -79,6 +81,19 @@ const PAW_BURST_OFFSETS = [
   { tx: '-56px', ty: '4px',   rot: '-30deg' },
   { tx: '10px',  ty: '-70px', rot: '4deg' },
 ];
+
+// Vaccination pill styling, keyed by how much the underlying data supports.
+// Deliberately no green ✓ in any row: a checkmark on a self-reported boolean
+// reads as a verification badge, and nothing here is verified. Only an
+// owner-supplied certificate date earns the confident treatment, and even that
+// stays worded as the owner's claim.
+const VACCINATION_PILL_STYLES: Record<VaccinationTone, string> = {
+  dated:           'border-emerald-200/50 bg-emerald-950/60 text-emerald-50',
+  expired:         'border-red-300/60 bg-red-950/60 text-red-50',
+  'self-reported': 'border-white/30 bg-black/40 text-white/90',
+  unvaccinated:    'border-amber-300/60 bg-amber-950/60 text-amber-100',
+  unstated:        'border-white/20 bg-black/34 text-white/70',
+};
 
 const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   dog,
@@ -207,6 +222,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const energyLabel = getEnergyLabel(dog.energyLevel);
   const hasScore = dog.compat.score > 0;
   const archetype = dog.ai?.vibeCheck?.archetype;
+  const vaccination = getVaccinationStatus(dog);
+  const vaccinationIsWarning = vaccination.tone === 'expired' || vaccination.tone === 'unvaccinated';
 
   return (
     <div
@@ -329,7 +346,10 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                     meant to inform. */}
                 {dog.compat.warnings.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-2">
-                    {dog.compat.warnings.slice(0, 3).map((warning) => (
+                    {/* Not sliced. The engine used to cap warnings at 2 upstream,
+                        which made a local cap dead code; now that it returns all
+                        of them, a local cap would silently drop a safety flag. */}
+                    {dog.compat.warnings.map((warning) => (
                       <span
                         key={warning}
                         className="rounded-full border border-amber-300/60 bg-amber-950/55 px-3 py-1 text-[11px] font-semibold text-amber-100 shadow-[0_4px_14px_rgba(0,0,0,0.3)] backdrop-blur-md"
@@ -405,12 +425,19 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
             </div>
           )}
 
-          {/* Vaccinated pill */}
-          {dog.vaccinated === true && (
-            <div className="absolute left-4 top-4 flex items-center gap-1 rounded-full bg-[rgba(22,163,74,0.88)] px-2.5 py-1 text-[10px] font-bold text-white shadow-[0_6px_18px_rgba(0,0,0,0.12)]">
-              <span>✓</span> Vaccinated
-            </div>
-          )}
+          {/* Vaccination pill. Was a green "✓ Vaccinated" badge shown whenever
+              dog.vaccinated === true — a value the profile form initialised to
+              true, so the card asserted a verified-looking fact about dogs
+              nobody had ever asked about. getVaccinationStatus grades the copy
+              to the data: a real expiry date is quoted, an expired one is shown
+              rather than hidden (that's the case worth knowing before a
+              meetup), a bare boolean is attributed to the owner, and an absence
+              says so. Always rendered — "not stated" is information too. */}
+          <div
+            className={`absolute left-4 top-4 max-w-[62%] rounded-full border px-2.5 py-1 text-[10px] font-bold leading-tight shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur-md ${VACCINATION_PILL_STYLES[vaccination.tone]}`}
+          >
+            {vaccinationIsWarning ? `⚠ ${vaccination.label}` : vaccination.label}
+          </div>
 
           <div className="pointer-events-none absolute inset-0 rounded-[2.15rem] ring-1 ring-black/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]" />
 
