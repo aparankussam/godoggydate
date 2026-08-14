@@ -4,21 +4,22 @@ import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
 import { siteUrl } from '../../../../lib/site';
 import { PRO_TRIAL_DAYS, type ProTier } from '../../../../../shared/pro';
 
-// goDoggyDate Pro subscription checkout.
+// goDoggyDate Pro subscription checkout + Founding Member one-time checkout.
 //
-// Creates a Stripe Checkout Session in subscription mode for the authenticated
-// user and returns its URL. The webhook (firebase/functions stripeWebhook) is
-// the SOLE writer of the resulting entitlement — this route never writes
-// users/{uid}/private/entitlements, exactly like the one-time flows. It only
-// reads entitlements to reuse an already-known Stripe customer so a returning
-// user doesn't spawn a duplicate customer.
+// Creates a Stripe Checkout Session for the authenticated user and returns its
+// URL. Mode is 'subscription' for Pro tiers and 'payment' for 'founding'.
+// The webhook (firebase/functions stripeWebhook) is the SOLE writer of
+// entitlements — this route never writes users/{uid}/private/entitlements.
 //
-// Env: STRIPE_SECRET_KEY, and one price id per tier —
-//   STRIPE_PRO_PRICE_MONTHLY / STRIPE_PRO_PRICE_ANNUAL (create the Product +
-//   recurring Prices in the Stripe dashboard). Missing config → 503, and the
-//   client hides the upgrade CTA (isProConfigured), so nothing half-works.
+// Env: STRIPE_SECRET_KEY, and one price id per tier:
+//   STRIPE_PRO_PRICE_MONTHLY / STRIPE_PRO_PRICE_ANNUAL — recurring Pro prices
+//   STRIPE_FOUNDING_MEMBER_PRICE_ID               — one-time $39 founding price
+// Missing config → 503, client hides the CTA (isProConfigured).
 
-function priceIdForTier(tier: ProTier): string | undefined {
+type CheckoutTier = ProTier | 'founding';
+
+function priceIdForTier(tier: CheckoutTier): string | undefined {
+  if (tier === 'founding') return process.env.STRIPE_FOUNDING_MEMBER_PRICE_ID?.trim() || undefined;
   const id =
     tier === 'annual'
       ? process.env.STRIPE_PRO_PRICE_ANNUAL
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const tier: ProTier = (body?.tier === 'annual' ? 'annual' : 'monthly');
+  const tier: CheckoutTier = body?.tier === 'annual' ? 'annual' : body?.tier === 'founding' ? 'founding' : 'monthly';
 
   const priceId = priceIdForTier(tier);
   if (!priceId) {
@@ -123,26 +124,33 @@ export async function POST(request: Request) {
     // de-duplicate trials per customer, so this has to be enforced here.
     const grantTrial = PRO_TRIAL_DAYS > 0 && !existingCustomerId;
 
+    const isFoundingTier = tier === 'founding';
+
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: isFoundingTier ? 'payment' : 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      // client_reference_id + metadata both carry the uid: the webhook reads
-      // whichever is present, and subscription_data.metadata rides onto the
-      // Subscription object so update/delete events can still attribute it.
+      // client_reference_id + metadata both carry the uid so the webhook can
+      // attribute the session to the right user regardless of which field it reads.
+      // For subscriptions, subscription_data.metadata also carries the uid so
+      // update/delete events (which have no session) can still attribute.
       client_reference_id: uid,
       metadata: { firebaseUid: uid, tier },
-      subscription_data: {
-        metadata: { firebaseUid: uid, tier },
-        ...(grantTrial ? { trial_period_days: PRO_TRIAL_DAYS } : {}),
-      },
+      ...(!isFoundingTier
+        ? {
+            subscription_data: {
+              metadata: { firebaseUid: uid, tier },
+              ...(grantTrial ? { trial_period_days: PRO_TRIAL_DAYS } : {}),
+            },
+          }
+        : {}),
       ...(existingCustomerId
         ? { customer: existingCustomerId }
         : email
           ? { customer_email: email }
           : {}),
       allow_promotion_codes: true,
-      success_url: `${origin}/app/profile?pro=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/app/profile?pro=cancel`,
+      success_url: `${origin}/app/profile?${isFoundingTier ? 'founding=success' : 'pro=success'}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/app/profile?${isFoundingTier ? 'founding=cancel' : 'pro=cancel'}`,
     });
 
     if (!session.url) {

@@ -8,6 +8,8 @@
 import { getFirebase } from '../shared/utils/firebase';
 import type { ProTier } from '../../shared/pro';
 
+export type CheckoutTier = ProTier | 'founding';
+
 /**
  * Pro CTAs only go live once the founder has created the Stripe Prices and
  * set NEXT_PUBLIC_PRO_ENABLED=true. Until then the value prop still renders
@@ -31,7 +33,7 @@ async function currentIdToken(): Promise<string> {
  * redirect URL. The caller redirects the browser to it; on return, the
  * entitlements listener flips the UI to Pro the moment the webhook lands.
  */
-export async function startProCheckout(tier: ProTier): Promise<string> {
+export async function startProCheckout(tier: CheckoutTier): Promise<string> {
   const idToken = await currentIdToken();
   const res = await fetch('/api/stripe/checkout', {
     method: 'POST',
