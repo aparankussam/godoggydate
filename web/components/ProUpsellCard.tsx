@@ -1,0 +1,187 @@
+'use client';
+// web/components/ProUpsellCard.tsx
+// The goDoggyDate Pro surface: shows Pro's value and (when configured) starts a
+// monthly/annual checkout, or — for an existing subscriber — a "manage plan"
+// link to the Stripe billing portal. Founding Members see a grandfathered
+// "Pro for life" state and no upsell.
+//
+// Honesty: the benefit list only names what Pro actually does now; anything not
+// yet shipped is explicitly framed as "coming to Pro", never claimed as live.
+// The live checkout is env-gated (isProConfigured) so nothing half-works — until
+// the founder sets the Stripe Prices + NEXT_PUBLIC_PRO_ENABLED, this shows the
+// value and a "coming soon" state instead of a button that errors.
+
+import { useState } from 'react';
+import { startProCheckout, openProPortal, isProConfigured } from '../lib/pro';
+import { trackEvent } from '../lib/analytics';
+import {
+  proMonthlyLabel,
+  proAnnualLabel,
+  proAnnualPerMonthLabel,
+  proAnnualSavingsPercent,
+  PRO_TRIAL_DAYS,
+  type ProTier,
+  type ProSource,
+} from '../../shared/pro';
+
+interface Props {
+  isPro: boolean;
+  isFounding: boolean;
+  source: ProSource;
+}
+
+// The ONE genuinely live, Pro-exclusive benefit today. Deliberately not padded
+// with things free users already get (every card is kept and shareable for
+// everyone) or things not yet built — see COMING_BENEFITS for those.
+const LIVE_BENEFITS = [
+  { emoji: '💭', text: 'A new Pet Twin card from your dog every day — free gets one a week' },
+];
+// Clearly framed as upcoming, never as shipped.
+const COMING_BENEFITS = 'And first access as they land: your dog’s saved story (Year in Dog), life-stage checklists, and the Legacy Vault.';
+
+export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
+  const [tier, setTier] = useState<ProTier>('annual');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const configured = isProConfigured();
+
+  async function handleSubscribe() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    trackEvent('pro_checkout_click', { tier });
+    try {
+      const url = await startProCheckout(tier);
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start checkout.');
+      setBusy(false);
+    }
+  }
+
+  async function handleManage() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const url = await openProPortal();
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open billing.');
+      setBusy(false);
+    }
+  }
+
+  // ── Founding Member: grandfathered Pro for life ──────────────────────────
+  if (isPro && (isFounding || source === 'founding')) {
+    return (
+      <section className="card rounded-[1.8rem] border border-gold/40 bg-gold/10 px-5 py-4">
+        <p className="text-sm font-bold text-brown">⭐ Founding Member — Pro for life</p>
+        <p className="mt-1 text-xs leading-relaxed text-brown-light">
+          You were here first, so Pro is yours forever — daily Pet Twin cards and everything we add to Pro.
+          Thank you for backing this early.
+        </p>
+      </section>
+    );
+  }
+
+  // ── Active subscriber: manage plan ───────────────────────────────────────
+  if (isPro && source === 'subscription') {
+    return (
+      <section className="card rounded-[1.8rem] border border-primary/30 bg-primary/5 px-5 py-4">
+        <p className="text-sm font-bold text-brown">🐾 goDoggyDate Pro — active</p>
+        <p className="mt-1 text-xs leading-relaxed text-brown-light">
+          Thanks for going Pro. A new Pet Twin card from your dog every day, and first access to everything we add to Pro.
+        </p>
+        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        <button
+          type="button"
+          onClick={handleManage}
+          disabled={busy}
+          className="btn-secondary mt-3 py-2 text-sm disabled:opacity-60"
+        >
+          {busy ? 'Opening…' : 'Manage plan'}
+        </button>
+      </section>
+    );
+  }
+
+  // ── Upsell ───────────────────────────────────────────────────────────────
+  const savings = proAnnualSavingsPercent();
+
+  return (
+    <section className="card rounded-[1.8rem] border border-primary/30 overflow-hidden">
+      <div className="bg-gradient-to-br from-primary/10 to-gold/10 px-5 py-4">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">goDoggyDate Pro</p>
+        <h2 className="font-display text-xl text-brown leading-tight">Your dog’s whole life, in one place</h2>
+      </div>
+
+      <div className="px-5 py-4">
+        <ul className="flex flex-col gap-2">
+          {LIVE_BENEFITS.map((b) => (
+            <li key={b.text} className="flex items-start gap-2 text-sm text-brown-mid">
+              <span aria-hidden="true">{b.emoji}</span>
+              <span>{b.text}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[11px] leading-relaxed text-brown-light">{COMING_BENEFITS}</p>
+
+        {!configured ? (
+          <div className="mt-4 rounded-xl bg-cream-dark px-4 py-3 text-center">
+            <p className="text-sm font-bold text-brown">Coming soon 🐾</p>
+            <p className="mt-0.5 text-xs text-brown-light">
+              Pro is almost ready. Keep enjoying Dogtype, life stage, and your weekly Pet Twin card — free.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Monthly / annual toggle */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setTier('monthly')}
+                className={`rounded-xl border-2 px-3 py-2.5 text-center transition-colors ${
+                  tier === 'monthly' ? 'border-primary bg-primary/10' : 'border-border bg-white'
+                }`}
+              >
+                <p className="text-sm font-bold text-brown">{proMonthlyLabel()}</p>
+                <p className="text-[10px] text-brown-light">billed monthly</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTier('annual')}
+                className={`relative rounded-xl border-2 px-3 py-2.5 text-center transition-colors ${
+                  tier === 'annual' ? 'border-primary bg-primary/10' : 'border-border bg-white'
+                }`}
+              >
+                {savings > 0 && (
+                  <span className="absolute -top-2 right-2 rounded-full bg-gold px-2 py-0.5 text-[9px] font-bold text-brown">
+                    save {savings}%
+                  </span>
+                )}
+                <p className="text-sm font-bold text-brown">{proAnnualLabel()}</p>
+                <p className="text-[10px] text-brown-light">{proAnnualPerMonthLabel()}</p>
+              </button>
+            </div>
+
+            {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+
+            <button
+              type="button"
+              onClick={handleSubscribe}
+              disabled={busy}
+              className="btn-primary w-full mt-3 disabled:opacity-60"
+            >
+              {busy ? 'Starting…' : PRO_TRIAL_DAYS > 0 ? `Start ${PRO_TRIAL_DAYS}-day free trial` : 'Go Pro'}
+            </button>
+            <p className="mt-2 text-center text-[11px] text-brown-light">
+              {PRO_TRIAL_DAYS > 0 ? `Free for ${PRO_TRIAL_DAYS} days, then ` : ''}
+              {tier === 'annual' ? proAnnualLabel() : proMonthlyLabel()}. Cancel anytime.
+            </p>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}

@@ -151,6 +151,52 @@ async function upsertMatchUnlockState(
   });
 }
 
+// ── goDoggyDate Pro (subscription entitlement) ──────────────────────────────
+// The webhook is the SOLE writer of users/{uid}/private/entitlements.pro —
+// firestore.rules blocks every client write. isProActive (shared/pro.ts) reads
+// these exact fields; keep the two in lockstep. Founding Members already get
+// lifetime Pro via lifetimeChatUnlocks, so this only tracks paid subscriptions.
+
+// active/trialing clearly grant access; past_due keeps access during Stripe's
+// dunning retries and is bounded by currentPeriodEndMs + the client-side grace
+// window, so a genuinely lapsed sub still expires rather than lingering.
+const PRO_ACTIVE_STATUSES = new Set(['active', 'trialing', 'past_due']);
+
+function subscriptionTier(sub: Stripe.Subscription): 'monthly' | 'annual' {
+  const interval = sub.items?.data?.[0]?.price?.recurring?.interval;
+  return interval === 'year' ? 'annual' : 'monthly';
+}
+
+async function writeProEntitlementFromSubscription(uid: string, sub: Stripe.Subscription) {
+  const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id ?? null;
+  // current_period_end is top-level in the 2024-04-10 shape but moved onto
+  // items[] in Basil (2025-03-31+). Read top-level first, then fall back to the
+  // item so a future API/SDK bump can't silently write a null period end (which
+  // would make isProActive's "no known end" fallback grant Pro indefinitely).
+  const itemPeriodEnd = (sub.items?.data?.[0] as unknown as { current_period_end?: number })
+    ?.current_period_end;
+  const periodEndSec =
+    typeof sub.current_period_end === 'number'
+      ? sub.current_period_end
+      : typeof itemPeriodEnd === 'number'
+        ? itemPeriodEnd
+        : null;
+  const currentPeriodEndMs = periodEndSec !== null ? periodEndSec * 1000 : null;
+
+  await db.doc(`users/${uid}/private/entitlements`).set({
+    pro: {
+      active: PRO_ACTIVE_STATUSES.has(sub.status),
+      status: sub.status,
+      tier: subscriptionTier(sub),
+      currentPeriodEndMs,
+      cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: sub.id,
+      updatedAtMs: Date.now(),
+    },
+  }, { merge: true });
+}
+
 // ── Stripe Webhook ─────────────────────────────────────────────────────────────
 
 export const stripeWebhook = functions
@@ -308,13 +354,39 @@ export const stripeWebhook = functions
         event.type === 'checkout.session.completed' ||
         event.type === 'checkout.session.async_payment_succeeded'
       ) {
+        const session = event.data.object as Stripe.Checkout.Session;
+
+        // goDoggyDate Pro subscription checkout (mode: 'subscription'). Handled
+        // separately from the one-time Founding Member payment-link flow below
+        // so the two never cross wires: a subscription must never trip the
+        // amount >= 3900 lifetime grant, and a $39 lifetime purchase must never
+        // be treated as a subscription. Ongoing renewals/cancels are tracked by
+        // the customer.subscription.* events, not here.
+        if (session.mode === 'subscription') {
+          const proUid = session.client_reference_id || (session.metadata?.firebaseUid ?? '');
+          const subscriptionId =
+            typeof session.subscription === 'string'
+              ? session.subscription
+              : session.subscription?.id ?? '';
+          if (proUid && subscriptionId) {
+            const sub = await stripe.subscriptions.retrieve(subscriptionId);
+            await writeProEntitlementFromSubscription(proUid, sub);
+          }
+          await finalizeStripeEvent(event.id, proUid && subscriptionId ? 'processed' : 'ignored', {
+            checkoutSessionId: session.id,
+            mode: 'subscription',
+            hasClientReference: Boolean(proUid),
+          });
+          res.json({ received: true });
+          return;
+        }
+
         // Founding Member lifetime purchase via a Stripe Payment Link.
         // The marketing site appends ?client_reference_id=<uid> to the link,
         // so the session carries the purchasing user's Firebase uid.
         // Guards: must actually be paid, and must be at least the Founding
         // Member price — a cheaper product on this Stripe account must never
         // grant the entitlement.
-        const session = event.data.object as Stripe.Checkout.Session;
         const uid = session.client_reference_id;
         const paidEnough =
           session.payment_status === 'paid' &&
@@ -353,6 +425,35 @@ export const stripeWebhook = functions
           checkoutSessionId: session.id,
           hasClientReference: Boolean(uid),
           paidEnough,
+        });
+        res.json({ received: true });
+        return;
+      }
+
+      // goDoggyDate Pro lifecycle: renewals, plan switches, trials ending,
+      // and cancellations all land here and keep entitlements.pro in sync so
+      // access follows the real subscription state. The uid rides on
+      // subscription.metadata.firebaseUid (set at checkout via subscription_data).
+      if (
+        event.type === 'customer.subscription.created' ||
+        event.type === 'customer.subscription.updated' ||
+        event.type === 'customer.subscription.deleted'
+      ) {
+        const rawSub = event.data.object as Stripe.Subscription;
+        const uid = typeof rawSub.metadata?.firebaseUid === 'string' ? rawSub.metadata.firebaseUid : '';
+        if (uid) {
+          // Re-retrieve with the pinned-apiVersion client instead of trusting
+          // the webhook payload: the payload is rendered at the ACCOUNT's API
+          // version (which the SDK pin does not control), so its shape can drift
+          // (e.g. current_period_end moving off the top level). Re-retrieving
+          // also fetches CURRENT state, so a stale or reordered event can't
+          // resurrect a subscription that was since canceled.
+          const sub = await stripe.subscriptions.retrieve(rawSub.id);
+          await writeProEntitlementFromSubscription(uid, sub);
+        }
+        await finalizeStripeEvent(event.id, uid ? 'processed' : 'ignored', {
+          subscriptionId: rawSub.id,
+          subscriptionStatus: rawSub.status,
         });
         res.json({ received: true });
         return;
@@ -884,6 +985,127 @@ export const sendReminderNotifications = functions.pubsub
       sent += 1;
     }
     console.log(`Sent ${sent} reminder notifications`);
+  });
+
+// ── Milestones: birthday / Gotcha Day / anniversary celebrations ────────────
+// The retention loop: a warm, earned reason to come back on a real date the
+// owner told us about. Fires ONCE per occasion via a server-only dedup marker
+// (dogs/{uid}/celebrations/{kind}_{year}) so a birthday MONTH never nags daily.
+// Only REAL stored dates trigger it — birthMonth, adoptionDate, and the profile
+// createdAt anniversary — mirroring shared/milestones.ts. There is deliberately
+// no monthaversary: manufacturing a monthly occasion is the fabricated cadence
+// the product forbids.
+//
+// Full dogs scan is fine at launch scale (same assumption as the discover feed);
+// paginate if the collection grows large.
+
+interface CelebrationHit {
+  kind: 'birthday' | 'gotcha' | 'godoggy_anniversary';
+  year: number;
+  title: string;
+  body: string;
+}
+
+function toMillisMaybe(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value && typeof (value as FirebaseFirestore.Timestamp).toMillis === 'function') {
+    return (value as FirebaseFirestore.Timestamp).toMillis();
+  }
+  return null;
+}
+
+function activeCelebrations(dog: FirebaseFirestore.DocumentData, now: Date): CelebrationHit[] {
+  const name = typeof dog.name === 'string' && dog.name.trim() ? dog.name.trim() : 'Your dog';
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-based
+  const day = now.getDate();
+  const hits: CelebrationHit[] = [];
+
+  // Birthday — the whole birth month (birthYear is year-only, so no exact day).
+  if (typeof dog.birthMonth === 'number' && dog.birthMonth >= 1 && dog.birthMonth <= 12) {
+    if (month === dog.birthMonth - 1) {
+      const turning = typeof dog.birthYear === 'number' ? year - dog.birthYear : null;
+      hits.push({
+        kind: 'birthday',
+        year,
+        title: `🎂 It's ${name}'s birthday month!`,
+        body: turning != null && turning >= 0
+          ? `${name} turns ${turning} this month. Make it a good one.`
+          : `Give ${name} some extra treats this month.`,
+      });
+    }
+  }
+
+  // Gotcha Day — exact month/day, with the same Feb-29 rollover the profile
+  // card uses (new Date rolls Feb 29 to Mar 1 in a non-leap year), so a
+  // leap-day Gotcha Day still fires — and fires on the same day the card shows.
+  if (typeof dog.adoptionDate === 'string') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dog.adoptionDate.trim());
+    if (m) {
+      const ay = Number(m[1]); const am = Number(m[2]); const ad = Number(m[3]);
+      const occ = new Date(year, am - 1, ad);
+      if (occ.getMonth() === month && occ.getDate() === day) {
+        const years = year - ay;
+        if (years >= 1) {
+          hits.push({
+            kind: 'gotcha', year,
+            title: `🏡 ${name}'s Gotcha Day`,
+            body: `${years} year${years === 1 ? '' : 's'} since ${name} came home.`,
+          });
+        }
+      }
+    }
+  }
+
+  // GoDoggyDate anniversary — exact month/day of profile creation.
+  const createdMs = toMillisMaybe(dog.createdAt);
+  if (createdMs) {
+    const c = new Date(createdMs);
+    const occ = new Date(year, c.getMonth(), c.getDate());
+    if (occ.getMonth() === month && occ.getDate() === day) {
+      const years = year - c.getFullYear();
+      if (years >= 1) {
+        hits.push({
+          kind: 'godoggy_anniversary', year,
+          title: `🐾 ${name}'s GoDoggyDate anniversary`,
+          body: `${years} year${years === 1 ? '' : 's'} on GoDoggyDate. Here's to more walks.`,
+        });
+      }
+    }
+  }
+
+  return hits;
+}
+
+export const sendCelebrationNotifications = functions.pubsub
+  .schedule('every 24 hours')
+  .onRun(async () => {
+    const now = new Date();
+    const snap = await db.collection('dogs').get();
+
+    let sent = 0;
+    for (const doc of snap.docs) {
+      const dogId = doc.id;
+      const hits = activeCelebrations(doc.data(), now);
+      for (const hit of hits) {
+        // One marker per occasion per year — create() fails if it already
+        // exists, which is exactly the once-only dedup (same trick as
+        // markStripeEventStarted). Nothing else reads these; server-only.
+        const markerRef = db.doc(`dogs/${dogId}/celebrations/${hit.kind}_${hit.year}`);
+        try {
+          await markerRef.create({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+        } catch {
+          continue; // already celebrated this occasion this year
+        }
+        await sendPushToUser(dogId, {
+          title: hit.title,
+          body: hit.body,
+          data: { type: 'celebration', kind: hit.kind, dogId, link: 'https://godoggydate.com/app/profile' },
+        });
+        sent += 1;
+      }
+    }
+    console.log(`Sent ${sent} celebration notifications`);
   });
 
 // ── Founding Pack numbering ─────────────────────────────────────────────────

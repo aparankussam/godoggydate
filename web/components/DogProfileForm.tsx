@@ -58,6 +58,11 @@ const DEFAULT_PROMPTS = [
 const MAX_PHOTOS = 6;
 const MIN_PHOTOS = 3;
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
 const US_STATES: { abbr: string; name: string }[] = [
   { abbr: 'AL', name: 'Alabama' }, { abbr: 'AK', name: 'Alaska' },
   { abbr: 'AZ', name: 'Arizona' }, { abbr: 'AR', name: 'Arkansas' },
@@ -176,6 +181,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
   // explicit "no" (the only value the matching engine blocks on).
   const [vaccinated, setVaccinated] = useState<boolean | null>(null);
   const [rabiesExpiry, setRabiesExpiry] = useState('');
+  // Birthday & milestones (all optional). Kept as strings for the inputs and
+  // parsed on save. birthYear powers the life-stage read; birthMonth the
+  // birthday-MONTH celebration; adoptionDate ('YYYY-MM-DD') Gotcha Day.
+  const [birthYear, setBirthYear] = useState('');
+  const [birthMonth, setBirthMonth] = useState('');
+  const [adoptionDate, setAdoptionDate] = useState('');
   const [prompts, setPrompts] = useState(
     DEFAULT_PROMPTS.map((prompt) => ({ prompt, answer: '' })),
   );
@@ -228,6 +239,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
     setBehaviorFlags(initialProfile.behaviorFlags ?? []);
     setVaccinated(initialProfile.vaccinated ?? null);
     setRabiesExpiry(initialProfile.rabiesExpiry ?? '');
+    setBirthYear(typeof initialProfile.birthYear === 'number' ? String(initialProfile.birthYear) : '');
+    setBirthMonth(typeof initialProfile.birthMonth === 'number' ? String(initialProfile.birthMonth) : '');
+    setAdoptionDate(initialProfile.adoptionDate ?? '');
     setPrompts(
       DEFAULT_PROMPTS.map((prompt) => {
         const existing = initialProfile.prompts?.find((item) => item.prompt === prompt);
@@ -564,6 +578,19 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
         // parseLocalIsoDate(...).getTime() so the reminder doesn't fire a day
         // early west of Greenwich.
         rabiesExpiry: rabiesExpiry.trim() || null,
+        // Birthday & milestones — parsed and range-checked; invalid input is
+        // simply not saved (the life-stage/milestone code also rejects garbage).
+        // adoptionDate uses null-when-empty for the same { merge: true } reason
+        // as rabiesExpiry above.
+        birthYear: (() => {
+          const y = Number(birthYear);
+          return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : undefined;
+        })(),
+        birthMonth: (() => {
+          const m = Number(birthMonth);
+          return Number.isInteger(m) && m >= 1 && m <= 12 ? m : undefined;
+        })(),
+        adoptionDate: adoptionDate.trim() || null,
         prompts: prompts.filter((prompt) => prompt.answer.trim()),
       });
     } finally {
@@ -1013,6 +1040,65 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
           <p className="mt-3 rounded-xl bg-cream-dark px-3 py-2 text-[11px] leading-relaxed text-brown-mid">
             Others will see:{' '}
             <span className="font-semibold text-brown">{vaccinationPreview.label}</span>
+          </p>
+        </div>
+
+        {/* Birthday & milestones — all optional, none gate swiping. Powers the
+            life-stage read and the birthday / Gotcha Day celebration cards. */}
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <p className="text-sm font-bold text-brown">🎂 Birthday &amp; milestones</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
+            Optional — unlocks {name.trim() || 'your dog'}&apos;s life stage plus birthday and Gotcha Day
+            celebrations.
+          </p>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="birth-year" className="mb-1.5 block text-xs font-semibold text-brown-mid">
+                Birth year
+              </label>
+              <input
+                id="birth-year"
+                type="number"
+                inputMode="numeric"
+                min={1990}
+                max={new Date().getFullYear()}
+                placeholder="e.g. 2021"
+                value={birthYear}
+                onChange={(e) => setBirthYear(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              />
+            </div>
+            <div>
+              <label htmlFor="birth-month" className="mb-1.5 block text-xs font-semibold text-brown-mid">
+                Birth month
+              </label>
+              <select
+                id="birth-month"
+                value={birthMonth}
+                onChange={(e) => setBirthMonth(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              >
+                <option value="">—</option>
+                {MONTH_NAMES.map((m, i) => (
+                  <option key={m} value={i + 1}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <label htmlFor="adoption-date" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+            Gotcha Day <span className="font-normal text-brown-light">(the day they came home)</span>
+          </label>
+          <input
+            id="adoption-date"
+            type="date"
+            value={adoptionDate}
+            onChange={(e) => setAdoptionDate(e.target.value)}
+            className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+          />
+          <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
+            We celebrate the birthday month unless you tell us the exact day — and Gotcha Day on the day itself.
           </p>
         </div>
 

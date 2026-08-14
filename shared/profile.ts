@@ -23,6 +23,14 @@ export interface SavedDogProfile {
   breed?: string;
   age?: 'puppy' | 'adult' | 'senior';
   sex?: 'M' | 'F';
+  // Birthday & milestones — optional, owner-entered, freely client-writable
+  // (not server-computed, so no firestore.rules guard needed). birthYear drives
+  // the life-stage read (shared/lifeStage.ts); birthMonth drives the birthday-
+  // MONTH celebration (a year-only birthYear can't honestly drive an exact
+  // birthday); adoptionDate drives Gotcha Day (shared/milestones.ts).
+  birthYear?: number;
+  birthMonth?: number; // 1–12
+  adoptionDate?: string | null; // 'YYYY-MM-DD'; null = cleared (merge-safe)
   photos?: string[];
   temperament?: string[];
   location?: string;

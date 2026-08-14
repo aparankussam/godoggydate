@@ -31,6 +31,12 @@ import { toDogSlug } from '../../../lib/dogSlug';
 import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
+import DogtypeSection from '../../../components/DogtypeSection';
+import LifeStageCard from '../../../components/LifeStageCard';
+import PetTwinCard from '../../../components/PetTwinCard';
+import MilestonesCard from '../../../components/MilestonesCard';
+import ProUpsellCard from '../../../components/ProUpsellCard';
+import { useProEntitlement } from '../../../lib/useProEntitlement';
 import { getHouseholdDogsForUser } from '../../../lib/household';
 import type { HouseholdDog } from '../../../lib/household';
 import type { Reminder } from '../../../../shared/types';
@@ -60,6 +66,13 @@ export default function ProfilePage() {
   const [householdReminders, setHouseholdReminders] = useState<Record<string, Reminder[]>>({});
   const cardRef = useRef<HTMLDivElement>(null);
   const handoffRef = useRef<HTMLDivElement>(null);
+
+  // One Pro read for the whole page — gates the daily Pet Twin and drives the
+  // upsell/manage surface. Lifetime Founding Members count as Pro (grandfathered).
+  const pro = useProEntitlement(authUser?.uid ?? null);
+  function handleUpgrade() {
+    document.getElementById('pro-upsell')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   async function handleShareCard() {
     if (!cardRef.current || sharingCard || !authUser) return;
@@ -510,6 +523,22 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* ── Your dog's life: the daily card, their Dogtype, life stage, and
+            the next real celebration. The reason to come back every day. ── */}
+        {savedProfile && complete && authUser && (
+          <>
+            <PetTwinCard
+              dogId={authUser.uid}
+              dogName={savedProfile.name}
+              isPro={pro.isPro}
+              onUpgrade={handleUpgrade}
+            />
+            <DogtypeSection savedProfile={savedProfile} />
+            <LifeStageCard savedProfile={savedProfile} onEditProfile={() => setShowEdit(true)} />
+            <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
+          </>
+        )}
+
         {/* Photo strip */}
         {photos.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -736,15 +765,25 @@ export default function ProfilePage() {
           />
         )}
 
+        {/* goDoggyDate Pro — the recurring subscription (or, for a Founding
+            Member, the grandfathered "Pro for life" state). id is the scroll
+            target for the "get a card every day" upsell in PetTwinCard. */}
+        {authUser && !householdOnly && savedProfile && !pro.loading && (
+          <div id="pro-upsell">
+            <ProUpsellCard isPro={pro.isPro} isFounding={pro.isFounding} source={pro.source} />
+          </div>
+        )}
+
         {/* Founding Member CTA. Lives here rather than only inside the chat
             paywall: that CTA was nested in a !canChat block, so turning chat
             free removed the last reachable purchase path in the whole product.
             The profile is always reachable and doesn't interrupt a
-            conversation to sell something. */}
+            conversation to sell something. Hidden once the user has Pro by any
+            route (a subscriber or an existing Founding Member). */}
         {/* Not shown to a dogless household member: every benefit it sells
             (chat unlocks, Founding Pack number) attaches to a dog they don't
             have. */}
-        {authUser && !householdOnly && !hasLifetime && getFoundingMemberLink(authUser.uid) && (
+        {authUser && !householdOnly && !pro.loading && !pro.isPro && getFoundingMemberLink(authUser.uid) && (
           <a
             href={getFoundingMemberLink(authUser.uid)!}
             target="_blank"

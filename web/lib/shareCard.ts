@@ -25,6 +25,12 @@ export interface ShareCardOptions {
    *  bare links with nothing to tap through to. */
   publicUrl?: string;
   dogName?: string;
+  /** Overrides the default share caption. Used by feature-specific cards
+   *  (Dogtype, milestones, Pet Twin) that want their own hook copy while
+   *  still sharing the same image + public URL. */
+  shareText?: string;
+  /** Overrides the share-sheet title. */
+  shareTitle?: string;
 }
 
 export async function shareOrDownloadCard(
@@ -35,9 +41,11 @@ export async function shareOrDownloadCard(
   const blob = await exportCardImage(node);
   const file = new File([blob], fileName, { type: 'image/png' });
   const { publicUrl, dogName } = options;
-  const shareText = publicUrl
-    ? `That's ${dogName ?? 'my dog'} on GoDoggyDate — see her page: ${publicUrl}`
-    : 'My dog needs friends and honestly so do I.';
+  const shareText =
+    options.shareText ??
+    (publicUrl
+      ? `That's ${dogName ?? 'my dog'} on GoDoggyDate — see her page: ${publicUrl}`
+      : 'My dog needs friends and honestly so do I.');
 
   if (
     typeof navigator !== 'undefined' &&
@@ -47,7 +55,7 @@ export async function shareOrDownloadCard(
     try {
       await navigator.share({
         files: [file],
-        title: 'My dog on GoDoggyDate',
+        title: options.shareTitle ?? 'My dog on GoDoggyDate',
         text: shareText,
         url: publicUrl,
       });

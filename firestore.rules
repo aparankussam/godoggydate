@@ -133,6 +133,18 @@ service cloud.firestore {
         allow read, write: if isSignedIn()
           && (request.auth.uid == dogId || isHouseholdMember(dogId));
       }
+
+      // Pet Twin "moments" — the AI-imagined daily cards, GROUNDED in a real
+      // datum and written ONLY by the /api/ai/pet-twin route (Admin SDK,
+      // bypasses these rules). Client is read-only, exactly like the guarded
+      // .ai field: an LLM-authored card the browser could forge would defeat
+      // the point of grounding it server-side in real state. Owner or an
+      // invited household member may read; nobody writes from a client.
+      match /moments/{momentId} {
+        allow read: if isSignedIn()
+          && (request.auth.uid == dogId || isHouseholdMember(dogId));
+        allow write: if false;
+      }
     }
 
     match /swipes/{userId}/decisions/{targetDogId} {
