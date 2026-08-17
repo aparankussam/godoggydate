@@ -98,10 +98,11 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>GoDoggyDate</Text>
+          <Text style={styles.eyebrow}>Your dog&apos;s whole life</Text>
           <Text style={styles.title}>GoDoggyDate</Text>
           <Text style={styles.subtitle}>
-            Find safe, compatible playmates for your dog nearby. Match on personality, energy, and real-world fit instead of random swipes.
+            Reveal your dog&apos;s Dogtype, hear what they&apos;re thinking today, and celebrate every milestone —
+            then find playmates who actually fit. The home for your dog&apos;s whole life.
           </Text>
 
           <View style={styles.ctaGroup}>
@@ -165,11 +166,11 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={styles.previewCard}>
-          <Text style={styles.previewBadge}>96 Match</Text>
-          <Text style={styles.previewName}>Kaju, Adult</Text>
-          <Text style={styles.previewMeta}>Mini Dachshund · Nearby</Text>
+          <Text style={styles.previewBadge}>🌪️ EROB</Text>
+          <Text style={styles.previewName}>The Zoomie Menace</Text>
+          <Text style={styles.previewMeta}>Maximum dog · one of 16 Dogtypes</Text>
           <View style={styles.previewTags}>
-            {['Safety First', 'Smart Compatibility', 'Truly Local'].map((item) => (
+            {['⚡ Spark', '🤼 Rowdy', '🎉 Outgoing', '🚀 Bold'].map((item) => (
               <View key={item} style={styles.previewTag}>
                 <Text style={styles.previewTagText}>{item}</Text>
               </View>
@@ -182,22 +183,22 @@ export default function WelcomeScreen() {
           <View style={styles.step}>
             <Text style={styles.stepNumber}>01</Text>
             <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Create your dog&apos;s profile</Text>
-              <Text style={styles.stepText}>Add photos, personality, play style, and location.</Text>
+              <Text style={styles.stepTitle}>Build your dog&apos;s profile</Text>
+              <Text style={styles.stepText}>Add photos, personality, play style, and their birthday.</Text>
             </View>
           </View>
           <View style={styles.step}>
             <Text style={styles.stepNumber}>02</Text>
             <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Swipe through compatible dogs</Text>
-              <Text style={styles.stepText}>Browse nearby dogs backed by your real Firebase profile.</Text>
+              <Text style={styles.stepTitle}>Reveal their Dogtype &amp; daily Pet Twin</Text>
+              <Text style={styles.stepText}>A shareable identity card, a card from them each week (daily with Pro), and every milestone.</Text>
             </View>
           </View>
           <View style={styles.step}>
             <Text style={styles.stepNumber}>03</Text>
             <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Match and start chatting</Text>
-              <Text style={styles.stepText}>When it&apos;s mutual, your match appears in chat and persists across sessions.</Text>
+              <Text style={styles.stepTitle}>Find playmates who actually fit</Text>
+              <Text style={styles.stepText}>When you&apos;re ready, match with compatible dogs nearby — no random swipes.</Text>
             </View>
           </View>
         </View>

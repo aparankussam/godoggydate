@@ -175,8 +175,12 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
             >
               {busy ? 'Starting…' : PRO_TRIAL_DAYS > 0 ? `Start ${PRO_TRIAL_DAYS}-day free trial` : 'Go Pro'}
             </button>
+            {/* Scoped to "new members": the server grants the trial only to
+                customers who never subscribed (checkout route: !existingCustomerId),
+                so a returning/churned member is billed immediately. Stripe
+                Checkout shows each user their true terms before they pay. */}
             <p className="mt-2 text-center text-[11px] text-brown-light">
-              {PRO_TRIAL_DAYS > 0 ? `Free for ${PRO_TRIAL_DAYS} days, then ` : ''}
+              {PRO_TRIAL_DAYS > 0 ? `New members get ${PRO_TRIAL_DAYS} days free, then ` : ''}
               {tier === 'annual' ? proAnnualLabel() : proMonthlyLabel()}. Cancel anytime.
             </p>
           </>

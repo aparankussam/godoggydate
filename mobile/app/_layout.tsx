@@ -74,6 +74,13 @@ export default function RootLayout() {
               name="chat/[matchId]"
               options={{ presentation: 'card', animation: 'slide_from_right' }}
             />
+            <Stack.Screen
+              name="dogtype-reveal"
+              options={{ presentation: 'modal', animation: 'fade' }}
+            />
+            <Stack.Screen name="fun/wanted" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="fun/snoot" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="fun/adventures" options={{ animation: 'slide_from_right' }} />
           </Stack>
         </SessionProvider>
       </StripeProvider>

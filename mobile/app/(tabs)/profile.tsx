@@ -11,11 +11,17 @@ import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
-import { onEntitlements } from '../../lib/entitlements';
+import { useProEntitlement } from '../../lib/useProEntitlement';
 import { onReminders } from '../../lib/reminders';
 import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
+import DogtypeSection from '../../components/DogtypeSection';
+import DogtypeCompatSection from '../../components/DogtypeCompatSection';
+import PetTwinCard from '../../components/PetTwinCard';
+import LifeStageCard from '../../components/LifeStageCard';
+import MilestonesCard from '../../components/MilestonesCard';
+import ProUpsellCard from '../../components/ProUpsellCard';
 import type { Reminder } from '../../../shared/types';
 
 function openLegalLink(path: string) {
@@ -31,20 +37,17 @@ export default function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sharingCard, setSharingCard] = useState(false);
-  const [hasLifetime, setHasLifetime] = useState(false);
+  const pro = useProEntitlement(user?.uid);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [householdMemberIds, setHouseholdMemberIds] = useState<string[]>([]);
   const [householdMemberNames, setHouseholdMemberNames] = useState<Record<string, string> | undefined>(undefined);
   const [bestFriendMatchId, setBestFriendMatchId] = useState<string | null>(null);
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
   const cardRef = useRef<View>(null);
-
-  // Founding Member badge — the $39 checkout copy promises "Badge included"
-  // but nothing in the product ever rendered one until now.
-  useEffect(() => {
-    if (!user) return;
-    return onEntitlements(user.uid, (e) => setHasLifetime(e.lifetimeChatUnlocks));
-  }, [user]);
+  // For the Pet Twin "get a card every day" nudge: scroll to the Pro card.
+  const scrollRef = useRef<ScrollView>(null);
+  const proYRef = useRef(0);
+  const scrollToPro = () => scrollRef.current?.scrollTo({ y: Math.max(0, proYRef.current - 20), animated: true });
 
   // Cadence — the reminder calendar.
   useEffect(() => {
@@ -200,7 +203,7 @@ export default function ProfileTab() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         <Text style={styles.title}>Profile</Text>
         <Text style={styles.subtitle}>
           {profileComplete ? 'Your profile is ready — start discovering nearby pups.' : "Complete your dog's profile to start discovering nearby pups."}
@@ -249,14 +252,14 @@ export default function ProfileTab() {
             {/* Founding Pack + trust badges — computed server-side, never
                 shown before now. No raw trust score (0-1 reads as a public
                 rating); a positive "would meet again" rate instead. */}
-            {(typeof profile.foundingPackNumber === 'number' || (profile.ratingCount ?? 0) > 0 || hasLifetime || bestFriendName) && (
+            {(typeof profile.foundingPackNumber === 'number' || (profile.ratingCount ?? 0) > 0 || pro.isFounding || bestFriendName) && (
               <View style={styles.statusBadgeRow}>
                 {typeof profile.foundingPackNumber === 'number' && (
                   <View style={styles.foundingBadge}>
                     <Text style={styles.foundingBadgeText}>🏅 Founding Pack #{profile.foundingPackNumber}</Text>
                   </View>
                 )}
-                {hasLifetime && (
+                {pro.isFounding && (
                   <View style={styles.memberBadge}>
                     <Text style={styles.memberBadgeText}>⭐ Founding Member</Text>
                   </View>
@@ -281,6 +284,55 @@ export default function ProfileTab() {
           </View>
         </View>
 
+        {/* ── The Gen-Z viral layer: identity → invite → daily → life ──────── */}
+        {user && profile && (
+          <>
+            <Pressable
+              style={styles.revealCta}
+              onPress={() => {
+                trackEvent('dogtype_reveal_cta');
+                router.push('/dogtype-reveal');
+              }}
+            >
+              <Text style={styles.revealCtaText}>✨ Reveal {profile.name}&apos;s Dogtype</Text>
+              <Text style={styles.revealCtaSub}>A shareable card, read from their real profile</Text>
+            </Pressable>
+            <DogtypeSection savedProfile={profile} />
+            <DogtypeCompatSection savedProfile={profile} />
+            <PetTwinCard dogId={user.uid} dogName={profile.name} isPro={pro.isPro} onUpgrade={scrollToPro} />
+            <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
+            <MilestonesCard savedProfile={profile} />
+
+            {/* Just for fun — three delight-first mini-features */}
+            <View style={styles.funZone}>
+              <Text style={styles.funTitle}>Just for fun 🎉</Text>
+              <View style={styles.funRow}>
+                <Pressable
+                  style={styles.funTile}
+                  onPress={() => { trackEvent('fun_open', { feature: 'wanted' }); router.push('/fun/wanted'); }}
+                >
+                  <Text style={styles.funEmoji}>🤠</Text>
+                  <Text style={styles.funLabel}>Wanted Poster</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.funTile}
+                  onPress={() => { trackEvent('fun_open', { feature: 'snoot' }); router.push('/fun/snoot'); }}
+                >
+                  <Text style={styles.funEmoji}>🐽</Text>
+                  <Text style={styles.funLabel}>Snoot Boop</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.funTile}
+                  onPress={() => { trackEvent('fun_open', { feature: 'adventures' }); router.push('/fun/adventures'); }}
+                >
+                  <Text style={styles.funEmoji}>🗺️</Text>
+                  <Text style={styles.funLabel}>Adventure Passport</Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
+
         {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
 
         {user && profile && (
@@ -289,6 +341,15 @@ export default function ProfileTab() {
             memberIds={householdMemberIds}
             memberNames={householdMemberNames}
           />
+        )}
+
+        {/* goDoggyDate Pro — gated on !loading so a subscriber never sees the
+            upsell flash before entitlements resolve. onLayout records the
+            position so the Pet Twin nudge can scroll here. */}
+        {user && profile && !pro.loading && (
+          <View onLayout={(e) => { proYRef.current = e.nativeEvent.layout.y; }}>
+            <ProUpsellCard isPro={pro.isPro} isFounding={pro.isFounding} source={pro.source} />
+          </View>
         )}
 
         {profileComplete && (
@@ -526,6 +587,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.brown,
   },
+  revealCta: {
+    backgroundColor: colors.brown,
+    borderRadius: radius.xl,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    marginBottom: 16,
+    alignItems: 'center',
+    ...shadow.card,
+  },
+  revealCtaText: { fontFamily: fonts.display, fontSize: 19, color: colors.gold },
+  revealCtaSub: { fontFamily: fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
+  funZone: { marginBottom: 16 },
+  funTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown, marginBottom: 10 },
+  funRow: { flexDirection: 'row', gap: 10 },
+  funTile: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    gap: 6,
+  },
+  funEmoji: { fontSize: 30 },
+  funLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown, textAlign: 'center' },
   tradingCardSection: {
     // Not alignItems:'center' — that made every child shrink to its own
     // content width, so "Share this card" rendered as a narrow pill directly

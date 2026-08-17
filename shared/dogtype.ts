@@ -287,6 +287,72 @@ export function dogtypeVibe(aCode: string, bCode: string): DogtypeVibe {
   return 'good';
 }
 
+// ── Two-dog compatibility read (the invite-loop card) ────────────────────────
+// Deterministic and transparent: the SAME two codes always produce the SAME
+// read. It is framed everywhere as a PLAYFUL vibe — there is deliberately no
+// percentage and no "match score". Real dog-to-dog compatibility numbers come
+// only from calculateCompatibility (shared/utils/matchingEngine.ts) against two
+// real dogs. This is the "do our dogs get along?" social object, nothing more.
+
+export interface DogtypeCompat {
+  vibe: DogtypeVibe;
+  /** A small emoji for the verdict — 💛 great, 🐾 good, 🌶️ spicy. */
+  emoji: string;
+  /** Tight, human headline for the card. Never LLM-flavored filler. */
+  headline: string;
+  /** One honest sentence about WHY, grounded in the actual axes. */
+  note: string;
+}
+
+/**
+ * A playful compatibility read between two Dogtypes for the shareable "vs" card.
+ * Returns null if either code is malformed. Fully deterministic; honest by
+ * construction (a vibe tier + a real axis observation, never an invented score).
+ */
+export function dogtypeCompat(aCode: string, bCode: string): DogtypeCompat | null {
+  const a = aCode.toUpperCase();
+  const b = bCode.toUpperCase();
+  if (a.length !== 4 || b.length !== 4 || !TYPES[a] || !TYPES[b]) return null;
+
+  const vibe = dogtypeVibe(a, b);
+  const energyBalance = a[0] !== b[0];
+  const bothSpark = a[0] === 'E' && b[0] === 'E';
+  const samePlay = a[1] === b[1];
+  const bothOutgoing = a[2] === 'O' && b[2] === 'O';
+  const bothSelective = a[2] === 'S' && b[2] === 'S';
+  const spiritBalance = a[3] !== b[3];
+  const bothBold = a[3] === 'B' && b[3] === 'B';
+
+  if (vibe === 'great') {
+    const note = bothOutgoing
+      ? 'Two social butterflies — friends before the leashes are even off.'
+      : energyBalance
+        ? 'One brings the zoomies, the other brings the calm. A lovely balance.'
+        : samePlay
+          ? 'They play the exact same language, so the game just works.'
+          : spiritBalance
+            ? 'A bold one and a softie — they round each other out.'
+            : 'The kind of easy, unbothered fit every park hopes for.';
+    return { vibe, emoji: '💛', headline: 'A playdate made in the park', note };
+  }
+
+  if (vibe === 'spicy') {
+    const note = bothSelective
+      ? 'Both run a tight guest list, so a calm, gradual intro matters most.'
+      : bothSpark
+        ? 'Two high-octane engines — supervise the zoomies and take breaks.'
+        : bothBold
+          ? 'Two big personalities; give them space to sort out the pecking order.'
+          : 'Real chemistry is possible, but this one wants a slow, patient intro.';
+    return { vibe, emoji: '🌶️', headline: 'Spicy — take it slow', note };
+  }
+
+  const note = energyBalance
+    ? 'Different energies, but that gap is exactly what can make it click.'
+    : 'Not an instant match on paper — a good slow-burn with the right intro.';
+  return { vibe, emoji: '🐾', headline: 'Different vibes, real potential', note };
+}
+
 /** Up to `limit` type codes that tend to vibe best with the given code. */
 export function dogtypeBestMatches(code: string, limit = 3): Dogtype[] {
   const self = code.toUpperCase();
