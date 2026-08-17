@@ -186,7 +186,13 @@ export default function SnootScreen() {
             );
           })}
 
-          <Pressable onPress={boop} disabled={!ready}>
+          <Pressable
+            onPress={boop}
+            disabled={!ready}
+            accessibilityRole="button"
+            accessibilityLabel={`Boop ${dogName}'s snoot`}
+            accessibilityHint={`${state.allTime} boops so far`}
+          >
             <Animated.View style={[styles.snoot, { transform: [{ scale: squish }] }]}>
               {photo ? (
                 <Image source={{ uri: photo }} style={styles.snootPhoto} />

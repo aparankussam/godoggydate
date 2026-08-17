@@ -12,7 +12,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius } from '../constants/theme';
-import { startProCheckout, openProPortal, isProConfigured } from '../lib/pro';
+import { startProCheckout, openProPortal, isProConfigured, canOfferInAppPurchase } from '../lib/pro';
 import { trackEvent } from '../lib/analytics';
 import {
   proMonthlyLabel,
@@ -118,6 +118,16 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
             <Text style={styles.comingSoonTitle}>Coming soon 🐾</Text>
             <Text style={styles.comingSoonBody}>
               Pro is almost ready. Keep enjoying Dogtype, life stage, and your weekly Pet Twin card — free.
+            </Text>
+          </View>
+        ) : !canOfferInAppPurchase() ? (
+          // iOS: no in-app digital-goods sale (Guideline 3.1.1). Informational,
+          // no purchase button and no steering link.
+          <View style={styles.comingSoon}>
+            <Text style={styles.comingSoonTitle}>Pro is managed on the web 🐾</Text>
+            <Text style={styles.comingSoonBody}>
+              Your dog’s Dogtype, life stage, and a weekly Pet Twin card are free right here. Pro membership
+              is handled on the goDoggyDate website.
             </Text>
           </View>
         ) : (

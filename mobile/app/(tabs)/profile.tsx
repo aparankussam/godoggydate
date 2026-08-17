@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import ProfileEditor from '../../components/ProfileEditor';
 import DogTradingCard from '../../components/DogTradingCard';
 import VibeTypeCard from '../../components/VibeTypeCard';
@@ -68,9 +68,27 @@ export default function ProfileTab() {
       if (!snap.exists()) return;
       const data = snap.data();
       setHouseholdMemberIds((data.householdMemberIds as string[] | undefined) ?? []);
-      setHouseholdMemberNames(data.householdMemberNames as Record<string, string> | undefined);
       setBestFriendMatchId((data.bestFriendMatchId as string | undefined) ?? null);
     });
+  }, [user]);
+
+  // Household member NAMES now live in a private subcollection (moved off the
+  // world-readable dog doc), so read them from there and build the id→name map.
+  useEffect(() => {
+    if (!user) return;
+    const { db } = getFirebase();
+    return onSnapshot(
+      collection(db, 'dogs', user.uid, 'householdNames'),
+      (snap) => {
+        const map: Record<string, string> = {};
+        snap.forEach((d) => {
+          const name = d.data()?.name;
+          if (typeof name === 'string') map[d.id] = name;
+        });
+        setHouseholdMemberNames(map);
+      },
+      () => setHouseholdMemberNames(undefined),
+    );
   }, [user]);
 
   // Best Friend name lookup — the field only stores a matchId (set from the
@@ -210,7 +228,7 @@ export default function ProfileTab() {
         </Text>
 
         <View style={styles.card}>
-          {photos[0] ? <Image source={{ uri: photos[0] }} style={styles.hero} /> : null}
+          {photos[0] ? <Image source={{ uri: photos[0] }} style={styles.hero} accessible accessibilityLabel={`Photo of ${profile.name}`} /> : null}
           <View style={styles.cardBody}>
             {/* Photos 1+ never rendered anywhere outside the editor — an
                 owner had no way to see the rest of what they uploaded. */}
@@ -287,8 +305,12 @@ export default function ProfileTab() {
         {/* ── The Gen-Z viral layer: identity → invite → daily → life ──────── */}
         {user && profile && (
           <>
+            <Text style={styles.sectionLabel}>✨ {profile.name}&apos;s world</Text>
             <Pressable
               style={styles.revealCta}
+              accessibilityRole="button"
+              accessibilityLabel={`Reveal ${profile.name}'s Dogtype`}
+              accessibilityHint="Opens a shareable identity card"
               onPress={() => {
                 trackEvent('dogtype_reveal_cta');
                 router.push('/dogtype-reveal');
@@ -309,23 +331,29 @@ export default function ProfileTab() {
               <View style={styles.funRow}>
                 <Pressable
                   style={styles.funTile}
+                  accessibilityRole="button"
+                  accessibilityLabel="Wanted Poster"
                   onPress={() => { trackEvent('fun_open', { feature: 'wanted' }); router.push('/fun/wanted'); }}
                 >
-                  <Text style={styles.funEmoji}>🤠</Text>
+                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🤠</Text>
                   <Text style={styles.funLabel}>Wanted Poster</Text>
                 </Pressable>
                 <Pressable
                   style={styles.funTile}
+                  accessibilityRole="button"
+                  accessibilityLabel="Snoot Boop"
                   onPress={() => { trackEvent('fun_open', { feature: 'snoot' }); router.push('/fun/snoot'); }}
                 >
-                  <Text style={styles.funEmoji}>🐽</Text>
+                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🐽</Text>
                   <Text style={styles.funLabel}>Snoot Boop</Text>
                 </Pressable>
                 <Pressable
                   style={styles.funTile}
+                  accessibilityRole="button"
+                  accessibilityLabel="Adventure Passport"
                   onPress={() => { trackEvent('fun_open', { feature: 'adventures' }); router.push('/fun/adventures'); }}
                 >
-                  <Text style={styles.funEmoji}>🗺️</Text>
+                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🗺️</Text>
                   <Text style={styles.funLabel}>Adventure Passport</Text>
                 </Pressable>
               </View>
@@ -333,6 +361,7 @@ export default function ProfileTab() {
           </>
         )}
 
+        {user && profile && <Text style={styles.sectionLabel}>🗓️ Care &amp; household</Text>}
         {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
 
         {user && profile && (
@@ -360,6 +389,8 @@ export default function ProfileTab() {
             </View>
             <Pressable
               style={[styles.secondaryButton, sharingCard && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Share this card"
               onPress={handleShareCard}
               disabled={sharingCard}
             >
@@ -370,12 +401,15 @@ export default function ProfileTab() {
           </View>
         )}
 
-        <Pressable style={styles.primaryButton} onPress={() => setEditing(true)}>
+        <Text style={styles.sectionLabel}>Account</Text>
+        <Pressable style={styles.primaryButton} accessibilityRole="button" accessibilityLabel="Edit profile" onPress={() => setEditing(true)}>
           <Text style={styles.primaryText}>Edit profile</Text>
         </Pressable>
 
         <Pressable
           style={styles.secondaryButton}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
           onPress={async () => {
             await signOutUser();
             router.replace('/welcome');
@@ -386,6 +420,8 @@ export default function ProfileTab() {
 
         <Pressable
           style={styles.deleteButton}
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
           onPress={handleDeleteAccount}
           disabled={deleting}
         >
@@ -397,11 +433,11 @@ export default function ProfileTab() {
         </Pressable>
 
         <View style={styles.legalRow}>
-          <Pressable onPress={() => openLegalLink('/privacy')}>
+          <Pressable accessibilityRole="link" accessibilityLabel="Privacy Policy" onPress={() => openLegalLink('/privacy')}>
             <Text style={styles.legalLink}>Privacy Policy</Text>
           </Pressable>
           <Text style={styles.legalDivider}>·</Text>
-          <Pressable onPress={() => openLegalLink('/terms')}>
+          <Pressable accessibilityRole="link" accessibilityLabel="Terms of Service" onPress={() => openLegalLink('/terms')}>
             <Text style={styles.legalLink}>Terms of Service</Text>
           </Pressable>
         </View>
@@ -446,6 +482,15 @@ const styles = StyleSheet.create({
     color: colors.brownLight,
     lineHeight: 20,
     marginBottom: 20,
+  },
+  sectionLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownLight,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginTop: 8,
+    marginBottom: 12,
   },
   card: {
     backgroundColor: colors.white,

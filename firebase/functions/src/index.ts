@@ -622,8 +622,8 @@ export const deleteAccount = functions
       for (const d of households.docs) {
         await d.ref.update({
           householdMemberIds: admin.firestore.FieldValue.arrayRemove(uid),
-          [`householdMemberNames.${uid}`]: admin.firestore.FieldValue.delete(),
         });
+        await d.ref.collection('householdNames').doc(uid).delete().catch(() => {});
       }
     } catch (error) {
       // A missing index must not strand the rest of the deletion.
@@ -1115,6 +1115,12 @@ export const sendCelebrationNotifications = functions.pubsub
 // dogs/{uid} doc (Firestore's onCreate only fires the first time a
 // document at that path is created). Atomic via a transaction against a
 // single counters/foundingPack doc so concurrent signups never collide.
+//
+// The public copy promises the pack "stops at 500 for good", so this HARD-CAPS
+// at 500: dog #501+ simply gets no foundingPackNumber (the badge/CTA render off
+// its presence), keeping the scarcity claim literally true in code rather than
+// aspirational.
+const FOUNDING_PACK_CAP = 500;
 
 export const onDogProfileCreated = functions.firestore
   .document('dogs/{uid}')
@@ -1123,12 +1129,16 @@ export const onDogProfileCreated = functions.firestore
 
     const number = await db.runTransaction(async (transaction) => {
       const counterSnap = await transaction.get(counterRef);
-      const next = ((counterSnap.data()?.count as number | undefined) ?? 0) + 1;
+      const current = (counterSnap.data()?.count as number | undefined) ?? 0;
+      if (current >= FOUNDING_PACK_CAP) return null; // pack is full — no number
+      const next = current + 1;
       transaction.set(counterRef, { count: next }, { merge: true });
       return next;
     });
 
-    await snap.ref.set({ foundingPackNumber: number }, { merge: true });
+    if (number !== null) {
+      await snap.ref.set({ foundingPackNumber: number }, { merge: true });
+    }
   });
 
 // ── Household ────────────────────────────────────────────────────────────────
@@ -1259,8 +1269,11 @@ export const acceptHouseholdInvite = functions.https.onCall(async (data, context
 
     transaction.update(dogRef, {
       householdMemberIds: admin.firestore.FieldValue.arrayUnion(uid),
-      [`householdMemberNames.${uid}`]: displayLabel,
     });
+    // The real display name goes in a private subcollection (readable only by
+    // the owner + household — see firestore.rules), NOT on the world-readable
+    // dog doc. householdMemberIds stays on the doc because the rules depend on it.
+    transaction.set(dogRef.collection('householdNames').doc(uid), { name: displayLabel });
     transaction.update(inviteRef, { used: true, usedBy: uid });
     return invite.dogId;
   });
@@ -1283,8 +1296,8 @@ export const removeHouseholdMember = functions.https.onCall(async (data, context
   // they were merely invited into.
   await db.doc(`dogs/${uid}`).update({
     householdMemberIds: admin.firestore.FieldValue.arrayRemove(memberUid),
-    [`householdMemberNames.${memberUid}`]: admin.firestore.FieldValue.delete(),
   });
+  await db.doc(`dogs/${uid}/householdNames/${memberUid}`).delete().catch(() => {});
 
   return { removed: memberUid };
 });

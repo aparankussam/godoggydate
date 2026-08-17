@@ -14,7 +14,7 @@ import {
   isProfileComplete,
   saveUserDogProfile,
 } from '../../../lib/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '../../../shared/utils/firebase';
 import type { User, SavedDogProfile } from '../../../lib/auth';
 import DogProfileForm from '../../../components/DogProfileForm';
@@ -215,9 +215,24 @@ export default function ProfilePage() {
       setSavedProfile((prev) => (prev ? {
         ...prev,
         householdMemberIds: data.householdMemberIds,
-        householdMemberNames: data.householdMemberNames,
         bestFriendMatchId: data.bestFriendMatchId,
       } : prev));
+    });
+  }, [authUser]);
+
+  // Household member NAMES now live in a private subcollection (moved off the
+  // world-readable dog doc), readable only by the owner + household. Read the
+  // id→name map from there.
+  useEffect(() => {
+    if (!authUser) return;
+    const { db } = getFirebase();
+    return onSnapshot(collection(db, 'dogs', authUser.uid, 'householdNames'), (snap) => {
+      const map: Record<string, string> = {};
+      snap.forEach((d) => {
+        const name = d.data()?.name;
+        if (typeof name === 'string') map[d.id] = name;
+      });
+      setSavedProfile((prev) => (prev ? { ...prev, householdMemberNames: map } : prev));
     });
   }, [authUser]);
 

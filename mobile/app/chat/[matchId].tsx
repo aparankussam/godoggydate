@@ -36,6 +36,7 @@ import { useSession } from '../../lib/session';
 import { isUserChatUnlocked } from '../../../shared/matchAccess';
 import { blockUser } from '../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../lib/entitlements';
+import { canOfferInAppPurchase } from '../../lib/pro';
 import { trackEvent } from '../../lib/analytics';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice, getChatUnlockPitch } from '../../../shared/utils/stripe';
 import { hasRatedPlaydate, submitPlaydateRating } from '../../lib/ratings';
@@ -696,10 +697,10 @@ export default function ChatScreen() {
               </Pressable>
             </>
           )}
-          {getFoundingMemberLink(user.uid) && (
+          {canOfferInAppPurchase() && getFoundingMemberLink(user.uid) && (
             <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink}>
               <Text style={styles.foundingMemberLinkText}>
-                🐾 Or go Founding Member — $39 once. Every chat, forever. Badge included.
+                🐾 Or become a Founding Member — $39 once. Every chat forever, lifetime Pro (daily Pet Twin), and your Founding badge.
               </Text>
             </Pressable>
           )}

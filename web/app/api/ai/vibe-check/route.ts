@@ -309,6 +309,34 @@ interface GeminiResponse {
 // produced a usable answer — surfaced to the user as "try different photos".
 const BLOCKED_FINISH_REASONS = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION']);
 
+// Per-uid rate limit so a single account can't loop-burn the shared Gemini
+// free-tier quota — which would 429 the feature for EVERYONE. Enforced with an
+// atomic transaction on a server-only state doc (Admin SDK bypasses rules, so no
+// client can touch this counter): a short cooldown between calls plus a soft
+// daily cap. Mirrors the pet-twin generation lock.
+const VIBE_COOLDOWN_MS = 12 * 1000;
+const VIBE_DAILY_CAP = 30;
+
+async function reserveVibeCheckSlot(uid: string, nowMs: number): Promise<{ ok: boolean; retryAfterMs?: number }> {
+  const ref = getAdminDb().doc(`dogs/${uid}/vibeCheckState/state`);
+  return getAdminDb().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = (snap.exists ? snap.data() : null) ?? {};
+    const lastAt = typeof data.lastAtMs === 'number' ? data.lastAtMs : 0;
+    if (nowMs - lastAt < VIBE_COOLDOWN_MS) {
+      return { ok: false, retryAfterMs: VIBE_COOLDOWN_MS - (nowMs - lastAt) };
+    }
+    const dayKey = new Date(nowMs).toISOString().slice(0, 10);
+    const sameDay = data.dayKey === dayKey;
+    const dayCount = sameDay && typeof data.dayCount === 'number' ? data.dayCount : 0;
+    if (dayCount >= VIBE_DAILY_CAP) {
+      return { ok: false, retryAfterMs: 60 * 60 * 1000 };
+    }
+    tx.set(ref, { lastAtMs: nowMs, dayKey, dayCount: dayCount + 1 }, { merge: true });
+    return { ok: true };
+  });
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';
   if (!authHeader.startsWith('Bearer ')) {
@@ -329,6 +357,15 @@ export async function POST(request: Request) {
   if (!apiKey) {
     console.error('vibe-check: GEMINI_API_KEY not configured');
     return NextResponse.json({ error: 'Vibe Check is not configured yet' }, { status: 503 });
+  }
+
+  // Throttle before doing any expensive work so a burst can't drain the quota.
+  const slot = await reserveVibeCheckSlot(uid, Date.now());
+  if (!slot.ok) {
+    return NextResponse.json(
+      { error: 'You’re going a little fast — give it a few seconds and try again.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((slot.retryAfterMs ?? 12000) / 1000)) } },
+    );
   }
 
   let body: VibeCheckRequestBody;

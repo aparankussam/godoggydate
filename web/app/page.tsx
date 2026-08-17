@@ -39,26 +39,24 @@ export default function HomePage() {
     router.push('/app');
   }
 
+  // The whole-life value that lands at N=1 — no other dogs required — leads,
+  // and finding playmates is one part of it (it's the piece that needs local
+  // density, so it can't be the whole pitch). Every line is scoped to what the
+  // app actually does today.
   const features = [
-    // Copy is deliberately scoped to what the code actually does. It previously
-    // claimed the engine "prevents incompatible pairings" and scored "10+
-    // signals" — but nothing collected the two fields detectUnsafePairings()
-    // reads, so it could never produce a warning, and the engine scores 7 axes.
-    // Owners now declare these, and warnings render on the card. It flags; it
-    // does not prevent, and it can only reflect what owners tell us.
-    { emoji: '🛡️', title: 'Flags before you meet', desc: 'Owners declare what their dog struggles with — size, rough play, slow intros — and we surface it on the card.' },
-    { emoji: '🧠', title: 'Smart Compatibility', desc: 'Scored across breed group, size, energy, play style, health, and distance.' },
-    { emoji: '📍', title: 'Truly Local', desc: 'Connect with dogs in your neighborhood — real meetups, not endless scrolling.' },
-    { emoji: '🐾', title: 'Founding Pack', desc: 'Get in early — a permanent, numbered spot and soft-launch pricing that won\'t last.' },
+    { emoji: '🧬', title: 'Your dog\'s Dogtype', desc: 'A shareable 16-type identity, read from who your dog actually is — not a quiz you fill in for them.' },
+    { emoji: '💭', title: 'Pet Twin', desc: 'A card in your dog\'s voice — weekly free, daily with Pro — grounded in something real about their day. Openly imagined, never faked.' },
+    { emoji: '⏳', title: 'Life in Dog Years', desc: 'See the life stage they\'re actually in — honest cohort averages, never a countdown.' },
+    { emoji: '🎂', title: 'Every milestone', desc: 'Birthdays, Gotcha Day, and your anniversary together — remembered and celebrated on the day.' },
+    { emoji: '🛡️', title: 'Playmates who fit', desc: 'When you want company, match with compatible dogs nearby — with the flags owners declare surfaced up front.' },
+    { emoji: '🐾', title: 'Founding Pack', desc: 'Get in early — a permanent, numbered spot among the first dogs here.' },
   ];
 
   const steps = [
-    // "under 60 seconds" was not true: the form is 9 sections and requires 3
-    // photos. Don't promise a number the form can't hit.
-    { n: '01', title: "Create your dog's profile", desc: 'Photos, personality, play style, and anything another owner should know before meeting.' },
-    { n: '02', title: 'Swipe through compatible dogs', desc: 'Every card shows a compatibility score, energy match, and any flags the owner declared.' },
-    { n: '03', title: 'Match & start chatting', desc: "When it's mutual, head to chat and plan your first playdate meetup." },
-    { n: '04', title: 'Meet up & give feedback', desc: 'After every playdate, let us know how it went. Your feedback shapes the community.' },
+    { n: '01', title: "Create your dog's profile", desc: 'A few photos and their personality — that\'s all it takes to unlock everything else.' },
+    { n: '02', title: 'Meet their Dogtype', desc: 'Get your dog\'s 16-type identity card, their life stage, and their first Pet Twin card — instantly, solo.' },
+    { n: '03', title: 'Share it', desc: 'The Dogtype card is made to post. Every share is how another owner (and their dog) finds the app.' },
+    { n: '04', title: 'Find playmates who fit', desc: 'When you\'re ready for company, match with compatible dogs nearby and plan a real meetup.' },
   ];
 
   const ctaLabel = !authChecked
@@ -102,30 +100,30 @@ export default function HomePage() {
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-[rgba(232,99,58,0.1)] border border-[rgba(232,99,58,0.2)] rounded-full px-4 py-2 mb-6">
-          <span className="text-sm font-semibold text-primary">🐾 The Founding Pack is open</span>
+          <span className="text-sm font-semibold text-primary">🧬 Meet your dog&apos;s Dogtype</span>
         </div>
         <h1 className="font-display text-5xl md:text-7xl text-brown leading-tight mb-6">
-          Find safe, compatible<br />
-          <span className="text-primary">playmates</span> for your dog nearby
+          Your dog&apos;s<br />
+          <span className="text-primary">whole life</span>, in one place
         </h1>
         <p className="text-xl text-brown-light max-w-2xl mx-auto mb-10 leading-relaxed">
-          Kaju is a goofy mini dachshund who loves everyone — but not every dog is the right match.
-          We built GoDoggyDate to make finding the right playmate safe, easy, and stress-free.
+          Discover their Dogtype, watch them grow through every life stage, celebrate the real
+          milestones — and find the playmates who actually fit. Free to start. No dog park required.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={() => handleCTA('hero_primary')}
             className="btn-primary text-lg px-8 py-4"
           >
-            {signedIn ? 'Open App →' : 'Find Playmates Near Me'}
+            {signedIn ? 'Open App →' : "Find your dog's Dogtype"}
           </button>
           <Link href="#how" className="btn-secondary text-lg px-8 py-4">
             How it works
           </Link>
         </div>
-        <p className="mt-4 text-sm font-semibold text-primary">Join Kaju&apos;s pack 🐾</p>
+        <p className="mt-4 text-sm font-semibold text-primary">You get their whole life. They get you for all of theirs. 🐾</p>
         <p className="mt-2 text-sm text-brown-light">
-          Get your dog a best friend — temperament-matched, not doomscrolled
+          Built around who your dog is — not an endless feed
         </p>
       </section>
 
@@ -162,10 +160,13 @@ export default function HomePage() {
       {/* Features */}
       <section className="bg-cream-dark py-20">
         <div className="max-w-5xl mx-auto px-6">
-          <h2 className="font-display text-4xl text-brown text-center mb-12">
-            Built for dog safety, not dopamine
+          <h2 className="font-display text-4xl text-brown text-center mb-3">
+            Everything your dog is — in one app
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <p className="text-center text-brown-light max-w-xl mx-auto mb-12">
+            Most of it works the moment you sign up, with no other dogs required.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f) => (
               <div key={f.title} className="card p-6 rounded-2xl">
                 <span className="text-4xl mb-4 block">{f.emoji}</span>
@@ -200,10 +201,11 @@ export default function HomePage() {
         <div className="max-w-2xl mx-auto px-6 text-center">
           <p className="text-6xl mb-6">🐾</p>
           <h2 className="font-display text-4xl text-white mb-4">
-            Your dog&apos;s next best friend is nearby
+            Start with who your dog is
           </h2>
           <p className="text-[rgba(255,255,255,0.7)] mb-8 text-lg">
-            Join our early access community — be among the first dog owners to find safer, happier playdates.
+            Get their Dogtype, their life stage, and their first Pet Twin card in minutes — then find
+            the playmates who fit. Be among the first dogs in the Founding Pack.
           </p>
           <button
             onClick={() => handleCTA('footer_primary')}

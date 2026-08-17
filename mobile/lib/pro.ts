@@ -12,10 +12,24 @@
 // for pricing, trial-abuse guards, and customer de-duplication.
 
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { getFirebase } from './firebase';
 import type { ProTier } from '../../shared/pro';
 
 export type CheckoutTier = ProTier | 'founding';
+
+/**
+ * App Store Guideline 3.1.1: digital-goods purchases inside the iOS app must use
+ * Apple's in-app purchase. Until StoreKit IAP (or an approved External Purchase
+ * entitlement) is wired, we do NOT sell Pro or the Founding Member unlock
+ * in-app on iOS — those CTAs render a compliant, no-steering note instead.
+ * Android and the web are unaffected. This is the ONE switch to flip if/when the
+ * entitlement lands or IAP ships. (Managing/cancelling an existing plan is not a
+ * sale, so the billing-portal + active/founding states stay available on iOS.)
+ */
+export function canOfferInAppPurchase(): boolean {
+  return Platform.OS !== 'ios';
+}
 
 function webBase(): string | null {
   return (

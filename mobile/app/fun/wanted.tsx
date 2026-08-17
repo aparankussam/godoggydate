@@ -26,6 +26,13 @@ export default function WantedScreen() {
   const [sharing, setSharing] = useState(false);
   const cardRef = useRef<View>(null);
   const stamp = useRef(new Animated.Value(0.9)).current;
+  const pickedManually = useRef(false);
+
+  // On a cold deep-link the profile (and hero photo) resolve AFTER first render,
+  // so adopt the hero photo once it arrives — unless the user already chose one.
+  useEffect(() => {
+    if (!pickedManually.current && heroPhoto) setPhotoUri(heroPhoto);
+  }, [heroPhoto]);
 
   useEffect(() => {
     if (!poster) return;
@@ -48,6 +55,7 @@ export default function WantedScreen() {
         ? await ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1] })
         : await ImagePicker.launchImageLibraryAsync({ quality: 0.85, allowsEditing: true, aspect: [1, 1], mediaTypes: ImagePicker.MediaTypeOptions.Images });
       if (!result.canceled && result.assets?.[0]?.uri) {
+        pickedManually.current = true;
         setPhotoUri(result.assets[0].uri);
         Haptics.selectionAsync().catch(() => {});
       }

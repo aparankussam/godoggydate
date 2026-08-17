@@ -72,7 +72,7 @@ export default function DogtypePage({ params }: PageProps) {
 
       {/* The four axes */}
       <section className="max-w-4xl mx-auto px-6 py-6">
-        <h2 className="font-display text-2xl text-brown mb-4">What makes a {type.name.replace(/^The /, '')}</h2>
+        <h2 className="font-display text-2xl text-brown mb-4">What makes {/^[AEIOU]/i.test(type.name.replace(/^The /, '')) ? 'an' : 'a'} {type.name.replace(/^The /, '')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {type.axes.map((a) => (
             <div key={a.key} className="card p-4 rounded-2xl">

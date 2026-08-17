@@ -145,6 +145,18 @@ service cloud.firestore {
           && (request.auth.uid == dogId || isHouseholdMember(dogId));
         allow write: if false;
       }
+
+      // Household members' real display NAMES — moved off the world-readable
+      // dog doc (any signed-in user can read that) into here, so a member's
+      // real name is visible only to the owner and fellow household members.
+      // householdMemberIds stays on the parent doc (the rules above depend on
+      // it); only the PII names live here. Written only by the household
+      // callables (Admin SDK, bypasses these rules).
+      match /householdNames/{memberId} {
+        allow read: if isSignedIn()
+          && (request.auth.uid == dogId || isHouseholdMember(dogId));
+        allow write: if false;
+      }
     }
 
     match /swipes/{userId}/decisions/{targetDogId} {

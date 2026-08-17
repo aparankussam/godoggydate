@@ -19,16 +19,16 @@ const nunito = Nunito({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: 'GoDoggyDate — Find safer, happier playdates for your dog',
+  title: 'GoDoggyDate — Your dog\'s whole life, in one place',
   description:
-    'GoDoggyDate matches dogs based on safety, compatibility, and play style. Find your dog\'s perfect playdate partner nearby.',
-  keywords: 'dog playdate, dog socialization, dog matching, safe dog meetups',
+    'Discover your dog\'s Dogtype, watch them grow through every life stage, celebrate the real milestones, and find the playmates who actually fit. Free to start.',
+  keywords: 'dog personality, dogtype, dog identity, dog life stage, dog milestones, dog playdate, dog socialization',
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    title: 'GoDoggyDate — Find safer, happier playdates for your dog',
-    description: 'Find safer, happier playdates for your dog nearby.',
+    title: 'GoDoggyDate — Your dog\'s whole life, in one place',
+    description: 'Your dog\'s Dogtype, their life stage, their milestones — and the playmates who actually fit.',
     url: absoluteUrl('/'),
     siteName: 'GoDoggyDate',
     type: 'website',
@@ -43,8 +43,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'GoDoggyDate — Find safer, happier playdates for your dog',
-    description: 'Find safer, happier playdates for your dog nearby.',
+    title: 'GoDoggyDate — Your dog\'s whole life, in one place',
+    description: 'Your dog\'s Dogtype, their life stage, their milestones — and the playmates who actually fit.',
     images: [absoluteUrl('/images/kaju-hero.jpg')],
   },
   verification: {

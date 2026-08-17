@@ -96,33 +96,59 @@ export async function POST(request: Request) {
       /* non-fatal — just create a fresh customer below */
     }
 
-    // Guard against opening a SECOND parallel subscription for a customer who
-    // already has one (e.g. a double-tap during the post-checkout webhook lag).
-    // A second subscription would bill the card invisibly and never surface in
-    // the portal (which only shows the one entitlements recorded).
+    // Gather candidate Stripe customers for this user. Entitlements name the
+    // customer once the subscription webhook has written it (authoritative). If
+    // it hasn't yet — a Founding one-time buyer, or webhook lag — fall back to
+    // email. Email can match MULTIPLE customers (Stripe allows duplicate emails,
+    // and our own customer_email path can mint more than one), so we collect all
+    // and inspect each rather than trusting an arbitrary first hit.
+    const candidateCustomerIds: string[] = [];
     if (existingCustomerId) {
-      const existing = await stripe.subscriptions.list({
-        customer: existingCustomerId,
-        status: 'all',
-        limit: 10,
-      });
-      const hasLiveSub = existing.data.some(
-        (s) => s.status === 'active' || s.status === 'trialing' || s.status === 'past_due',
-      );
-      if (hasLiveSub) {
-        return NextResponse.json(
-          { error: 'You already have goDoggyDate Pro. Manage it from your profile.' },
-          { status: 409 },
-        );
+      candidateCustomerIds.push(existingCustomerId);
+    } else if (email) {
+      try {
+        const found = await stripe.customers.list({ email, limit: 5 });
+        for (const c of found.data) candidateCustomerIds.push(c.id);
+      } catch {
+        /* non-fatal — proceed as a new customer */
       }
     }
 
-    // Only genuinely NEW customers get the free trial. A returning customer
-    // (existingCustomerId present ⇒ they subscribed before) must not be handed
-    // a fresh 7-day trial on every re-subscribe — that's a perpetual-free-Pro
-    // farm via cancel-before-trial-end + resubscribe. Stripe does not
-    // de-duplicate trials per customer, so this has to be enforced here.
-    const grantTrial = PRO_TRIAL_DAYS > 0 && !existingCustomerId;
+    // Inspect subscription history across every candidate: a live sub anywhere
+    // blocks a second (invisibly-billed) one; ANY sub (even canceled) means
+    // "has subscribed before" and so disqualifies the trial. A mere customer
+    // record with NO subscriptions (the $39 one-time, or an abandoned checkout)
+    // must NOT deny the advertised trial or wrongly 409.
+    let hasLiveSub = false;
+    let hasAnySubHistory = false;
+    for (const cid of candidateCustomerIds) {
+      try {
+        const subs = await stripe.subscriptions.list({ customer: cid, status: 'all', limit: 10 });
+        if (subs.data.length > 0) hasAnySubHistory = true;
+        if (subs.data.some((s) => s.status === 'active' || s.status === 'trialing' || s.status === 'past_due')) {
+          hasLiveSub = true;
+        }
+      } catch {
+        /* non-fatal — a failed lookup shouldn't block checkout */
+      }
+    }
+
+    if (hasLiveSub) {
+      return NextResponse.json(
+        { error: 'You already have goDoggyDate Pro. Manage it from your profile.' },
+        { status: 409 },
+      );
+    }
+
+    // Reuse an existing customer so a second checkout doesn't spawn a duplicate;
+    // prefer the webhook-authoritative (entitlements) one.
+    const reuseCustomerId = existingCustomerId ?? candidateCustomerIds[0];
+
+    // Trial only for a genuinely NEW SUBSCRIBER — no subscription history at all.
+    // Gating on mere customer existence would deny the advertised trial to a
+    // first-time subscriber who happens to already have a customer record.
+    // Stripe does not de-duplicate trials per customer, so this is enforced here.
+    const grantTrial = PRO_TRIAL_DAYS > 0 && !hasAnySubHistory;
 
     const isFoundingTier = tier === 'founding';
 
@@ -143,8 +169,8 @@ export async function POST(request: Request) {
             },
           }
         : {}),
-      ...(existingCustomerId
-        ? { customer: existingCustomerId }
+      ...(reuseCustomerId
+        ? { customer: reuseCustomerId }
         : email
           ? { customer_email: email }
           : {}),
