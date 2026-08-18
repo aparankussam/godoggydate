@@ -22,6 +22,9 @@ import {
   milestoneAt,
   nextMilestone,
   crossedMilestone,
+  computeEnergy,
+  unlockedStickers,
+  MAX_ENERGY,
   type BoopState,
 } from '../../lib/boops';
 
@@ -33,10 +36,15 @@ export default function SnootScreen() {
   const dogName = profile?.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(profile?.photos, profile?.ai?.vibeCheck?.heroPhotoIndex);
 
-  const [state, setState] = useState<BoopState>({ allTime: 0, todayCount: 0, todayDate: '' });
+  const [state, setState] = useState<BoopState>({ allTime: 0, todayCount: 0, todayDate: '', energy: MAX_ENERGY, energyAtMs: Date.now() });
   const [ready, setReady] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [, setTick] = useState(0); // 1s heartbeat so the energy meter refills visibly
   const badgeRef = useRef<View>(null);
+
+  // Escalating-haptic streak: rapid consecutive boops build a rising "beat".
+  const lastBoopMs = useRef(0);
+  const streak = useRef(0);
 
   // Animations.
   const squish = useRef(new Animated.Value(1)).current;
@@ -76,6 +84,12 @@ export default function SnootScreen() {
     };
   }, [dogId]);
 
+  // 1s heartbeat so the zoomies-energy meter visibly refills while you watch.
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const schedulePersist = (next: BoopState) => {
     pending.current = next;
     if (timer.current) return;
@@ -102,6 +116,15 @@ export default function SnootScreen() {
 
   function boop() {
     if (!ready) return;
+    const now = Date.now();
+    // Zoomies energy gate — out of energy means a playful breather, not an error.
+    const curEnergy = computeEnergy(stateRef.current.energy, stateRef.current.energyAtMs, now);
+    if (curEnergy <= 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      streak.current = 0;
+      return;
+    }
+
     const before = stateRef.current.allTime;
     const after = before + 1;
     // Recompute the day each tap so a session left open across midnight rolls
@@ -112,6 +135,8 @@ export default function SnootScreen() {
       allTime: after,
       todayCount: (sameDay ? stateRef.current.todayCount : 0) + 1,
       todayDate: today,
+      energy: curEnergy - 1,
+      energyAtMs: now,
     };
     setState(next);
     schedulePersist(next);
@@ -123,13 +148,23 @@ export default function SnootScreen() {
       Animated.spring(squish, { toValue: 1, friction: 4, tension: 140, useNativeDriver: true }),
     ]).start();
 
+    // Rising "beat": rapid consecutive boops escalate the haptic; a pause resets.
+    if (now - lastBoopMs.current < 600) streak.current = Math.min(streak.current + 1, 12);
+    else streak.current = 0;
+    lastBoopMs.current = now;
+
     const milestone = crossedMilestone(before, after);
     if (milestone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       runConfetti();
       trackEvent('snoot_milestone', { count: milestone.count, title: milestone.title });
     } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      const style = streak.current >= 8
+        ? Haptics.ImpactFeedbackStyle.Heavy
+        : streak.current >= 4
+          ? Haptics.ImpactFeedbackStyle.Medium
+          : Haptics.ImpactFeedbackStyle.Light;
+      Haptics.impactAsync(style).catch(() => {});
     }
   }
 
@@ -145,6 +180,10 @@ export default function SnootScreen() {
 
   const title = milestoneAt(state.allTime);
   const next = nextMilestone(state.allTime);
+  const energy = ready ? computeEnergy(state.energy, state.energyAtMs, Date.now()) : MAX_ENERGY;
+  const energyPct = Math.round((energy / MAX_ENERGY) * 100);
+  const outOfZoomies = energy <= 0;
+  const stickerCount = unlockedStickers(state.allTime).length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -231,13 +270,34 @@ export default function SnootScreen() {
           </Text>
         )}
 
-        <Pressable
-          style={[styles.shareButton, (sharing || state.allTime === 0) && { opacity: 0.6 }]}
-          onPress={shareBadge}
-          disabled={sharing || state.allTime === 0}
-        >
-          <Text style={styles.shareText}>{sharing ? 'Rendering…' : '📤 Share the boop count'}</Text>
-        </Pressable>
+        {/* Zoomies energy meter */}
+        <View style={styles.energyWrap}>
+          <View style={styles.energyHead}>
+            <Text style={styles.energyLabel}>⚡ Zoomies</Text>
+            <Text style={styles.energyVal}>{energy}/{MAX_ENERGY}</Text>
+          </View>
+          <View style={styles.energyTrack}>
+            <View style={[styles.energyFill, { width: `${energyPct}%`, backgroundColor: outOfZoomies ? colors.brownLight : colors.primary }]} />
+          </View>
+          {outOfZoomies && (
+            <Text style={styles.energyNote}>🥱 {dogName} needs a breather — zoomies refill over time.</Text>
+          )}
+        </View>
+
+        <View style={styles.snootActions}>
+          <Pressable
+            style={[styles.shareButton, (sharing || state.allTime === 0) && { opacity: 0.6 }]}
+            onPress={shareBadge}
+            disabled={sharing || state.allTime === 0}
+          >
+            <Text style={styles.shareText}>{sharing ? 'Rendering…' : '📤 Share count'}</Text>
+          </Pressable>
+          {stickerCount > 0 && (
+            <Pressable style={styles.studioButton} onPress={() => router.push('/fun/sticker-studio')}>
+              <Text style={styles.studioText}>🎨 Sticker Studio · {stickerCount}</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Off-screen capturable badge */}
@@ -297,15 +357,32 @@ const styles = StyleSheet.create({
   counterLabel: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownLight, textTransform: 'uppercase', letterSpacing: 1 },
   counterDivider: { width: 1, height: 40, backgroundColor: colors.border },
   nextLine: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight, textAlign: 'center' },
+  energyWrap: { alignSelf: 'stretch', gap: 6 },
+  energyHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  energyLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  energyVal: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
+  energyTrack: { height: 8, borderRadius: 999, backgroundColor: colors.creamDark, overflow: 'hidden' },
+  energyFill: { height: '100%', borderRadius: 999 },
+  energyNote: { fontFamily: fonts.body, fontSize: 12, color: colors.brownMid, textAlign: 'center', marginTop: 2 },
+  snootActions: { flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' },
   shareButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.full,
     paddingVertical: 14,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     alignItems: 'center',
     ...shadow.button,
   },
   shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  studioButton: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  studioText: { fontFamily: fonts.bold, fontSize: 14, color: colors.primary },
   // Off-screen render for the share badge — laid out but not visible.
   offscreen: { position: 'absolute', top: -1000, left: 0 },
   badge: {

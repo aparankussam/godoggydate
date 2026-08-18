@@ -80,6 +80,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="fun/wanted" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="fun/snoot" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="fun/sticker-studio" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="fun/adventures" options={{ animation: 'slide_from_right' }} />
           </Stack>
         </SessionProvider>

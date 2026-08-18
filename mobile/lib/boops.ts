@@ -13,12 +13,64 @@ export interface BoopState {
   todayCount: number;
   /** Local YYYY-MM-DD the todayCount belongs to. */
   todayDate: string;
+  /** Zoomies energy left (0..MAX_ENERGY) as of `energyAtMs`. */
+  energy: number;
+  /** Timestamp `energy` was accurate as of; regen accrues from here. */
+  energyAtMs: number;
 }
 
 export interface BoopMilestone {
   count: number;
   title: string;
   emoji: string;
+}
+
+// ── Zoomies energy — a fun, HONEST cap ───────────────────────────────────────
+// Booping spends the dog's "zoomies energy"; it refills on REAL elapsed clock
+// time (computed from a stored timestamp, so it can't be gamed by reopening the
+// app). Generous enough that casual play never hits it, but a marathon burst
+// makes the dog "need a breather" — a playful limit, not a paywall.
+export const MAX_ENERGY = 50;
+export const ENERGY_REGEN_MS = 90 * 1000; // +1 every 90s → full refill in ~75 min
+
+/** Current energy at `nowMs`, accounting for time-based regen (pure). */
+export function computeEnergy(energy: number, energyAtMs: number, nowMs: number = Date.now()): number {
+  const regen = Math.floor((nowMs - energyAtMs) / ENERGY_REGEN_MS);
+  if (regen <= 0) return Math.max(0, Math.min(MAX_ENERGY, energy));
+  return Math.max(0, Math.min(MAX_ENERGY, energy + regen));
+}
+
+/** ms until the next +1 energy tick (for a live "refills in…" readout). */
+export function msToNextEnergy(energyAtMs: number, nowMs: number = Date.now()): number {
+  const elapsed = (nowMs - energyAtMs) % ENERGY_REGEN_MS;
+  return ENERGY_REGEN_MS - elapsed;
+}
+
+// ── Milestone stickers — earned decals you can place on your dog's photo ──────
+export interface Sticker {
+  id: string;
+  emoji: string;
+  label: string;
+  /** All-time boops needed to unlock it (mirrors the milestone ladder). */
+  unlockAt: number;
+}
+
+export const STICKERS: Sticker[] = [
+  { id: 'paw', emoji: '🐾', label: 'Paw', unlockAt: 10 },
+  { id: 'love', emoji: '💖', label: 'Love', unlockAt: 10 },
+  { id: 'medal', emoji: '🎖️', label: 'Medal', unlockAt: 50 },
+  { id: 'sparkle', emoji: '✨', label: 'Sparkle', unlockAt: 50 },
+  { id: 'star', emoji: '⭐', label: 'Star', unlockAt: 150 },
+  { id: 'party', emoji: '🎉', label: 'Party', unlockAt: 150 },
+  { id: 'crown', emoji: '👑', label: 'Crown', unlockAt: 500 },
+  { id: 'bone', emoji: '🦴', label: 'Bone', unlockAt: 500 },
+  { id: 'trophy', emoji: '🏆', label: 'Trophy', unlockAt: 1500 },
+  { id: 'rainbow', emoji: '🌈', label: 'Rainbow', unlockAt: 1500 },
+];
+
+/** Stickers unlocked at this all-time count. */
+export function unlockedStickers(allTime: number): Sticker[] {
+  return STICKERS.filter((s) => allTime >= s.unlockAt);
 }
 
 // Tightened early ladder so the FIRST reward lands fast (the critique's note —
@@ -60,20 +112,27 @@ export function crossedMilestone(before: number, after: number): BoopMilestone |
 
 export async function loadBoops(dogId: string): Promise<BoopState> {
   const today = localDateStr();
+  const now = Date.now();
+  const fresh = (): BoopState => ({ allTime: 0, todayCount: 0, todayDate: today, energy: MAX_ENERGY, energyAtMs: now });
   try {
     const raw = await AsyncStorage.getItem(KEY(dogId));
-    if (!raw) return { allTime: 0, todayCount: 0, todayDate: today };
+    if (!raw) return fresh();
     const parsed = JSON.parse(raw) as Partial<BoopState>;
     const allTime = typeof parsed.allTime === 'number' && parsed.allTime >= 0 ? Math.floor(parsed.allTime) : 0;
     // Roll the daily counter over if the stored day isn't today.
     const sameDay = parsed.todayDate === today;
+    // Backfill energy for pre-energy saves; otherwise regen it to now.
+    const storedEnergy = typeof parsed.energy === 'number' ? parsed.energy : MAX_ENERGY;
+    const storedEnergyAt = typeof parsed.energyAtMs === 'number' ? parsed.energyAtMs : now;
     return {
       allTime,
       todayCount: sameDay && typeof parsed.todayCount === 'number' ? Math.floor(parsed.todayCount) : 0,
       todayDate: today,
+      energy: computeEnergy(storedEnergy, storedEnergyAt, now),
+      energyAtMs: now,
     };
   } catch {
-    return { allTime: 0, todayCount: 0, todayDate: today };
+    return fresh();
   }
 }
 
