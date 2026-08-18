@@ -34,6 +34,7 @@ export default function MatchedDogProfilePage() {
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFoundOrDenied, setNotFoundOrDenied] = useState(false);
+  const [activePhoto, setActivePhoto] = useState(0);
 
   useEffect(() => {
     const { auth } = getFirebase();
@@ -106,6 +107,7 @@ export default function MatchedDogProfilePage() {
   }
 
   const photos = getRenderablePhotos(profile.photos);
+  const safeActive = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
   const vibeCheck = profile.ai?.vibeCheck;
 
   return (
@@ -124,25 +126,31 @@ export default function MatchedDogProfilePage() {
       <div className="max-w-2xl mx-auto px-5 py-6 flex flex-col gap-5">
         {/* Hero photo */}
         <div className="rounded-[2rem] overflow-hidden bg-gradient-to-br from-gold to-primary aspect-square flex items-center justify-center">
-          {photos[0] ? (
+          {photos[safeActive] ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photos[0]} alt={profile.name} className="w-full h-full object-cover" />
+            <img src={photos[safeActive]} alt={profile.name} className="w-full h-full object-cover" />
           ) : (
             <span className="text-8xl">🐕</span>
           )}
         </div>
 
-        {/* Rest of photos */}
+        {/* Rest of photos — tap to make one the main photo. */}
         {photos.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {photos.slice(1).map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+            {photos.map((url, i) => (
+              <button
                 key={i}
-                src={url}
-                alt={`${profile.name} photo ${i + 2}`}
-                className="w-24 h-24 rounded-2xl object-cover shrink-0 border border-border"
-              />
+                type="button"
+                onClick={() => setActivePhoto(i)}
+                aria-label={`Show ${profile.name} photo ${i + 1}`}
+                aria-pressed={i === safeActive}
+                className={`w-24 h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all ${
+                  i === safeActive ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`${profile.name} photo ${i + 1}`} className="w-full h-full object-cover" />
+              </button>
             ))}
           </div>
         )}

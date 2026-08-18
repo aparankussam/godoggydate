@@ -36,7 +36,7 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
             onClick={onEditProfile}
             className="mt-2 text-xs font-bold text-primary underline underline-offset-2"
           >
-            Add birth year
+            Add birth date
           </button>
         )}
       </section>

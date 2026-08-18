@@ -207,11 +207,17 @@ export async function POST(request: Request) {
   const nowMs = Date.now();
 
   // Load the dog, its entitlements, and reminders in parallel.
-  const [dogSnap, entSnap, remindersSnap] = await Promise.all([
-    db.doc(`dogs/${uid}`).get(),
-    db.doc(`users/${uid}/private/entitlements`).get(),
-    db.collection(`dogs/${uid}/reminders`).get(),
-  ]);
+  let dogSnap, entSnap, remindersSnap;
+  try {
+    [dogSnap, entSnap, remindersSnap] = await Promise.all([
+      db.doc(`dogs/${uid}`).get(),
+      db.doc(`users/${uid}/private/entitlements`).get(),
+      db.collection(`dogs/${uid}/reminders`).get(),
+    ]);
+  } catch (error) {
+    console.error('pet-twin: failed to load dog data', error);
+    return NextResponse.json({ error: 'Could not load your dog just now — try again.' }, { status: 503 });
+  }
 
   if (!dogSnap.exists) {
     return NextResponse.json({ error: 'Create your dog profile first' }, { status: 404 });
@@ -275,10 +281,20 @@ Real fact to react to: ${grounding.detail}
 Ambient: it's ${day}, ${season}.
 Write ${dogName}'s note now.`;
 
-  let data: GeminiResponse;
-  try {
+  // Release the generation slot so a retry after a failure isn't a silent 90s
+  // no-op (the lock only exists to serialize concurrent bursts, not to punish
+  // a failed attempt — without this, a user tapping again just sees nothing).
+  const releaseLock = async () => {
+    try { await lockRef.set({ lastReservedAtMs: 0 }, { merge: true }); } catch { /* best effort */ }
+  };
+
+  // Try the configured model, then known-good fallbacks — a wrong/unavailable
+  // GEMINI_MODEL is a common prod cause and shouldn't kill the whole feature.
+  const modelCandidates = Array.from(new Set([GEMINI_MODEL, 'gemini-2.0-flash', 'gemini-1.5-flash']));
+
+  const requestGemini = async (model: string, useSchema: boolean) => {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -287,7 +303,7 @@ Write ${dogName}'s note now.`;
           contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            responseSchema: TWIN_SCHEMA,
+            ...(useSchema ? { responseSchema: TWIN_SCHEMA } : {}),
             maxOutputTokens: 512,
             temperature: 1.1,
           },
@@ -295,42 +311,71 @@ Write ${dogName}'s note now.`;
       },
     );
     if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      console.error('pet-twin: Gemini API error', res.status, errText.slice(0, 300));
-      if (res.status === 429) {
-        return NextResponse.json(
-          { error: "Pet Twin is taking a nap — this one's on us, not you. Try again later." },
-          { status: 503 },
-        );
-      }
-      return NextResponse.json({ error: 'Could not write today\'s card — try again' }, { status: 502 });
+      const body = await res.text().catch(() => '');
+      const modelMissing = res.status === 404 || /not found|not supported/i.test(body);
+      return { ok: false as const, status: res.status, body, modelMissing };
     }
-    data = (await res.json()) as GeminiResponse;
-  } catch (error) {
-    console.error('pet-twin: Gemini call failed', error);
-    return NextResponse.json({ error: 'Could not write today\'s card — try again' }, { status: 502 });
+    return { ok: true as const, data: (await res.json()) as GeminiResponse };
+  };
+
+  let content: TwinContent | null = null;
+  let usedModel = GEMINI_MODEL;
+  let lastStatus = 0;
+  let lastDetail = '';
+
+  for (const model of modelCandidates) {
+    if (content) break;
+    // First attempt with the strict schema; a second without it recovers from a
+    // model that returns valid-but-unschematized JSON.
+    for (const useSchema of [true, false]) {
+      let attempt;
+      try {
+        attempt = await requestGemini(model, useSchema);
+      } catch (error) {
+        lastDetail = `network: ${String(error).slice(0, 120)}`;
+        console.error('pet-twin: Gemini call threw', model, error);
+        continue;
+      }
+      if (!attempt.ok) {
+        lastStatus = attempt.status;
+        lastDetail = attempt.body.slice(0, 200);
+        console.error('pet-twin: Gemini API error', model, attempt.status, lastDetail);
+        // A rejected key / permission / bad request is not fixable by retrying a
+        // different model — surface it clearly and stop.
+        if ([400, 401, 403].includes(attempt.status)) {
+          await releaseLock();
+          return NextResponse.json(
+            { error: "Pet Twin's AI isn't set up correctly yet — please try again later. (Admin: GEMINI_API_KEY was rejected.)" },
+            { status: 502 },
+          );
+        }
+        if (attempt.status === 429) {
+          await releaseLock();
+          return NextResponse.json(
+            { error: "Pet Twin is taking a quick nap — this one's on us. Try again in a bit." },
+            { status: 503 },
+          );
+        }
+        if (attempt.modelMissing) break; // this model doesn't exist — try the next one
+        continue;
+      }
+      const data = attempt.data;
+      if (data.promptFeedback?.blockReason) { lastDetail = `blocked: ${data.promptFeedback.blockReason}`; continue; }
+      const candidate = data.candidates?.[0];
+      if (candidate?.finishReason && BLOCKED_FINISH.has(candidate.finishReason)) { lastDetail = `finish: ${candidate.finishReason}`; continue; }
+      const rawText = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
+      let parsed: unknown;
+      try { parsed = JSON.parse(rawText); } catch { lastDetail = `non-json: ${rawText.slice(0, 80)}`; continue; }
+      const c = sanitizeTwin(parsed);
+      if (c) { content = c; usedModel = model; break; }
+      lastDetail = 'sanitize-failed';
+    }
   }
 
-  if (data.promptFeedback?.blockReason) {
-    return NextResponse.json({ error: 'Could not write today\'s card — try again' }, { status: 422 });
-  }
-  const candidate = data.candidates?.[0];
-  if (candidate?.finishReason && BLOCKED_FINISH.has(candidate.finishReason)) {
-    return NextResponse.json({ error: 'Could not write today\'s card — try again' }, { status: 422 });
-  }
-
-  const rawText = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawText);
-  } catch {
-    console.error('pet-twin: non-JSON model output', rawText.slice(0, 200));
-    return NextResponse.json({ error: 'Could not write today\'s card — try again' }, { status: 502 });
-  }
-
-  const content = sanitizeTwin(parsed);
   if (!content) {
-    return NextResponse.json({ error: 'Could not write today\'s card — try again' }, { status: 502 });
+    await releaseLock();
+    console.error('pet-twin: generation failed after all models', lastStatus, lastDetail);
+    return NextResponse.json({ error: 'Could not write today\'s card — try again in a moment.' }, { status: 502 });
   }
 
   const moment = {
@@ -340,7 +385,7 @@ Write ${dogName}'s note now.`;
     sourceKind: grounding.kind,
     sourceLabel: grounding.label,
     createdAt: nowMs,
-    model: GEMINI_MODEL,
+    model: usedModel,
     promptVersion: PROMPT_VERSION,
   };
 
@@ -351,6 +396,7 @@ Write ${dogName}'s note now.`;
     });
     return NextResponse.json({ moment: { id: ref.id, ...moment }, throttled: false, isPro });
   } catch (error) {
+    await releaseLock();
     console.error('pet-twin: failed to persist moment', error);
     return NextResponse.json({ error: 'Wrote the card but could not save it — try again' }, { status: 500 });
   }

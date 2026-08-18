@@ -96,6 +96,9 @@ interface Props {
   onSaved: (profile: SavedDogProfile) => void;
   saving: boolean;
   initialProfile?: SavedDogProfile | null;
+  /** When set, the form scrolls to and focuses that section on open (e.g. the
+   *  "Add birth date" nudge deep-links straight to the birthday inputs). */
+  focusSection?: 'birthday';
 }
 
 interface PhotoItem {
@@ -160,7 +163,7 @@ const EMPTY_ERRORS: ValidationErrors = {
   rabiesExpiry: '',
 };
 
-export default function DogProfileForm({ onSaved, saving, initialProfile }: Props) {
+export default function DogProfileForm({ onSaved, saving, initialProfile, focusSection }: Props) {
   const [name, setName] = useState('');
   const [breed, setBreed] = useState('');
   const [age, setAge] = useState<'puppy' | 'adult' | 'senior' | ''>('');
@@ -213,6 +216,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
   const sexRef = useRef<HTMLDivElement | null>(null);
   const sizeRef = useRef<HTMLDivElement | null>(null);
   const energyRef = useRef<HTMLInputElement | null>(null);
+  const birthYearRef = useRef<HTMLInputElement | null>(null);
   const zipRef = useRef<HTMLInputElement | null>(null);
   const locationRef = useRef<HTMLInputElement | null>(null);
   const stateRef = useRef<HTMLSelectElement | null>(null);
@@ -223,6 +227,16 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
       previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
+
+  // Deep-link: when opened via the "Add birth date" nudge, scroll to and focus
+  // the birthday inputs instead of dumping the user at the top of the form.
+  useEffect(() => {
+    if (focusSection === 'birthday' && birthYearRef.current) {
+      birthYearRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const t = window.setTimeout(() => birthYearRef.current?.focus(), 250);
+      return () => window.clearTimeout(t);
+    }
+  }, [focusSection]);
 
   useEffect(() => {
     if (!initialProfile) return;
@@ -1059,6 +1073,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile }: Prop
               </label>
               <input
                 id="birth-year"
+                ref={birthYearRef}
                 type="number"
                 inputMode="numeric"
                 min={1990}

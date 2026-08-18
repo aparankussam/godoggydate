@@ -40,6 +40,7 @@ import { useProEntitlement } from '../../../lib/useProEntitlement';
 import { getHouseholdDogsForUser } from '../../../lib/household';
 import type { HouseholdDog } from '../../../lib/household';
 import type { Reminder } from '../../../../shared/types';
+import { getVaccinationStatus } from '../../../../shared/profile';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -59,6 +60,8 @@ export default function ProfilePage() {
   const [hasLifetime,  setHasLifetime]  = useState(false);
   const [reminders,    setReminders]    = useState<Reminder[]>([]);
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
+  const [activePhoto,  setActivePhoto]  = useState(0);
+  const [editFocus,    setEditFocus]    = useState<'birthday' | null>(null);
   // Household member state — only ever populated for a user with NO dog of
   // their own (see the effect below). An owner never enters this path.
   const [householdDogs,      setHouseholdDogs]      = useState<HouseholdDog[]>([]);
@@ -300,6 +303,7 @@ export default function ProfilePage() {
       await saveUserDogProfile(authUser.uid, safe);
       setSavedProfile(safe);
       setShowEdit(false);
+      setEditFocus(null);
       const completed = isProfileComplete(safe);
       trackEvent('profile_saved', {
         context: 'profile_page',
@@ -332,7 +336,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-cream">
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center gap-3">
           <button
-            onClick={() => setShowEdit(false)}
+            onClick={() => { setShowEdit(false); setEditFocus(null); }}
             className="text-2xl text-brown-light hover:text-brown transition-colors"
             aria-label="Back"
           >
@@ -351,6 +355,7 @@ export default function ProfilePage() {
           onSaved={handleProfileSaved}
           saving={saving}
           initialProfile={savedProfile}
+          focusSection={editFocus ?? undefined}
         />
       </div>
     );
@@ -359,6 +364,8 @@ export default function ProfilePage() {
   // ── Profile view ──────────────────────────────────────────────────────────
   const complete    = isProfileComplete(savedProfile);
   const photos      = getRenderablePhotos(savedProfile?.photos);
+  // Clamp so a stale index (after a photo is removed) can never read undefined.
+  const safeActive  = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
   const name        = savedProfile?.name ?? '';
   // Vibe Check generates a named archetype and a bio in the dog's own voice
   // — already loaded into memory here (savedProfile.ai) since the onboarding
@@ -460,9 +467,9 @@ export default function ProfilePage() {
           <div className="card rounded-[2rem] overflow-hidden">
             <div className="bg-gradient-to-br from-cream-dark via-cream to-white px-5 py-5 flex items-center gap-4">
               <div className="w-20 h-20 rounded-[1.4rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center">
-                {photos[0] ? (
+                {photos[safeActive] ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photos[0]} alt={name} className="w-full h-full object-cover" />
+                  <img src={photos[safeActive]} alt={name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-4xl">🐕</span>
                 )}
@@ -549,22 +556,28 @@ export default function ProfilePage() {
               onUpgrade={handleUpgrade}
             />
             <DogtypeSection savedProfile={savedProfile} />
-            <LifeStageCard savedProfile={savedProfile} onEditProfile={() => setShowEdit(true)} />
+            <LifeStageCard savedProfile={savedProfile} onEditProfile={() => { setEditFocus('birthday'); setShowEdit(true); }} />
             <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
           </>
         )}
 
-        {/* Photo strip */}
+        {/* Photo strip — tap a thumbnail to make it the main photo. */}
         {photos.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {photos.slice(1).map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+            {photos.map((url, i) => (
+              <button
                 key={i}
-                src={url}
-                alt={`${name} photo ${i + 2}`}
-                className="w-24 h-24 rounded-2xl object-cover shrink-0 border border-border"
-              />
+                type="button"
+                onClick={() => setActivePhoto(i)}
+                aria-label={`Show ${name} photo ${i + 1}`}
+                aria-pressed={i === safeActive}
+                className={`w-24 h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all ${
+                  i === safeActive ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`${name} photo ${i + 1}`} className="w-full h-full object-cover" />
+              </button>
             ))}
           </div>
         )}
@@ -579,7 +592,9 @@ export default function ProfilePage() {
               { label: 'Size',          value: savedProfile.size           },
               { label: 'Energy',        value: savedProfile.energyLevel !== undefined ? `${savedProfile.energyLevel}%` : undefined },
               { label: 'Neighborhood',  value: savedProfile.location       },
-              { label: 'Vaccinated',    value: savedProfile.vaccinated ? 'Yes ✅' : 'Not yet' },
+              // Honest tri-state: hide the row entirely when never answered
+              // (the old code invented a "Not yet" for every unstated profile).
+              { label: 'Vaccination',   value: (() => { const v = getVaccinationStatus(savedProfile); return v.tone === 'unstated' ? undefined : v.label; })() },
             ].map(({ label, value }) => value ? (
               <div key={label} className="flex justify-between items-center px-4 py-3">
                 <span className="text-sm text-brown-light">{label}</span>

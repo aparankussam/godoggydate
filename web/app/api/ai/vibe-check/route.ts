@@ -466,6 +466,16 @@ export async function POST(request: Request) {
           { status: 503 },
         );
       }
+      // A rejected key / permission / model-not-found is a config problem, not a
+      // transient blip — say so clearly (and distinctly from the "try again"
+      // content failures below) so it's diagnosable. Shares GEMINI_API_KEY with
+      // Pet Twin, so if this fires, that feature is down for the same reason.
+      if ([400, 401, 403, 404].includes(res.status)) {
+        return NextResponse.json(
+          { error: 'Vibe Check isn’t set up correctly yet — please try again later. (Admin: check GEMINI_API_KEY / model.)' },
+          { status: 502 },
+        );
+      }
       return NextResponse.json({ error: 'Vibe Check failed — try again' }, { status: 502 });
     }
 
