@@ -21,7 +21,7 @@ import { isProActive, type Entitlements } from '../../../../../shared/pro';
 // Model + pipeline clone web/app/api/ai/vibe-check/route.ts: Gemini Flash, ID-
 // token auth, responseSchema, sanitizer, banned-slop list, merge-safe writes.
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-3.6-flash';
 const PROMPT_VERSION = 'v1';
 
 const PRO_INTERVAL_MS = 20 * 60 * 60 * 1000;      // ~daily for Pro
@@ -295,10 +295,9 @@ Write ${dogName}'s note now.`;
   // (1.5 is already retired as of 2025).
   const modelCandidates = Array.from(new Set([
     GEMINI_MODEL,
-    'gemini-flash-latest',
+    'gemini-3.6-flash',      // current as of 2026-08 (older flash versions are retired)
+    'gemini-flash-latest',   // alias — survives future version bumps
     'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
   ]));
 
   const requestGemini = async (model: string, useSchema: boolean) => {

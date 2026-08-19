@@ -23,7 +23,7 @@ import type { DogSize, DogVibeCheck, PlayStyle } from '../../../../../shared/typ
 // host env to override the default.
 // Default bumped to a current model — 1.5/2.0 flash can 404 for newer keys, and
 // this route has no fallback loop (Pet Twin does). Override with GEMINI_MODEL.
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-3.6-flash';
 const PROMPT_VERSION = 'v1';
 
 const MAX_PHOTOS = 3;
