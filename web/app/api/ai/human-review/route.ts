@@ -53,8 +53,15 @@ const BANNED_PHRASES = [
 // as a person, relationships, or any cruelty. Kept both as prompt rules and as
 // a post-generation reject list so a slip never ships.
 const BANNED_TOPIC_SUBSTRINGS = [
+  // human body/looks/wealth/relationship/drinking
   'fat', 'ugly', 'stupid', 'idiot', 'lazy', 'broke', 'poor ', 'divorc',
   'single', 'lonely', 'depress', 'weight', 'diet', 'drunk', 'alcohol',
+  // rescue / shelter / trauma (the dog's past must never be the joke)
+  'rescue', 'shelter', 'abandon', 'abuse', 'trauma', 'neglect', 'stray',
+  'kennel', 'foster', 'surrender',
+  // health / illness / mortality
+  'sick', 'illness', 'disease', 'cancer', 'tumor', 'surgery', 'euthan',
+  'dying', 'seizure',
 ];
 
 function extractBearerToken(request: Request): string | null {
@@ -270,7 +277,7 @@ Rules:
     factLines.push(`Real playdate record: ${Math.round(meetAgainRate * 100)}% of ${ratingCount} rated playdate${ratingCount === 1 ? '' : 's'} said they'd meet again.`);
   }
   if (streak !== null) {
-    factLines.push(`The human has kept a real care-routine streak going for ${streak} day${streak === 1 ? '' : 's'}.`);
+    factLines.push(`The owner reports a care-routine streak of ${streak} day${streak === 1 ? '' : 's'}.`);
   }
 
   const userPrompt = `Here are the ONLY facts you may use. Do not add any others about the human.

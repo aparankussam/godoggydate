@@ -98,6 +98,15 @@ function sanitizeLetter(raw: unknown, dogName: string): LetterContent | null {
   const salutation = salutationRaw || `Dear my human,`;
   const hay = `${salutation}\n${body}`.toLowerCase();
   if (BANNED_PHRASES.some((p) => hay.includes(p))) return null;
+  // Backstop the prompt: a gotcha-day keepsake must never dramatize the dog's
+  // pre-adoption trauma or its mortality. Specific terms only, so an adoption-
+  // positive letter ("the day I came home") is never falsely rejected.
+  const BANNED_TOPICS = [
+    'shelter', 'abandon', 'abuse', 'trauma', 'neglect', 'stray', 'kennel',
+    'surrender', 'euthan', 'cancer', 'tumor', 'surgery', 'dying',
+    'passed away', 'rainbow bridge', 'illness', 'disease',
+  ];
+  if (BANNED_TOPICS.some((w) => hay.includes(w))) return null;
   return { salutation, body, signOff: ensurePaw(signOffRaw, dogName) };
 }
 
