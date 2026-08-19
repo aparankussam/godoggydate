@@ -15,6 +15,15 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import type { DiscoverDog } from '../lib/discover';
+import { resolveHeroIndex } from '../lib/coverPhoto';
+
+// The photo the card should OPEN on — the owner's cover pick (or AI hero),
+// clamped to the real photos so a stale index never lands out of range.
+function heroIndexFor(dog: DiscoverDog): number {
+  const real = dog.photos.filter((p) => p && !p.startsWith('_'));
+  const h = resolveHeroIndex(dog);
+  return typeof h === 'number' && h >= 0 && h < real.length ? h : 0;
+}
 
 // Fixed scatter positions for the like-swipe paw burst — mirrors
 // web/components/SwipeCard.tsx's PAW_BURST_OFFSETS. A handful of paws at
@@ -78,15 +87,15 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     const swipeHandled = useSharedValue(false);
     const burstAnim = useSharedValue(0);
     const reactionKind = useSharedValue<0 | 1 | 2>(0); // 0 none, 1 like-burst, 2 pass-puff
-    const [photoIndex, setPhotoIndex] = useState(0);
+    const [photoIndex, setPhotoIndex] = useState(() => heroIndexFor(dog));
 
     // Filter out placeholder strings
     const photos = dog.photos.filter((p) => p && !p.startsWith('_'));
     const photoCount = photos.length;
 
-    // Reset photo index whenever the dog changes (new card)
+    // Reset to the dog's cover/hero photo whenever the dog changes (new card)
     useEffect(() => {
-      setPhotoIndex(0);
+      setPhotoIndex(heroIndexFor(dog));
       swipeHandled.value = false;
       tx.value = 0;
       ty.value = 0;

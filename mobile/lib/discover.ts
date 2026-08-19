@@ -24,6 +24,8 @@ export interface DiscoverDog {
    *  Optional: dogs created before Vibe Check shipped, or whose generation
    *  failed, have none — consumers render nothing rather than a placeholder. */
   ai?: DogProfile['ai'];
+  /** Owner's cover-photo pick, so the swipe card opens on the chosen hero. */
+  coverPhotoIndex?: number | null;
   compat: CompatibilityResult;
 }
 
@@ -152,6 +154,7 @@ export async function fetchDiscoverFeed(
           dog.prompts?.find((prompt) => prompt.answer?.trim())?.answer?.trim() ||
           compat.microcopy,
         ai: dog.ai,
+        coverPhotoIndex: dog.coverPhotoIndex,
         compat,
       } satisfies DiscoverDog;
     })

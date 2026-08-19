@@ -5,6 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import ProfileEditor from '../../components/ProfileEditor';
+import { resolveHeroIndex, setCoverPhoto } from '../../lib/coverPhoto';
 import DogTradingCard from '../../components/DogTradingCard';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
@@ -44,11 +45,26 @@ export default function ProfileTab() {
   const [bestFriendMatchId, setBestFriendMatchId] = useState<string | null>(null);
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
+  // Optimistic cover index so the "★ Cover" indicator moves the instant it's set,
+  // without waiting on the Firestore round-trip / session refresh.
+  const [optimisticCover, setOptimisticCover] = useState<number | null>(null);
+  const [savingCover, setSavingCover] = useState(false);
+  const photoInit = useRef(false);
   const cardRef = useRef<View>(null);
   // For the Pet Twin "get a card every day" nudge: scroll to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
   const proYRef = useRef(0);
   const scrollToPro = () => scrollRef.current?.scrollTo({ y: Math.max(0, proYRef.current - 20), animated: true });
+
+  // Open the profile on the owner's cover pick (or AI hero), once, when it loads.
+  useEffect(() => {
+    if (photoInit.current || !profile) return;
+    const real = (profile.photos ?? []).filter((p) => p && !p.startsWith('_'));
+    if (real.length === 0) return;
+    photoInit.current = true;
+    const h = resolveHeroIndex(profile);
+    setActivePhoto(typeof h === 'number' && h < real.length ? h : 0);
+  }, [profile]);
 
   // Cadence — the reminder calendar.
   useEffect(() => {
@@ -221,6 +237,8 @@ export default function ProfileTab() {
   const photos = (profile.photos ?? []).filter((photo: string) => photo && !photo.startsWith('_'));
   // Clamp so a stale index (after a photo is removed) never reads undefined.
   const safeActive = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
+  const currentCover = optimisticCover ?? (typeof profile.coverPhotoIndex === 'number' ? profile.coverPhotoIndex : (resolveHeroIndex(profile) ?? 0));
+  const activeIsCover = safeActive === currentCover;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -247,9 +265,40 @@ export default function ProfileTab() {
                     style={[styles.photoStripItem, i === safeActive && styles.photoStripItemActive]}
                   >
                     <Image source={{ uri: url }} style={styles.photoStripImage} />
+                    {i === currentCover && (
+                      <View style={styles.coverBadge}><Text style={styles.coverBadgeText}>★</Text></View>
+                    )}
                   </Pressable>
                 ))}
               </ScrollView>
+            )}
+            {/* Cover-photo pick: make the selected photo the one that leads on
+                the profile + swipe deck (instead of always the first upload). */}
+            {photos.length > 1 && (
+              activeIsCover ? (
+                <Text style={styles.coverHint}>★ This is {profile.name}&apos;s cover photo</Text>
+              ) : (
+                <Pressable
+                  disabled={savingCover}
+                  onPress={async () => {
+                    if (!user || savingCover) return;
+                    setSavingCover(true);
+                    try {
+                      await setCoverPhoto(user.uid, safeActive);
+                      setOptimisticCover(safeActive);
+                    } catch {
+                      Alert.alert('Could not save', 'Please try again.');
+                    } finally {
+                      setSavingCover(false);
+                    }
+                  }}
+                  style={[styles.coverButton, savingCover && { opacity: 0.6 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Make photo ${safeActive + 1} the cover photo`}
+                >
+                  <Text style={styles.coverButtonText}>{savingCover ? 'Saving…' : '⭐ Make this the cover photo'}</Text>
+                </Pressable>
+              )
             )}
             {/* Vibe Check generates a named archetype and a bio in the dog's
                 own voice — already loaded into memory here (profile.ai)
@@ -531,6 +580,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  coverBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverBadgeText: { color: colors.white, fontSize: 12, fontWeight: '700', lineHeight: 14 },
+  coverHint: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginBottom: 12 },
+  coverButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  coverButtonText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primary },
   archetype: {
     fontFamily: fonts.bold,
     fontSize: 12,
