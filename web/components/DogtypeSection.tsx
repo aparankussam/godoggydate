@@ -11,6 +11,9 @@ import { getHeroPhoto } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
+import StoryShareCard, { shareOrDownloadStoryCard } from './StoryShareCard';
+import DogtypeReveal from './DogtypeReveal';
+import { feedback } from '../lib/feedback';
 import { computeDogtype, dogtypeBestMatches } from '../../shared/dogtype';
 
 interface Props {
@@ -19,8 +22,11 @@ interface Props {
 
 export default function DogtypeSection({ savedProfile }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const storyRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
+  const [sharingStory, setSharingStory] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
+  const [showReveal, setShowReveal] = useState(false);
 
   const dogtype = computeDogtype(savedProfile);
   if (!dogtype) return null;
@@ -28,6 +34,31 @@ export default function DogtypeSection({ savedProfile }: Props) {
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
   const bestMatches = dogtypeBestMatches(dogtype.code, 3);
+  const storyTheme = dogtype.axes[0]?.pole.label === 'Zen' ? 'zen' : 'spark';
+
+  async function handleStoryShare() {
+    if (!storyRef.current || sharingStory || !dogtype) return;
+    setSharingStory(true);
+    trackEvent('story_share_click', { feature: 'dogtype', code: dogtype.code });
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://godoggydate.com';
+      const result = await shareOrDownloadStoryCard(
+        storyRef.current,
+        `${dogName.toLowerCase().replace(/\s+/g, '-')}-dogtype-story.png`,
+        {
+          publicUrl: `${origin}/dogtype/${dogtype.code}`,
+          dogName,
+          shareText: `${dogName} is ${dogtype.name} ${dogtype.emoji} on GoDoggyDate. What's your dog's Dogtype?`,
+        },
+      );
+      feedback.success();
+      trackEvent('story_shared', { feature: 'dogtype', method: result });
+    } catch {
+      /* non-critical */
+    } finally {
+      setSharingStory(false);
+    }
+  }
 
   async function handleShare() {
     if (!cardRef.current || sharing) return;
@@ -46,6 +77,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
           shareText: `${dogName} is ${dogtype.name} ${dogtype.emoji} on GoDoggyDate. What's your dog's Dogtype?`,
         },
       );
+      feedback.success();
       trackEvent('dogtype_shared', { code: dogtype.code, method: result });
     } catch {
       /* non-critical — let them retry */
@@ -86,6 +118,24 @@ export default function DogtypeSection({ savedProfile }: Props) {
         {sharing ? 'Preparing…' : `Share ${dogName}'s Dogtype`}
       </button>
 
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={handleStoryShare}
+          disabled={sharingStory}
+          className="btn-secondary flex-1 disabled:opacity-60"
+        >
+          {sharingStory ? 'Preparing…' : '📱 Share as Story'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { feedback.pop(); setShowReveal(true); }}
+          className="btn-secondary flex-1"
+        >
+          ▶ Replay reveal
+        </button>
+      </div>
+
       {/* Playful "plays well with" — labeled a vibe, not a score */}
       {bestMatches.length > 0 && (
         <div className="mt-4 rounded-xl bg-white/60 border border-border px-3.5 py-3">
@@ -97,6 +147,13 @@ export default function DogtypeSection({ savedProfile }: Props) {
             A playful vibe read from the types — not a score. Real matches are worked out dog-by-dog when you
             swipe.
           </p>
+          <a
+            href={`/compat/${dogtype.code}`}
+            onClick={() => trackEvent('compat_link_click', { code: dogtype.code })}
+            className="mt-2 inline-block text-[11px] font-bold text-primary underline underline-offset-2"
+          >
+            See who {dogtype.name} plays with →
+          </a>
         </div>
       )}
 
@@ -126,6 +183,24 @@ export default function DogtypeSection({ savedProfile }: Props) {
             its own; update the profile and it updates with you. A playful identity, not a clinical test.
           </p>
         </div>
+      )}
+
+      {/* Off-screen 9:16 story card — rendered for html2canvas capture only. */}
+      <div className="fixed -left-[9999px] top-0" aria-hidden="true">
+        <StoryShareCard
+          innerRef={storyRef}
+          kicker="Dogtype"
+          headline={`${dogName} is ${dogtype.name}`}
+          subtext={dogtype.tagline}
+          emoji={dogtype.emoji}
+          photoUrl={photo ?? undefined}
+          theme={storyTheme}
+        />
+      </div>
+
+      {/* Replayable animated reveal overlay */}
+      {showReveal && (
+        <DogtypeReveal dogtype={dogtype} dogName={dogName} onDone={() => setShowReveal(false)} />
       )}
     </section>
   );

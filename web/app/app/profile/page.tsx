@@ -34,6 +34,8 @@ import HouseholdSection from '../../../components/HouseholdSection';
 import DogtypeSection from '../../../components/DogtypeSection';
 import LifeStageCard from '../../../components/LifeStageCard';
 import PetTwinCard from '../../../components/PetTwinCard';
+import MomentsTimeline from '../../../components/MomentsTimeline';
+import { feedback } from '../../../lib/feedback';
 import MilestonesCard from '../../../components/MilestonesCard';
 import ProUpsellCard from '../../../components/ProUpsellCard';
 import { useProEntitlement } from '../../../lib/useProEntitlement';
@@ -62,6 +64,11 @@ export default function ProfilePage() {
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
   const [activePhoto,  setActivePhoto]  = useState(0);
   const [editFocus,    setEditFocus]    = useState<'birthday' | null>(null);
+  // Frozen copy of the profile taken when the editor opens. The live listeners
+  // below keep re-spreading savedProfile (new object identity) as household/
+  // best-friend fields update, which would re-hydrate the form and wipe
+  // in-progress edits. Editing against a snapshot decouples the form from that.
+  const [editSnapshot, setEditSnapshot] = useState<SavedDogProfile | null>(null);
   // Household member state — only ever populated for a user with NO dog of
   // their own (see the effect below). An owner never enters this path.
   const [householdDogs,      setHouseholdDogs]      = useState<HouseholdDog[]>([]);
@@ -88,6 +95,7 @@ export default function ProfilePage() {
         `${(savedProfile?.name ?? 'dog').toLowerCase().replace(/\s+/g, '-')}-godoggydate-card.png`,
         { publicUrl, dogName: savedProfile?.name },
       );
+      feedback.success();
       trackEvent('trading_card_shared', { method: result });
     } catch {
       // html2canvas/share failures are non-critical — just let them retry.
@@ -291,6 +299,17 @@ export default function ProfilePage() {
     }
   }
 
+  function openEdit(focus: 'birthday' | null = null) {
+    setEditSnapshot(savedProfile);
+    setEditFocus(focus);
+    setShowEdit(true);
+  }
+  function closeEdit() {
+    setShowEdit(false);
+    setEditFocus(null);
+    setEditSnapshot(null);
+  }
+
   async function handleProfileSaved(updated: SavedDogProfile) {
     if (!authUser) return;
     const safe: SavedDogProfile = {
@@ -304,6 +323,7 @@ export default function ProfilePage() {
       setSavedProfile(safe);
       setShowEdit(false);
       setEditFocus(null);
+      setEditSnapshot(null);
       const completed = isProfileComplete(safe);
       trackEvent('profile_saved', {
         context: 'profile_page',
@@ -336,7 +356,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-cream">
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center gap-3">
           <button
-            onClick={() => { setShowEdit(false); setEditFocus(null); }}
+            onClick={closeEdit}
             className="text-2xl text-brown-light hover:text-brown transition-colors"
             aria-label="Back"
           >
@@ -354,7 +374,7 @@ export default function ProfilePage() {
         <DogProfileForm
           onSaved={handleProfileSaved}
           saving={saving}
-          initialProfile={savedProfile}
+          initialProfile={editSnapshot ?? savedProfile}
           focusSection={editFocus ?? undefined}
         />
       </div>
@@ -555,9 +575,21 @@ export default function ProfilePage() {
               isPro={pro.isPro}
               onUpgrade={handleUpgrade}
             />
+            <MomentsTimeline dogId={authUser.uid} />
             <DogtypeSection savedProfile={savedProfile} />
-            <LifeStageCard savedProfile={savedProfile} onEditProfile={() => { setEditFocus('birthday'); setShowEdit(true); }} />
+            <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
             <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
+            <a
+              href="/app/fun"
+              onClick={() => { feedback.tap(); trackEvent('fun_hub_click', { source: 'profile' }); }}
+              className="card rounded-[1.8rem] px-5 py-4 flex items-center justify-between hover:shadow-md transition-shadow"
+            >
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun 🎉</p>
+                <p className="font-display text-lg text-brown leading-tight">Wanted posters, adventures &amp; more</p>
+              </div>
+              <span className="text-2xl">→</span>
+            </a>
           </>
         )}
 
@@ -643,7 +675,7 @@ export default function ProfilePage() {
               they were invited to help with someone else's dog, so it
               shouldn't be the loudest button on their page. */}
           <button
-              onClick={() => setShowEdit(true)}
+              onClick={() => openEdit()}
               className={householdOnly ? 'btn-secondary py-3' : 'btn-primary py-3 shadow-lg'}
             >
             {savedProfile ? 'Edit Profile' : householdOnly ? 'Add a dog of your own' : 'Create Profile'}
