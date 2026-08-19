@@ -289,8 +289,17 @@ Write ${dogName}'s note now.`;
   };
 
   // Try the configured model, then known-good fallbacks — a wrong/unavailable
-  // GEMINI_MODEL is a common prod cause and shouldn't kill the whole feature.
-  const modelCandidates = Array.from(new Set([GEMINI_MODEL, 'gemini-2.0-flash', 'gemini-1.5-flash']));
+  // GEMINI_MODEL is the most common prod cause and shouldn't kill the feature.
+  // Ordered newest→older; 'gemini-flash-latest' is an alias that always resolves
+  // to the current flash model, so it survives Google retiring specific versions
+  // (1.5 is already retired as of 2025).
+  const modelCandidates = Array.from(new Set([
+    GEMINI_MODEL,
+    'gemini-flash-latest',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+  ]));
 
   const requestGemini = async (model: string, useSchema: boolean) => {
     const res = await fetch(
