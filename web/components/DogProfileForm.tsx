@@ -339,14 +339,30 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   }
 
   function removePhoto(photoId: string) {
-    setPhotos((prev) => {
-      const photo = prev.find((item) => item.id === photoId);
-      if (photo?.preview) {
-        URL.revokeObjectURL(photo.preview);
-        previewUrlsRef.current = previewUrlsRef.current.filter((url) => url !== photo.preview);
+    // Compute the removed index from current state BEFORE the setPhotos updater
+    // (which can run twice under StrictMode) so the cover setters below fire
+    // exactly once.
+    const removedIndex = photos.findIndex((item) => item.id === photoId);
+    const photo = photos.find((item) => item.id === photoId);
+    if (photo?.preview) {
+      URL.revokeObjectURL(photo.preview);
+      previewUrlsRef.current = previewUrlsRef.current.filter((url) => url !== photo.preview);
+    }
+    setPhotos((prev) => prev.filter((item) => item.id !== photoId));
+
+    // Keep the cover pick pointing at the SAME photo: removing the cover itself
+    // resets the pick + crop; removing an earlier photo shifts the index down.
+    // Without this the saved index silently points at a different photo — the
+    // exact stale-crop bug the cover feature exists to prevent.
+    if (removedIndex !== -1 && coverPhotoIndex >= 0) {
+      if (removedIndex === coverPhotoIndex) {
+        setCoverPhotoIndex(-1);
+        setCoverFocusX(50);
+        setCoverFocusY(50);
+      } else if (removedIndex < coverPhotoIndex) {
+        setCoverPhotoIndex(coverPhotoIndex - 1);
       }
-      return prev.filter((item) => item.id !== photoId);
-    });
+    }
   }
 
   function fileToDataUri(file: File): Promise<string> {
@@ -585,9 +601,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         // Cover-photo override + focal point. Only persisted once the owner has
         // actually chosen (index >= 0 and pointing at a real photo); otherwise
         // omitted so the AI hero pick + centre crop stay in charge.
-        coverPhotoIndex: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverPhotoIndex : undefined,
-        coverFocusX: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverFocusX : undefined,
-        coverFocusY: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverFocusY : undefined,
+        // null (not undefined) when unset/out-of-range: stripUndefined() drops
+        // undefined before the { merge: true } write, which would keep a STALE
+        // cover pointing at a since-deleted photo (same contract as adoptionDate).
+        coverPhotoIndex: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverPhotoIndex : null,
+        coverFocusX: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverFocusX : null,
+        coverFocusY: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverFocusY : null,
         location: locationStr,
         city: cityStr || undefined,
         state: stateStr || undefined,

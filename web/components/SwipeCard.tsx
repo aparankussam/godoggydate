@@ -7,6 +7,7 @@
 import { forwardRef, useState, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
+import { resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { QUALITY_STYLES } from './CompatBreakdown';
 
 interface CardDog {
@@ -26,6 +27,9 @@ interface CardDog {
   location?: string;
   prompts?: { prompt: string; answer: string }[];
   ai?: DogProfile['ai'];
+  coverPhotoIndex?: number | null;
+  coverFocusX?: number | null;
+  coverFocusY?: number | null;
   distanceMiles: number;
   compat: CompatibilityResult;
 }
@@ -51,6 +55,14 @@ const TAP_THRESHOLD = 8;
 // Strip placeholder tokens so they never hit an <img src>
 function realPhotos(photos?: string[]): string[] {
   return (photos ?? []).filter((p) => p && !p.startsWith('_'));
+}
+
+// The photo the card should OPEN on — the owner's cover pick (or AI hero),
+// clamped to the real photos so a stale index never lands out of range.
+function heroIndexFor(dog: CardDog): number {
+  const real = realPhotos(dog.photos);
+  const h = resolveHeroIndex(dog);
+  return typeof h === 'number' && h >= 0 && h < real.length ? h : 0;
 }
 
 function getEnergyLabel(energyLevel: number): string {
@@ -108,7 +120,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const [isDragging, setIsDragging] = useState(false);
   const [gone, setGone]             = useState<'left' | 'right' | null>(null);
   const [imgError, setImgError]     = useState(false);
-  const [photoIndex, setPhotoIndex] = useState(0);
+  const [photoIndex, setPhotoIndex] = useState(() => heroIndexFor(dog));
 
   const startX = useRef(0);
   const releaseTimerRef = useRef<number | null>(null);
@@ -152,7 +164,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
     setDragX(0);
     setIsDragging(false);
     setImgError(false);
-    setPhotoIndex(0);
+    setPhotoIndex(heroIndexFor(dog));
   }, [dog.firestoreId ?? dog.id]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -214,6 +226,11 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const photos       = realPhotos(dog.photos);
   const hasPhoto     = photos.length > 0;
   const currentPhoto = hasPhoto ? photos[Math.min(photoIndex, photos.length - 1)] : null;
+  // When the current photo is the owner's cover pick AND they dragged a focal
+  // point, honor it (overrides the default face-friendly crop). Otherwise keep
+  // the tasteful default so untouched dogs don't shift to a worse centre crop.
+  const hasCustomFocus = typeof dog.coverFocusX === 'number' || typeof dog.coverFocusY === 'number';
+  const heroObjectPosition = photoIndex === heroIndexFor(dog) && hasCustomFocus ? getHeroFocus(dog) : undefined;
   const likeStrength = Math.min(dragX / THRESHOLD, 1);
   const passStrength = Math.min(-dragX / THRESHOLD, 1);
 
@@ -254,6 +271,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
               key={currentPhoto}
               onError={() => setImgError(true)}
               className="h-full w-full scale-[1.02] object-cover object-[center_24%] pointer-events-none contrast-[1.15] saturate-[1.18]"
+              style={heroObjectPosition ? { objectPosition: heroObjectPosition } : undefined}
               draggable={false}
             />
           ) : (

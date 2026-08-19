@@ -320,7 +320,11 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       await saveUserDogProfile(authUser.uid, safe);
-      setSavedProfile(safe);
+      // Merge, don't replace: the form's payload has no ai/foundingPackNumber/
+      // trustScore/createdAt, so a full replace would blank the Vibe Check bio,
+      // Founding badge, and "would meet again" pill until a reload. safe's
+      // explicit nulls (cleared dates/cover) still override prev.
+      setSavedProfile((prev) => (prev ? { ...prev, ...safe } : safe));
       setShowEdit(false);
       setEditFocus(null);
       setEditSnapshot(null);
@@ -626,11 +630,13 @@ export default function ProfilePage() {
               { label: 'Neighborhood',  value: savedProfile.location       },
               // Honest tri-state: hide the row entirely when never answered
               // (the old code invented a "Not yet" for every unstated profile).
-              { label: 'Vaccination',   value: (() => { const v = getVaccinationStatus(savedProfile); return v.tone === 'unstated' ? undefined : v.label; })() },
-            ].map(({ label, value }) => value ? (
+              // `raw` keeps the shared vaccination label verbatim — `capitalize`
+              // would rewrite "valid through Aug 12" the module says never to.
+              { label: 'Vaccination',   value: (() => { const v = getVaccinationStatus(savedProfile); return v.tone === 'unstated' ? undefined : v.label; })(), raw: true },
+            ].map(({ label, value, raw }) => value ? (
               <div key={label} className="flex justify-between items-center px-4 py-3">
                 <span className="text-sm text-brown-light">{label}</span>
-                <span className="text-sm font-semibold text-brown capitalize">{value}</span>
+                <span className={`text-sm font-semibold text-brown ${raw ? '' : 'capitalize'}`}>{value}</span>
               </div>
             ) : null)}
 

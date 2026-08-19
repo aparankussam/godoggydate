@@ -7,7 +7,7 @@
 import { ImageResponse } from 'next/og';
 import { getAdminDb } from '../../../lib/firebaseAdmin';
 import { parseDogSlugToUid } from '../../../lib/dogSlug';
-import { getPrimaryRenderablePhoto } from '../../../lib/photos';
+import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../../../lib/photos';
 import type { SavedDogProfile } from '../../../lib/auth';
 
 export const runtime = 'nodejs';
@@ -32,7 +32,8 @@ async function loadProfileForOg(uid: string | null): Promise<SavedDogProfile | n
 export default async function OpengraphImage({ params }: { params: { slug: string } }) {
   const uid = parseDogSlugToUid(params.slug);
   const profile = await loadProfileForOg(uid);
-  const photo = profile ? getPrimaryRenderablePhoto(profile.photos) : null;
+  const photo = profile ? getHeroPhoto(profile.photos, resolveHeroIndex(profile)) : null;
+  const photoFocus = profile ? getHeroFocus(profile) : '50% 50%';
 
   const name = profile?.name ?? 'A GoDoggyDate dog';
   const subtitle = [profile?.breed, profile?.age, profile?.location].filter(Boolean).join(' · ');
@@ -56,7 +57,7 @@ export default async function OpengraphImage({ params }: { params: { slug: strin
             alt={name}
             width={520}
             height={630}
-            style={{ objectFit: 'cover', width: 520, height: 630 }}
+            style={{ objectFit: 'cover', objectPosition: photoFocus, width: 520, height: 630 }}
           />
         ) : (
           <div style={{ display: 'flex', width: 520, height: 630, alignItems: 'center', justifyContent: 'center', fontSize: 160 }}>

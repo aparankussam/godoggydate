@@ -73,7 +73,7 @@ export default function FoundingPackSection({ signedInUserId, onRequireAuth }: P
           onClick={handleFoundingMemberClick}
           className="btn-primary mt-8 text-base px-7 py-3.5"
         >
-          🐾 Or go Founding Member — $39 once, every chat forever
+          🐾 Or go Founding Member — $39 once, Pro for life
         </button>
       </div>
     </section>

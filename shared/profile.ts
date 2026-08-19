@@ -36,9 +36,12 @@ export interface SavedDogProfile {
   // override the AI's vibeCheck.heroPhotoIndex so the owner controls which photo
   // and what part of it shows on cards (a center-crop hides off-centre subjects
   // like a sniffing dog). coverFocusX/Y are 0–100 percentages; default 50/50.
-  coverPhotoIndex?: number;
-  coverFocusX?: number;
-  coverFocusY?: number;
+  // null = explicitly cleared — REQUIRED for { merge: true } saves, since
+  // undefined is stripped before write and would silently keep stale values
+  // (same contract as adoptionDate/rabiesExpiry above).
+  coverPhotoIndex?: number | null;
+  coverFocusX?: number | null;
+  coverFocusY?: number | null;
   temperament?: string[];
   location?: string;
   city?: string;
@@ -370,6 +373,9 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     lat: saved.lat,
     lng: saved.lng,
     prompts: saved.prompts,
+    coverPhotoIndex: saved.coverPhotoIndex,
+    coverFocusX: saved.coverFocusX,
+    coverFocusY: saved.coverFocusY,
     foundingPackNumber: saved.foundingPackNumber,
     ai: saved.ai,
     householdMemberIds: saved.householdMemberIds,

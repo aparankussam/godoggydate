@@ -84,6 +84,11 @@ async function loadDog(slug: string): Promise<{ uid: string; profile: SavedDogPr
       city: raw.city,
       state: raw.state,
       foundingPackNumber: raw.foundingPackNumber,
+      // Owner's chosen cover photo + crop (0–100 ints, no PII) so the public
+      // page and its share card show the SAME hero the owner picked.
+      coverPhotoIndex: typeof raw.coverPhotoIndex === 'number' ? raw.coverPhotoIndex : undefined,
+      coverFocusX: typeof raw.coverFocusX === 'number' ? raw.coverFocusX : undefined,
+      coverFocusY: typeof raw.coverFocusY === 'number' ? raw.coverFocusY : undefined,
     };
     return { uid, profile };
   } catch (error) {

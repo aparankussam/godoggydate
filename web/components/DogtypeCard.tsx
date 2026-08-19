@@ -12,6 +12,8 @@ interface Props {
   dogtype: Dogtype;
   dogName: string;
   photoUrl?: string;
+  /** CSS object-position for the owner's cover crop; defaults to centre. */
+  photoFocus?: string;
   /** Forwarded ref target for html2canvas capture — wraps the whole card. */
   innerRef?: React.Ref<HTMLDivElement>;
 }
@@ -26,7 +28,7 @@ function gradientFor(code: string): string {
     : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
 }
 
-export default function DogtypeCard({ dogtype, dogName, photoUrl, innerRef }: Props) {
+export default function DogtypeCard({ dogtype, dogName, photoUrl, photoFocus, innerRef }: Props) {
   return (
     <div
       ref={innerRef}
@@ -52,7 +54,7 @@ export default function DogtypeCard({ dogtype, dogName, photoUrl, innerRef }: Pr
             // origin); shareCard's html2canvas re-fetches with useCORS during
             // capture — same rationale as DogTradingCard.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photoUrl} alt={dogName} className="w-full h-full object-cover" />
+            <img src={photoUrl} alt={dogName} className="w-full h-full object-cover" style={photoFocus ? { objectPosition: photoFocus } : undefined} />
           ) : (
             <span style={{ fontSize: 92, lineHeight: 1 }} aria-hidden="true">{dogtype.emoji}</span>
           )}

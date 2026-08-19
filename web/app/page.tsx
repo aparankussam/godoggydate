@@ -117,10 +117,13 @@ export default function HomePage() {
           >
             {signedIn ? 'Open App →' : "Find your dog's Dogtype"}
           </button>
-          <Link href="#how" className="btn-secondary text-lg px-8 py-4">
-            How it works
+          <Link href="/quiz" className="btn-secondary text-lg px-8 py-4">
+            🐶 Take the 90-second quiz
           </Link>
         </div>
+        <p className="mt-3 text-sm text-brown-light">
+          No signup needed — <Link href="/quiz" className="font-semibold text-primary underline underline-offset-2">find your dog&apos;s Dogtype free</Link>, or <Link href="#how" className="font-semibold text-primary underline underline-offset-2">see how it works</Link>.
+        </p>
         <p className="mt-4 text-sm font-semibold text-primary">You get their whole life. They get you for all of theirs. 🐾</p>
         <p className="mt-2 text-sm text-brown-light">
           Built around who your dog is — not an endless feed

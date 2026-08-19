@@ -2,9 +2,9 @@
 // Shared helpers for filtering non-renderable photo values.
 
 interface HeroSource {
-  coverPhotoIndex?: number;
-  coverFocusX?: number;
-  coverFocusY?: number;
+  coverPhotoIndex?: number | null;
+  coverFocusX?: number | null;
+  coverFocusY?: number | null;
   ai?: { vibeCheck?: { heroPhotoIndex?: number } | null } | null;
 }
 

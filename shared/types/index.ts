@@ -115,6 +115,13 @@ export interface DogProfile {
   lng?: number;
   prompts?: { prompt: string; answer: string }[];
 
+  // Owner-chosen cover photo + crop focal point (see SavedDogProfile). Carried
+  // through so the discover/swipe card honors the owner's hero pick instead of
+  // always starting at photos[0] with a center crop.
+  coverPhotoIndex?: number | null;
+  coverFocusX?: number | null;
+  coverFocusY?: number | null;
+
   // Server-assigned by the onDogProfileCreated Cloud Function trigger.
   foundingPackNumber?: number;
 

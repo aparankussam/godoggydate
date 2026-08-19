@@ -35,6 +35,8 @@ interface Props {
   /** Hero photo. Firebase Storage URLs need NO crossOrigin here — capture
    *  re-fetches with useCORS (see shareCard.ts / DogTradingCard rationale). */
   photoUrl?: string;
+  /** CSS object-position for the owner's cover crop; defaults to centre. */
+  photoFocus?: string;
   /** Shown when there's no photo (fills the frame) and, when a photo IS set,
    *  as a small badge over it. */
   emoji?: string;
@@ -51,6 +53,7 @@ export default function StoryShareCard({
   subtext,
   kicker,
   photoUrl,
+  photoFocus,
   emoji,
   theme = 'spark',
   footerUrl = 'godoggydate.com',
@@ -66,7 +69,7 @@ export default function StoryShareCard({
       <div className="absolute inset-0">
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={photoUrl} alt={headline} className="w-full h-full object-cover" />
+          <img src={photoUrl} alt={headline} className="w-full h-full object-cover" style={photoFocus ? { objectPosition: photoFocus } : undefined} />
         ) : (
           emoji && (
             <div className="w-full h-full flex items-center justify-center" aria-hidden="true">

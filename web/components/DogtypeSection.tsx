@@ -7,7 +7,7 @@
 
 import { useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
-import { getHeroPhoto, resolveHeroIndex } from '../lib/photos';
+import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
@@ -33,6 +33,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
+  const photoFocus = getHeroFocus(savedProfile);
   const bestMatches = dogtypeBestMatches(dogtype.code, 3);
   const storyTheme = dogtype.axes[0]?.pole.label === 'Zen' ? 'zen' : 'spark';
 
@@ -105,7 +106,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
       {/* The card itself (this is what gets captured to PNG) */}
       <div className="mt-4 flex justify-center">
         <div className="scale-[0.82] origin-top -mb-12">
-          <DogtypeCard dogtype={dogtype} dogName={dogName} photoUrl={photo ?? undefined} innerRef={cardRef} />
+          <DogtypeCard dogtype={dogtype} dogName={dogName} photoUrl={photo ?? undefined} photoFocus={photoFocus} innerRef={cardRef} />
         </div>
       </div>
 
@@ -194,6 +195,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
           subtext={dogtype.tagline}
           emoji={dogtype.emoji}
           photoUrl={photo ?? undefined}
+          photoFocus={photoFocus}
           theme={storyTheme}
         />
       </div>

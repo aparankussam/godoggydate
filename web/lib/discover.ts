@@ -32,6 +32,11 @@ export interface DiscoverFeedDog {
   playStyles?: string[];
   location?: string;
   prompts?: { prompt: string; answer: string }[];
+  /** Owner's cover photo pick + focal crop (0–100), so the swipe card opens on
+   *  the chosen hero instead of photos[0]. */
+  coverPhotoIndex?: number | null;
+  coverFocusX?: number | null;
+  coverFocusY?: number | null;
   /** Vibe Check output for THIS dog (archetype, dog's-voice bio, breed read).
    *  Optional: dogs created before Vibe Check shipped, or whose generation
    *  failed, have none — every consumer must render nothing rather than a
@@ -100,6 +105,11 @@ function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean):
     playStyles: candidate.playStyles,
     location,
     prompts: candidate.prompts,
+    // Owner's cover pick + crop — so the swipe card opens on the photo they
+    // chose, focally cropped, instead of always photos[0] at a centre crop.
+    coverPhotoIndex: candidate.coverPhotoIndex,
+    coverFocusX: candidate.coverFocusX,
+    coverFocusY: candidate.coverFocusY,
     // The dog's Vibe Check identity. toFullProfile() has always carried this
     // through (shared/profile.ts), and it was dropped here — so the app's
     // most distinctive content was invisible on the one screen where you
