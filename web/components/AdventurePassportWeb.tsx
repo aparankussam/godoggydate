@@ -94,10 +94,12 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
     });
   }
 
-  const doneCount = Object.keys(completed).length;
+  // Count only quests that still exist in the current deck, so a stale/renamed
+  // localStorage key can't push the count past the total (e.g. "19/18").
   const completedAdventures = deck.filter((a) => completed[a.id]);
+  const doneCount = completedAdventures.length;
   const stamps = completedAdventures.slice(0, 12);
-  const pct = Math.round((doneCount / ADVENTURE_COUNT) * 100);
+  const pct = Math.min(100, Math.round((doneCount / ADVENTURE_COUNT) * 100));
 
   async function handleShare() {
     if (!cardRef.current || sharing) return;

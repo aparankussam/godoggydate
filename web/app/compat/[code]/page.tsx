@@ -16,7 +16,6 @@ import { notFound } from 'next/navigation';
 import {
   DOGTYPE_CODES,
   dogtypeByCode,
-  dogtypeBestMatches,
   dogtypeVibe,
   type DogtypeVibe,
 } from '../../../../shared/dogtype';
@@ -64,11 +63,16 @@ export default function CompatPage({ params }: PageProps) {
   const type = dogtypeByCode(params.code);
   if (!type) notFound();
 
-  // Up to six types that vibe best, each with its honest playful tier.
-  const matches = dogtypeBestMatches(type.code, 6).map((m) => ({
-    type: m,
-    vibe: dogtypeVibe(type.code, m.code),
-  }));
+  // A real spread of tiers so the per-card chips actually mean something: the
+  // best few "great" matches plus a couple of good/spicy ones for contrast.
+  // (dogtypeBestMatches returns great-only, which made every chip identical.)
+  const tierRank: Record<DogtypeVibe, number> = { great: 0, good: 1, spicy: 2 };
+  const scored = DOGTYPE_CODES
+    .filter((c) => c !== type.code)
+    .map((c) => ({ type: dogtypeByCode(c)!, vibe: dogtypeVibe(type.code, c) }));
+  const greats = scored.filter((m) => m.vibe === 'great');
+  const others = scored.filter((m) => m.vibe !== 'great').sort((a, b) => tierRank[a.vibe] - tierRank[b.vibe]);
+  const matches = [...greats.slice(0, 4), ...others.slice(0, 2)];
 
   const spark = type.code[0] === 'E';
   const heroGradient = spark

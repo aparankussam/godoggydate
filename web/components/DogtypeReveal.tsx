@@ -73,6 +73,19 @@ export default function DogtypeReveal({ dogtype, onDone, dogName }: Props) {
     };
   }, [letters.length]);
 
+  // Always dismissible (Escape) even before the button appears, and lock
+  // background scroll while the full-screen overlay is up.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDone(); };
+    if (typeof window !== 'undefined') window.addEventListener('keydown', onKey);
+    const prevOverflow = typeof document !== 'undefined' ? document.body.style.overflow : '';
+    if (typeof document !== 'undefined') document.body.style.overflow = 'hidden';
+    return () => {
+      if (typeof window !== 'undefined') window.removeEventListener('keydown', onKey);
+      if (typeof document !== 'undefined') document.body.style.overflow = prevOverflow;
+    };
+  }, [onDone]);
+
   const anim = (name: string, delayMs: number): React.CSSProperties =>
     reduced ? { opacity: 1 } : { animation: `${name} 600ms ease-out ${delayMs}ms both` };
 

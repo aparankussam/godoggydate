@@ -39,14 +39,17 @@ function relativeDate(createdAt: number, nowMs: number): string {
   });
 }
 
-function MomentRow({ moment, nowMs }: { moment: PetTwinMoment; nowMs: number }) {
+function MomentRow({ moment, nowMs, isLast }: { moment: PetTwinMoment; nowMs: number; isLast: boolean }) {
   return (
     <li className="relative pl-8">
-      {/* Timeline spine + node */}
-      <span
-        aria-hidden="true"
-        className="absolute left-[9px] top-6 bottom-[-1.25rem] w-px bg-border last:hidden"
-      />
+      {/* Timeline spine + node — spine omitted on the last row so it doesn't
+          dangle below the final entry (last:hidden never matched here). */}
+      {!isLast && (
+        <span
+          aria-hidden="true"
+          className="absolute left-[9px] top-6 -bottom-5 w-px bg-border"
+        />
+      )}
       <span
         aria-hidden="true"
         className="absolute left-0 top-1 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-cream-dark text-[13px] leading-none ring-2 ring-cream"
@@ -121,8 +124,8 @@ export default function MomentsTimeline({ dogId, max = 30 }: Props) {
       <p className="mt-1 font-display text-lg leading-tight text-brown">Days worth remembering</p>
 
       <ol className="mt-4">
-        {moments.map((m) => (
-          <MomentRow key={m.id} moment={m} nowMs={now} />
+        {moments.map((m, i) => (
+          <MomentRow key={m.id} moment={m} nowMs={now} isLast={i === moments.length - 1} />
         ))}
       </ol>
     </section>
