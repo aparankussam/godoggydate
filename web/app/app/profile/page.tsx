@@ -37,6 +37,9 @@ import PetTwinCard from '../../../components/PetTwinCard';
 import MomentsTimeline from '../../../components/MomentsTimeline';
 import { feedback } from '../../../lib/feedback';
 import MilestonesCard from '../../../components/MilestonesCard';
+import DiptychSection from '../../../components/DiptychSection';
+import ApologySection from '../../../components/ApologySection';
+import PlaqueCard from '../../../components/PlaqueCard';
 import ProUpsellCard from '../../../components/ProUpsellCard';
 import { useProEntitlement } from '../../../lib/useProEntitlement';
 import { getHouseholdDogsForUser } from '../../../lib/household';
@@ -583,6 +586,10 @@ export default function ProfilePage() {
             <DogtypeSection savedProfile={savedProfile} />
             <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
             <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
+            {/* Wave 1 — the Meme Battery: shareable cards owners actually post. */}
+            <DiptychSection savedProfile={savedProfile} />
+            <ApologySection savedProfile={savedProfile} />
+            <PlaqueCard savedProfile={savedProfile} />
             <a
               href="/app/fun"
               onClick={() => { feedback.tap(); trackEvent('fun_hub_click', { source: 'profile' }); }}
