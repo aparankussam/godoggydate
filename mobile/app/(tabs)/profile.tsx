@@ -43,6 +43,7 @@ export default function ProfileTab() {
   const [householdMemberNames, setHouseholdMemberNames] = useState<Record<string, string> | undefined>(undefined);
   const [bestFriendMatchId, setBestFriendMatchId] = useState<string | null>(null);
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
+  const [activePhoto, setActivePhoto] = useState(0);
   const cardRef = useRef<View>(null);
   // For the Pet Twin "get a card every day" nudge: scroll to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
@@ -218,6 +219,8 @@ export default function ProfileTab() {
   }
 
   const photos = (profile.photos ?? []).filter((photo: string) => photo && !photo.startsWith('_'));
+  // Clamp so a stale index (after a photo is removed) never reads undefined.
+  const safeActive = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -228,14 +231,23 @@ export default function ProfileTab() {
         </Text>
 
         <View style={styles.card}>
-          {photos[0] ? <Image source={{ uri: photos[0] }} style={styles.hero} accessible accessibilityLabel={`Photo of ${profile.name}`} /> : null}
+          {photos[safeActive] ? <Image source={{ uri: photos[safeActive] }} style={styles.hero} accessible accessibilityLabel={`Photo of ${profile.name}`} /> : null}
           <View style={styles.cardBody}>
-            {/* Photos 1+ never rendered anywhere outside the editor — an
-                owner had no way to see the rest of what they uploaded. */}
+            {/* Tap a thumbnail to make it the main photo. Shows ALL photos so
+                photo 0 stays re-selectable; the active one is highlighted. */}
             {photos.length > 1 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoStrip}>
-                {photos.slice(1).map((url: string, i: number) => (
-                  <Image key={i} source={{ uri: url }} style={styles.photoStripItem} />
+                {photos.map((url: string, i: number) => (
+                  <Pressable
+                    key={i}
+                    onPress={() => setActivePhoto(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show photo ${i + 1} of ${profile.name}`}
+                    accessibilityState={{ selected: i === safeActive }}
+                    style={[styles.photoStripItem, i === safeActive && styles.photoStripItemActive]}
+                  >
+                    <Image source={{ uri: url }} style={styles.photoStripImage} />
+                  </Pressable>
                 ))}
               </ScrollView>
             )}
@@ -508,6 +520,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     marginRight: 8,
     backgroundColor: colors.creamDark,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  photoStripItemActive: {
+    borderColor: colors.primary,
+  },
+  photoStripImage: {
+    width: '100%',
+    height: '100%',
   },
   archetype: {
     fontFamily: fonts.bold,
