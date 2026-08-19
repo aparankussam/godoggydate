@@ -22,6 +22,14 @@ import DogtypeCompatSection from '../../components/DogtypeCompatSection';
 import PetTwinCard from '../../components/PetTwinCard';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
+import DiptychSection from '../../components/DiptychSection';
+import PlaqueCard from '../../components/PlaqueCard';
+import ApologySection from '../../components/ApologySection';
+import RoastSection from '../../components/RoastSection';
+import DogQuizSection from '../../components/DogQuizSection';
+import LetterSection from '../../components/LetterSection';
+import HumanReviewSection from '../../components/HumanReviewSection';
+import TextsSection from '../../components/TextsSection';
 import ProUpsellCard from '../../components/ProUpsellCard';
 import type { Reminder } from '../../../shared/types';
 
@@ -385,6 +393,15 @@ export default function ProfileTab() {
             <PetTwinCard dogId={user.uid} dogName={profile.name} isPro={pro.isPro} onUpgrade={scrollToPro} />
             <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
             <MilestonesCard savedProfile={profile} />
+            <LetterSection savedProfile={profile} />
+            {/* Wave 1/2/3 — shareable cards owners actually post */}
+            <DiptychSection savedProfile={profile} />
+            <RoastSection savedProfile={profile} />
+            <HumanReviewSection savedProfile={profile} userId={user.uid} />
+            <ApologySection savedProfile={profile} />
+            <TextsSection savedProfile={profile} />
+            <DogQuizSection savedProfile={profile} />
+            <PlaqueCard savedProfile={profile} />
 
             {/* Just for fun — three delight-first mini-features */}
             <View style={styles.funZone}>
@@ -416,6 +433,15 @@ export default function ProfileTab() {
                 >
                   <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🗺️</Text>
                   <Text style={styles.funLabel}>Adventure Passport</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.funTile}
+                  accessibilityRole="button"
+                  accessibilityLabel="Barkle, the daily breed puzzle"
+                  onPress={() => { trackEvent('fun_open', { feature: 'barkle' }); router.push('/fun/barkle'); }}
+                >
+                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🟩</Text>
+                  <Text style={styles.funLabel}>Barkle</Text>
                 </Pressable>
               </View>
             </View>
