@@ -122,7 +122,7 @@ export default function HomePage() {
           </Link>
         </div>
         <p className="mt-3 text-sm text-brown-light">
-          No signup needed — <Link href="/quiz" className="font-semibold text-primary underline underline-offset-2">find your dog&apos;s Dogtype</Link> · <Link href="/excuse" className="font-semibold text-primary underline underline-offset-2">get a Dog Excuse Note</Link> · <Link href="#how" className="font-semibold text-primary underline underline-offset-2">how it works</Link>.
+          No signup needed — <Link href="/quiz" className="font-semibold text-primary underline underline-offset-2">Dogtype quiz</Link> · <Link href="/excuse" className="font-semibold text-primary underline underline-offset-2">Dog Excuse Note</Link> · <Link href="/barkle" className="font-semibold text-primary underline underline-offset-2">Barkle (daily breed puzzle)</Link>.
         </p>
         <p className="mt-4 text-sm font-semibold text-primary">You get their whole life. They get you for all of theirs. 🐾</p>
         <p className="mt-2 text-sm text-brown-light">

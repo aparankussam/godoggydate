@@ -40,6 +40,11 @@ import MilestonesCard from '../../../components/MilestonesCard';
 import DiptychSection from '../../../components/DiptychSection';
 import ApologySection from '../../../components/ApologySection';
 import PlaqueCard from '../../../components/PlaqueCard';
+import RoastSection from '../../../components/RoastSection';
+import DogQuizSection from '../../../components/DogQuizSection';
+import LetterSection from '../../../components/LetterSection';
+import HumanReviewSection from '../../../components/HumanReviewSection';
+import TextsSection from '../../../components/TextsSection';
 import ProUpsellCard from '../../../components/ProUpsellCard';
 import { useProEntitlement } from '../../../lib/useProEntitlement';
 import { getHouseholdDogsForUser } from '../../../lib/household';
@@ -590,6 +595,12 @@ export default function ProfilePage() {
             <DiptychSection savedProfile={savedProfile} />
             <ApologySection savedProfile={savedProfile} />
             <PlaqueCard savedProfile={savedProfile} />
+            {/* Wave 2/3 — the grounded-AI suite + party quiz. */}
+            <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
+            <RoastSection savedProfile={savedProfile} />
+            <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />
+            <DogQuizSection savedProfile={savedProfile} />
+            <TextsSection savedProfile={savedProfile} />
             <a
               href="/app/fun"
               onClick={() => { feedback.tap(); trackEvent('fun_hub_click', { source: 'profile' }); }}
