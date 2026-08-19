@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
-import { getHeroPhoto } from '../lib/photos';
+import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { adventuresFor, ADVENTURE_COUNT } from '../../shared/adventures';
@@ -64,7 +64,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
   const [ready, setReady] = useState(false);
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
   const key = dogId || savedProfile.name || 'dog';
 
   const deck = useMemo(
@@ -156,7 +156,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
               <span style={{ fontSize: 32, lineHeight: 1 }} aria-hidden="true">🐕</span>
               {photo && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt={dogName} className="absolute inset-0 w-full h-full object-cover" />
+                <img src={photo} alt={dogName} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getHeroFocus(savedProfile) }} />
               )}
             </div>
           </div>

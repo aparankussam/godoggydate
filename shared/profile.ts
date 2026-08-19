@@ -32,6 +32,13 @@ export interface SavedDogProfile {
   birthMonth?: number; // 1–12
   adoptionDate?: string | null; // 'YYYY-MM-DD'; null = cleared (merge-safe)
   photos?: string[];
+  // Owner-chosen cover ("hero") photo + crop focal point. When set, these
+  // override the AI's vibeCheck.heroPhotoIndex so the owner controls which photo
+  // and what part of it shows on cards (a center-crop hides off-centre subjects
+  // like a sniffing dog). coverFocusX/Y are 0–100 percentages; default 50/50.
+  coverPhotoIndex?: number;
+  coverFocusX?: number;
+  coverFocusY?: number;
   temperament?: string[];
   location?: string;
   city?: string;

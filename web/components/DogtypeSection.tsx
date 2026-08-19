@@ -7,7 +7,7 @@
 
 import { useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
-import { getHeroPhoto } from '../lib/photos';
+import { getHeroPhoto, resolveHeroIndex } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
@@ -32,7 +32,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
   if (!dogtype) return null;
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
   const bestMatches = dogtypeBestMatches(dogtype.code, 3);
   const storyTheme = dogtype.axes[0]?.pole.label === 'Zen' ? 'zen' : 'spark';
 

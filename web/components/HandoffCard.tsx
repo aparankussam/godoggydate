@@ -16,7 +16,7 @@
 // which one it is, on the vaccination line and again at the bottom.
 
 import type { SavedDogProfile } from '../lib/auth';
-import { getHeroPhoto } from '../lib/photos';
+import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import type { Reminder } from '../../shared/types';
 
 interface Props {
@@ -84,7 +84,7 @@ function TagList({ tags }: { tags: string[] }) {
 }
 
 export default function HandoffCard({ profile, reminders = [], innerRef }: Props) {
-  const photo = getHeroPhoto(profile.photos, profile.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(profile.photos, resolveHeroIndex(profile));
   const notGoodWith = profile.notGoodWith ?? [];
   const behaviorFlags = profile.behaviorFlags ?? [];
   const declaredNothing = notGoodWith.length === 0 && behaviorFlags.length === 0;
@@ -127,7 +127,7 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
             // the browser refuse the image outright. html2canvas re-fetches it
             // with its own useCORS during capture, independent of this element.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt={profile.name} className="w-full h-full object-cover" />
+            <img src={photo} alt={profile.name} className="w-full h-full object-cover" style={{ objectPosition: getHeroFocus(profile) }} />
           ) : (
             <span className="text-3xl">🐕</span>
           )}

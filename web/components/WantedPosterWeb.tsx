@@ -14,7 +14,7 @@
 
 import { useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
-import { getHeroPhoto } from '../lib/photos';
+import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { computeWanted } from '../../shared/wanted';
@@ -50,7 +50,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
   if (!poster) return null;
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
 
   async function handleShare() {
     if (!cardRef.current || sharing) return;
@@ -119,7 +119,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
               <span style={{ fontSize: 72, lineHeight: 1 }} aria-hidden="true">🐕</span>
               {photo && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt={dogName} className="absolute inset-0 w-full h-full object-cover" />
+                <img src={photo} alt={dogName} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getHeroFocus(savedProfile) }} />
               )}
               {/* Sepia wash sells the aged-photo look */}
               <div className="absolute inset-0" style={{ backgroundColor: 'rgba(90,60,20,0.22)' }} aria-hidden="true" />

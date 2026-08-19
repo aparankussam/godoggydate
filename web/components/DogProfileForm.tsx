@@ -9,6 +9,7 @@ import { getVaccinationStatus, parseLocalIsoDate } from '../../shared/profile';
 import { uploadDogPhoto } from '../lib/storage';
 import { getFirebase } from '../shared/utils/firebase';
 import { BREEDS } from '../../shared/types/breeds';
+import CoverPhotoEditor from './CoverPhotoEditor';
 
 const SIZES: { value: 'S' | 'M' | 'L' | 'XL'; label: string }[] = [
   { value: 'S', label: 'Small' },
@@ -194,6 +195,11 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     DEFAULT_PROMPTS.map((prompt) => ({ prompt, answer: '' })),
   );
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  // Owner's cover-photo choice + crop focal point (0–100). -1 index = "not set,
+  // fall back to the AI hero pick"; a real drag/selection sets a concrete index.
+  const [coverPhotoIndex, setCoverPhotoIndex] = useState<number>(-1);
+  const [coverFocusX, setCoverFocusX] = useState<number>(50);
+  const [coverFocusY, setCoverFocusY] = useState<number>(50);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>(EMPTY_ERRORS);
   const [uploading, setUploading] = useState(false);
@@ -256,6 +262,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     setBirthYear(typeof initialProfile.birthYear === 'number' ? String(initialProfile.birthYear) : '');
     setBirthMonth(typeof initialProfile.birthMonth === 'number' ? String(initialProfile.birthMonth) : '');
     setAdoptionDate(initialProfile.adoptionDate ?? '');
+    setCoverPhotoIndex(typeof initialProfile.coverPhotoIndex === 'number' ? initialProfile.coverPhotoIndex : -1);
+    setCoverFocusX(typeof initialProfile.coverFocusX === 'number' ? initialProfile.coverFocusX : 50);
+    setCoverFocusY(typeof initialProfile.coverFocusY === 'number' ? initialProfile.coverFocusY : 50);
     setPrompts(
       DEFAULT_PROMPTS.map((prompt) => {
         const existing = initialProfile.prompts?.find((item) => item.prompt === prompt);
@@ -573,6 +582,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         notGoodWith,
         behaviorFlags,
         photos: photosFinal,
+        // Cover-photo override + focal point. Only persisted once the owner has
+        // actually chosen (index >= 0 and pointing at a real photo); otherwise
+        // omitted so the AI hero pick + centre crop stay in charge.
+        coverPhotoIndex: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverPhotoIndex : undefined,
+        coverFocusX: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverFocusX : undefined,
+        coverFocusY: coverPhotoIndex >= 0 && coverPhotoIndex < realUrls.length ? coverFocusY : undefined,
         location: locationStr,
         city: cityStr || undefined,
         state: stateStr || undefined,
@@ -667,6 +682,28 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               ))}
             </div>
           )}
+
+          {/* Cover photo + reposition — the owner picks the card's hero shot and
+              drags the focal point so a center-crop doesn't hide the face. */}
+          {photos.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-border bg-cream/50 p-3">
+              <p className="mb-2 text-xs font-semibold text-brown-mid">
+                🖼 Cover photo <span className="font-normal text-brown-light">— what shows on your card</span>
+              </p>
+              <CoverPhotoEditor
+                photos={photos.map((p) => p.preview ?? p.url ?? '')}
+                coverIndex={coverPhotoIndex >= 0 ? coverPhotoIndex : (initialProfile?.ai?.vibeCheck?.heroPhotoIndex ?? 0)}
+                focusX={coverFocusX}
+                focusY={coverFocusY}
+                onChange={({ coverIndex, focusX, focusY }) => {
+                  setCoverPhotoIndex(coverIndex);
+                  setCoverFocusX(focusX);
+                  setCoverFocusY(focusY);
+                }}
+              />
+            </div>
+          )}
+
           <div className="mt-3 flex items-center gap-3">
             <input
               ref={fileInputRef}

@@ -6,7 +6,7 @@
 // is the first virality mechanic worth shipping: it works on day one.
 
 import type { SavedDogProfile } from '../lib/auth';
-import { getHeroPhoto } from '../lib/photos';
+import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { breedConfidencePhrase } from '../lib/vibeCheck';
 import { FOUNDING_PACK_SIZE } from '../../shared/utils/stripe';
 
@@ -33,7 +33,8 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
   // The Vibe Check model already judges which uploaded photo is the
   // clearest, best-lit shot of the dog for a card exactly like this one —
   // previously ignored in favor of whichever photo happened to be first.
-  const photo = getHeroPhoto(profile.photos, vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(profile.photos, resolveHeroIndex(profile));
+  const heroFocus = getHeroFocus(profile);
   const energy = Math.max(0, Math.min(100, profile.energyLevel ?? 50));
   const tags = [...(profile.playStyles ?? []), ...(profile.temperament ?? [])].slice(0, 3);
 
@@ -78,7 +79,7 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
           // independent of this element's crossOrigin — so nothing here is
           // needed for that path to keep working.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt={profile.name} className="w-full h-full object-cover" />
+          <img src={photo} alt={profile.name} className="w-full h-full object-cover" style={{ objectPosition: heroFocus }} />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-8xl">🐕</div>
         )}
