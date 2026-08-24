@@ -18,6 +18,7 @@ import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
 import DogtypeSection from '../../components/DogtypeSection';
+import CompatExplorer from '../../components/CompatExplorer';
 import DogtypeCompatSection from '../../components/DogtypeCompatSection';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
@@ -61,7 +62,6 @@ export default function ProfileTab() {
   // For the Pet Twin "get a card every day" nudge: scroll to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
   const proYRef = useRef(0);
-  const scrollToPro = () => scrollRef.current?.scrollTo({ y: Math.max(0, proYRef.current - 20), animated: true });
 
   // Open the profile on the owner's cover pick (or AI hero), once, when it loads.
   useEffect(() => {
@@ -388,6 +388,7 @@ export default function ProfileTab() {
               <Text style={styles.revealCtaSub}>A shareable card, read from their real profile</Text>
             </Pressable>
             <DogtypeSection savedProfile={profile} />
+            <CompatExplorer savedProfile={profile} />
             <DogtypeCompatSection savedProfile={profile} />
             <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
             <MilestonesCard savedProfile={profile} />

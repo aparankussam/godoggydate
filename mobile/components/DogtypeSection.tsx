@@ -11,7 +11,7 @@ import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
-import { computeDogtype, dogtypeBestMatches } from '../../shared/dogtype';
+import { computeDogtype } from '../../shared/dogtype';
 import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
@@ -30,7 +30,6 @@ export default function DogtypeSection({ savedProfile }: Props) {
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
-  const bestMatches = dogtypeBestMatches(dogtype.code, 3);
 
   async function handleShare() {
     if (sharing) return;
@@ -77,18 +76,8 @@ export default function DogtypeSection({ savedProfile }: Props) {
         <Text style={styles.shareText}>{sharing ? 'Preparing…' : `📤 Share ${dogName}'s Dogtype`}</Text>
       </Pressable>
 
-      {/* Playful "plays well with" — labeled a vibe, not a score */}
-      {bestMatches.length > 0 && (
-        <View style={styles.playsWith}>
-          <Text style={styles.playsWithTitle}>Plays well with</Text>
-          <Text style={styles.playsWithList}>
-            {bestMatches.map((t) => `${t.emoji} ${t.name}`).join('  ·  ')}
-          </Text>
-          <Text style={styles.playsWithNote}>
-            A playful vibe read from the types — not a score. Real matches are worked out dog-by-dog when you swipe.
-          </Text>
-        </View>
-      )}
+      {/* "Plays well with" now lives in the CompatExplorer (tap-to-reveal +
+          real density), mounted right after this section on the profile. */}
 
       {/* How the type was read — the four real axes */}
       <Pressable onPress={() => setShowAxes((v) => !v)}>

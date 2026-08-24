@@ -15,7 +15,8 @@ import DogtypeCard from './DogtypeCard';
 import StoryShareCard, { shareOrDownloadStoryCard } from './StoryShareCard';
 import DogtypeReveal from './DogtypeReveal';
 import { feedback } from '../lib/feedback';
-import { computeDogtype, dogtypeBestMatches } from '../../shared/dogtype';
+import { computeDogtype } from '../../shared/dogtype';
+import CompatExplorer from './CompatExplorer';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -35,7 +36,6 @@ export default function DogtypeSection({ savedProfile }: Props) {
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
   const photoFocus = getHeroFocus(savedProfile);
-  const bestMatches = dogtypeBestMatches(dogtype.code, 3);
   const storyTheme = dogtype.axes[0]?.pole.label === 'Zen' ? 'zen' : 'spark';
 
   async function handleStoryShare() {
@@ -150,26 +150,9 @@ export default function DogtypeSection({ savedProfile }: Props) {
         </button>
       </div>
 
-      {/* Playful "plays well with" — labeled a vibe, not a score */}
-      {bestMatches.length > 0 && (
-        <div className="mt-4 rounded-xl bg-white/60 border border-border px-3.5 py-3">
-          <p className="text-xs font-bold text-brown">Plays well with</p>
-          <p className="mt-1 text-sm text-brown-mid">
-            {bestMatches.map((t) => `${t.emoji} ${t.name}`).join(' · ')}
-          </p>
-          <p className="mt-1.5 text-[11px] text-brown-light leading-snug">
-            A playful vibe read from the types — not a score. Real matches are worked out dog-by-dog when you
-            swipe.
-          </p>
-          <a
-            href={`/compat/${dogtype.code}`}
-            onClick={() => trackEvent('compat_link_click', { code: dogtype.code })}
-            className="mt-2 inline-block text-[11px] font-bold text-primary underline underline-offset-2"
-          >
-            See who {dogtype.name} plays with →
-          </a>
-        </div>
-      )}
+      {/* "Who does your dog get along with?" — tap-to-reveal explorer with a
+          real, widened-scope density count (replaces the old static list). */}
+      <CompatExplorer savedProfile={savedProfile} />
 
       {/* How the type was read — the four real axes */}
       <button
