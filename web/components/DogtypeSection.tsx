@@ -6,6 +6,7 @@
 // not a measured score — real compatibility comes from the swipe engine).
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import type { SavedDogProfile } from '../lib/auth';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
@@ -96,12 +97,24 @@ export default function DogtypeSection({ savedProfile }: Props) {
             {dogtype.emoji} {dogtype.name}
           </h2>
         </div>
-        <span className="font-mono text-sm font-bold tracking-[0.2em] text-brown bg-white rounded-md px-2.5 py-1.5 border border-border">
+        <Link
+          href={`/dogtype/${dogtype.code}`}
+          onClick={() => trackEvent('dogtype_code_link_click', { code: dogtype.code })}
+          className="font-mono text-sm font-bold tracking-[0.2em] text-brown bg-white rounded-md px-2.5 py-1.5 border border-border hover:border-primary transition-colors"
+          aria-label={`What is the ${dogtype.code} Dogtype?`}
+        >
           {dogtype.code}
-        </span>
+        </Link>
       </div>
 
       <p className="text-sm text-brown-mid leading-relaxed">{dogtype.blurb}</p>
+      <Link
+        href={`/dogtype/${dogtype.code}`}
+        onClick={() => trackEvent('dogtype_code_link_click', { code: dogtype.code, source: 'text' })}
+        className="mt-1 inline-block text-xs font-semibold text-primary underline underline-offset-2"
+      >
+        What&apos;s a {dogtype.code}? See the full type →
+      </Link>
 
       {/* The card itself (this is what gets captured to PNG) */}
       <div className="mt-4 flex justify-center">

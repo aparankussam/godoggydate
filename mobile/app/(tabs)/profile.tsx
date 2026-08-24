@@ -443,6 +443,15 @@ export default function ProfileTab() {
                   <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🟩</Text>
                   <Text style={styles.funLabel}>Barkle</Text>
                 </Pressable>
+                <Pressable
+                  style={styles.funTile}
+                  accessibilityRole="button"
+                  accessibilityLabel="The Playroom — roast, apology, texts, review, quiz and plaque"
+                  onPress={() => { trackEvent('fun_open', { feature: 'playroom' }); router.push('/fun/playroom'); }}
+                >
+                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🎭</Text>
+                  <Text style={styles.funLabel}>Playroom</Text>
+                </Pressable>
               </View>
             </View>
           </>

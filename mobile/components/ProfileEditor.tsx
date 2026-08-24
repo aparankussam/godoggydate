@@ -115,6 +115,15 @@ export default function ProfileEditor({
   // matching engine treats as blocking.
   const [vaccinated, setVaccinated] = useState<boolean | null>(initialProfile?.vaccinated ?? null);
   const [rabiesExpiry, setRabiesExpiry] = useState(initialProfile?.rabiesExpiry ?? '');
+  // Birthday & milestones (all optional) — powers Life Stage + Milestones. Kept
+  // as strings for the inputs, parsed on save (mirrors web/DogProfileForm).
+  const [birthYear, setBirthYear] = useState(
+    typeof initialProfile?.birthYear === 'number' ? String(initialProfile.birthYear) : '',
+  );
+  const [birthMonth, setBirthMonth] = useState(
+    typeof initialProfile?.birthMonth === 'number' ? String(initialProfile.birthMonth) : '',
+  );
+  const [adoptionDate, setAdoptionDate] = useState(initialProfile?.adoptionDate ?? '');
   const [zip, setZip] = useState(initialProfile?.zip ?? '');
   const [city, setCity] = useState(initialProfile?.city ?? '');
   const [usState, setUsState] = useState(initialProfile?.state ?? '');
@@ -267,6 +276,11 @@ export default function ProfileEditor({
         // stripUndefined drops undefined keys, so omitting it would leave a
         // date the owner just deleted in place.
         rabiesExpiry: rabiesExpiry.trim() || null,
+        // Birthday & milestones — parsed + range-checked; null (not undefined)
+        // when empty so a cleared value actually clears under { merge: true }.
+        birthYear: (() => { const y = Number(birthYear); return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : undefined; })(),
+        birthMonth: (() => { const m = Number(birthMonth); return Number.isInteger(m) && m >= 1 && m <= 12 ? m : undefined; })(),
+        adoptionDate: adoptionDate.trim() || null,
         photos: safePhotos,
         location: locationLabel,
         city: city.trim() || undefined,
@@ -476,6 +490,52 @@ export default function ProfileEditor({
           maxLength={2}
         />
       </Field>
+
+      {/* Birthday & milestones — powers Life Stage + the birthday/Gotcha Day
+          celebration cards. All optional; none gate discovery. */}
+      <View style={styles.vaccinationCard}>
+        <Text style={styles.label}>🎂 Birthday &amp; milestones</Text>
+        <Text style={styles.helper}>
+          Optional — unlocks {name.trim() || 'your dog'}&apos;s life stage plus birthday and Gotcha Day celebrations.
+        </Text>
+
+        <Text style={styles.subLabel}>Birth year</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 2021"
+          placeholderTextColor={colors.brownLight}
+          value={birthYear}
+          onChangeText={setBirthYear}
+          keyboardType="number-pad"
+          maxLength={4}
+        />
+
+        <Text style={styles.subLabel}>Birth month (optional, 1–12)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 6"
+          placeholderTextColor={colors.brownLight}
+          value={birthMonth}
+          onChangeText={setBirthMonth}
+          keyboardType="number-pad"
+          maxLength={2}
+        />
+
+        <Text style={styles.subLabel}>Gotcha Day (optional) — the day they came home</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="2021-08-14"
+          placeholderTextColor={colors.brownLight}
+          value={adoptionDate}
+          onChangeText={setAdoptionDate}
+          keyboardType="numbers-and-punctuation"
+          autoCapitalize="none"
+          maxLength={10}
+        />
+        <Text style={styles.helper}>
+          We celebrate the birthday month unless you tell us the exact day — and Gotcha Day on the day itself.
+        </Text>
+      </View>
 
       {/* Vaccination — mirrors web/components/DogProfileForm.tsx. The Switch
           that used to sit here could not express "unanswered": it defaulted to

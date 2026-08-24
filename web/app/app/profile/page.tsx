@@ -37,14 +37,7 @@ import PetTwinCard from '../../../components/PetTwinCard';
 import MomentsTimeline from '../../../components/MomentsTimeline';
 import { feedback } from '../../../lib/feedback';
 import MilestonesCard from '../../../components/MilestonesCard';
-import DiptychSection from '../../../components/DiptychSection';
-import ApologySection from '../../../components/ApologySection';
-import PlaqueCard from '../../../components/PlaqueCard';
-import RoastSection from '../../../components/RoastSection';
-import DogQuizSection from '../../../components/DogQuizSection';
 import LetterSection from '../../../components/LetterSection';
-import HumanReviewSection from '../../../components/HumanReviewSection';
-import TextsSection from '../../../components/TextsSection';
 import ProUpsellCard from '../../../components/ProUpsellCard';
 import { useProEntitlement } from '../../../lib/useProEntitlement';
 import { getHouseholdDogsForUser } from '../../../lib/household';
@@ -591,24 +584,18 @@ export default function ProfilePage() {
             <DogtypeSection savedProfile={savedProfile} />
             <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
             <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
-            {/* Wave 1 — the Meme Battery: shareable cards owners actually post. */}
-            <DiptychSection savedProfile={savedProfile} />
-            <ApologySection savedProfile={savedProfile} />
-            <PlaqueCard savedProfile={savedProfile} />
-            {/* Wave 2/3 — the grounded-AI suite + party quiz. */}
+            {/* The Gotcha Day letter stays here — it only appears near a real
+                milestone, so it's contextual, not clutter. The rest of the
+                playful generators live in the Playroom (one entry, below). */}
             <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
-            <RoastSection savedProfile={savedProfile} />
-            <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />
-            <DogQuizSection savedProfile={savedProfile} />
-            <TextsSection savedProfile={savedProfile} />
             <a
               href="/app/fun"
               onClick={() => { feedback.tap(); trackEvent('fun_hub_click', { source: 'profile' }); }}
               className="card rounded-[1.8rem] px-5 py-4 flex items-center justify-between hover:shadow-md transition-shadow"
             >
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun 🎉</p>
-                <p className="font-display text-lg text-brown leading-tight">Wanted posters, adventures &amp; more</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">The Playroom 🎉</p>
+                <p className="font-display text-lg text-brown leading-tight">Roast, apology, texts, review, quiz, plaque &amp; more</p>
               </div>
               <span className="text-2xl">→</span>
             </a>

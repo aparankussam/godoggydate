@@ -17,6 +17,12 @@ import type { User, SavedDogProfile } from '../../../lib/auth';
 import { trackEvent } from '../../../lib/analytics';
 import WantedPosterWeb from '../../../components/WantedPosterWeb';
 import AdventurePassportWeb from '../../../components/AdventurePassportWeb';
+import RoastSection from '../../../components/RoastSection';
+import HumanReviewSection from '../../../components/HumanReviewSection';
+import ApologySection from '../../../components/ApologySection';
+import TextsSection from '../../../components/TextsSection';
+import DogQuizSection from '../../../components/DogQuizSection';
+import PlaqueCard from '../../../components/PlaqueCard';
 
 export default function FunPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -71,7 +77,7 @@ export default function FunPage() {
   return (
     <div className="min-h-screen bg-cream">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center">
-        <span className="font-display text-xl text-brown">🎉 Just for fun</span>
+        <span className="font-display text-xl text-brown">🎉 The Playroom</span>
       </header>
 
       <div className="p-4 lg:max-w-2xl lg:mx-auto lg:px-8 lg:py-8 space-y-5">
@@ -111,6 +117,12 @@ export default function FunPage() {
 
         {savedProfile && (
           <>
+            <RoastSection savedProfile={savedProfile} />
+            <ApologySection savedProfile={savedProfile} />
+            <TextsSection savedProfile={savedProfile} />
+            <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />
+            <DogQuizSection savedProfile={savedProfile} />
+            <PlaqueCard savedProfile={savedProfile} />
             <div id="wanted" className="scroll-mt-20">
               <WantedPosterWeb savedProfile={savedProfile} dogId={authUser.uid} />
             </div>
