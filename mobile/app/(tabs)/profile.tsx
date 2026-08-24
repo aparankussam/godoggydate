@@ -19,7 +19,6 @@ import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
 import DogtypeSection from '../../components/DogtypeSection';
 import DogtypeCompatSection from '../../components/DogtypeCompatSection';
-import PetTwinCard from '../../components/PetTwinCard';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
 import DiptychSection from '../../components/DiptychSection';
@@ -390,7 +389,6 @@ export default function ProfileTab() {
             </Pressable>
             <DogtypeSection savedProfile={profile} />
             <DogtypeCompatSection savedProfile={profile} />
-            <PetTwinCard dogId={user.uid} dogName={profile.name} isPro={pro.isPro} onUpgrade={scrollToPro} />
             <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
             <MilestonesCard savedProfile={profile} />
             <LetterSection savedProfile={profile} />

@@ -33,8 +33,6 @@ import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
 import DogtypeSection from '../../../components/DogtypeSection';
 import LifeStageCard from '../../../components/LifeStageCard';
-import PetTwinCard from '../../../components/PetTwinCard';
-import MomentsTimeline from '../../../components/MomentsTimeline';
 import { feedback } from '../../../lib/feedback';
 import MilestonesCard from '../../../components/MilestonesCard';
 import LetterSection from '../../../components/LetterSection';
@@ -574,13 +572,6 @@ export default function ProfilePage() {
             the next real celebration. The reason to come back every day. ── */}
         {savedProfile && complete && authUser && (
           <>
-            <PetTwinCard
-              dogId={authUser.uid}
-              dogName={savedProfile.name}
-              isPro={pro.isPro}
-              onUpgrade={handleUpgrade}
-            />
-            <MomentsTimeline dogId={authUser.uid} />
             <DogtypeSection savedProfile={savedProfile} />
             <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
             <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
