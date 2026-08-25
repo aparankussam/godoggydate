@@ -358,12 +358,12 @@ Write ${dogName}'s ${milestone.kind === 'gotcha' ? 'Gotcha Day' : 'birthday'} le
           generationConfig: {
             responseMimeType: 'application/json',
             ...(useSchema ? { responseSchema: LETTER_SCHEMA } : {}),
-            // Flash models spend part of maxOutputTokens "thinking" before
-            // writing the answer; this letter doesn't need that reasoning,
-            // and without it the real JSON was getting truncated mid-string
-            // (silent generation failures in prod, 2026-08-25). Disable it.
-            thinkingConfig: { thinkingBudget: 0 },
-            maxOutputTokens: 896,
+            // gemini-3.6-flash spends part of maxOutputTokens "thinking" before
+            // writing the answer (confirmed via direct API test: 304 thinking
+            // tokens for a 2-sentence reply) and REJECTS thinkingConfig with a
+            // 400 (tried disabling it, 2026-08-25 — don't reintroduce that
+            // field). The real fix is enough headroom for thinking + output.
+            maxOutputTokens: 2048,
             temperature: 0.9,
           },
         }),

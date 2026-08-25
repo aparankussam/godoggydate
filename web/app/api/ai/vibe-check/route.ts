@@ -446,12 +446,12 @@ export async function POST(request: Request) {
           generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: VIBE_CHECK_SCHEMA,
-            // Flash models spend part of maxOutputTokens "thinking" before
-            // writing the answer; this task doesn't need that reasoning, and
-            // without it the real JSON risks truncating mid-string (same root
-            // cause as the apology/roast/texts/letter/human-review outage,
-            // 2026-08-25 — 2048 has masked it here so far, but not guaranteed to).
-            thinkingConfig: { thinkingBudget: 0 },
+            // gemini-3.6-flash spends part of maxOutputTokens "thinking" before
+            // writing the answer (confirmed via direct API test: 304 thinking
+            // tokens for a 2-sentence reply) and REJECTS thinkingConfig with a
+            // 400 (tried disabling it, 2026-08-25 — don't reintroduce that
+            // field). This route's existing 2048 cap already gives headroom;
+            // left unchanged.
             maxOutputTokens: 2048,
             temperature: 1,
           },
