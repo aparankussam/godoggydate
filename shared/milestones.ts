@@ -5,12 +5,13 @@
 // monthly occasion out of nothing is exactly the fabricated-cadence trap the
 // brand forbids. A dog has ~2-3 honest anchors a year; we celebrate those well.
 //
-// Birthdays are celebrated by MONTH: many owners (especially of rescues) know
+// Birthdays fire by MONTH by default: many owners (especially of rescues) know
 // the birth year and rough month but not the exact day, and birthYear alone is
-// year-only — so "today is the birthday!" would be false precision. Gotcha Day
-// and the GoDoggyDate anniversary are real exact dates, so those fire on the day.
+// year-only — so "today is the birthday!" would be false precision. When the
+// owner DOES supply an exact birthDay, we upgrade to a day-of celebration. Gotcha
+// Day may likewise be exact ('YYYY-MM-DD') or month-only ('YYYY-MM'); the
+// GoDoggyDate anniversary is a real timestamp, so it always fires on the day.
 
-import { parseLocalIsoDate } from './profile';
 
 export type MilestoneKind = 'birthday' | 'gotcha' | 'godoggy_anniversary';
 
@@ -34,8 +35,24 @@ export interface MilestoneInput {
   name?: string;
   birthYear?: number;
   birthMonth?: number;      // 1–12
-  adoptionDate?: string | null; // 'YYYY-MM-DD'
+  birthDay?: number;        // 1–31, optional — when known, the birthday fires on
+                            // the exact day; otherwise it's a whole-month thing.
+  adoptionDate?: string | null; // 'YYYY-MM-DD' (exact) OR 'YYYY-MM' (month only)
   createdAt?: number;       // unix ms — when the GoDoggyDate profile was made
+}
+
+function validMonth(m?: number): m is number { return typeof m === 'number' && m >= 1 && m <= 12; }
+function validDay(d?: number): d is number { return typeof d === 'number' && d >= 1 && d <= 31; }
+
+/** Parse 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month-only) → parts, else null. */
+function parseFlexibleDate(s?: string | null): { year: number; month: number; day: number | null } | null {
+  if (!s) return null;
+  const t = s.trim();
+  const full = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (full) return { year: +full[1], month: +full[2], day: +full[3] };
+  const partial = /^(\d{4})-(\d{2})$/.exec(t);
+  if (partial) return { year: +partial[1], month: +partial[2], day: null };
+  return null;
 }
 
 function localMidnight(y: number, mZeroBased: number, d: number): number {
@@ -54,35 +71,64 @@ function plural(n: number): string {
   return n === 1 ? '' : 's';
 }
 
-function birthdayMilestone(input: MilestoneInput, now: Date): Milestone | null {
-  if (typeof input.birthMonth !== 'number' || input.birthMonth < 1 || input.birthMonth > 12) return null;
-  const name = input.name?.trim() || 'Your dog';
-  const monthIdx = input.birthMonth - 1;
+/**
+ * A whole-month celebration (active for the entire month) — used when we only
+ * know the month, not the exact day: a birthday month, or a month-only Gotcha.
+ */
+function monthCelebration(
+  kind: MilestoneKind,
+  emoji: string,
+  monthIdx: number,
+  baseYear: number | undefined,
+  titleFor: (years: number | undefined) => string,
+  subtitleFor: (years: number | undefined) => string,
+  now: Date,
+): Milestone {
   const thisYear = now.getFullYear();
   const currentMonth = now.getMonth();
-
-  // Next occurrence: the 1st of the birth month, this year if it hasn't passed,
-  // else next year. "Active" for the whole month.
   const activeThisMonth = currentMonth === monthIdx;
   const occursThisYear = monthIdx >= currentMonth;
   const year = occursThisYear ? thisYear : thisYear + 1;
   const date = localMidnight(year, monthIdx, 1);
-
-  const years = typeof input.birthYear === 'number' ? year - input.birthYear : undefined;
-  const subtitle = typeof years === 'number' && years >= 0
-    ? `Turning ${years} this month`
-    : 'It\'s their birthday month';
+  const years = typeof baseYear === 'number' ? year - baseYear : undefined;
 
   return {
-    kind: 'birthday',
-    emoji: '🎂',
-    title: `${name}'s birthday month`,
-    subtitle,
+    kind,
+    emoji,
+    title: titleFor(years),
+    subtitle: subtitleFor(years),
     date,
     daysUntil: activeThisMonth ? 0 : daysBetween(now.getTime(), date),
     isActive: activeThisMonth,
     years,
   };
+}
+
+function birthdayMilestone(input: MilestoneInput, now: Date): Milestone | null {
+  if (!validMonth(input.birthMonth)) return null;
+  const name = input.name?.trim() || 'Your dog';
+  const monthIdx = input.birthMonth - 1;
+
+  // Subtitles stay time-neutral (no "today"/"this month") because the same
+  // string is shown on both the active card and the "Coming up · in N days"
+  // countdown — a relative-time word would contradict the countdown.
+  // Exact day known → celebrate on the day itself (like a Gotcha Day).
+  if (validDay(input.birthDay) && typeof input.birthYear === 'number') {
+    return anchoredMilestone(
+      'birthday', '🎂', localMidnight(input.birthYear, monthIdx, input.birthDay), 0,
+      () => `${name}'s birthday`,
+      (y) => y >= 1 ? `Turning ${y}` : `It's ${name}'s birthday!`,
+      now,
+    );
+  }
+
+  // Only the month is known → celebrate the whole birthday month.
+  return monthCelebration(
+    'birthday', '🎂', monthIdx, input.birthYear,
+    () => `${name}'s birthday month`,
+    (y) => typeof y === 'number' && y >= 1 ? `Turning ${y}` : 'It\'s their birthday month',
+    now,
+  );
 }
 
 function anchoredMilestone(
@@ -137,15 +183,28 @@ export function computeMilestones(
   const birthday = birthdayMilestone(input, now);
   if (birthday) list.push(birthday);
 
-  const adoption = parseLocalIsoDate(input.adoptionDate);
+  const adoption = parseFlexibleDate(input.adoptionDate);
   if (adoption) {
-    const m = anchoredMilestone(
-      'gotcha', '🏡', adoption.getTime(), 1,
-      (y) => `${name}'s Gotcha Day`,
-      (y) => `${y} year${plural(y)} since ${name} came home`,
-      now,
-    );
-    if (m) list.push(m);
+    if (adoption.day !== null) {
+      // Exact Gotcha Day known → celebrate on the day.
+      const m = anchoredMilestone(
+        'gotcha', '🏡', localMidnight(adoption.year, adoption.month - 1, adoption.day), 1,
+        () => `${name}'s Gotcha Day`,
+        (y) => `${y} year${plural(y)} since ${name} came home`,
+        now,
+      );
+      if (m) list.push(m);
+    } else {
+      // Only the month is known → celebrate the whole Gotcha month (once at
+      // least a year has passed, mirroring the exact-day 1-year minimum).
+      const m = monthCelebration(
+        'gotcha', '🏡', adoption.month - 1, adoption.year,
+        () => `${name}'s Gotcha month`,
+        (y) => `${y} year${plural(y ?? 0)} since ${name} came home`,
+        now,
+      );
+      if (typeof m.years === 'number' && m.years >= 1) list.push(m);
+    }
   }
 
   if (typeof input.createdAt === 'number' && input.createdAt > 0) {

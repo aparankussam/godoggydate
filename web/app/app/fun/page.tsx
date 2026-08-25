@@ -88,6 +88,15 @@ export default function FunPage() {
 
         {/* Quick links to each toy */}
         <div className="flex flex-wrap gap-2">
+          <Link href="/barkle" className="rounded-full border border-primary bg-primary/5 px-3.5 py-1.5 text-sm font-bold text-primary hover:bg-primary/10 transition-colors motion-reduce:transition-none">
+            🟩 Barkle — daily breed puzzle
+          </Link>
+          <Link href="/app/fun/snoot" className="rounded-full border border-primary bg-primary/5 px-3.5 py-1.5 text-sm font-bold text-primary hover:bg-primary/10 transition-colors motion-reduce:transition-none">
+            🐽 Snoot Boop
+          </Link>
+          <Link href="/app/fun/sticker-studio" className="rounded-full border border-border bg-white px-3.5 py-1.5 text-sm font-bold text-brown hover:border-primary/40 transition-colors motion-reduce:transition-none">
+            🎨 Sticker Studio
+          </Link>
           <a href="#wanted" className="rounded-full border border-border bg-white px-3.5 py-1.5 text-sm font-bold text-brown hover:border-primary/40 transition-colors motion-reduce:transition-none">
             🤠 Wanted Poster
           </a>
@@ -123,6 +132,18 @@ export default function FunPage() {
             <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />
             <DogQuizSection savedProfile={savedProfile} />
             <PlaqueCard savedProfile={savedProfile} />
+            <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Tap toy</p>
+              <h2 className="font-display text-xl text-brown leading-tight">🐽 Snoot Boop</h2>
+              <p className="mt-1 text-sm text-brown-mid leading-relaxed">
+                Boop {savedProfile.name?.trim() || 'your dog'}&apos;s snoot — it squishes, it beeps, the counter climbs.
+                Earn milestone titles and stickers you can stick on photos. Every number is a literal count of your own taps.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href="/app/fun/snoot" className="btn-primary inline-block px-5 py-2.5">Boop the snoot 🐽</Link>
+                <Link href="/app/fun/sticker-studio" className="rounded-full border border-primary px-5 py-2.5 text-sm font-bold text-primary hover:bg-primary/5 transition-colors motion-reduce:transition-none">🎨 Sticker Studio</Link>
+              </div>
+            </section>
             <div id="wanted" className="scroll-mt-20">
               <WantedPosterWeb savedProfile={savedProfile} dogId={authUser.uid} />
             </div>

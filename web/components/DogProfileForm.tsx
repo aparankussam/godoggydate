@@ -190,7 +190,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   // birthday-MONTH celebration; adoptionDate ('YYYY-MM-DD') Gotcha Day.
   const [birthYear, setBirthYear] = useState('');
   const [birthMonth, setBirthMonth] = useState('');
-  const [adoptionDate, setAdoptionDate] = useState('');
+  const [birthDay, setBirthDay] = useState(''); // optional exact day
+  // Gotcha Day is captured as year + month + optional day so owners who only
+  // remember the month can still log it (composed into adoptionDate on save).
+  const [gotchaYear, setGotchaYear] = useState('');
+  const [gotchaMonth, setGotchaMonth] = useState('');
+  const [gotchaDay, setGotchaDay] = useState('');
   const [prompts, setPrompts] = useState(
     DEFAULT_PROMPTS.map((prompt) => ({ prompt, answer: '' })),
   );
@@ -261,7 +266,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     setRabiesExpiry(initialProfile.rabiesExpiry ?? '');
     setBirthYear(typeof initialProfile.birthYear === 'number' ? String(initialProfile.birthYear) : '');
     setBirthMonth(typeof initialProfile.birthMonth === 'number' ? String(initialProfile.birthMonth) : '');
-    setAdoptionDate(initialProfile.adoptionDate ?? '');
+    setBirthDay(typeof initialProfile.birthDay === 'number' ? String(initialProfile.birthDay) : '');
+    // adoptionDate may be 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month only).
+    {
+      const g = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec((initialProfile.adoptionDate ?? '').trim());
+      setGotchaYear(g ? String(Number(g[1])) : '');
+      setGotchaMonth(g ? String(Number(g[2])) : '');
+      setGotchaDay(g && g[3] ? String(Number(g[3])) : '');
+    }
     setCoverPhotoIndex(typeof initialProfile.coverPhotoIndex === 'number' ? initialProfile.coverPhotoIndex : -1);
     setCoverFocusX(typeof initialProfile.coverFocusX === 'number' ? initialProfile.coverFocusX : 50);
     setCoverFocusY(typeof initialProfile.coverFocusY === 'number' ? initialProfile.coverFocusY : 50);
@@ -638,7 +650,22 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           const m = Number(birthMonth);
           return Number.isInteger(m) && m >= 1 && m <= 12 ? m : undefined;
         })(),
-        adoptionDate: adoptionDate.trim() || null,
+        birthDay: (() => {
+          const d = Number(birthDay);
+          return Number.isInteger(d) && d >= 1 && d <= 31 ? d : undefined;
+        })(),
+        // Compose Gotcha Day: full date when the day is known, else month-only
+        // ('YYYY-MM'), else null (cleared / incomplete). Needs both year+month.
+        adoptionDate: (() => {
+          const y = Number(gotchaYear);
+          const m = Number(gotchaMonth);
+          if (!(Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear())) return null;
+          if (!(Number.isInteger(m) && m >= 1 && m <= 12)) return null;
+          const mm = String(m).padStart(2, '0');
+          const d = Number(gotchaDay);
+          if (Number.isInteger(d) && d >= 1 && d <= 31) return `${y}-${mm}-${String(d).padStart(2, '0')}`;
+          return `${y}-${mm}`;
+        })(),
         prompts: prompts.filter((prompt) => prompt.answer.trim()),
       });
     } finally {
@@ -1122,10 +1149,11 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             celebrations.
           </p>
 
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          <p className="mt-3 mb-1.5 text-xs font-semibold text-brown-mid">🎂 Birthday</p>
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label htmlFor="birth-year" className="mb-1.5 block text-xs font-semibold text-brown-mid">
-                Birth year
+              <label htmlFor="birth-year" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
+                Year
               </label>
               <input
                 id="birth-year"
@@ -1134,21 +1162,21 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 inputMode="numeric"
                 min={1990}
                 max={new Date().getFullYear()}
-                placeholder="e.g. 2021"
+                placeholder="2021"
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
               />
             </div>
             <div>
-              <label htmlFor="birth-month" className="mb-1.5 block text-xs font-semibold text-brown-mid">
-                Birth month
+              <label htmlFor="birth-month" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
+                Month
               </label>
               <select
                 id="birth-month"
                 value={birthMonth}
                 onChange={(e) => setBirthMonth(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
               >
                 <option value="">—</option>
                 {MONTH_NAMES.map((m, i) => (
@@ -1156,20 +1184,77 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 ))}
               </select>
             </div>
+            <div>
+              <label htmlFor="birth-day" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
+                Day <span className="font-normal">(optional)</span>
+              </label>
+              <select
+                id="birth-day"
+                value={birthDay}
+                onChange={(e) => setBirthDay(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              >
+                <option value="">—</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <label htmlFor="adoption-date" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
-            Gotcha Day <span className="font-normal text-brown-light">(the day they came home)</span>
-          </label>
-          <input
-            id="adoption-date"
-            type="date"
-            value={adoptionDate}
-            onChange={(e) => setAdoptionDate(e.target.value)}
-            className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-          />
+          <p className="mt-4 mb-1.5 text-xs font-semibold text-brown-mid">🏡 Gotcha Day <span className="font-normal text-brown-light">(the day they came home)</span></p>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="gotcha-year" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
+                Year
+              </label>
+              <input
+                id="gotcha-year"
+                type="number"
+                inputMode="numeric"
+                min={1990}
+                max={new Date().getFullYear()}
+                placeholder="2022"
+                value={gotchaYear}
+                onChange={(e) => setGotchaYear(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              />
+            </div>
+            <div>
+              <label htmlFor="gotcha-month" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
+                Month
+              </label>
+              <select
+                id="gotcha-month"
+                value={gotchaMonth}
+                onChange={(e) => setGotchaMonth(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              >
+                <option value="">—</option>
+                {MONTH_NAMES.map((m, i) => (
+                  <option key={m} value={i + 1}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="gotcha-day" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
+                Day <span className="font-normal">(optional)</span>
+              </label>
+              <select
+                id="gotcha-day"
+                value={gotchaDay}
+                onChange={(e) => setGotchaDay(e.target.value)}
+                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              >
+                <option value="">—</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
-            We celebrate the birthday month unless you tell us the exact day — and Gotcha Day on the day itself.
+            Just year + month is fine — we&apos;ll celebrate the month. Add the exact day and we&apos;ll celebrate the day itself.
           </p>
         </div>
 

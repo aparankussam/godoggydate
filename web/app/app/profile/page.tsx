@@ -32,6 +32,7 @@ import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
 import DogtypeSection from '../../../components/DogtypeSection';
+import EarnedStickers from '../../../components/EarnedStickers';
 import LifeStageCard from '../../../components/LifeStageCard';
 import { feedback } from '../../../lib/feedback';
 import MilestonesCard from '../../../components/MilestonesCard';
@@ -573,6 +574,7 @@ export default function ProfilePage() {
         {savedProfile && complete && authUser && (
           <>
             <DogtypeSection savedProfile={savedProfile} />
+            <EarnedStickers dogId={authUser.uid} />
             <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
             <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
             {/* The Gotcha Day letter stays here — it only appears near a real

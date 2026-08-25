@@ -26,11 +26,13 @@ export interface SavedDogProfile {
   // Birthday & milestones — optional, owner-entered, freely client-writable
   // (not server-computed, so no firestore.rules guard needed). birthYear drives
   // the life-stage read (shared/lifeStage.ts); birthMonth drives the birthday-
-  // MONTH celebration (a year-only birthYear can't honestly drive an exact
-  // birthday); adoptionDate drives Gotcha Day (shared/milestones.ts).
+  // MONTH celebration; birthDay, when the owner knows it, upgrades that to an
+  // exact-day birthday (a year-only birthYear can't honestly drive either);
+  // adoptionDate drives Gotcha Day (shared/milestones.ts).
   birthYear?: number;
   birthMonth?: number; // 1–12
-  adoptionDate?: string | null; // 'YYYY-MM-DD'; null = cleared (merge-safe)
+  birthDay?: number; // 1–31, optional — exact day when the owner knows it
+  adoptionDate?: string | null; // 'YYYY-MM-DD' exact, or 'YYYY-MM' month-only; null = cleared
   photos?: string[];
   // Owner-chosen cover ("hero") photo + crop focal point. When set, these
   // override the AI's vibeCheck.heroPhotoIndex so the owner controls which photo

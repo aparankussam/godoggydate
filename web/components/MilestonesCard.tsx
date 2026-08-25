@@ -50,6 +50,7 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
     name: savedProfile.name,
     birthYear: savedProfile.birthYear,
     birthMonth: savedProfile.birthMonth,
+    birthDay: savedProfile.birthDay,
     adoptionDate: savedProfile.adoptionDate,
     createdAt: savedProfile.createdAt,
   });

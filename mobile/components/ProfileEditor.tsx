@@ -123,6 +123,10 @@ export default function ProfileEditor({
   const [birthMonth, setBirthMonth] = useState(
     typeof initialProfile?.birthMonth === 'number' ? String(initialProfile.birthMonth) : '',
   );
+  const [birthDay, setBirthDay] = useState(
+    typeof initialProfile?.birthDay === 'number' ? String(initialProfile.birthDay) : '',
+  );
+  // adoptionDate may be 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month only).
   const [adoptionDate, setAdoptionDate] = useState(initialProfile?.adoptionDate ?? '');
   const [zip, setZip] = useState(initialProfile?.zip ?? '');
   const [city, setCity] = useState(initialProfile?.city ?? '');
@@ -280,7 +284,9 @@ export default function ProfileEditor({
         // when empty so a cleared value actually clears under { merge: true }.
         birthYear: (() => { const y = Number(birthYear); return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : undefined; })(),
         birthMonth: (() => { const m = Number(birthMonth); return Number.isInteger(m) && m >= 1 && m <= 12 ? m : undefined; })(),
-        adoptionDate: adoptionDate.trim() || null,
+        birthDay: (() => { const d = Number(birthDay); return Number.isInteger(d) && d >= 1 && d <= 31 ? d : undefined; })(),
+        // Accept 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month only); anything else clears it.
+        adoptionDate: (() => { const t = adoptionDate.trim(); return /^\d{4}-\d{2}(-\d{2})?$/.test(t) ? t : null; })(),
         photos: safePhotos,
         location: locationLabel,
         city: city.trim() || undefined,
@@ -521,10 +527,21 @@ export default function ProfileEditor({
           maxLength={2}
         />
 
+        <Text style={styles.subLabel}>Birth day (optional, 1–31)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 14"
+          placeholderTextColor={colors.brownLight}
+          value={birthDay}
+          onChangeText={setBirthDay}
+          keyboardType="number-pad"
+          maxLength={2}
+        />
+
         <Text style={styles.subLabel}>Gotcha Day (optional) — the day they came home</Text>
         <TextInput
           style={styles.input}
-          placeholder="2021-08-14"
+          placeholder="2021-08 or 2021-08-14"
           placeholderTextColor={colors.brownLight}
           value={adoptionDate}
           onChangeText={setAdoptionDate}
@@ -533,7 +550,8 @@ export default function ProfileEditor({
           maxLength={10}
         />
         <Text style={styles.helper}>
-          We celebrate the birthday month unless you tell us the exact day — and Gotcha Day on the day itself.
+          Just year-month (2021-08) is fine — we&apos;ll celebrate the month. Add the day (2021-08-14) and we&apos;ll
+          celebrate the exact day. Same for the birthday: month only, or add the day.
         </Text>
       </View>
 
