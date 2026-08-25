@@ -56,6 +56,10 @@ const BANNED_TOPIC_WORDS = [
   'sick', 'ill', 'illness', 'disease', 'dying', 'die', 'death',
   'vet bill', 'cancer', 'tumor', 'euthan', 'put down',
 ];
+// Word-boundary matching — substring matching wrongly dropped clean texts
+// ("chill"/"will" contain "ill", "chip" contains "hip"), leaving too few valid
+// messages and surfacing "could not write".
+const BANNED_TOPIC_RE = new RegExp(`\\b(${BANNED_TOPIC_WORDS.map((w) => w.trim()).join('|')})\\b`, 'i');
 
 function extractBearerToken(request: Request): string | null {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';
@@ -104,7 +108,8 @@ function sanitizeTexts(raw: unknown): TextsContent | null {
     if (!t) continue;
     const lower = t.toLowerCase();
     if (BANNED_PHRASES.some((p) => lower.includes(p))) continue;
-    if (BANNED_TOPIC_WORDS.some((w) => lower.includes(w))) continue;
+    // Word-boundary — substring rejected clean texts ("chill"/"will" contain "ill").
+    if (BANNED_TOPIC_RE.test(t)) continue;
     cleaned.push(t);
     if (cleaned.length >= MAX_TEXTS) break;
   }

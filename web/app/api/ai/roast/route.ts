@@ -104,9 +104,14 @@ interface RoastContent {
   compliment: string;
 }
 
+// WORD-BOUNDARY matching. Substring matching wrongly rejected clean output —
+// "chill"/"spill"/"will" contain "ill", "chip"/"ship" contain "hip", "velvet"
+// contains "vet" — so nearly every valid roast failed sanitize and surfaced
+// "Could not write the roast". \b…\b matches the banned word only on its own.
+const BANNED_TOPIC_RE = new RegExp(`\\b(${BANNED_TOPIC_WORDS.map((w) => w.trim()).join('|')})\\b`, 'i');
+
 function violatesBannedTopic(text: string): boolean {
-  const t = text.toLowerCase();
-  return BANNED_TOPIC_WORDS.some((w) => t.includes(w)) || BANNED_PHRASES.some((p) => t.includes(p));
+  return BANNED_TOPIC_RE.test(text) || BANNED_PHRASES.some((p) => text.toLowerCase().includes(p));
 }
 
 function sanitizeRoast(raw: unknown): RoastContent | null {

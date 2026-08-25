@@ -111,9 +111,12 @@ function cleanLine(v: unknown, max: number): string {
   return typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
 }
 
+// Word-boundary matching — substring matching over-rejected clean reviews
+// ("sick" in "sickest", "single" in "singled", etc.), surfacing "could not write".
+const BANNED_TOPIC_RE = new RegExp(`\\b(${BANNED_TOPIC_SUBSTRINGS.map((t) => t.trim()).join('|')})\\b`, 'i');
+
 function hasBannedTopic(text: string): boolean {
-  const lower = text.toLowerCase();
-  return BANNED_TOPIC_SUBSTRINGS.some((t) => lower.includes(t));
+  return BANNED_TOPIC_RE.test(text);
 }
 
 function sanitizeReview(raw: unknown): HumanReviewContent | null {

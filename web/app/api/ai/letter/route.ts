@@ -106,7 +106,10 @@ function sanitizeLetter(raw: unknown, dogName: string): LetterContent | null {
     'surrender', 'euthan', 'cancer', 'tumor', 'surgery', 'dying',
     'passed away', 'rainbow bridge', 'illness', 'disease',
   ];
-  if (BANNED_TOPICS.some((w) => hay.includes(w))) return null;
+  // Word-boundary — "stray" must not match "strayed"/"astray", "dying" must not
+  // match "undying", etc., or a heartfelt letter fails sanitize ("could not write").
+  const bannedRe = new RegExp(`\\b(${BANNED_TOPICS.join('|')})\\b`, 'i');
+  if (bannedRe.test(hay)) return null;
   return { salutation, body, signOff: ensurePaw(signOffRaw, dogName) };
 }
 
