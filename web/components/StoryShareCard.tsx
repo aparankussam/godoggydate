@@ -32,6 +32,11 @@ interface Props {
   subtext?: string;
   /** Small uppercase eyebrow above the headline (e.g. "DOGTYPE", "MILESTONE"). */
   kicker?: string;
+  /** Optional trait chips (emoji + label) that lead with the personality in
+   *  plain words instead of any cryptic code — e.g. Dogtype's four axis poles
+   *  (⚡ Spark · 🤼 Rowdy · 🎉 Outgoing · 🚀 Bold). Rendered as a wrapped row of
+   *  inline-hex pills so html2canvas captures them faithfully. */
+  chips?: { emoji: string; label: string }[];
   /** Hero photo. Firebase Storage URLs need NO crossOrigin here — capture
    *  re-fetches with useCORS (see shareCard.ts / DogTradingCard rationale). */
   photoUrl?: string;
@@ -52,6 +57,7 @@ export default function StoryShareCard({
   headline,
   subtext,
   kicker,
+  chips,
   photoUrl,
   photoFocus,
   emoji,
@@ -110,6 +116,29 @@ export default function StoryShareCard({
           <p className="mt-3 text-white/85 leading-snug" style={{ fontSize: 22 }}>
             {subtext}
           </p>
+        )}
+
+        {/* Trait chips — warm, self-explanatory personality in place of any
+            code. Inline hex/rgba only (no Tailwind color tokens or oklch) so
+            html2canvas captures them faithfully. */}
+        {chips && chips.length > 0 && (
+          <div className="mt-5 flex flex-wrap gap-2">
+            {chips.map((c, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-2"
+                style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  border: '1px solid rgba(255,255,255,0.26)',
+                  borderRadius: 9999,
+                  padding: '7px 15px',
+                }}
+              >
+                <span style={{ fontSize: 22, lineHeight: 1 }} aria-hidden="true">{c.emoji}</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff' }}>{c.label}</span>
+              </span>
+            ))}
+          </div>
         )}
 
         {/* Baked-in brand footer — screenshots strip metadata, so the URL has

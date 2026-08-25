@@ -11,7 +11,7 @@ import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
-import { computeDogtype, dogtypeCodeDecode } from '../../shared/dogtype';
+import { computeDogtype } from '../../shared/dogtype';
 import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
@@ -30,7 +30,6 @@ export default function DogtypeSection({ savedProfile }: Props) {
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
-  const codeDecode = dogtypeCodeDecode(dogtype.code);
 
   async function handleShare() {
     if (sharing) return;
@@ -54,17 +53,20 @@ export default function DogtypeSection({ savedProfile }: Props) {
           <Text style={styles.eyebrow}>Dogtype</Text>
           <Text style={styles.title}>{dogtype.emoji} {dogtype.name}</Text>
         </View>
-        <View style={styles.codeBadge}>
-          <Text style={styles.codeText}>{dogtype.code}</Text>
-        </View>
       </View>
 
       <Text style={styles.blurb}>{dogtype.blurb}</Text>
-      {codeDecode && (
-        <Text style={styles.codeDecode}>
-          <Text style={styles.codeDecodeBold}>{dogtype.code}</Text> = {codeDecode}
-        </Text>
-      )}
+
+      {/* Trait chips — the warm, self-explanatory personality read that leads in
+          place of the old 4-letter code. Same four axes, plainly named. */}
+      <View style={styles.traitChips}>
+        {dogtype.axes.map((a) => (
+          <View key={a.key} style={styles.traitChip}>
+            <Text style={styles.traitChipEmoji}>{a.pole.emoji}</Text>
+            <Text style={styles.traitChipLabel}>{a.pole.label}</Text>
+          </View>
+        ))}
+      </View>
 
       {/* The card itself — captured to PNG at full resolution regardless of the
           display scale applied by the wrapper below. */}
@@ -126,18 +128,21 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   title: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginTop: 1 },
-  codeBadge: {
-    backgroundColor: colors.white,
+  blurb: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  traitChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  traitChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.cream,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.sm,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
-  codeText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown, letterSpacing: 2 },
-  blurb: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
-  codeDecode: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 2 },
-  codeDecodeBold: { fontFamily: fonts.bold },
+  traitChipEmoji: { fontSize: 12 },
+  traitChipLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown },
   cardScaleWrap: {
     height: 520, // 604 card height * 0.82 scale, leaving no dead space
     alignItems: 'center',

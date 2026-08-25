@@ -37,12 +37,10 @@ const DogtypeCard = forwardRef<View, Props>(({ dogtype, dogName, photoUrl }, ref
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Header */}
+      {/* Header — the memorable identity is the name + emoji below, so the
+          eyebrow just names the system. No cryptic 4-letter stamp. */}
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Dogtype</Text>
-        <View style={styles.codeBadge}>
-          <Text style={styles.codeText}>{dogtype.code}</Text>
-        </View>
       </View>
 
       {/* Hero avatar */}
@@ -82,7 +80,7 @@ const DogtypeCard = forwardRef<View, Props>(({ dogtype, dogName, photoUrl }, ref
 
         <View style={styles.footer}>
           <Text style={styles.brand}>GoDoggyDate</Text>
-          <Text style={styles.brandUrl}>godoggydate.com/dogtype/{dogtype.code}</Text>
+          <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
     </View>
@@ -117,18 +115,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 2.4,
-  },
-  codeBadge: {
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: radius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  codeText: {
-    color: 'rgba(255,255,255,0.95)',
-    fontFamily: fonts.bold,
-    fontSize: 14,
-    letterSpacing: 3,
   },
   hero: {
     alignItems: 'center',

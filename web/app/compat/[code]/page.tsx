@@ -33,7 +33,7 @@ export function generateStaticParams() {
 export function generateMetadata({ params }: PageProps): Metadata {
   const type = dogtypeByCode(params.code);
   if (!type) return { title: 'Dogtype not found — GoDoggyDate' };
-  const title = `${type.name} (${type.code}) — is YOUR dog compatible? | GoDoggyDate`;
+  const title = `${type.name} — is YOUR dog compatible? | GoDoggyDate`;
   const description = `Would your dog get along with ${aOrAn(type.name)}? See the types that vibe best with the ${strip(type.name)}, then find your own dog's Dogtype — free.`;
   return {
     title,
@@ -92,12 +92,7 @@ export default function CompatPage({ params }: PageProps) {
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-12 pb-8">
         <div className="rounded-[2rem] overflow-hidden text-white p-8 sm:p-12" style={{ background: heroGradient }}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/80">Compatibility</p>
-            <span className="font-mono text-base font-bold tracking-[0.28em] bg-black/25 rounded-md px-3 py-1.5">
-              {type.code}
-            </span>
-          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/80">Compatibility</p>
           <div className="mt-6 text-7xl sm:text-8xl leading-none" aria-hidden="true">{type.emoji}</div>
           <h1 className="mt-4 font-display text-4xl sm:text-6xl leading-tight">
             {type.name} — is YOUR dog compatible?
@@ -106,6 +101,16 @@ export default function CompatPage({ params }: PageProps) {
             The <span className="font-semibold">{strip(type.name)}</span> is {type.tagline.replace(/[.!]$/, '')}.
             {' '}Would your dog and {aOrAn(type.name)} get along? Here&apos;s the playful read.
           </p>
+          <div className="mt-5 flex flex-wrap gap-1.5">
+            {type.axes.map((a) => (
+              <span
+                key={a.key}
+                className="inline-flex items-center gap-1 rounded-full bg-cream border border-border px-2.5 py-1 text-xs font-semibold text-brown"
+              >
+                <span aria-hidden="true">{a.pole.emoji}</span> {a.pole.label}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -137,7 +142,6 @@ export default function CompatPage({ params }: PageProps) {
                       </span>
                     </div>
                     <p className="mt-0.5 text-sm text-brown-light">{meta.blurb}</p>
-                    <p className="mt-0.5 text-[10px] font-mono text-brown-light tracking-widest">{t.code}</p>
                   </div>
                 </Link>
               );
@@ -198,7 +202,6 @@ export default function CompatPage({ params }: PageProps) {
               >
                 <div className="text-2xl" aria-hidden="true">{t.emoji}</div>
                 <p className="mt-1 text-xs font-bold text-brown leading-tight">{t.name}</p>
-                <p className="text-[10px] font-mono text-brown-light tracking-widest">{code}</p>
               </Link>
             );
           })}

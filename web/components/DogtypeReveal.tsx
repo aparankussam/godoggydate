@@ -3,8 +3,10 @@
 // The one-time celebratory REVEAL of a dog's Dogtype — shown right after the
 // owner finishes onboarding / completes their profile. It's the emotional
 // payoff before the shareable DogtypeCard: a short, self-contained CSS
-// sequence (suspense build → the 4-letter code stamps in one letter at a time
-// → emoji + name + tagline burst) capped by a "See my Dogtype" button.
+// sequence (suspense build → the emoji + name + tagline burst in big → the four
+// personality trait chips stagger in) capped by a "See my Dogtype" button.
+// The memorable identity is the NAME + EMOJI; the personality is the 4 traits —
+// there is deliberately no cryptic letter code anywhere in the reveal.
 //
 // It reads ONLY from a Dogtype already produced by computeDogtype (the same
 // deterministic type the profile page will show), so it never invents a
@@ -27,7 +29,8 @@ interface Props {
 
 // Same spark/zen split the DogtypeCard uses, so the reveal's colorway matches
 // the card the owner is about to see. Spark dogs (code starts with 'E') get the
-// fiery gradient; everyone else the warm calm one.
+// fiery gradient; everyone else the warm calm one. The code is used ONLY behind
+// the scenes here to pick the colorway — it is never shown.
 function gradientFor(code: string): string {
   const spark = code[0] === 'E';
   return spark
@@ -35,17 +38,21 @@ function gradientFor(code: string): string {
     : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
 }
 
-// Per-letter stamp delay (ms). Kept in JS so the "reveal button" timer below
-// stays in lockstep with the CSS animation-delays.
-const STAMP_STEP = 150;
-const STAMP_START = 550;
+// Animation anchors (ms). Kept in JS so the "reveal button" timer below stays in
+// lockstep with the CSS animation-delays. The emoji + name land first (the
+// payoff), then the four trait chips stagger in one after another.
+const EMOJI_AT = 520;
+const NAME_AT = 760;
+const TAGLINE_AT = 980;
+const CHIP_START = 1220;
+const CHIP_STEP = 140;
 
 export default function DogtypeReveal({ dogtype, onDone, dogName }: Props) {
   const [reduced, setReduced] = useState(false);
   const [showButton, setShowButton] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const letters = dogtype.code.split('');
+  const axes = dogtype.axes;
   const intro = dogName?.trim() ? `${dogName.trim()}, meet your Dogtype` : 'Meet your Dogtype';
 
   useEffect(() => {
@@ -61,17 +68,17 @@ export default function DogtypeReveal({ dogtype, onDone, dogName }: Props) {
       return;
     }
 
-    // Full sequence: reveal the button only after the burst has landed, so the
-    // owner watches the payoff before being offered the exit.
-    const burstEnd = STAMP_START + letters.length * STAMP_STEP + 900;
-    const t = setTimeout(() => setShowButton(true), burstEnd);
+    // Full sequence: reveal the button only after the last trait chip has landed,
+    // so the owner watches the whole payoff before being offered the exit.
+    const sequenceEnd = CHIP_START + axes.length * CHIP_STEP + 700;
+    const t = setTimeout(() => setShowButton(true), sequenceEnd);
     timers.current.push(t);
 
     return () => {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, [letters.length]);
+  }, [axes.length]);
 
   // Always dismissible (Escape) even before the button appears, and lock
   // background scroll while the full-screen overlay is up.
@@ -110,10 +117,10 @@ export default function DogtypeReveal({ dogtype, onDone, dogName }: Props) {
           0%, 100% { opacity: 0.35; transform: scale(0.9) }
           50%      { opacity: 0.7;  transform: scale(1.05) }
         }
-        @keyframes dtrStamp {
-          0%   { opacity: 0; transform: scale(2.4) rotate(-8deg) }
-          60%  { opacity: 1; transform: scale(0.9) rotate(2deg) }
-          100% { opacity: 1; transform: scale(1) rotate(0deg) }
+        @keyframes dtrChip {
+          0%   { opacity: 0; transform: scale(0.6) translateY(8px) }
+          70%  { opacity: 1; transform: scale(1.08) translateY(0) }
+          100% { opacity: 1; transform: scale(1) translateY(0) }
         }
         @keyframes dtrBurst {
           0%   { opacity: 0; transform: scale(0.4) }
@@ -143,40 +150,40 @@ export default function DogtypeReveal({ dogtype, onDone, dogName }: Props) {
         {intro}
       </p>
 
-      {/* The 4-letter code — stamps in one letter at a time. */}
-      <div className="relative mt-6 flex items-center gap-2 sm:gap-3" aria-hidden="true">
-        {letters.map((ch, i) => (
-          <span
-            key={`${ch}-${i}`}
-            className="flex h-16 w-14 items-center justify-center rounded-2xl border border-white/25 bg-black/20 font-mono text-4xl font-black tracking-tight sm:h-20 sm:w-16 sm:text-5xl"
-            style={anim('dtrStamp', reduced ? 0 : STAMP_START + i * STAMP_STEP)}
-          >
-            {ch}
-          </span>
-        ))}
-      </div>
-      <span className="sr-only">Dogtype code {dogtype.code}</span>
-
-      {/* Emoji + name + tagline burst. */}
+      {/* The payoff — emoji + name burst in big, the memorable identity. */}
       <div
-        className="relative mt-8 text-7xl leading-none"
+        className="relative mt-6 text-7xl leading-none sm:text-8xl"
         aria-hidden="true"
-        style={anim('dtrBurst', reduced ? 0 : STAMP_START + letters.length * STAMP_STEP + 150)}
+        style={anim('dtrBurst', reduced ? 0 : EMOJI_AT)}
       >
         {dogtype.emoji}
       </div>
       <h2
         className="relative mt-4 font-display text-4xl leading-tight sm:text-5xl"
-        style={anim('dtrRise', reduced ? 0 : STAMP_START + letters.length * STAMP_STEP + 350)}
+        style={anim('dtrRise', reduced ? 0 : NAME_AT)}
       >
         {dogtype.name}
       </h2>
       <p
         className="relative mt-2 max-w-xs text-base font-semibold italic text-white/90"
-        style={anim('dtrRise', reduced ? 0 : STAMP_START + letters.length * STAMP_STEP + 500)}
+        style={anim('dtrRise', reduced ? 0 : TAGLINE_AT)}
       >
         {dogtype.tagline}
       </p>
+
+      {/* The personality — the four trait chips stagger in one after another,
+          the warm, self-explanatory read that replaces the old letter code. */}
+      <div className="relative mt-6 flex max-w-xs flex-wrap items-center justify-center gap-2">
+        {axes.map((a, i) => (
+          <span
+            key={a.key}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3.5 py-1.5 text-sm font-semibold text-white"
+            style={anim('dtrChip', reduced ? 0 : CHIP_START + i * CHIP_STEP)}
+          >
+            <span aria-hidden="true">{a.pole.emoji}</span> {a.pole.label}
+          </span>
+        ))}
+      </div>
 
       {/* Exit — appears once the burst has landed (immediately in reduced mode). */}
       <button

@@ -23,7 +23,9 @@ export default function OpengraphImage({ params }: { params: { code: string } })
 
   const name = type?.name ?? 'Dogtype';
   const emoji = type?.emoji ?? '🐾';
-  const code = type?.code ?? '';
+  // Warm, self-explanatory trait chips lead the unfurl instead of a cryptic
+  // 4-letter code. The URL still carries the code slug (routing unchanged).
+  const axes = type?.axes ?? [];
 
   return new ImageResponse(
     (
@@ -40,17 +42,37 @@ export default function OpengraphImage({ params }: { params: { code: string } })
           color: '#fff',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ display: 'flex', fontSize: 28, letterSpacing: 6, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>
             COMPATIBILITY
           </div>
-          <div style={{ display: 'flex', fontSize: 34, fontWeight: 700, letterSpacing: 10, background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '8px 22px' }}>
-            {code}
-          </div>
         </div>
-        <div style={{ display: 'flex', fontSize: 130, marginTop: 16, lineHeight: 1 }}>{emoji}</div>
+        <div style={{ display: 'flex', fontSize: 112, marginTop: 12, lineHeight: 1 }}>{emoji}</div>
         <div style={{ display: 'flex', fontSize: 76, fontWeight: 700, marginTop: 12, lineHeight: 1.02 }}>{name}</div>
-        <div style={{ display: 'flex', fontSize: 40, marginTop: 16, color: 'rgba(255,255,255,0.92)', fontStyle: 'italic' }}>
+        {axes.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 18 }}>
+            {axes.map((a) => (
+              <div
+                key={a.key}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  background: 'rgba(255,255,255,0.16)',
+                  border: '2px solid rgba(255,255,255,0.30)',
+                  borderRadius: 999,
+                  padding: '9px 20px',
+                  fontSize: 28,
+                  fontWeight: 700,
+                }}
+              >
+                <div style={{ display: 'flex' }}>{a.pole.emoji}</div>
+                <div style={{ display: 'flex' }}>{a.pole.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', fontSize: 38, marginTop: 18, color: 'rgba(255,255,255,0.92)', fontStyle: 'italic' }}>
           Is YOUR dog compatible?
         </div>
         <div

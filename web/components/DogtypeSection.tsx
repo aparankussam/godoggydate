@@ -6,7 +6,6 @@
 // not a measured score — real compatibility comes from the swipe engine).
 
 import { useRef, useState } from 'react';
-import Link from 'next/link';
 import type { SavedDogProfile } from '../lib/auth';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
@@ -15,7 +14,7 @@ import DogtypeCard from './DogtypeCard';
 import StoryShareCard, { shareOrDownloadStoryCard } from './StoryShareCard';
 import DogtypeReveal from './DogtypeReveal';
 import { feedback } from '../lib/feedback';
-import { computeDogtype, dogtypeCodeDecode } from '../../shared/dogtype';
+import { computeDogtype } from '../../shared/dogtype';
 import CompatExplorer from './CompatExplorer';
 
 interface Props {
@@ -36,7 +35,6 @@ export default function DogtypeSection({ savedProfile }: Props) {
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
   const photoFocus = getHeroFocus(savedProfile);
-  const codeDecode = dogtypeCodeDecode(dogtype.code);
   const storyTheme = dogtype.axes[0]?.pole.label === 'Zen' ? 'zen' : 'spark';
 
   async function handleStoryShare() {
@@ -91,37 +89,27 @@ export default function DogtypeSection({ savedProfile }: Props) {
 
   return (
     <section className="rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-primary/5 p-5">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Dogtype</p>
-          <h2 className="font-display text-xl text-brown leading-tight">
-            {dogtype.emoji} {dogtype.name}
-          </h2>
-        </div>
-        <Link
-          href={`/dogtype/${dogtype.code}`}
-          onClick={() => trackEvent('dogtype_code_link_click', { code: dogtype.code })}
-          className="font-mono text-sm font-bold tracking-[0.2em] text-brown bg-white rounded-md px-2.5 py-1.5 border border-border hover:border-primary transition-colors"
-          aria-label={`What is the ${dogtype.code} Dogtype? ${codeDecode ? `(${codeDecode})` : ''}`}
-          title={codeDecode ?? undefined}
-        >
-          {dogtype.code}
-        </Link>
+      <div className="mb-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Dogtype</p>
+        <h2 className="font-display text-xl text-brown leading-tight">
+          {dogtype.emoji} {dogtype.name}
+        </h2>
       </div>
 
       <p className="text-sm text-brown-mid leading-relaxed">{dogtype.blurb}</p>
-      {codeDecode && (
-        <p className="mt-1 text-[11px] text-brown-light">
-          <span className="font-mono font-bold">{dogtype.code}</span> = {codeDecode}
-        </p>
-      )}
-      <Link
-        href={`/dogtype/${dogtype.code}`}
-        onClick={() => trackEvent('dogtype_code_link_click', { code: dogtype.code, source: 'text' })}
-        className="mt-1 inline-block text-xs font-semibold text-primary underline underline-offset-2"
-      >
-        See the full {dogtype.name} type →
-      </Link>
+
+      {/* Trait chips — the warm, self-explanatory read of the four axes that
+          leads in place of the old 4-letter code. */}
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {dogtype.axes.map((a) => (
+          <span
+            key={a.key}
+            className="inline-flex items-center gap-1 rounded-full bg-cream border border-border px-2.5 py-1 text-xs font-semibold text-brown"
+          >
+            <span aria-hidden="true">{a.pole.emoji}</span> {a.pole.label}
+          </span>
+        ))}
+      </div>
 
       {/* The card itself (this is what gets captured to PNG) */}
       <div className="mt-4 flex justify-center">
@@ -196,6 +184,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
           kicker="Dogtype"
           headline={`${dogName} is ${dogtype.name}`}
           subtext={dogtype.tagline}
+          chips={dogtype.axes.map((a) => ({ emoji: a.pole.emoji, label: a.pole.label }))}
           emoji={dogtype.emoji}
           photoUrl={photo ?? undefined}
           photoFocus={photoFocus}

@@ -7,7 +7,6 @@
 // thrown away).
 
 import { useState } from 'react';
-import { VIBE_CODE_AXES } from '../lib/vibeCheck';
 import type { DogArchetype } from '../../shared/types';
 
 interface Props {
@@ -25,11 +24,9 @@ export default function VibeTypeCard({ archetype }: Props) {
       className="w-full text-left rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-primary/5 px-4 py-3 transition-colors hover:from-gold/15"
     >
       <div className="flex items-center gap-3">
-        <span className="shrink-0 rounded-lg bg-brown text-gold font-mono font-bold text-sm tracking-[0.2em] px-2.5 py-1.5">
-          {archetype.code}
-        </span>
+        <span className="shrink-0 text-2xl" aria-hidden="true">✨</span>
         <div className="min-w-0 flex-1">
-          <p className="font-display text-lg text-brown leading-tight truncate">✨ {archetype.name}</p>
+          <p className="font-display text-lg text-brown leading-tight truncate">{archetype.name}</p>
           <p className="text-[11px] text-brown-light">Tap to see why</p>
         </div>
         <span className="shrink-0 text-brown-light text-sm">{expanded ? '▲' : '▼'}</span>
@@ -38,9 +35,6 @@ export default function VibeTypeCard({ archetype }: Props) {
       {expanded && (
         <div className="mt-3 pt-3 border-t border-gold/20">
           <p className="text-sm text-brown-mid leading-relaxed">{archetype.description}</p>
-          <p className="mt-2 text-[10px] uppercase tracking-[0.1em] text-brown-light">
-            4-axis read: {VIBE_CODE_AXES}
-          </p>
         </div>
       )}
     </button>

@@ -38,9 +38,6 @@ export default function DogtypeCard({ dogtype, dogName, photoUrl, photoFocus, in
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 pt-5 z-10">
         <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">Dogtype</p>
-        <p className="font-mono text-sm font-bold tracking-[0.28em] text-white/90 bg-black/25 rounded-md px-2.5 py-1.5">
-          {dogtype.code}
-        </p>
       </div>
 
       {/* Hero */}
@@ -77,22 +74,31 @@ export default function DogtypeCard({ dogtype, dogName, photoUrl, photoFocus, in
         <p className="mt-1 text-white/85 text-sm font-semibold italic">{dogtype.tagline}</p>
         <p className="mt-2 text-white/80 text-[13px] leading-snug">{dogtype.blurb}</p>
 
-        {/* Axis readout — the four real dimensions, straight from the profile */}
-        <div className="mt-4 grid grid-cols-2 gap-1.5">
+        {/* Trait chips — the four real dimensions, straight from the profile.
+            Inline hex/rgba (never Tailwind color tokens or oklch) so html2canvas
+            captures them faithfully; this warm, self-explanatory row is the
+            identity, in place of any cryptic code. */}
+        <div className="mt-4 flex flex-wrap gap-1.5">
           {dogtype.axes.map((a) => (
-            <div
+            <span
               key={a.key}
-              className="rounded-xl bg-white/12 border border-white/15 px-2.5 py-1.5 flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5"
+              style={{
+                background: 'rgba(255,255,255,0.14)',
+                border: '1px solid rgba(255,255,255,0.24)',
+                borderRadius: 9999,
+                padding: '5px 11px',
+              }}
             >
-              <span style={{ fontSize: 16 }} aria-hidden="true">{a.pole.emoji}</span>
-              <span className="text-[11px] font-bold text-white">{a.pole.label}</span>
-            </div>
+              <span style={{ fontSize: 15, lineHeight: 1 }} aria-hidden="true">{a.pole.emoji}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#ffffff' }}>{a.pole.label}</span>
+            </span>
           ))}
         </div>
 
         <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between">
           <p className="font-display text-sm text-white">GoDoggyDate</p>
-          <p className="text-[10px] text-white/60">godoggydate.com/dogtype/{dogtype.code}</p>
+          <p className="text-[10px] text-white/60">godoggydate.com</p>
         </div>
       </div>
     </div>
