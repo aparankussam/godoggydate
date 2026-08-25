@@ -446,6 +446,12 @@ export async function POST(request: Request) {
           generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: VIBE_CHECK_SCHEMA,
+            // Flash models spend part of maxOutputTokens "thinking" before
+            // writing the answer; this task doesn't need that reasoning, and
+            // without it the real JSON risks truncating mid-string (same root
+            // cause as the apology/roast/texts/letter/human-review outage,
+            // 2026-08-25 — 2048 has masked it here so far, but not guaranteed to).
+            thinkingConfig: { thinkingBudget: 0 },
             maxOutputTokens: 2048,
             temperature: 1,
           },

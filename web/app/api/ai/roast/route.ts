@@ -288,7 +288,12 @@ Write ${dogName}'s certified-affectionate roast now: exactly 3 loving roast line
           generationConfig: {
             responseMimeType: 'application/json',
             ...(useSchema ? { responseSchema: ROAST_SCHEMA } : {}),
-            maxOutputTokens: 512,
+            // Flash models spend part of maxOutputTokens "thinking" before
+            // writing the answer; a short roast doesn't need that reasoning,
+            // and without it the real JSON was getting truncated mid-string
+            // (silent generation failures in prod, 2026-08-25). Disable it.
+            thinkingConfig: { thinkingBudget: 0 },
+            maxOutputTokens: 768,
             temperature: 1.1,
           },
         }),

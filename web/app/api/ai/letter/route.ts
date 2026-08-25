@@ -358,7 +358,12 @@ Write ${dogName}'s ${milestone.kind === 'gotcha' ? 'Gotcha Day' : 'birthday'} le
           generationConfig: {
             responseMimeType: 'application/json',
             ...(useSchema ? { responseSchema: LETTER_SCHEMA } : {}),
-            maxOutputTokens: 640,
+            // Flash models spend part of maxOutputTokens "thinking" before
+            // writing the answer; this letter doesn't need that reasoning,
+            // and without it the real JSON was getting truncated mid-string
+            // (silent generation failures in prod, 2026-08-25). Disable it.
+            thinkingConfig: { thinkingBudget: 0 },
+            maxOutputTokens: 896,
             temperature: 0.9,
           },
         }),

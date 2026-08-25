@@ -256,7 +256,12 @@ Write ${dogName}'s unhinged text thread now, as ${MIN_TEXTS}-${MAX_TEXTS} short 
           generationConfig: {
             responseMimeType: 'application/json',
             ...(useSchema ? { responseSchema: TEXTS_SCHEMA } : {}),
-            maxOutputTokens: 512,
+            // Flash models spend part of maxOutputTokens "thinking" before
+            // writing the answer; a short text thread doesn't need that
+            // reasoning, and without it the real JSON was getting truncated
+            // mid-string (silent generation failures in prod, 2026-08-25).
+            thinkingConfig: { thinkingBudget: 0 },
+            maxOutputTokens: 768,
             temperature: 1.2,
           },
         }),

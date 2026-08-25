@@ -307,7 +307,12 @@ Write ${dogName}'s deadpan five-star-style review of "my human" now.`;
           generationConfig: {
             responseMimeType: 'application/json',
             ...(useSchema ? { responseSchema: REVIEW_SCHEMA } : {}),
-            maxOutputTokens: 640,
+            // Flash models spend part of maxOutputTokens "thinking" before
+            // writing the answer; this review doesn't need that reasoning,
+            // and without it the real JSON was getting truncated mid-string
+            // (silent generation failures in prod, 2026-08-25). Disable it.
+            thinkingConfig: { thinkingBudget: 0 },
+            maxOutputTokens: 896,
             temperature: 1.0,
           },
         }),
