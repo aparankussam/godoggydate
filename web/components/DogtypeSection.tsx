@@ -15,7 +15,7 @@ import DogtypeCard from './DogtypeCard';
 import StoryShareCard, { shareOrDownloadStoryCard } from './StoryShareCard';
 import DogtypeReveal from './DogtypeReveal';
 import { feedback } from '../lib/feedback';
-import { computeDogtype } from '../../shared/dogtype';
+import { computeDogtype, dogtypeCodeDecode } from '../../shared/dogtype';
 import CompatExplorer from './CompatExplorer';
 
 interface Props {
@@ -36,6 +36,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
   const photoFocus = getHeroFocus(savedProfile);
+  const codeDecode = dogtypeCodeDecode(dogtype.code);
   const storyTheme = dogtype.axes[0]?.pole.label === 'Zen' ? 'zen' : 'spark';
 
   async function handleStoryShare() {
@@ -101,19 +102,25 @@ export default function DogtypeSection({ savedProfile }: Props) {
           href={`/dogtype/${dogtype.code}`}
           onClick={() => trackEvent('dogtype_code_link_click', { code: dogtype.code })}
           className="font-mono text-sm font-bold tracking-[0.2em] text-brown bg-white rounded-md px-2.5 py-1.5 border border-border hover:border-primary transition-colors"
-          aria-label={`What is the ${dogtype.code} Dogtype?`}
+          aria-label={`What is the ${dogtype.code} Dogtype? ${codeDecode ? `(${codeDecode})` : ''}`}
+          title={codeDecode ?? undefined}
         >
           {dogtype.code}
         </Link>
       </div>
 
       <p className="text-sm text-brown-mid leading-relaxed">{dogtype.blurb}</p>
+      {codeDecode && (
+        <p className="mt-1 text-[11px] text-brown-light">
+          <span className="font-mono font-bold">{dogtype.code}</span> = {codeDecode}
+        </p>
+      )}
       <Link
         href={`/dogtype/${dogtype.code}`}
         onClick={() => trackEvent('dogtype_code_link_click', { code: dogtype.code, source: 'text' })}
         className="mt-1 inline-block text-xs font-semibold text-primary underline underline-offset-2"
       >
-        What&apos;s a {dogtype.code}? See the full type →
+        See the full {dogtype.name} type →
       </Link>
 
       {/* The card itself (this is what gets captured to PNG) */}

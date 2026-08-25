@@ -257,6 +257,16 @@ export function dogtypeByCode(code: string | null | undefined): Dogtype | null {
   };
 }
 
+// A short, human-readable decode of a bare 4-letter code, e.g. "EROB" ->
+// "Spark · Rowdy · Outgoing · Bold". Wherever the compact code is shown on its
+// own (a badge, a grid tile, a share card) it reads as noise without this —
+// this is the one-line fix for "EROB doesn't say much".
+export function dogtypeCodeDecode(code: string | null | undefined): string | null {
+  const type = dogtypeByCode(code);
+  if (!type) return null;
+  return type.axes.map((a) => a.pole.label).join(' · ');
+}
+
 // ── Playful "plays well with" hint (NOT a measured score) ────────────────────
 // A transparent, deterministic heuristic over the axes — clearly labeled in the
 // UI as a vibe, never a percentage. Real compatibility numbers come only from

@@ -8,7 +8,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { DOGTYPE_CODES, dogtypeByCode, dogtypeBestMatches } from '../../../../shared/dogtype';
+import { DOGTYPE_CODES, dogtypeByCode, dogtypeBestMatches, dogtypeCodeDecode } from '../../../../shared/dogtype';
 
 export const dynamic = 'force-static';
 
@@ -121,16 +121,21 @@ export default function DogtypePage({ params }: PageProps) {
 
       {/* All 16 */}
       <section className="max-w-4xl mx-auto px-6 py-12">
-        <h2 className="font-display text-2xl text-brown mb-4">All 16 Dogtypes</h2>
+        <h2 className="font-display text-2xl text-brown mb-1.5">All 16 Dogtypes</h2>
+        <p className="text-xs text-brown-light mb-4">
+          The code is Energy · Play · Social · Spirit — e.g. <span className="font-mono font-bold">EROB</span> = Spark, Rowdy, Outgoing, Bold.
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {DOGTYPE_CODES.map((code) => {
             const t = dogtypeByCode(code);
             if (!t) return null;
             const active = code === type.code;
+            const decode = dogtypeCodeDecode(code);
             return (
               <Link
                 key={code}
                 href={`/dogtype/${code}`}
+                title={decode ?? undefined}
                 className={`rounded-xl border p-3 text-center transition-colors ${
                   active ? 'border-primary bg-primary/10' : 'border-border bg-white hover:border-primary/40'
                 }`}

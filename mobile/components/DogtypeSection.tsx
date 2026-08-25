@@ -11,7 +11,7 @@ import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
-import { computeDogtype } from '../../shared/dogtype';
+import { computeDogtype, dogtypeCodeDecode } from '../../shared/dogtype';
 import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
@@ -30,6 +30,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
+  const codeDecode = dogtypeCodeDecode(dogtype.code);
 
   async function handleShare() {
     if (sharing) return;
@@ -59,6 +60,11 @@ export default function DogtypeSection({ savedProfile }: Props) {
       </View>
 
       <Text style={styles.blurb}>{dogtype.blurb}</Text>
+      {codeDecode && (
+        <Text style={styles.codeDecode}>
+          <Text style={styles.codeDecodeBold}>{dogtype.code}</Text> = {codeDecode}
+        </Text>
+      )}
 
       {/* The card itself — captured to PNG at full resolution regardless of the
           display scale applied by the wrapper below. */}
@@ -130,6 +136,8 @@ const styles = StyleSheet.create({
   },
   codeText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown, letterSpacing: 2 },
   blurb: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  codeDecode: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 2 },
+  codeDecodeBold: { fontFamily: fonts.bold },
   cardScaleWrap: {
     height: 520, // 604 card height * 0.82 scale, leaving no dead space
     alignItems: 'center',
