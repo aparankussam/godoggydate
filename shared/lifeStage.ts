@@ -120,10 +120,11 @@ function humanYears(ageYears: number, size: DogSizeCode): number {
 }
 
 export interface LifeStageInput {
-  birthYear?: number;
+  birthYear?: number | null;
   /** 1–12. When present, refines the age so a late-in-the-year puppy isn't
-   *  over-aged by up to a year (and mis-staged) from year-only arithmetic. */
-  birthMonth?: number;
+   *  over-aged by up to a year (and mis-staged) from year-only arithmetic.
+   *  null is treated the same as absent. */
+  birthMonth?: number | null;
   size?: DogSizeCode;
 }
 

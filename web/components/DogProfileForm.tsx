@@ -64,6 +64,12 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+/** True only if y/m(1–12)/d is a real calendar date — rejects Feb 31, Apr 31, etc. */
+function isRealCalendarDate(y: number, m: number, d: number): boolean {
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
 const US_STATES: { abbr: string; name: string }[] = [
   { abbr: 'AL', name: 'Alabama' }, { abbr: 'AK', name: 'Alaska' },
   { abbr: 'AZ', name: 'Arizona' }, { abbr: 'AR', name: 'Arkansas' },
@@ -642,19 +648,25 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         // simply not saved (the life-stage/milestone code also rejects garbage).
         // adoptionDate uses null-when-empty for the same { merge: true } reason
         // as rabiesExpiry above.
+        // null (not undefined) when empty/invalid so a cleared value actually
+        // clears under { merge: true } — undefined is stripped and would keep
+        // the stale value (same contract as adoptionDate/rabiesExpiry).
         birthYear: (() => {
           const y = Number(birthYear);
-          return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : undefined;
+          return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : null;
         })(),
         birthMonth: (() => {
           const m = Number(birthMonth);
-          return Number.isInteger(m) && m >= 1 && m <= 12 ? m : undefined;
+          return Number.isInteger(m) && m >= 1 && m <= 12 ? m : null;
         })(),
         birthDay: (() => {
-          const d = Number(birthDay);
-          return Number.isInteger(d) && d >= 1 && d <= 31 ? d : undefined;
+          const y = Number(birthYear), m = Number(birthMonth), d = Number(birthDay);
+          if (!(Number.isInteger(d) && d >= 1 && d <= 31)) return null;
+          // Keep the day only if it forms a real calendar date (drops Feb 31 →
+          // month-only); the exact-day birthday needs a valid year+month anyway.
+          return Number.isInteger(y) && Number.isInteger(m) && isRealCalendarDate(y, m, d) ? d : null;
         })(),
-        // Compose Gotcha Day: full date when the day is known, else month-only
+        // Compose Gotcha Day: full date when a real day is known, else month-only
         // ('YYYY-MM'), else null (cleared / incomplete). Needs both year+month.
         adoptionDate: (() => {
           const y = Number(gotchaYear);
@@ -663,7 +675,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           if (!(Number.isInteger(m) && m >= 1 && m <= 12)) return null;
           const mm = String(m).padStart(2, '0');
           const d = Number(gotchaDay);
-          if (Number.isInteger(d) && d >= 1 && d <= 31) return `${y}-${mm}-${String(d).padStart(2, '0')}`;
+          if (Number.isInteger(d) && d >= 1 && d <= 31 && isRealCalendarDate(y, m, d)) {
+            return `${y}-${mm}-${String(d).padStart(2, '0')}`;
+          }
           return `${y}-${mm}`;
         })(),
         prompts: prompts.filter((prompt) => prompt.answer.trim()),
@@ -1289,7 +1303,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             : 'Save Profile'}
         </button>
         <p className="-mt-2 text-center text-xs text-brown-light">
-          You can complete your profile later — partial saves are allowed.
+          {complete
+            ? 'You can edit any of this later.'
+            : 'Add the items above to save your profile and start matching.'}
         </p>
       </form>
     </div>

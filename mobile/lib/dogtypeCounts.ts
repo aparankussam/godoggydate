@@ -19,7 +19,7 @@
 
 import { collection, getDocs } from 'firebase/firestore';
 import { computeDogtype, DOGTYPE_CODES } from '../../shared/dogtype';
-import type { SavedDogProfile } from '../../shared/profile';
+import { isProfileComplete, type SavedDogProfile } from '../../shared/profile';
 import { getFirebase } from './firebase';
 
 /** A tally of dogs per Dogtype code, plus the total dogs counted. */
@@ -32,7 +32,7 @@ export interface DogtypeCounts {
 }
 
 function isSeedUserId(id: string): boolean {
-  return id.startsWith('user_seed_');
+  return id.startsWith('user_seed_') || id.startsWith('UID_');
 }
 
 function emptyCounts(): DogtypeCounts {
@@ -58,6 +58,9 @@ export async function fetchDogtypeCounts(): Promise<DogtypeCounts> {
     for (const docSnap of snap.docs) {
       if (isSeedUserId(docSnap.id)) continue;
       const saved = docSnap.data() as SavedDogProfile;
+      // Require a complete profile so the census counts only dogs that actually
+      // appear in the discover feed — not thin/incomplete docs.
+      if (!isProfileComplete(saved)) continue;
       const dogtype = computeDogtype(saved);
       if (!dogtype) continue; // too little profile to type — don't count
       // Guard against an unexpected code (impossible for valid poles) so we

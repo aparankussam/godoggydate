@@ -30,11 +30,12 @@ interface Props {
   source: ProSource;
 }
 
-// The ONE genuinely live, Pro-exclusive benefit today. Deliberately not padded
-// with things free users already get, or things not yet built.
-const LIVE_BENEFIT = '💭  A new Pet Twin card from your dog every day — free gets one a week';
+// No Pro-exclusive feature ships yet (everything built so far is free for
+// everyone), so we don't pretend otherwise. The honest value today is a
+// permanent founding spot and first access, at a price locked for life.
+const LIVE_BENEFIT = '🚀  First access to every Pro feature as it ships — at the founding price, locked for life';
 const COMING_BENEFITS =
-  'And first access as they land: your dog’s saved story (Year in Dog), life-stage checklists, and the Legacy Vault.';
+  'Coming to Pro as they land: a card in your dog’s voice, your dog’s saved story (Year in Dog), life-stage checklists, and the Legacy Vault.';
 
 export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   const [tier, setTier] = useState<ProTier>('annual');
@@ -75,7 +76,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
       <View style={[styles.card, styles.foundingCard]}>
         <Text style={styles.foundingTitle}>⭐ Founding Member — Pro for life</Text>
         <Text style={styles.foundingBody}>
-          You were here first, so Pro is yours forever — daily Pet Twin cards and everything we add to Pro.
+          You were here first, so Pro is yours forever — everything we add to Pro, at no extra cost.
           Thank you for backing this early.
         </Text>
       </View>
@@ -88,8 +89,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
       <View style={[styles.card, styles.activeCard]}>
         <Text style={styles.activeTitle}>🐾 goDoggyDate Pro — active</Text>
         <Text style={styles.activeBody}>
-          Thanks for going Pro. A new Pet Twin card from your dog every day, and first access to everything we
-          add to Pro.
+          Thanks for going Pro. You get first access to everything we add to Pro, as it ships.
         </Text>
         {error && <Text style={styles.error}>{error}</Text>}
         <Pressable style={[styles.manageButton, busy && { opacity: 0.6 }]} onPress={handleManage} disabled={busy}>
@@ -117,7 +117,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
           <View style={styles.comingSoon}>
             <Text style={styles.comingSoonTitle}>Coming soon 🐾</Text>
             <Text style={styles.comingSoonBody}>
-              Pro is almost ready. Keep enjoying Dogtype, life stage, and your weekly Pet Twin card — free.
+              Pro is almost ready. Keep enjoying Dogtype, life stage, milestones, and the Playroom — all free.
             </Text>
           </View>
         ) : !canOfferInAppPurchase() ? (
@@ -126,8 +126,8 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
           <View style={styles.comingSoon}>
             <Text style={styles.comingSoonTitle}>Pro is managed on the web 🐾</Text>
             <Text style={styles.comingSoonBody}>
-              Your dog’s Dogtype, life stage, and a weekly Pet Twin card are free right here. Pro membership
-              is handled on the goDoggyDate website.
+              Your dog’s Dogtype, life stage, milestones, and the Playroom are all free right here. Pro
+              membership is handled on the goDoggyDate website.
             </Text>
           </View>
         ) : (

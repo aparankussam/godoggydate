@@ -45,7 +45,7 @@ export default function HomePage() {
   // app actually does today.
   const features = [
     { emoji: '🧬', title: 'Your dog\'s Dogtype', desc: 'A shareable 16-type identity, read from who your dog actually is — not a quiz you fill in for them.' },
-    { emoji: '💭', title: 'Pet Twin', desc: 'A card in your dog\'s voice — weekly free, daily with Pro — grounded in something real about their day. Openly imagined, never faked.' },
+    { emoji: '🎉', title: 'The Playroom', desc: 'Playful, shareable cards built from your dog\'s real profile — a roast, a letter in their voice, a Wanted poster, and more. Openly AI-written, never faked.' },
     { emoji: '⏳', title: 'Life in Dog Years', desc: 'See the life stage they\'re actually in — honest cohort averages, never a countdown.' },
     { emoji: '🎂', title: 'Every milestone', desc: 'Birthdays, Gotcha Day, and your anniversary together — remembered and celebrated on the day.' },
     { emoji: '🛡️', title: 'Playmates who fit', desc: 'When you want company, match with compatible dogs nearby — with the flags owners declare surfaced up front.' },
@@ -54,7 +54,7 @@ export default function HomePage() {
 
   const steps = [
     { n: '01', title: "Create your dog's profile", desc: 'A few photos and their personality — that\'s all it takes to unlock everything else.' },
-    { n: '02', title: 'Meet their Dogtype', desc: 'Get your dog\'s 16-type identity card, their life stage, and their first Pet Twin card — instantly, solo.' },
+    { n: '02', title: 'Meet their Dogtype', desc: 'Get your dog\'s 16-type identity card, their life stage, and a Playroom full of cards to share — instantly, solo.' },
     { n: '03', title: 'Share it', desc: 'The Dogtype card is made to post. Every share is how another owner (and their dog) finds the app.' },
     { n: '04', title: 'Find playmates who fit', desc: 'When you\'re ready for company, match with compatible dogs nearby and plan a real meetup.' },
   ];
@@ -135,9 +135,10 @@ export default function HomePage() {
         <div className="relative w-72">
           <div className="absolute top-4 left-4 right-4 h-96 bg-cream-dark rounded-4xl rotate-3 opacity-60" />
           <div className="card rounded-4xl overflow-hidden relative">
-            <div className="h-56 bg-cream-dark overflow-hidden">
+            <div className="h-56 bg-cream-dark overflow-hidden relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/images/kaju-hero.jpg" alt="Kaju" className="w-full h-full object-cover" />
+              <img src="/images/kaju-profile.jpg" alt="Kaju" className="w-full h-full object-cover" loading="eager" decoding="async" width={1024} height={1536} />
+              <span className="absolute top-2 left-2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brown-mid">Sample card</span>
             </div>
             <div className="p-5">
               <div className="flex items-center gap-3 mb-2">
@@ -207,7 +208,7 @@ export default function HomePage() {
             Start with who your dog is
           </h2>
           <p className="text-[rgba(255,255,255,0.7)] mb-8 text-lg">
-            Get their Dogtype, their life stage, and their first Pet Twin card in minutes — then find
+            Get their Dogtype, their life stage, and a Playroom of shareable cards in minutes — then find
             the playmates who fit. Be among the first dogs in the Founding Pack.
           </p>
           <button

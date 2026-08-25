@@ -22,6 +22,12 @@ const AGE_OPTIONS = [
   { value: 'senior', label: 'Senior' },
 ] as const;
 
+/** True only if y/m(1–12)/d is a real calendar date — rejects Feb 31, Apr 31, etc. */
+function isRealCalendarDate(y: number, m: number, d: number): boolean {
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
 const SEX_OPTIONS = [
   { value: 'M', label: 'Male' },
   { value: 'F', label: 'Female' },
@@ -282,11 +288,23 @@ export default function ProfileEditor({
         rabiesExpiry: rabiesExpiry.trim() || null,
         // Birthday & milestones — parsed + range-checked; null (not undefined)
         // when empty so a cleared value actually clears under { merge: true }.
-        birthYear: (() => { const y = Number(birthYear); return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : undefined; })(),
-        birthMonth: (() => { const m = Number(birthMonth); return Number.isInteger(m) && m >= 1 && m <= 12 ? m : undefined; })(),
-        birthDay: (() => { const d = Number(birthDay); return Number.isInteger(d) && d >= 1 && d <= 31 ? d : undefined; })(),
-        // Accept 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month only); anything else clears it.
-        adoptionDate: (() => { const t = adoptionDate.trim(); return /^\d{4}-\d{2}(-\d{2})?$/.test(t) ? t : null; })(),
+        birthYear: (() => { const y = Number(birthYear); return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : null; })(),
+        birthMonth: (() => { const m = Number(birthMonth); return Number.isInteger(m) && m >= 1 && m <= 12 ? m : null; })(),
+        birthDay: (() => {
+          const y = Number(birthYear), m = Number(birthMonth), d = Number(birthDay);
+          if (!(Number.isInteger(d) && d >= 1 && d <= 31)) return null;
+          // Keep the day only if it forms a real calendar date (drops Feb 31).
+          return Number.isInteger(y) && Number.isInteger(m) && isRealCalendarDate(y, m, d) ? d : null;
+        })(),
+        // Accept 'YYYY-MM-DD' (exact, real date) or 'YYYY-MM' (valid month only); else clear.
+        adoptionDate: (() => {
+          const t = adoptionDate.trim();
+          const mo = /^(\d{4})-(\d{2})$/.exec(t);
+          if (mo) { const m = +mo[2]; return m >= 1 && m <= 12 ? t : null; }
+          const fu = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+          if (fu) { const y = +fu[1], m = +fu[2], d = +fu[3]; return m >= 1 && m <= 12 && d >= 1 && d <= 31 && isRealCalendarDate(y, m, d) ? t : null; }
+          return null;
+        })(),
         photos: safePhotos,
         location: locationLabel,
         city: city.trim() || undefined,

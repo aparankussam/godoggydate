@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
+import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, PERSON_TOPIC_STEMS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 
 // "My Human: A Review" — a deadpan, review-site-style write-up of the OWNER,
@@ -52,17 +53,12 @@ const BANNED_PHRASES = [
 // nothing about the human's body, weight, looks, age, race, wealth, competence
 // as a person, relationships, or any cruelty. Kept both as prompt rules and as
 // a post-generation reject list so a slip never ships.
-const BANNED_TOPIC_SUBSTRINGS = [
-  // human body/looks/wealth/relationship/drinking
-  'fat', 'ugly', 'stupid', 'idiot', 'lazy', 'broke', 'poor ', 'divorc',
-  'single', 'lonely', 'depress', 'weight', 'diet', 'drunk', 'alcohol',
-  // rescue / shelter / trauma (the dog's past must never be the joke)
-  'rescue', 'shelter', 'abandon', 'abuse', 'trauma', 'neglect', 'stray',
-  'kennel', 'foster', 'surrender',
-  // health / illness / mortality
-  'sick', 'illness', 'disease', 'cancer', 'tumor', 'surgery', 'euthan',
-  'dying', 'seizure',
-];
+// This route reviews a PERSON, so on top of the shared body/health/trauma set
+// it adds mental-health + character/drinking stems. It deliberately DROPS the
+// old poverty/relationship-status commons ('lazy','broke','poor','single') that
+// over-blocked innocent nitpicks ("poor at fetch", "broke the zoomie record") —
+// those are already covered by the prompt's no-wealth/no-worth rule.
+const HR_TOPIC_STEMS = [...PERSON_TOPIC_STEMS, 'stupid', 'idiot', 'alcohol', 'drunk'];
 
 function extractBearerToken(request: Request): string | null {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';
@@ -111,9 +107,12 @@ function cleanLine(v: unknown, max: number): string {
   return typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
 }
 
-// Word-boundary matching — substring matching over-rejected clean reviews
-// ("sick" in "sickest", "single" in "singled", etc.), surfacing "could not write".
-const BANNED_TOPIC_RE = new RegExp(`\\b(${BANNED_TOPIC_SUBSTRINGS.map((t) => t.trim()).join('|')})\\b`, 'i');
+// Two-tier: prefix stems catch inflections (divorced/depressed/euthanized), whole
+// words avoid the chill/velvet-style false positives. See lib/bannedTopics.
+const BANNED_TOPIC_RE = buildBannedTopicRegex(
+  [...DOG_TOPIC_STEMS, ...HR_TOPIC_STEMS],
+  [...DOG_TOPIC_WORDS, 'lonely'],
+);
 
 function hasBannedTopic(text: string): boolean {
   return BANNED_TOPIC_RE.test(text);

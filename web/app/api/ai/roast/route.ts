@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
+import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 
 // "Roast My Dog (Certified Affectionate)" — a stand-up-comedy roast of the
@@ -47,24 +48,11 @@ const BANNED_PHRASES = [
 ];
 
 // HARD honesty guard. The roast must NEVER touch these topics, no matter what
-// the owner-entered fields happen to say. Any output line containing one of
-// these substrings is rejected outright (sanitize fails → retry → soft error),
-// which means a rescue/overweight/ill dog can never be the butt of the joke.
-const BANNED_TOPIC_WORDS = [
-  // weight / body / appearance
-  'fat', 'chubby', 'chonk', 'chonky', 'overweight', 'underweight', 'skinny',
-  'weight', 'pounds', 'heavy', 'thicc', 'thick', 'ugly', 'gross', 'smelly',
-  'stink', 'flabby', 'tubby', 'porky', 'obese', 'diet',
-  // rescue / trauma / past
-  'rescue', 'shelter', 'pound', 'abandon', 'abused', 'abuse', 'trauma',
-  'neglect', 'stray', 'surrender', 'previous owner', 'past owner', 'former owner',
-  'kennel', 'foster',
-  // health / illness / body function
-  'sick', 'ill', 'illness', 'disease', 'vet', 'medication', 'medicine', 'meds',
-  'dying', 'die', 'death', 'cancer', 'tumor', 'arthritis', 'hip', 'joint',
-  'limp', 'blind', 'deaf', 'seizure', 'allergy', 'allergies', 'surgery',
-  'injury', 'injured', 'pain', 'suffering', 'diagnosis', 'symptom',
-];
+// the owner-entered fields happen to say. Any output line matching the banned
+// list is rejected outright (sanitize fails → retry → soft error), which means
+// a rescue/overweight/ill dog can never be the butt of the joke. The list +
+// two-tier (prefix-stem / whole-word) matching lives in lib/bannedTopics so
+// inflected forms (euthanized/abandoned/surrendered) are actually caught.
 
 function extractBearerToken(request: Request): string | null {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';
@@ -104,11 +92,7 @@ interface RoastContent {
   compliment: string;
 }
 
-// WORD-BOUNDARY matching. Substring matching wrongly rejected clean output —
-// "chill"/"spill"/"will" contain "ill", "chip"/"ship" contain "hip", "velvet"
-// contains "vet" — so nearly every valid roast failed sanitize and surfaced
-// "Could not write the roast". \b…\b matches the banned word only on its own.
-const BANNED_TOPIC_RE = new RegExp(`\\b(${BANNED_TOPIC_WORDS.map((w) => w.trim()).join('|')})\\b`, 'i');
+const BANNED_TOPIC_RE = buildBannedTopicRegex(DOG_TOPIC_STEMS, DOG_TOPIC_WORDS);
 
 function violatesBannedTopic(text: string): boolean {
   return BANNED_TOPIC_RE.test(text) || BANNED_PHRASES.some((p) => text.toLowerCase().includes(p));

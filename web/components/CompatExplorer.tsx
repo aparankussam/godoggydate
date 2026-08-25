@@ -47,7 +47,6 @@ function pluralize(name: string): string {
 export default function CompatExplorer({ savedProfile }: Props) {
   const dogtype = computeDogtype(savedProfile);
   const dogName = savedProfile.name?.trim() || 'Your dog';
-  const city = savedProfile.city?.trim();
 
   // The deterministic vibed-with types (up to 5). Memoized so the reveal order
   // is stable across renders.
@@ -134,7 +133,6 @@ export default function CompatExplorer({ savedProfile }: Props) {
                         {count} {count === 1 ? shortName(match.name) : pluralize(match.name)}
                       </span>{' '}
                       on GoDoggyDate
-                      {city ? <> · Be the first in {city}.</> : null}
                     </p>
                   )}
                 </div>

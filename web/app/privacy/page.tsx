@@ -1,3 +1,21 @@
+import type { Metadata } from 'next';
+import { absoluteUrl } from '../../lib/site';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy | GoDoggyDate',
+  description:
+    'How GoDoggyDate collects, uses, and protects your account and dog-profile data. We do not sell your personal information or use it for AI model training.',
+  alternates: {
+    canonical: '/privacy',
+  },
+  openGraph: {
+    title: 'Privacy Policy | GoDoggyDate',
+    description: 'How GoDoggyDate handles your data — plainly explained.',
+    url: absoluteUrl('/privacy'),
+    type: 'article',
+  },
+};
+
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-cream px-6 py-10">

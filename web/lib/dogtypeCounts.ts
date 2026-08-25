@@ -20,7 +20,13 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
 import { computeDogtype } from '../../shared/dogtype';
+import { isProfileComplete } from './auth';
 import type { SavedDogProfile } from './auth';
+
+/** Placeholder/seed docs the swipe feed excludes — must not inflate the census. */
+function isSeededDogId(id: string): boolean {
+  return id.startsWith('UID_') || id.startsWith('user_seed_');
+}
 
 export interface DogtypeCounts {
   /** Real dogs per 4-letter code. Codes with zero dogs may be absent. */
@@ -48,7 +54,13 @@ export async function fetchDogtypeCounts(): Promise<DogtypeCounts> {
     let total = 0;
 
     for (const docSnap of snap.docs) {
+      // Mirror the discover feed's real-dog filter so the census counts only
+      // dogs a user could actually meet — never seeded/placeholder docs (which
+      // would fabricate "N on GoDoggyDate" if prod is ever seeded) and never
+      // incomplete profiles that don't appear in anyone's deck.
+      if (isSeededDogId(docSnap.id)) continue;
       const saved = docSnap.data() as SavedDogProfile;
+      if (!isProfileComplete(saved)) continue;
       const dogtype = computeDogtype(saved);
       if (!dogtype) continue; // too thin to type — counts for nothing
       byCode[dogtype.code] = (byCode[dogtype.code] ?? 0) + 1;

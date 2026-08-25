@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
+import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 
 // "Texts From Your Dog" — a short, unhinged group-chat thread that the dog
@@ -50,16 +51,10 @@ const BANNED_PHRASES = [
 // Honesty guardrails: the thread must never riff on any of these, even if the
 // owner's context text tries to steer it there. Matched case-insensitively as a
 // backstop to the prompt-level ban; a hit drops that message.
-const BANNED_TOPIC_WORDS = [
-  'fat', 'chubby', 'overweight', 'skinny', 'diet', 'weight',
-  'rescue', 'shelter', 'abandon', 'abuse', 'trauma', 'pound',
-  'sick', 'ill', 'illness', 'disease', 'dying', 'die', 'death',
-  'vet bill', 'cancer', 'tumor', 'euthan', 'put down',
-];
-// Word-boundary matching — substring matching wrongly dropped clean texts
-// ("chill"/"will" contain "ill", "chip" contains "hip"), leaving too few valid
-// messages and surfacing "could not write".
-const BANNED_TOPIC_RE = new RegExp(`\\b(${BANNED_TOPIC_WORDS.map((w) => w.trim()).join('|')})\\b`, 'i');
+// Shared two-tier list (prefix stems catch inflections, whole words avoid the
+// chill/velvet false positives — see lib/bannedTopics), plus the mortality
+// euphemism 'put down' that's specific to the texting voice.
+const BANNED_TOPIC_RE = buildBannedTopicRegex(DOG_TOPIC_STEMS, [...DOG_TOPIC_WORDS, 'put down']);
 
 function extractBearerToken(request: Request): string | null {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';

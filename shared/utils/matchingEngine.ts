@@ -67,19 +67,24 @@ function calcGoodWithScore(a: DogProfile, b: DogProfile): number {
   const aIsEnergy = a.energyLevel > 75;
   const aIsPuppy  = a.age === 'puppy';
 
-  if (aIsSmall  && b.goodWith.includes('small dogs'))         score += 8;
-  if (aIsLarge  && b.goodWith.includes('large dogs'))         score += 8;
-  if (aIsCalm   && b.goodWith.includes('calm dogs'))          score += 6;
-  if (aIsEnergy && b.goodWith.includes('high-energy dogs'))   score += 6;
-  if (aIsPuppy  && b.goodWith.includes('puppies'))            score += 6;
-  if (b.goodWith.includes('all dogs'))                        score += 4;
+  // Coalesce to [] defensively — a malformed/legacy doc missing this array must
+  // never throw here and take down the whole feed (see calcPlayStyleScore).
+  const bGoodWith = b.goodWith ?? [];
+  if (aIsSmall  && bGoodWith.includes('small dogs'))         score += 8;
+  if (aIsLarge  && bGoodWith.includes('large dogs'))         score += 8;
+  if (aIsCalm   && bGoodWith.includes('calm dogs'))          score += 6;
+  if (aIsEnergy && bGoodWith.includes('high-energy dogs'))   score += 6;
+  if (aIsPuppy  && bGoodWith.includes('puppies'))            score += 6;
+  if (bGoodWith.includes('all dogs'))                        score += 4;
 
   return Math.min(15, score);
 }
 
 // ─── PLAY STYLE SCORE (10%) ───────────────────────────────────────────────────
 function calcPlayStyleScore(a: DogProfile, b: DogProfile): { score: number; sharedStyles: string[] } {
-  const shared = a.playStyles.filter(s => b.playStyles.includes(s));
+  const aStyles = a.playStyles ?? [];
+  const bStyles = b.playStyles ?? [];
+  const shared = aStyles.filter(s => bStyles.includes(s));
   let score: number;
   if (shared.length >= 3) score = 10;
   else if (shared.length === 2) score = 9;

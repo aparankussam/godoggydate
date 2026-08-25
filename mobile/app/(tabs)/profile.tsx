@@ -59,7 +59,7 @@ export default function ProfileTab() {
   const [savingCover, setSavingCover] = useState(false);
   const photoInit = useRef(false);
   const cardRef = useRef<View>(null);
-  // For the Pet Twin "get a card every day" nudge: scroll to the Pro card.
+  // Lets an upsell nudge scroll straight to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
   const proYRef = useRef(0);
 
@@ -323,7 +323,10 @@ export default function ProfileTab() {
               {profileComplete ? 'Ready for mobile discover' : 'Profile still needs a few details'}
             </Text>
             {profile.ai?.vibeCheck?.bio && (
-              <Text style={styles.vibeBio}>“{profile.ai.vibeCheck.bio}”</Text>
+              <>
+                <Text style={styles.vibeBioLabel}>✨ Written by AI from their photos</Text>
+                <Text style={styles.vibeBio}>“{profile.ai.vibeCheck.bio}”</Text>
+              </>
             )}
 
             {/* Full type card: decodes the archetype code and surfaces the
@@ -469,7 +472,7 @@ export default function ProfileTab() {
 
         {/* goDoggyDate Pro — gated on !loading so a subscriber never sees the
             upsell flash before entitlements resolve. onLayout records the
-            position so the Pet Twin nudge can scroll here. */}
+            position so an upsell nudge can scroll here. */}
         {user && profile && !pro.loading && (
           <View onLayout={(e) => { proYRef.current = e.nativeEvent.layout.y; }}>
             <ProUpsellCard isPro={pro.isPro} isFounding={pro.isFounding} source={pro.source} />
@@ -664,8 +667,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  vibeBio: {
+  vibeBioLabel: {
     marginTop: 10,
+    fontFamily: fonts.body,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.brownLight,
+  },
+  vibeBio: {
+    marginTop: 3,
     fontFamily: fonts.body,
     fontStyle: 'italic',
     fontSize: 14,
@@ -773,9 +785,10 @@ const styles = StyleSheet.create({
   revealCtaSub: { fontFamily: fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
   funZone: { marginBottom: 16 },
   funTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown, marginBottom: 10 },
-  funRow: { flexDirection: 'row', gap: 10 },
+  funRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   funTile: {
-    flex: 1,
+    flexBasis: '30%',
+    flexGrow: 1,
     backgroundColor: colors.white,
     borderRadius: radius.lg,
     borderWidth: 1,

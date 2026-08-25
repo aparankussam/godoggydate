@@ -26,7 +26,6 @@ import HandoffCard from '../../../components/HandoffCard';
 import VibeTypeCard from '../../../components/VibeTypeCard';
 import { shareOrDownloadCard } from '../../../lib/shareCard';
 import { onEntitlements, getFoundingMemberLink } from '../../../lib/entitlements';
-import { getFoundingPackPitch } from '../../../shared/utils/stripe';
 import { toDogSlug } from '../../../lib/dogSlug';
 import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
@@ -77,8 +76,8 @@ export default function ProfilePage() {
   const cardRef = useRef<HTMLDivElement>(null);
   const handoffRef = useRef<HTMLDivElement>(null);
 
-  // One Pro read for the whole page — gates the daily Pet Twin and drives the
-  // upsell/manage surface. Lifetime Founding Members count as Pro (grandfathered).
+  // One Pro read for the whole page — drives the upsell/manage surface (no Pro-
+  // exclusive feature is gated yet). Lifetime Founding Members count as Pro.
   const pro = useProEntitlement(authUser?.uid ?? null);
   function handleUpgrade() {
     document.getElementById('pro-upsell')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -519,9 +518,14 @@ export default function ProfilePage() {
             {/* Vibe Check bio — written in the dog's own voice at onboarding,
                 shown here for the first time. */}
             {vibeCheck?.bio && (
-              <p className="px-5 pb-4 -mt-1 text-sm italic leading-relaxed text-brown-mid">
-                “{vibeCheck.bio}”
-              </p>
+              <div className="px-5 pb-4 -mt-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-0.5">
+                  ✨ Vibe Check · written by AI from their photos
+                </p>
+                <p className="text-sm italic leading-relaxed text-brown-mid">
+                  “{vibeCheck.bio}”
+                </p>
+              </div>
             )}
 
             {/* Full type card: decodes the archetype code and surfaces the
@@ -859,7 +863,8 @@ export default function ProfilePage() {
           >
             <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
             <p className="mt-1 text-xs leading-relaxed text-brown-light">
-              {getFoundingPackPitch()}
+              Pro for life at the founding price — first access to every Pro feature the moment it ships,
+              locked in forever. Back the app in its first days and never pay for Pro again.
             </p>
           </a>
         )}

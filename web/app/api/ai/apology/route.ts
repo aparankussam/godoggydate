@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
+import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 
 // "Notes-App Apology" — the classic celebrity non-apology, but written in a
@@ -79,13 +80,21 @@ function ensurePaw(value: string, dogName: string): string {
   return /🐾/.test(trimmed) ? trimmed : `${trimmed} 🐾`;
 }
 
+// The 'crime' field is untrusted free text and the likeliest injection surface,
+// so unlike the other routes apology previously had NO topic backstop — only the
+// system prompt stood between a crafted crime and a weight/rescue/illness joke on
+// the share card. Add the same shared reject list every sibling route uses.
+const BANNED_TOPIC_RE = buildBannedTopicRegex(DOG_TOPIC_STEMS, DOG_TOPIC_WORDS);
+
 function sanitizeApology(raw: unknown, dogName: string): ApologyContent | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   const statement = typeof r.statement === 'string' ? r.statement.trim().slice(0, 600) : '';
   const signOffRaw = typeof r.signOff === 'string' ? r.signOff : '';
   if (!statement) return null;
-  if (BANNED_PHRASES.some((p) => statement.toLowerCase().includes(p))) return null;
+  const hay = `${statement}\n${signOffRaw}`;
+  if (BANNED_PHRASES.some((p) => hay.toLowerCase().includes(p))) return null;
+  if (BANNED_TOPIC_RE.test(hay)) return null;
   return { statement, signOff: ensurePaw(signOffRaw, dogName) };
 }
 

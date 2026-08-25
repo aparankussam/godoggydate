@@ -83,7 +83,25 @@ export default function AppLayoutShell({ children }: Props) {
     const allMatches = new Map<string, {
       lastMessage:        string | null;
       lastMessageFromUid: string | null;
+      lastMessageAt:      number | null; // ms
+      myLastReadAt:       number | null; // ms — this user's slot
     }>();
+
+    const toMs = (v: unknown): number | null =>
+      v && typeof (v as { toMillis?: unknown }).toMillis === 'function'
+        ? (v as { toMillis: () => number }).toMillis()
+        : null;
+
+    function extract(data: Record<string, unknown>) {
+      const isDog1 = data.dog1UserId === uid;
+      const myRead = isDog1 ? data.dog1LastReadAt : data.dog2LastReadAt;
+      return {
+        lastMessage:        (data.lastMessage as string | null) ?? null,
+        lastMessageFromUid: (data.lastMessageFromUid as string | null) ?? null,
+        lastMessageAt:      toMs(data.lastMessageTime),
+        myLastReadAt:       toMs(myRead),
+      };
+    }
 
     function recompute() {
       let newMatches  = 0;
@@ -92,7 +110,11 @@ export default function AppLayoutShell({ children }: Props) {
         if (!m.lastMessage) {
           newMatches++;
         } else if (m.lastMessageFromUid && m.lastMessageFromUid !== uid) {
-          newMessages++;
+          // Unread only if the last message arrived AFTER this user last opened
+          // the thread — so the badge clears on read, not only on reply.
+          if (m.myLastReadAt == null || (m.lastMessageAt != null && m.lastMessageAt > m.myLastReadAt)) {
+            newMessages++;
+          }
         }
       }
       setUnreadMatches(newMatches);
@@ -102,10 +124,7 @@ export default function AppLayoutShell({ children }: Props) {
     const unsubA = onSnapshot(
       query(col, where('dog1UserId', '==', uid)),
       (snap) => {
-        snap.docs.forEach((d) => allMatches.set(d.id, {
-          lastMessage:        d.data().lastMessage        ?? null,
-          lastMessageFromUid: d.data().lastMessageFromUid ?? null,
-        }));
+        snap.docs.forEach((d) => allMatches.set(d.id, extract(d.data())));
         recompute();
       },
     );
@@ -113,10 +132,7 @@ export default function AppLayoutShell({ children }: Props) {
     const unsubB = onSnapshot(
       query(col, where('dog2UserId', '==', uid)),
       (snap) => {
-        snap.docs.forEach((d) => allMatches.set(d.id, {
-          lastMessage:        d.data().lastMessage        ?? null,
-          lastMessageFromUid: d.data().lastMessageFromUid ?? null,
-        }));
+        snap.docs.forEach((d) => allMatches.set(d.id, extract(d.data())));
         recompute();
       },
     );

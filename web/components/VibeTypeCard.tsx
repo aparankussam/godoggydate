@@ -23,6 +23,9 @@ export default function VibeTypeCard({ archetype }: Props) {
       aria-expanded={expanded}
       className="w-full text-left rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-primary/5 px-4 py-3 transition-colors hover:from-gold/15"
     >
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-1.5">
+        ✨ Vibe Check · a playful AI read
+      </p>
       <div className="flex items-center gap-3">
         <span className="shrink-0 text-2xl" aria-hidden="true">✨</span>
         <div className="min-w-0 flex-1">

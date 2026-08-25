@@ -33,14 +33,23 @@ function extractBearerToken(request: Request): string | null {
   return authHeader.slice('Bearer '.length).trim() || null;
 }
 
-/** Prefer the caller's own origin (so localhost dev redirects back to dev),
- *  fall back to the canonical site. Only same-shape http(s) origins are used. */
+/** Resolve the post-checkout redirect base. The caller's Origin header is
+ *  attacker-controllable, so it is honoured ONLY when it exactly matches the
+ *  canonical site or a localhost dev origin (so dev redirects back to dev).
+ *  Anything else — a crafted Origin pointing at an attacker's host — is ignored
+ *  in favour of siteUrl, so a paying user can never be redirected off-site. */
 function resolveOrigin(request: Request): string {
   const origin = request.headers.get('origin')?.trim();
   if (origin) {
     try {
       const url = new URL(origin);
-      if (url.protocol === 'http:' || url.protocol === 'https:') return url.origin;
+      const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+      if (
+        (url.protocol === 'http:' || url.protocol === 'https:') &&
+        (url.origin === siteUrl || isLocalhost)
+      ) {
+        return url.origin;
+      }
     } catch {
       /* fall through */
     }

@@ -17,6 +17,7 @@ export default function VibeTypeCard({ archetype }: Props) {
 
   return (
     <Pressable onPress={() => setExpanded((v) => !v)} style={styles.card}>
+      <Text style={styles.eyebrow}>✨ VIBE CHECK · A PLAYFUL AI READ</Text>
       <View style={styles.row}>
         <Text style={styles.sparkle} aria-hidden>✨</Text>
         <View style={styles.info}>
@@ -43,6 +44,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(212,160,23,0.08)',
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  eyebrow: {
+    fontFamily: fonts.body,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: colors.brownLight,
+    marginBottom: 6,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sparkle: { fontSize: 22 },

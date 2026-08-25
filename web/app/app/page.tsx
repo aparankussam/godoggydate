@@ -138,8 +138,15 @@ export default function AppPage() {
     setProfileSaving(true);
     try {
       await saveUserDogProfile(authUser.uid, safeProfile);
-      setSavedProfile(safeProfile);
-      setUserDog(toFullProfile(safeProfile, authUser.uid));
+      // Merge over the existing profile — the form payload carries none of the
+      // server-only fields (ai/Vibe Check, lat/lng, trustScore, foundingPackNumber,
+      // householdMemberIds), so a wholesale replace would blank them in local
+      // state until a reload (empty Vibe Check on cards, distanceMiles = -1 for
+      // every dog). Firestore is fine via { merge: true }; this keeps local state
+      // in sync. Mirrors the profile page's handler.
+      const merged: SavedDogProfile = savedProfile ? { ...savedProfile, ...safeProfile } : safeProfile;
+      setSavedProfile(merged);
+      setUserDog(toFullProfile(merged, authUser.uid));
       setShowProfileForm(false);
       const completed = isProfileComplete(safeProfile);
       trackEvent('profile_saved', {

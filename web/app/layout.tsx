@@ -32,20 +32,14 @@ export const metadata: Metadata = {
     url: absoluteUrl('/'),
     siteName: 'GoDoggyDate',
     type: 'website',
-    images: [
-      {
-        url: absoluteUrl('/images/kaju-hero.jpg'),
-        width: 1200,
-        height: 630,
-        alt: 'GoDoggyDate founder dog Kaju',
-      },
-    ],
+    // Social card image is provided by app/opengraph-image.tsx (a proper
+    // 1200x630 card). The old hardcoded /images/kaju-hero.jpg was a 7.6MB
+    // 6048x8064 portrait — wrong dimensions and over X's 5MB limit.
   },
   twitter: {
     card: 'summary_large_image',
     title: 'GoDoggyDate — Your dog\'s whole life, in one place',
     description: 'Your dog\'s Dogtype, their life stage, their milestones — and the playmates who actually fit.',
-    images: [absoluteUrl('/images/kaju-hero.jpg')],
   },
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION,

@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  collection, query, where, getDocs, orderBy,
+  collection, query, where, getDocs,
 } from 'firebase/firestore';
 import { getFirebase } from '../../../shared/utils/firebase';
 import { onAuthStateChanged } from '../../../lib/auth';
@@ -25,17 +25,50 @@ interface ConversationItem {
   otherProfile: SavedDogProfile | null;
   lastMessage:  string | null;
   lastMessageTime: { seconds: number } | null;
+  lastMessageFromUid: string | null;
   chatUnlocked: boolean;
   isNew: boolean;
+}
+
+// Compact relative time from a Firestore-style { seconds } timestamp.
+function relativeTime(seconds: number | null | undefined): string | null {
+  if (!seconds) return null;
+  const diffMs = Date.now() - seconds * 1000;
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+/** Preview line for a thread that has activity. The stored lastMessage is a
+ *  constant placeholder ('New message') and message text is deliberately NOT
+ *  copied into the match doc (privacy), so attribute the sender + relative
+ *  time instead of surfacing the meaningless constant. */
+function conversationHint(item: ConversationItem, selfUid: string, otherName: string): string {
+  const rel = relativeTime(item.lastMessageTime?.seconds);
+  const sender = item.lastMessageFromUid && item.lastMessageFromUid === selfUid ? 'You' : otherName;
+  return rel ? `${sender} sent a message · ${rel}` : `${sender} sent a message`;
 }
 
 async function fetchConversations(uid: string): Promise<ConversationItem[]> {
   const { db } = getFirebase();
   const col = collection(db, 'matches');
 
+  // No orderBy('createdAt') on the query: Firestore drops docs missing the
+  // orderBy field, so a match written without createdAt would silently vanish
+  // here while still counting toward the nav badge (a phantom). We fetch every
+  // match for the user and sort client-side (below) instead.
   const [snap1, snap2, blockedIds, entitlements] = await Promise.all([
-    getDocs(query(col, where('dog1UserId', '==', uid), orderBy('createdAt', 'desc'))),
-    getDocs(query(col, where('dog2UserId', '==', uid), orderBy('createdAt', 'desc'))),
+    getDocs(query(col, where('dog1UserId', '==', uid))),
+    getDocs(query(col, where('dog2UserId', '==', uid))),
     getBlockedUserIds(uid),
     getEntitlements(uid),
   ]);
@@ -44,6 +77,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
   const docs: Array<{
     matchId: string; dog1UserId: string; dog2UserId: string;
     lastMessage: string | null; lastMessageTime: { seconds: number } | null;
+    lastMessageFromUid: string | null;
     chatUnlocked: boolean;
     dog1ChatUnlocked?: boolean | null;
     dog2ChatUnlocked?: boolean | null;
@@ -61,6 +95,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
           dog2UserId: data.dog2UserId,
           lastMessage: data.lastMessage ?? null,
           lastMessageTime: data.lastMessageTime ?? null,
+          lastMessageFromUid: data.lastMessageFromUid ?? null,
           chatUnlocked: isUserChatUnlocked(data, uid) || entitlements.lifetimeChatUnlocks,
           dog1ChatUnlocked: data.dog1ChatUnlocked ?? null,
           dog2ChatUnlocked: data.dog2ChatUnlocked ?? null,
@@ -96,6 +131,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
         otherProfile,
         lastMessage: m.lastMessage,
         lastMessageTime: m.lastMessageTime,
+        lastMessageFromUid: m.lastMessageFromUid,
         chatUnlocked: m.chatUnlocked,
         isNew: !m.lastMessage,
       };
@@ -260,9 +296,11 @@ export default function MessagesPage() {
                     <p className={`text-xs truncate mt-1 ${
                       c.isNew ? 'text-primary font-medium' : 'text-brown-light'
                     }`}>
-                      {c.lastMessage ?? (c.chatUnlocked
-                        ? 'New match! Say hello 👋'
-                        : 'Send the first hello from the mobile app')}
+                      {c.isNew
+                        ? (c.chatUnlocked
+                            ? 'New match! Say hello 👋'
+                            : 'Send the first hello from the mobile app')
+                        : conversationHint(c, authUser.uid, name)}
                     </p>
                   </div>
 

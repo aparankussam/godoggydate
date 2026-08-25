@@ -30,14 +30,18 @@ interface Props {
   source: ProSource;
 }
 
-// The ONE genuinely live, Pro-exclusive benefit today. Deliberately not padded
-// with things free users already get (every card is kept and shareable for
-// everyone) or things not yet built — see COMING_BENEFITS for those.
+// What Pro / Founding actually gets you TODAY. There is no Pro-exclusive feature
+// live yet (everything built so far is free for everyone), so we don't pretend
+// there is — the honest value right now is permanent founding status and being
+// first in line, at a price locked for life. Upcoming features are in
+// COMING_BENEFITS, clearly framed as not-yet-shipped.
 const LIVE_BENEFITS = [
-  { emoji: '💭', text: 'A new Pet Twin card from your dog every day — free gets one a week' },
+  { emoji: '⭐', text: 'A permanent Founding Member spot — a numbered place among the first dogs here' },
+  { emoji: '🚀', text: 'First access to every Pro feature as it ships — at the founding price, locked for life' },
+  { emoji: '💛', text: 'Directly back a solo-built app in its earliest days' },
 ];
 // Clearly framed as upcoming, never as shipped.
-const COMING_BENEFITS = 'And first access as they land: your dog’s saved story (Year in Dog), life-stage checklists, and the Legacy Vault.';
+const COMING_BENEFITS = 'Coming to Pro as they land: a card in your dog’s voice, your dog’s saved story (Year in Dog), life-stage checklists, and the Legacy Vault.';
 
 export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   const [tier, setTier] = useState<ProTier>('annual');
@@ -78,7 +82,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
       <section className="card rounded-[1.8rem] border border-gold/40 bg-gold/10 px-5 py-4">
         <p className="text-sm font-bold text-brown">⭐ Founding Member — Pro for life</p>
         <p className="mt-1 text-xs leading-relaxed text-brown-light">
-          You were here first, so Pro is yours forever — daily Pet Twin cards and everything we add to Pro.
+          You were here first, so Pro is yours forever — everything we add to Pro, at no extra cost.
           Thank you for backing this early.
         </p>
       </section>
@@ -91,7 +95,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
       <section className="card rounded-[1.8rem] border border-primary/30 bg-primary/5 px-5 py-4">
         <p className="text-sm font-bold text-brown">🐾 goDoggyDate Pro — active</p>
         <p className="mt-1 text-xs leading-relaxed text-brown-light">
-          Thanks for going Pro. A new Pet Twin card from your dog every day, and first access to everything we add to Pro.
+          Thanks for going Pro. You get first access to everything we add to Pro, as it ships.
         </p>
         {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
         <button
@@ -131,7 +135,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
           <div className="mt-4 rounded-xl bg-cream-dark px-4 py-3 text-center">
             <p className="text-sm font-bold text-brown">Coming soon 🐾</p>
             <p className="mt-0.5 text-xs text-brown-light">
-              Pro is almost ready. Keep enjoying Dogtype, life stage, and your weekly Pet Twin card — free.
+              Pro is almost ready. Keep enjoying Dogtype, life stage, milestones, and the Playroom — all free.
             </p>
           </div>
         ) : (

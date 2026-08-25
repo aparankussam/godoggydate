@@ -150,6 +150,9 @@ export default function ChatPage() {
   const [togglingBestFriend, setTogglingBestFriend] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Which read-timestamp slot on the match doc is THIS user's, resolved once the
+  // match loads — used to mark the thread read so the unread badge clears.
+  const myReadFieldRef = useRef<'dog1LastReadAt' | 'dog2LastReadAt' | null>(null);
 
   // ── Mobile-app session handoff ────────────────────────────────────────────────
   // The native app opens this page in the system browser (Safari), which has
@@ -256,7 +259,9 @@ export default function ChatPage() {
         return;
       }
 
-      const resolvedOtherUserId = matchData.dog1UserId === authUser!.uid
+      const iAmDog1 = matchData.dog1UserId === authUser!.uid;
+      myReadFieldRef.current = iAmDog1 ? 'dog1LastReadAt' : 'dog2LastReadAt';
+      const resolvedOtherUserId = iAmDog1
         ? matchData.dog2UserId
         : matchData.dog1UserId;
 
@@ -298,17 +303,31 @@ export default function ChatPage() {
     const msgsRef = collection(db, 'matches', matchId, 'messages');
     const q = query(msgsRef, orderBy('createdAt', 'asc'));
 
-    const unsub = onSnapshot(q, (snap) => {
-      const msgs: Message[] = snap.docs.map((d) => ({
-        id:         d.id,
-        text:       d.data().text as string,
-        fromUserId: (d.data().fromUserId ?? d.data().senderId ?? '') as string,
-        createdAt:  d.data().createdAt ?? null,
-        isSystem:   d.data().isSystem ?? false,
-        type:       d.data().type,
-        playdate:   d.data().playdate,
-      }));
+    const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snap) => {
+      const msgs: Message[] = snap.docs.map((d) => {
+        // serverTimestamps:'estimate' gives a just-sent (pending) message an
+        // estimated createdAt instead of null — null sorts first under 'asc',
+        // making the sender's own message flash at the TOP before the server ack.
+        const data = d.data({ serverTimestamps: 'estimate' });
+        return {
+          id:         d.id,
+          text:       data.text as string,
+          fromUserId: (data.fromUserId ?? data.senderId ?? '') as string,
+          createdAt:  data.createdAt ?? null,
+          isSystem:   data.isSystem ?? false,
+          type:       data.type,
+          playdate:   data.playdate,
+        };
+      });
       setMessages(msgs);
+
+      // Mark the thread read when the newest message is from the other user, so
+      // the bottom-nav unread badge clears on READ (not only when you reply).
+      const last = msgs[msgs.length - 1];
+      const field = myReadFieldRef.current;
+      if (last && field && last.fromUserId && last.fromUserId !== authUser?.uid) {
+        void updateDoc(doc(db, 'matches', matchId), { [field]: serverTimestamp() }).catch(() => {});
+      }
     });
 
     return unsub;

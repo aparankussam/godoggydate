@@ -1,4 +1,21 @@
+import type { Metadata } from 'next';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../shared/utils/stripe';
+import { absoluteUrl } from '../../lib/site';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service | GoDoggyDate',
+  description:
+    'The terms for using GoDoggyDate — eligibility, assumption of risk for in-person meetups, your responsibilities, limitation of liability, and refunds.',
+  alternates: {
+    canonical: '/terms',
+  },
+  openGraph: {
+    title: 'Terms of Service | GoDoggyDate',
+    description: 'The terms for using GoDoggyDate, including meetup safety and liability.',
+    url: absoluteUrl('/terms'),
+    type: 'article',
+  },
+};
 
 export default function TermsPage() {
   return (

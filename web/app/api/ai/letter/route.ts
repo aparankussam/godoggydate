@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
+import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 import { computeMilestones, type Milestone } from '../../../../../shared/milestones';
 
@@ -51,6 +52,12 @@ const BANNED_PHRASES = [
   'tail-wagging', "whether you're", 'unleash', 'paw-some', 'furbaby',
 ];
 
+// Trauma/mortality backstop for the keepsake letter — shared set plus the
+// euphemisms a letter is most likely to reach for.
+const BANNED_TOPIC_RE = buildBannedTopicRegex(DOG_TOPIC_STEMS, [
+  ...DOG_TOPIC_WORDS, 'passed away', 'rainbow bridge', 'put down',
+]);
+
 function extractBearerToken(request: Request): string | null {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';
   if (!authHeader.startsWith('Bearer ')) return null;
@@ -99,17 +106,11 @@ function sanitizeLetter(raw: unknown, dogName: string): LetterContent | null {
   const hay = `${salutation}\n${body}`.toLowerCase();
   if (BANNED_PHRASES.some((p) => hay.includes(p))) return null;
   // Backstop the prompt: a gotcha-day keepsake must never dramatize the dog's
-  // pre-adoption trauma or its mortality. Specific terms only, so an adoption-
-  // positive letter ("the day I came home") is never falsely rejected.
-  const BANNED_TOPICS = [
-    'shelter', 'abandon', 'abuse', 'trauma', 'neglect', 'stray', 'kennel',
-    'surrender', 'euthan', 'cancer', 'tumor', 'surgery', 'dying',
-    'passed away', 'rainbow bridge', 'illness', 'disease',
-  ];
-  // Word-boundary — "stray" must not match "strayed"/"astray", "dying" must not
-  // match "undying", etc., or a heartfelt letter fails sanitize ("could not write").
-  const bannedRe = new RegExp(`\\b(${BANNED_TOPICS.join('|')})\\b`, 'i');
-  if (bannedRe.test(hay)) return null;
+  // pre-adoption trauma or its mortality. Shared two-tier list (prefix stems so
+  // 'abandoned'/'surrendered'/'euthanized' are caught, whole words so the
+  // chill/velvet false positives aren't) + the mortality euphemisms specific to
+  // a keepsake letter. Still adoption-positive-safe: "the day I came home" is fine.
+  if (BANNED_TOPIC_RE.test(hay)) return null;
   return { salutation, body, signOff: ensurePaw(signOffRaw, dogName) };
 }
 

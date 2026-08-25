@@ -94,7 +94,6 @@ export default function CompatExplorer({ savedProfile }: Props) {
   if (!computed || matches.length === 0) return null;
   const dogtype = computed;
   const dogName = savedProfile.name?.trim() || 'Your dog';
-  const city = savedProfile.city?.trim() || '';
 
   const allRevealed = revealed >= matches.length;
 
@@ -125,9 +124,11 @@ export default function CompatExplorer({ savedProfile }: Props) {
       return { main: 'None yet — you’d be the first.', sub: null };
     }
     const label = pluralize(bareName(match.name));
+    // No city-level claim — the count is nationwide, so "be the first in {city}"
+    // would assert a local fact we have no data for (frequently false).
     return {
       main: `${n} ${label} on GoDoggyDate`,
-      sub: city ? `Be the first in ${city}.` : 'Be the first in your neighborhood.',
+      sub: null,
     };
   }
 

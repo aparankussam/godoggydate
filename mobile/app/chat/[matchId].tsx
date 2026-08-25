@@ -700,7 +700,7 @@ export default function ChatScreen() {
           {canOfferInAppPurchase() && getFoundingMemberLink(user.uid) && (
             <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink}>
               <Text style={styles.foundingMemberLinkText}>
-                🐾 Or become a Founding Member — $39 once. Every chat forever, lifetime Pro (daily Pet Twin), and your Founding badge.
+                🐾 Or become a Founding Member — $39 once. Pro for life at the founding price, first access to every Pro feature as it ships, and your Founding badge.
               </Text>
             </Pressable>
           )}

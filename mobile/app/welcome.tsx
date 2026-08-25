@@ -190,8 +190,8 @@ export default function WelcomeScreen() {
           <View style={styles.step}>
             <Text style={styles.stepNumber}>02</Text>
             <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Reveal their Dogtype &amp; daily Pet Twin</Text>
-              <Text style={styles.stepText}>A shareable identity card, a card from them each week (daily with Pro), and every milestone.</Text>
+              <Text style={styles.stepTitle}>Reveal their Dogtype &amp; the Playroom</Text>
+              <Text style={styles.stepText}>A shareable identity card, a Playroom full of cards made from their real profile, and every milestone.</Text>
             </View>
           </View>
           <View style={styles.step}>

@@ -33,16 +33,17 @@ export interface Milestone {
 
 export interface MilestoneInput {
   name?: string;
-  birthYear?: number;
-  birthMonth?: number;      // 1–12
-  birthDay?: number;        // 1–31, optional — when known, the birthday fires on
-                            // the exact day; otherwise it's a whole-month thing.
+  birthYear?: number | null;
+  birthMonth?: number | null;   // 1–12
+  birthDay?: number | null;     // 1–31, optional — when known, the birthday fires
+                                // on the exact day; otherwise it's a whole-month
+                                // thing. null is treated the same as absent.
   adoptionDate?: string | null; // 'YYYY-MM-DD' (exact) OR 'YYYY-MM' (month only)
   createdAt?: number;       // unix ms — when the GoDoggyDate profile was made
 }
 
-function validMonth(m?: number): m is number { return typeof m === 'number' && m >= 1 && m <= 12; }
-function validDay(d?: number): d is number { return typeof d === 'number' && d >= 1 && d <= 31; }
+function validMonth(m?: number | null): m is number { return typeof m === 'number' && m >= 1 && m <= 12; }
+function validDay(d?: number | null): d is number { return typeof d === 'number' && d >= 1 && d <= 31; }
 
 /** Parse 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month-only) → parts, else null. */
 function parseFlexibleDate(s?: string | null): { year: number; month: number; day: number | null } | null {
@@ -79,7 +80,7 @@ function monthCelebration(
   kind: MilestoneKind,
   emoji: string,
   monthIdx: number,
-  baseYear: number | undefined,
+  baseYear: number | null | undefined,
   titleFor: (years: number | undefined) => string,
   subtitleFor: (years: number | undefined) => string,
   now: Date,

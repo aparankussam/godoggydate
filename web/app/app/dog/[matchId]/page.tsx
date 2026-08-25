@@ -173,9 +173,14 @@ export default function MatchedDogProfilePage() {
           <div className="flex flex-col gap-3">
             <VibeTypeCard archetype={vibeCheck.archetype} />
             {vibeCheck.bio && (
-              <p className="text-sm italic leading-relaxed text-brown-mid px-1">
-                “{vibeCheck.bio}”
-              </p>
+              <div className="px-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-0.5">
+                  ✨ Written by AI from their photos
+                </p>
+                <p className="text-sm italic leading-relaxed text-brown-mid">
+                  “{vibeCheck.bio}”
+                </p>
+              </div>
             )}
             {vibeCheck.breedGuess && (
               <p className="text-xs text-brown-light px-1">

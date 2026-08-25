@@ -29,9 +29,13 @@ export interface SavedDogProfile {
   // MONTH celebration; birthDay, when the owner knows it, upgrades that to an
   // exact-day birthday (a year-only birthYear can't honestly drive either);
   // adoptionDate drives Gotcha Day (shared/milestones.ts).
-  birthYear?: number;
-  birthMonth?: number; // 1–12
-  birthDay?: number; // 1–31, optional — exact day when the owner knows it
+  // null (not undefined) is written when the owner CLEARS a previously-set value
+  // so the { merge: true } save actually removes it — undefined is stripped
+  // before write and would leave the stale value in place (same contract as
+  // adoptionDate/rabiesExpiry below).
+  birthYear?: number | null;
+  birthMonth?: number | null; // 1–12
+  birthDay?: number | null; // 1–31, optional — exact day when the owner knows it
   adoptionDate?: string | null; // 'YYYY-MM-DD' exact, or 'YYYY-MM' month-only; null = cleared
   photos?: string[];
   // Owner-chosen cover ("hero") photo + crop focal point. When set, these
@@ -348,7 +352,11 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     // what the owner actually declared.
     goodWith: ['all dogs'],
     notGoodWith: (saved.notGoodWith ?? []) as DogProfile['notGoodWith'],
-    playStyles: saved.playStyles as PlayStyle[],
+    // Default to [] — a dog doc that lacks playStyles (older doc, or one created
+    // by a build that never wrote the field) otherwise leaves this undefined,
+    // and calcPlayStyleScore does userDog.playStyles.filter(...) on it, throwing
+    // and silently emptying the ENTIRE discover feed for that viewer.
+    playStyles: (saved.playStyles ?? []) as PlayStyle[],
     boundaries: [],
     allergies: [],
     // undefined (legacy doc with no field) and null (never answered / cleared)
