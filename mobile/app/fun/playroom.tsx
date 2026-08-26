@@ -10,6 +10,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable } from 'rea
 import { router } from 'expo-router';
 import { colors, fonts } from '../../constants/theme';
 import { useSession } from '../../lib/session';
+import { trackEvent } from '../../lib/analytics';
 import RoastSection from '../../components/RoastSection';
 import ApologySection from '../../components/ApologySection';
 import TextsSection from '../../components/TextsSection';
@@ -33,9 +34,33 @@ export default function PlayroomScreen() {
       {profile && user ? (
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.intro}>
-            Playful, shareable cards built from {profile.name?.trim() || 'your dog'}&apos;s own profile. Each one
-            only runs when you tap it.
+            Playful, shareable cards and games built from {profile.name?.trim() || 'your dog'}&apos;s own profile.
+            Each one only runs when you tap it.
           </Text>
+
+          {/* Quick-links to the standalone toys/games (mirrors web's Playroom
+              chips). The generators below render inline on this screen. */}
+          <View style={styles.quickLinks}>
+            {[
+              { key: 'snoot', emoji: '🐽', label: 'Snoot Boop', route: '/fun/snoot' },
+              { key: 'sticker-studio', emoji: '🎨', label: 'Sticker Studio', route: '/fun/sticker-studio' },
+              { key: 'barkle', emoji: '🟩', label: 'Barkle', route: '/fun/barkle' },
+              { key: 'wanted', emoji: '🤠', label: 'Wanted Poster', route: '/fun/wanted' },
+              { key: 'adventures', emoji: '🗺️', label: 'Adventure Passport', route: '/fun/adventures' },
+            ].map((t) => (
+              <Pressable
+                key={t.key}
+                style={styles.quickLink}
+                accessibilityRole="button"
+                accessibilityLabel={t.label}
+                onPress={() => { trackEvent('fun_open', { feature: t.key }); router.push(t.route); }}
+              >
+                <Text style={styles.quickLinkEmoji} accessibilityElementsHidden importantForAccessibility="no">{t.emoji}</Text>
+                <Text style={styles.quickLinkLabel}>{t.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
           <RoastSection savedProfile={profile} />
           <ApologySection savedProfile={profile} />
           <TextsSection savedProfile={profile} />
@@ -69,6 +94,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   content: { padding: 16, paddingBottom: 40, gap: 16 },
   intro: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  quickLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  quickLink: {
+    flexBasis: '30%',
+    flexGrow: 1,
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    gap: 6,
+  },
+  quickLinkEmoji: { fontSize: 26 },
+  quickLinkLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown, textAlign: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
   emptyEmoji: { fontSize: 52 },
   emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.brownLight, textAlign: 'center', lineHeight: 21 },

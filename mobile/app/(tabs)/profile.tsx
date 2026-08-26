@@ -22,14 +22,7 @@ import CompatExplorer from '../../components/CompatExplorer';
 import DogtypeCompatSection from '../../components/DogtypeCompatSection';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
-import DiptychSection from '../../components/DiptychSection';
-import PlaqueCard from '../../components/PlaqueCard';
-import ApologySection from '../../components/ApologySection';
-import RoastSection from '../../components/RoastSection';
-import DogQuizSection from '../../components/DogQuizSection';
 import LetterSection from '../../components/LetterSection';
-import HumanReviewSection from '../../components/HumanReviewSection';
-import TextsSection from '../../components/TextsSection';
 import ProUpsellCard from '../../components/ProUpsellCard';
 import type { Reminder } from '../../../shared/types';
 
@@ -396,66 +389,24 @@ export default function ProfileTab() {
             <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
             <MilestonesCard savedProfile={profile} />
             <LetterSection savedProfile={profile} />
-            {/* Wave 1/2/3 — shareable cards owners actually post */}
-            <DiptychSection savedProfile={profile} />
-            <RoastSection savedProfile={profile} />
-            <HumanReviewSection savedProfile={profile} userId={user.uid} />
-            <ApologySection savedProfile={profile} />
-            <TextsSection savedProfile={profile} />
-            <DogQuizSection savedProfile={profile} />
-            <PlaqueCard savedProfile={profile} />
 
-            {/* Just for fun — three delight-first mini-features */}
-            <View style={styles.funZone}>
-              <Text style={styles.funTitle}>Just for fun 🎉</Text>
-              <View style={styles.funRow}>
-                <Pressable
-                  style={styles.funTile}
-                  accessibilityRole="button"
-                  accessibilityLabel="Wanted Poster"
-                  onPress={() => { trackEvent('fun_open', { feature: 'wanted' }); router.push('/fun/wanted'); }}
-                >
-                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🤠</Text>
-                  <Text style={styles.funLabel}>Wanted Poster</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.funTile}
-                  accessibilityRole="button"
-                  accessibilityLabel="Snoot Boop"
-                  onPress={() => { trackEvent('fun_open', { feature: 'snoot' }); router.push('/fun/snoot'); }}
-                >
-                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🐽</Text>
-                  <Text style={styles.funLabel}>Snoot Boop</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.funTile}
-                  accessibilityRole="button"
-                  accessibilityLabel="Adventure Passport"
-                  onPress={() => { trackEvent('fun_open', { feature: 'adventures' }); router.push('/fun/adventures'); }}
-                >
-                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🗺️</Text>
-                  <Text style={styles.funLabel}>Adventure Passport</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.funTile}
-                  accessibilityRole="button"
-                  accessibilityLabel="Barkle, the daily breed puzzle"
-                  onPress={() => { trackEvent('fun_open', { feature: 'barkle' }); router.push('/fun/barkle'); }}
-                >
-                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🟩</Text>
-                  <Text style={styles.funLabel}>Barkle</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.funTile}
-                  accessibilityRole="button"
-                  accessibilityLabel="The Playroom — roast, apology, texts, review, quiz and plaque"
-                  onPress={() => { trackEvent('fun_open', { feature: 'playroom' }); router.push('/fun/playroom'); }}
-                >
-                  <Text style={styles.funEmoji} accessibilityElementsHidden importantForAccessibility="no">🎭</Text>
-                  <Text style={styles.funLabel}>Playroom</Text>
-                </Pressable>
-              </View>
-            </View>
+            {/* One entry to all the playful, shareable cards & games — they live
+                in the Playroom so the profile stays about the dog's life (mirrors
+                web, where /app/profile has a single Playroom card → /app/fun). */}
+            <Pressable
+              style={styles.playroomCard}
+              accessibilityRole="button"
+              accessibilityLabel="Open the Playroom — roasts, a letter in their voice, Wanted poster, Snoot Boop, Barkle and more"
+              onPress={() => { trackEvent('fun_open', { feature: 'playroom' }); router.push('/fun/playroom'); }}
+            >
+              <Text style={styles.playroomEyebrow}>THE PLAYROOM 🎉</Text>
+              <Text style={styles.playroomTitle}>Playful cards &amp; games</Text>
+              <Text style={styles.playroomDesc}>
+                Roasts, a letter in {profile.name?.trim() || 'your dog'}’s voice, a Wanted poster, Snoot Boop,
+                the daily Barkle puzzle, and more — all built from their profile.
+              </Text>
+              <Text style={styles.playroomCta}>Open the Playroom →</Text>
+            </Pressable>
           </>
         )}
 
@@ -783,23 +734,25 @@ const styles = StyleSheet.create({
   },
   revealCtaText: { fontFamily: fonts.display, fontSize: 19, color: colors.gold },
   revealCtaSub: { fontFamily: fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
-  funZone: { marginBottom: 16 },
-  funTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown, marginBottom: 10 },
-  funRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  funTile: {
-    flexBasis: '30%',
-    flexGrow: 1,
+  playroomCard: {
+    marginBottom: 16,
     backgroundColor: colors.white,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.primary,
     paddingVertical: 16,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    gap: 6,
+    paddingHorizontal: 16,
+    gap: 4,
   },
-  funEmoji: { fontSize: 30 },
-  funLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown, textAlign: 'center' },
+  playroomEyebrow: {
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: colors.primary,
+  },
+  playroomTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.brown },
+  playroomDesc: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: colors.brownMid, marginTop: 2 },
+  playroomCta: { fontFamily: fonts.semibold, fontSize: 14, color: colors.primary, marginTop: 8 },
   tradingCardSection: {
     // Not alignItems:'center' — that made every child shrink to its own
     // content width, so "Share this card" rendered as a narrow pill directly
