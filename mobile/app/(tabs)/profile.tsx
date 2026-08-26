@@ -19,7 +19,6 @@ import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
 import DogtypeSection from '../../components/DogtypeSection';
 import CompatExplorer from '../../components/CompatExplorer';
-import DogtypeCompatSection from '../../components/DogtypeCompatSection';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
 import LetterSection from '../../components/LetterSection';
@@ -385,7 +384,6 @@ export default function ProfileTab() {
             </Pressable>
             <DogtypeSection savedProfile={profile} />
             <CompatExplorer savedProfile={profile} />
-            <DogtypeCompatSection savedProfile={profile} />
             <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
             <MilestonesCard savedProfile={profile} />
             <LetterSection savedProfile={profile} />

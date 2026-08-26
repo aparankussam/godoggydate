@@ -1,7 +1,8 @@
 // mobile/components/CompatExplorer.tsx
 // "Who does {dog} get along with?" — a gamified tap-to-reveal explorer that
-// replaces the static "plays well with" list with a one-card-at-a-time reveal
-// plus a real density hook.
+// replaces the static "plays well with" list with a one-card-at-a-time reveal,
+// a real density hook, AND a per-match "do our dogs get along?" detail that
+// expands on tap (the shareable invite card).
 //
 // HONESTY (this is the whole point):
 //  • The types a dog vibes with are DETERMINISTIC from its own Dogtype
@@ -13,19 +14,24 @@
 //    (lib/dogtypeCounts). We never fabricate a count; a type with zero dogs
 //    honestly says "None yet — you'd be the first."
 //
-// Deliberately separate from <DogtypeCompatSection/> (the two-dog "do our dogs
-// get along?" compare/invite card) — this is the single-player exploration of
-// the dog's OWN best-match types.
+// Consolidation (2026-08): the separate <DogtypeCompatSection/> ("who does {dog}
+// vibe with?" — an always-open picker + share card) duplicated this list and
+// doubled the scroll. Its "do our dogs get along?" card now lives here, revealed
+// on demand when you tap a match, instead of being always displayed.
 
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, radius, shadow } from '../constants/theme';
+import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { fetchDogtypeCounts, type DogtypeCounts } from '../lib/dogtypeCounts';
+import DogtypeCompatCard from './DogtypeCompatCard';
 import {
   computeDogtype,
   dogtypeBestMatches,
+  dogtypeByCode,
+  dogtypeCompat,
   dogtypeVibe,
   type Dogtype,
   type DogtypeVibe,
@@ -35,6 +41,8 @@ import type { SavedDogProfile } from '../lib/profile';
 interface Props {
   savedProfile: SavedDogProfile;
 }
+
+type Compat = NonNullable<ReturnType<typeof dogtypeCompat>>;
 
 // How many best-match types to reveal. dogtypeBestMatches only returns "great"
 // vibes, so a code with fewer than this simply reveals fewer cards.
@@ -67,6 +75,9 @@ export default function CompatExplorer({ savedProfile }: Props) {
   const computed = computeDogtype(savedProfile);
   const [counts, setCounts] = useState<DogtypeCounts | null>(null);
   const [revealed, setRevealed] = useState(0);
+  const [expandedCode, setExpandedCode] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const cardRef = useRef<View>(null);
   const viewedRef = useRef(false);
 
   const code = computed?.code ?? '';
@@ -112,6 +123,33 @@ export default function CompatExplorer({ savedProfile }: Props) {
     }
   }
 
+  function toggleExpand(match: Dogtype) {
+    Haptics.selectionAsync().catch(() => {});
+    setExpandedCode((prev) => {
+      const opening = prev !== match.code;
+      if (opening) {
+        trackEvent('compat_explorer_detail_open', { code: dogtype.code, match_code: match.code });
+      }
+      return opening ? match.code : null;
+    });
+  }
+
+  async function handleShare(other: Dogtype, compat: Compat) {
+    if (sharing) return;
+    setSharing(true);
+    trackEvent('dogtype_compat_share_click', { a: dogtype.code, b: other.code, vibe: compat.vibe });
+    const result = await captureAndShare(
+      cardRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-vs-${other.code}.png`,
+      `Does your dog get along with ${dogName}?`,
+    );
+    if (result === 'shared') {
+      trackEvent('dogtype_compat_shared', { a: dogtype.code, b: other.code, vibe: compat.vibe, method: 'native_share' });
+    }
+    if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    setSharing(false);
+  }
+
   function handleCta() {
     trackEvent('compat_explorer_cta_click', { code: dogtype.code });
     void Linking.openURL(`${webBase}/compat/${dogtype.code}`).catch(() => {});
@@ -138,7 +176,7 @@ export default function CompatExplorer({ savedProfile }: Props) {
       <Text style={styles.title}>Who does {dogName} get along with?</Text>
       <Text style={styles.subtitle}>
         {allRevealed
-          ? `The types ${dogName} vibes best with, revealed.`
+          ? `Tap any match to see if your dogs get along — and share it.`
           : `Tap to reveal who ${dogName} vibes with →`}
       </Text>
 
@@ -146,17 +184,39 @@ export default function CompatExplorer({ savedProfile }: Props) {
         {matches.map((match, index) => {
           const state = index < revealed ? 'revealed' : index === revealed ? 'next' : 'locked';
           const vibe = dogtypeVibe(dogtype.code, match.code);
+          const isExpanded = state === 'revealed' && expandedCode === match.code;
+          const other = isExpanded ? dogtypeByCode(match.code) : null;
+          const compat = isExpanded && other ? dogtypeCompat(dogtype.code, other.code) : null;
           return (
-            <RevealCard
-              key={match.code}
-              state={state}
-              index={index}
-              total={matches.length}
-              match={match}
-              vibe={vibe}
-              density={densityLine(match)}
-              onReveal={() => handleReveal(index, match)}
-            />
+            <View key={match.code} style={styles.slot}>
+              <RevealCard
+                state={state}
+                index={index}
+                total={matches.length}
+                match={match}
+                vibe={vibe}
+                density={densityLine(match)}
+                isExpanded={isExpanded}
+                dogName={dogName}
+                onReveal={() => handleReveal(index, match)}
+                onToggle={() => toggleExpand(match)}
+              />
+              {isExpanded && other && compat && (
+                <View style={styles.detail}>
+                  <View style={styles.detailCardWrap}>
+                    <DogtypeCompatCard ref={cardRef} aType={dogtype} bType={other} aName={dogName} compat={compat} />
+                  </View>
+                  <Pressable
+                    style={[styles.shareButton, sharing && { opacity: 0.6 }]}
+                    onPress={() => handleShare(other, compat)}
+                    disabled={sharing}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.shareText}>{sharing ? 'Preparing…' : '📤 Share this match'}</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
           );
         })}
       </View>
@@ -184,10 +244,13 @@ interface RevealCardProps {
   match: Dogtype;
   vibe: DogtypeVibe;
   density: { main: string; sub: string | null };
+  isExpanded: boolean;
+  dogName: string;
   onReveal: () => void;
+  onToggle: () => void;
 }
 
-function RevealCard({ state, index, total, match, vibe, density, onReveal }: RevealCardProps) {
+function RevealCard({ state, index, total, match, vibe, density, isExpanded, dogName, onReveal, onToggle }: RevealCardProps) {
   const anim = useRef(new Animated.Value(state === 'revealed' ? 1 : 0)).current;
 
   useEffect(() => {
@@ -200,29 +263,36 @@ function RevealCard({ state, index, total, match, vibe, density, onReveal }: Rev
     const meta = VIBE_META[vibe];
     return (
       <Animated.View
-        style={[
-          styles.card,
-          styles.cardRevealed,
-          {
-            opacity: anim,
-            transform: [
-              { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
-              { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
-            ],
-          },
-        ]}
+        style={{
+          opacity: anim,
+          transform: [
+            { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+          ],
+        }}
       >
-        <Text style={styles.cardEmoji}>{match.emoji}</Text>
-        <View style={styles.cardBody}>
-          <Text style={styles.cardName}>{match.name}</Text>
-          <View style={styles.vibePill}>
-            <Text style={styles.vibePillText}>
-              {meta.emoji} {meta.label}
+        <Pressable
+          style={[styles.card, styles.cardRevealed, isExpanded && styles.cardExpanded]}
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isExpanded }}
+          accessibilityLabel={`${match.name}. Tap to see if ${dogName} gets along.`}
+        >
+          <Text style={styles.cardEmoji}>{match.emoji}</Text>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardName}>{match.name}</Text>
+            <View style={styles.vibePill}>
+              <Text style={styles.vibePillText}>
+                {meta.emoji} {meta.label}
+              </Text>
+            </View>
+            <Text style={styles.densityMain}>{density.main}</Text>
+            {density.sub && <Text style={styles.densitySub}>{density.sub}</Text>}
+            <Text style={styles.expandHint}>
+              {isExpanded ? 'Hide the match ▴' : 'See if you’d get along ▾'}
             </Text>
           </View>
-          <Text style={styles.densityMain}>{density.main}</Text>
-          {density.sub && <Text style={styles.densitySub}>{density.sub}</Text>}
-        </View>
+        </Pressable>
       </Animated.View>
     );
   }
@@ -279,6 +349,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginTop: 2 },
   subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.brownMid, marginTop: 4, lineHeight: 18 },
   deck: { marginTop: 14, gap: 10 },
+  slot: { gap: 10 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -294,6 +365,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadow.card,
   },
+  cardExpanded: { borderColor: colors.primary, borderWidth: 2 },
   cardNext: {
     backgroundColor: `${colors.gold}1F`, // ~12%
     borderWidth: 1.5,
@@ -321,9 +393,20 @@ const styles = StyleSheet.create({
   vibePillText: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownMid },
   densityMain: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown, marginTop: 8 },
   densitySub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 1 },
+  expandHint: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginTop: 8 },
   nextPrompt: { fontFamily: fonts.bold, fontSize: 16, color: colors.brown },
   nextSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 2 },
   lockedText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brownLight },
+  detail: { alignItems: 'stretch' },
+  detailCardWrap: { alignItems: 'center', marginBottom: 12 },
+  shareButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 14,
+    alignItems: 'center',
+    ...shadow.button,
+  },
+  shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
   closer: { marginTop: 16, alignItems: 'center' },
   closerText: { fontFamily: fonts.display, fontSize: 16, color: colors.brown, textAlign: 'center' },
   cta: {
