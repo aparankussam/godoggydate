@@ -1,18 +1,19 @@
 'use client';
 // web/components/CompatExplorer.tsx
-// "Who does {dog} get along with?" — a gamified TAP-TO-REVEAL explorer on the
-// profile page, brought to parity with the mobile version: each revealed match
-// now expands to the side-by-side DogtypeCompatCard ("do our dogs get along?"),
-// with the type's own blurb, a link to its public page, and — for a type no
-// real dog has yet — a growth-framed Invite CTA (the shared image IS the
-// invite; copy-only, no attribution backend).
+// "Who does {dog} get along with?" — the profile-page explorer. The single
+// strongest match is FREE; every other match is LOCKED until the owner earns a
+// key. Two honest ways to earn one (see lib/revealUnlocks):
+//   • reach a Snoot Boop milestone (booping is free and fast), or
+//   • invite a friend (the shared card IS the invite).
+// This turns the explorer into a lure toward the games + the invite loop,
+// instead of handing every vibe away on a free tap.
 //
 // HONEST MECHANIC: a dog's compatible types are DETERMINISTIC from its own
-// Dogtype (shared/dogtype.ts). We don't fake a quiz. dogtypeRankedMatches gives
-// the "great" vibes ranked by real axis score, so the single strongest match is
-// honestly badged "#1" (never over a tie). The density is a real nationwide
-// census (dogtypeCounts) — zero is shown as zero, never a fabricated or local
-// number.
+// Dogtype (shared/dogtype.ts). dogtypeRankedMatches gives the "great" vibes
+// ranked by real axis score, so the single strongest is honestly badged "#1"
+// (never over a tie). Density is a real nationwide census (dogtypeCounts) — zero
+// is shown as zero, never fabricated. A key is always a real thing the owner did
+// (booped, or shared an invite), never invented.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
@@ -26,6 +27,8 @@ import {
 import type { DogtypeVibe, RankedDogtype } from '../../shared/dogtype';
 import { fetchDogtypeCounts, countForCode } from '../lib/dogtypeCounts';
 import type { DogtypeCounts } from '../lib/dogtypeCounts';
+import { loadAllTime, nextMilestone } from '../lib/boops';
+import { loadUnlocks, recordInvite, unlockedExtra } from '../lib/revealUnlocks';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
@@ -37,9 +40,8 @@ interface Props {
   userId: string;
 }
 
-// "vibe", never "match" — mirrors mobile/components/CompatExplorer.tsx and the
-// public /compat/[code] page. A Dogtype pairing is a playful vibe, not the real
-// mutual-swipe match the rest of the app reserves that word for.
+// "vibe", never "match" — mirrors mobile and the public /compat/[code] page. A
+// Dogtype pairing is a playful vibe, not the real mutual-swipe match.
 const VIBE_META: Record<DogtypeVibe, { label: string; emoji: string }> = {
   great: { label: 'Great vibe', emoji: '💛' },
   good: { label: 'Good vibe', emoji: '🐾' },
@@ -69,11 +71,20 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
     [dogtype],
   );
 
-  const [revealed, setRevealed] = useState(0);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
   const [counts, setCounts] = useState<DogtypeCounts | null>(null);
   const [sharing, setSharing] = useState(false);
+  // Lazy init reads the ledger synchronously (localStorage is sync on web), so
+  // invite-earned keys count on the FIRST paint — matching the boop keys, which
+  // are already read synchronously in render. No locked→unlocked flicker.
+  const [invitedCodes, setInvitedCodes] = useState<string[]>(() =>
+    userId ? loadUnlocks(userId).invitedCodes : [],
+  );
+  // Bumped on window focus so boop keys earned on the Snoot Boop screen are
+  // re-read when the owner returns to the profile tab.
+  const [unlockTick, setUnlockTick] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
+  const lockedCardRef = useRef<HTMLDivElement>(null);
   const viewedRef = useRef(false);
 
   useEffect(() => {
@@ -86,9 +97,16 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
     };
   }, []);
 
-  // One impression per mount, mirroring mobile's compat_explorer_view, so the
-  // web reveal/share funnels have a denominator. Guarded on the same condition
-  // as the early return below, so it only fires when the explorer is shown.
+  // Load the local unlock ledger, and re-read boop-derived keys on refocus.
+  useEffect(() => {
+    if (!userId) return;
+    setInvitedCodes(loadUnlocks(userId).invitedCodes);
+    const onFocus = () => setUnlockTick((t) => t + 1);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [userId]);
+
+  // One impression per mount, mirroring mobile, so the funnels have a denominator.
   useEffect(() => {
     if (dogtype && ranked.length > 0 && !viewedRef.current) {
       viewedRef.current = true;
@@ -96,23 +114,31 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
     }
   }, [dogtype, ranked.length]);
 
-  if (!dogtype || ranked.length === 0) return null;
+  const matches = useMemo(() => ranked.map((r) => r.type), [ranked]);
+  const lockedTotal = Math.max(0, matches.length - 1);
 
-  const matches = ranked.map((r) => r.type);
+  // How many locked matches are unlocked (beyond the free first). When there is
+  // no signed-in dogId we don't gate at all rather than trap the owner.
+  const extra = useMemo(
+    () => (userId ? unlockedExtra(userId, invitedCodes, lockedTotal) : lockedTotal),
+    // unlockTick is intentional: unlockedExtra reads the boop count from
+    // localStorage, so a focus-driven tick must recompute it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userId, invitedCodes, lockedTotal, unlockTick],
+  );
+  const revealed = matches.length > 0 ? Math.min(matches.length, 1 + extra) : 0;
   const allRevealed = revealed >= matches.length;
 
-  function revealNext() {
-    if (!dogtype) return;
-    const index = revealed;
-    const match = matches[index];
-    const next = index + 1;
-    setRevealed(next);
-    feedback.squeak();
-    trackEvent('compat_reveal', { code: dogtype.code, match: match.code, index });
-    if (next >= matches.length) {
-      trackEvent('compat_reveal_complete', { code: dogtype.code, count: matches.length });
-    }
-  }
+  // Boop progress toward the next key (for the locked-card lure). Read live; the
+  // unlockTick dep keeps it fresh after refocus.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- unlockTick forces a re-read of the localStorage boop count on refocus
+  const allTime = useMemo(() => (userId ? loadAllTime(userId) : 0), [userId, unlockTick]);
+  const boopsToNextKey = useMemo(() => {
+    const m = nextMilestone(allTime);
+    return m ? m.count - allTime : null;
+  }, [allTime]);
+
+  if (!dogtype || ranked.length === 0) return null;
 
   function toggleExpand(code: string) {
     setExpandedCode((prev) => {
@@ -124,34 +150,40 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
     });
   }
 
-  async function shareCard(matchCode: string, kind: 'share' | 'invite') {
-    if (!dogtype || sharing || !cardRef.current) return;
+  // Distinct analytics per share entry point. The unlock-invite fires its OWN
+  // events (identical names to mobile) so it isn't conflated with the
+  // expanded-card invite, and cross-platform funnels line up.
+  const SHARE_EVENTS = {
+    share: { click: 'compat_share_click', done: 'compat_shared' },
+    invite: { click: 'compat_invite_click', done: 'compat_invite_shared' },
+    unlock: { click: 'compat_explorer_unlock_invite', done: 'compat_explorer_unlock_invite_shared' },
+  } as const;
+  type ShareKind = keyof typeof SHARE_EVENTS;
+
+  async function shareNode(node: HTMLDivElement, matchCode: string, kind: ShareKind) {
+    if (!dogtype || sharing) return;
     const other = dogtypeByCode(matchCode);
     const compat = other ? dogtypeCompat(dogtype.code, other.code) : null;
     if (!other || !compat) return;
     setSharing(true);
-    trackEvent(kind === 'invite' ? 'compat_invite_click' : 'compat_share_click', {
-      a: dogtype.code, b: other.code, vibe: compat.vibe,
-    });
+    const isInvite = kind !== 'share';
+    trackEvent(SHARE_EVENTS[kind].click, { a: dogtype.code, b: other.code, vibe: compat.vibe });
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://godoggydate.com';
       const publicUrl = `${origin}/d/${toDogSlug(dogName, userId)}`;
       const result = await shareOrDownloadCard(
-        cardRef.current,
+        node,
         `${dogName.toLowerCase().replace(/\s+/g, '-')}-${kind}-${other.code}.png`,
         {
           publicUrl,
           dogName,
           shareTitle: 'Do our dogs get along?',
-          shareText:
-            kind === 'invite'
-              ? `Know a ${shortName(other.name)}? ${dogName} is looking for one on GoDoggyDate.`
-              : `Does your dog get along with ${dogName}? Find their Dogtype on GoDoggyDate.`,
+          shareText: isInvite
+            ? `Know a ${shortName(other.name)}? ${dogName} is looking for one on GoDoggyDate.`
+            : `Does your dog get along with ${dogName}? Find their Dogtype on GoDoggyDate.`,
         },
       );
-      trackEvent(kind === 'invite' ? 'compat_invite_shared' : 'compat_shared', {
-        a: dogtype.code, b: other.code, vibe: compat.vibe, method: result,
-      });
+      trackEvent(SHARE_EVENTS[kind].done, { a: dogtype.code, b: other.code, vibe: compat.vibe, method: result });
     } catch {
       /* non-critical — let them retry */
     } finally {
@@ -159,13 +191,35 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
     }
   }
 
+  function shareCard(matchCode: string, kind: 'share' | 'invite') {
+    if (cardRef.current) void shareNode(cardRef.current, matchCode, kind);
+  }
+
+  // Invite-to-unlock on the locked card: share the (hidden) card for the next
+  // locked match, then bank the key so the card reveals. Sharing is best-effort;
+  // the key is granted after the attempt so the unlock always lands.
+  async function handleUnlockInvite() {
+    if (!dogtype) return;
+    const next = matches[revealed];
+    if (!next) return;
+    // 'unlock' fires its own analytics (see SHARE_EVENTS) so it isn't counted as
+    // an expanded-card invite. The key is banked after the attempt either way.
+    if (lockedCardRef.current) await shareNode(lockedCardRef.current, next.code, 'unlock');
+    const state = recordInvite(userId, next.code);
+    setInvitedCodes(state.invitedCodes);
+    feedback.squeak();
+  }
+
   // The type currently expanded — resolved for the single captured card node.
   const expandedType = expandedCode ? dogtypeByCode(expandedCode) : null;
   const expandedCompat = expandedType ? dogtypeCompat(dogtype.code, expandedType.code) : null;
-  // null while the census is still loading — the CTA holds until it resolves so
-  // it never flashes "Share this match" for a type that turns out to be zero.
   const expandedIsZero =
     expandedCode && counts ? countForCode(counts, expandedCode) === 0 : null;
+
+  // The next locked match — rendered hidden so the unlock-invite can capture it.
+  const nextLockedType = revealed < matches.length ? matches[revealed] : null;
+  const nextLockedCompat = nextLockedType ? dogtypeCompat(dogtype.code, nextLockedType.code) : null;
+  const lockedRemaining = matches.length - revealed;
 
   return (
     <div className="mt-4 rounded-xl bg-white/60 border border-border px-3.5 py-4">
@@ -177,7 +231,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
       <ul className="mt-3 space-y-2">
         {matches.map((match, i) => {
           const isRevealed = i < revealed;
-          const isNext = i === revealed;
+          const isNextLocked = i === revealed;
 
           if (isRevealed) {
             const vibe = dogtypeVibe(dogtype.code, match.code);
@@ -212,7 +266,6 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                     </span>
                   </div>
 
-                  {/* Honest density — real nationwide count, never fabricated. */}
                   <div className="mt-1.5 border-t border-border/60 pt-1.5">
                     {count === null ? (
                       <p className="text-[11px] text-brown-light">Counting GoDoggyDate…</p>
@@ -234,27 +287,50 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
             );
           }
 
-          if (isNext) {
+          if (isNextLocked) {
+            // The lure: hint there ARE more good matches, and offer the two
+            // honest ways to earn the key that reveals the next one.
             return (
               <li key={match.code}>
-                <button
-                  type="button"
-                  onClick={revealNext}
-                  className="w-full rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 px-3 py-3 text-left transition-colors hover:border-primary hover:bg-primary/10"
-                  aria-label={`Reveal who ${dogName} vibes with`}
-                >
-                  <span className="text-sm font-bold text-primary">
-                    Tap to reveal who {dogName} vibes with →
-                  </span>
-                  <span className="mt-0.5 block text-[11px] text-brown-light">
-                    {matches.length - revealed} left
-                  </span>
-                </button>
+                <div className="rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl leading-none" aria-hidden="true">🔒</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-brown leading-tight">
+                        {lockedRemaining} more great {lockedRemaining === 1 ? 'vibe' : 'vibes'} for {dogName}
+                      </p>
+                      <p className="text-[11px] text-brown-light">
+                        Earn a key to reveal the next one — {dogName}&apos;s kind of dog is out there.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+                    <a
+                      href="/app/fun/snoot"
+                      onClick={() => trackEvent('compat_explorer_unlock_boop_click', { code: dogtype.code })}
+                      className="flex-1 rounded-full border border-primary/40 bg-white/70 px-3 py-2 text-center text-[12px] font-bold text-primary transition-colors hover:bg-white"
+                    >
+                      🐽 Boop {dogName}
+                      {boopsToNextKey !== null && (
+                        <span className="ml-1 font-semibold text-brown-light">({boopsToNextKey} to a key)</span>
+                      )}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleUnlockInvite}
+                      disabled={sharing}
+                      className="flex-1 rounded-full bg-primary px-3 py-2 text-center text-[12px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                    >
+                      {sharing ? 'Preparing…' : '📤 Invite a friend to unlock'}
+                    </button>
+                  </div>
+                </div>
               </li>
             );
           }
 
-          // Still hidden, further down the deck — a faint locked placeholder.
+          // Locked, further down the deck — a faint placeholder.
           return (
             <li
               key={match.code}
@@ -262,7 +338,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
               aria-hidden="true"
             >
               <div className="flex items-center gap-2">
-                <span className="text-2xl leading-none text-brown-light">🐾</span>
+                <span className="text-2xl leading-none text-brown-light">🔒</span>
                 <span className="h-3 w-24 rounded bg-brown-light/20" />
               </div>
             </li>
@@ -270,8 +346,18 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
         })}
       </ul>
 
-      {/* Expanded detail — a single instance below the list, driven by which
-          card is open. One captured node (cardRef) for the share/invite. */}
+      {/* Browse-all link — an always-available way to explore every type, so the
+          locked matches never feel like a wall. */}
+      <a
+        href="/dogtype"
+        onClick={() => trackEvent('compat_explorer_browse_all_click', { code: dogtype.code })}
+        className="mt-2.5 inline-block text-[11px] font-bold text-primary underline underline-offset-2"
+      >
+        Browse all 16 Dogtypes →
+      </a>
+
+      {/* Expanded detail — a single instance, driven by which revealed card is
+          open. One captured node (cardRef) for the share/invite. */}
       {expandedType && expandedCompat && (
         <div className="mt-3 flex flex-col items-center gap-3">
           <p className="self-stretch text-[13px] italic leading-snug text-brown-mid">
@@ -283,8 +369,6 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
           </div>
 
           {expandedIsZero === null ? (
-            // Census still loading — hold the CTA rather than flashing the wrong
-            // (Share) branch for a type that may turn out to be zero-count.
             <button type="button" disabled className="btn-primary w-full max-w-[340px] opacity-60">
               Checking GoDoggyDate…
             </button>
@@ -330,6 +414,13 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
           >
             See the full {shortName(expandedType.name)} page →
           </a>
+        </div>
+      )}
+
+      {/* Hidden capture node for the locked-card invite (off-screen). */}
+      {nextLockedType && nextLockedCompat && (
+        <div ref={lockedCardRef} className="fixed -left-[9999px] top-0" aria-hidden="true">
+          <DogtypeCompatCard aType={dogtype} bType={nextLockedType} aName={dogName} compat={nextLockedCompat} />
         </div>
       )}
 

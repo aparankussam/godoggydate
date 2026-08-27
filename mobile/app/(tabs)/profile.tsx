@@ -1,6 +1,6 @@
 import { ActivityIndicator, Alert, Image, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
-import { router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
@@ -50,6 +50,9 @@ export default function ProfileTab() {
   const [optimisticCover, setOptimisticCover] = useState<number | null>(null);
   const [savingCover, setSavingCover] = useState(false);
   const photoInit = useRef(false);
+  // The photo index to snap back to on blur (the starred cover). Kept current
+  // each render so the focus-effect teardown can read it without unstable deps.
+  const coverResetRef = useRef(0);
   const cardRef = useRef<View>(null);
   // Lets an upsell nudge scroll straight to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
@@ -64,6 +67,21 @@ export default function ProfileTab() {
     const h = resolveHeroIndex(profile);
     setActivePhoto(typeof h === 'number' && h < real.length ? h : 0);
   }, [profile]);
+
+  // Tapping the photo cycles through the gallery, but that's a transient
+  // preview — snap back to the starred cover when the tab loses focus, so the
+  // cover the owner chose (and the shared card, which always uses it) is what
+  // leads next time. The target is read from a ref (kept current each render)
+  // with STABLE deps: threading profile/optimisticCover through the dep array
+  // would re-identify the effect and fire its teardown mid-focus the instant
+  // the owner sets a new cover, snapping the hero back to the old one.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (coverResetRef.current >= 0) setActivePhoto(coverResetRef.current);
+      };
+    }, []),
+  );
 
   // Cadence — the reminder calendar.
   useEffect(() => {
@@ -238,6 +256,8 @@ export default function ProfileTab() {
   const safeActive = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
   const currentCover = optimisticCover ?? (typeof profile.coverPhotoIndex === 'number' ? profile.coverPhotoIndex : (resolveHeroIndex(profile) ?? 0));
   const activeIsCover = safeActive === currentCover;
+  // Keep the blur-reset target current for the focus effect above.
+  coverResetRef.current = photos.length > 0 && currentCover >= 0 && currentCover < photos.length ? currentCover : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -248,7 +268,20 @@ export default function ProfileTab() {
         </Text>
 
         <View style={styles.card}>
-          {photos[safeActive] ? <Image source={{ uri: photos[safeActive] }} style={styles.hero} accessible accessibilityLabel={`Photo of ${profile.name}`} /> : null}
+          {photos[safeActive] ? (
+            <Pressable
+              onPress={() => { if (photos.length > 1) setActivePhoto((safeActive + 1) % photos.length); }}
+              disabled={photos.length <= 1}
+              accessibilityRole={photos.length > 1 ? 'button' : 'image'}
+              accessibilityLabel={
+                photos.length > 1
+                  ? `Photo ${safeActive + 1} of ${photos.length} of ${profile.name} — tap for next`
+                  : `Photo of ${profile.name}`
+              }
+            >
+              <Image source={{ uri: photos[safeActive] }} style={styles.hero} />
+            </Pressable>
+          ) : null}
           <View style={styles.cardBody}>
             {/* Tap a thumbnail to make it the main photo. Shows ALL photos so
                 photo 0 stays re-selectable; the active one is highlighted. */}
@@ -383,7 +416,7 @@ export default function ProfileTab() {
               <Text style={styles.revealCtaSub}>A shareable card, read from their real profile</Text>
             </Pressable>
             <DogtypeSection savedProfile={profile} />
-            <CompatExplorer savedProfile={profile} />
+            <CompatExplorer savedProfile={profile} userId={user.uid} />
             <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
             <MilestonesCard savedProfile={profile} />
             <LetterSection savedProfile={profile} />

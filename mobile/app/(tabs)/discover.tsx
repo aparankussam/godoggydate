@@ -455,7 +455,7 @@ export default function DiscoverTab() {
             {profile && (
               <>
                 <Text style={styles.recruitCaption}>
-                  {profile.name}{profile.ai?.vibeCheck?.archetype.name ? ` (a ${profile.ai.vibeCheck.archetype.name})` : ''} is the first dog here — be their first friend.
+                  Share {profile.name}&apos;s card{profile.ai?.vibeCheck?.archetype.name ? ` — a ${profile.ai.vibeCheck.archetype.name}` : ''} to bring dog parents near you into the pack. The more locals join, the sooner {profile.name} finds a playdate.
                 </Text>
                 <View style={styles.recruitCardWrap}>
                   <DogTradingCard ref={recruitCardRef} profile={profile} />
@@ -477,7 +477,7 @@ export default function DiscoverTab() {
                 <Text style={styles.emptySecondaryButtonText}>Check again</Text>
               </Pressable>
               <Pressable style={styles.emptySecondaryButton} onPress={handleInviteFriends}>
-                <Text style={styles.emptySecondaryButtonText}>Invite a dog parent</Text>
+                <Text style={styles.emptySecondaryButtonText}>Invite dog parents nearby</Text>
               </Pressable>
             </View>
           </ScrollView>

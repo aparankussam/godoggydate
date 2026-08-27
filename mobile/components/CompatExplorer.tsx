@@ -1,31 +1,39 @@
 // mobile/components/CompatExplorer.tsx
-// "Who does {dog} get along with?" — a gamified tap-to-reveal explorer that
-// replaces the static "plays well with" list with a one-card-at-a-time reveal,
-// a real density hook, AND a per-match "do our dogs get along?" detail that
-// expands on tap (the shareable invite card).
+// "Who does {dog} get along with?" — the explorer. The single strongest match is
+// FREE; the rest are LOCKED behind keys the owner earns (a Snoot Boop milestone
+// or an invite — see lib/revealUnlocks). Each revealed match expands to the
+// "do our dogs get along?" side-by-side card (the shareable invite).
 //
 // HONESTY (this is the whole point):
 //  • The types a dog vibes with are DETERMINISTIC from its own Dogtype
-//    (dogtypeBestMatches over the shared catalogue). We do NOT fake a quiz that
-//    "computes" the answer — the answer already exists. The tap-to-reveal is
-//    pure presentation: it turns a known, fixed list into a playful sequence.
+//    (dogtypeRankedMatches over the shared catalogue). We do NOT fake a quiz —
+//    the answer already exists; ranking is by real axis score.
 //  • The vibe tier on each card is the real dogtypeVibe(myCode, theirCode).
 //  • The density number is a real client-side census of every dog on the app
 //    (lib/dogtypeCounts). We never fabricate a count; a type with zero dogs
-//    honestly says "None yet — you'd be the first."
+//    honestly says "No {Type}s on GoDoggyDate yet."
+//  • A key is always a real thing the owner did (booped, or shared an invite).
 //
 // Consolidation (2026-08): the separate <DogtypeCompatSection/> ("who does {dog}
 // vibe with?" — an always-open picker + share card) duplicated this list and
 // doubled the scroll. Its "do our dogs get along?" card now lives here, revealed
 // on demand when you tap a match, instead of being always displayed.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { router, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { fetchDogtypeCounts, type DogtypeCounts } from '../lib/dogtypeCounts';
+import { nextMilestone } from '../lib/boops';
+import {
+  loadUnlocks,
+  recordInvite,
+  unlockedExtra,
+  type UnlockSnapshot,
+} from '../lib/revealUnlocks';
 import DogtypeCompatCard from './DogtypeCompatCard';
 import {
   computeDogtype,
@@ -41,6 +49,9 @@ import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
   savedProfile: SavedDogProfile;
+  /** The owner's uid — the same id the Snoot Boop counter keys off, so boops
+   *  earned there count toward reveal keys here. */
+  userId: string;
 }
 
 type Compat = NonNullable<ReturnType<typeof dogtypeCompat>>;
@@ -73,13 +84,14 @@ function pluralize(name: string): string {
 const webBase =
   process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '') || 'https://godoggydate.com';
 
-export default function CompatExplorer({ savedProfile }: Props) {
+export default function CompatExplorer({ savedProfile, userId }: Props) {
   const computed = computeDogtype(savedProfile);
   const [counts, setCounts] = useState<DogtypeCounts | null>(null);
-  const [revealed, setRevealed] = useState(0);
+  const [snapshot, setSnapshot] = useState<UnlockSnapshot | null>(null);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const cardRef = useRef<View>(null);
+  const lockedCardRef = useRef<View>(null);
   const viewedRef = useRef(false);
 
   const code = computed?.code ?? '';
@@ -100,6 +112,21 @@ export default function CompatExplorer({ savedProfile }: Props) {
     };
   }, []);
 
+  // Load the local unlock ledger on focus, so boop keys earned on the Snoot
+  // Boop screen are re-read every time the owner returns to this tab.
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      let alive = true;
+      void loadUnlocks(userId).then((s) => {
+        if (alive) setSnapshot(s);
+      });
+      return () => {
+        alive = false;
+      };
+    }, [userId]),
+  );
+
   useEffect(() => {
     if (computed && matches.length > 0 && !viewedRef.current) {
       viewedRef.current = true;
@@ -111,21 +138,58 @@ export default function CompatExplorer({ savedProfile }: Props) {
   const dogtype = computed;
   const dogName = savedProfile.name?.trim() || 'Your dog';
 
+  // First (strongest) match is free; the rest unlock with earned keys. Until the
+  // ledger loads we show just the free one. No userId → don't gate (never trap).
+  const lockedTotal = Math.max(0, matches.length - 1);
+  // While the async ledger is still loading we can't know how many are unlocked;
+  // hold the gated slots as neutral placeholders rather than flashing the lure
+  // (and then unlocking) for an owner who has already earned keys.
+  const ledgerLoading = !!userId && snapshot === null;
+  const extra = !userId ? lockedTotal : snapshot ? unlockedExtra(snapshot, lockedTotal) : 0;
+  const revealed = matches.length > 0 ? Math.min(matches.length, 1 + extra) : 0;
   const allRevealed = revealed >= matches.length;
 
-  function handleReveal(index: number, match: Dogtype) {
-    if (index !== revealed) return; // only the next hidden card is tappable
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const next = revealed + 1;
-    setRevealed(next);
-    trackEvent('compat_explorer_reveal', {
-      code: dogtype.code,
-      match_code: match.code,
-      revealed: next,
-    });
-    if (next >= matches.length) {
-      trackEvent('compat_explorer_complete', { code: dogtype.code, matches: matches.length });
+  // Boops to the next key, for the locked-card lure.
+  const boopsToNextKey = (() => {
+    if (!snapshot) return null;
+    const m = nextMilestone(snapshot.boopAllTime);
+    return m ? m.count - snapshot.boopAllTime : null;
+  })();
+
+  const nextLockedType = revealed < matches.length ? matches[revealed] : null;
+  const nextLockedCompat = nextLockedType ? dogtypeCompat(dogtype.code, nextLockedType.code) : null;
+  const lockedRemaining = matches.length - revealed;
+
+  // Invite-to-unlock on the locked card: share the (hidden) card for the next
+  // locked match, then bank the key so the card reveals. The unlock is the
+  // guaranteed part; the share is best-effort.
+  async function handleUnlockInvite() {
+    if (sharing || !nextLockedType) return;
+    setSharing(true);
+    trackEvent('compat_explorer_unlock_invite', { code: dogtype.code, match: nextLockedType.code });
+    const result = await captureAndShare(
+      lockedCardRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-invite-${nextLockedType.code}.png`,
+      `Know a ${bareName(nextLockedType.name)}? ${dogName} is looking for one.`,
+    );
+    if (result === 'shared') {
+      trackEvent('compat_explorer_unlock_invite_shared', { code: dogtype.code, match: nextLockedType.code });
     }
+    await recordInvite(userId, nextLockedType.code);
+    const fresh = await loadUnlocks(userId);
+    setSnapshot(fresh);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setSharing(false);
+  }
+
+  function openBrowseAll() {
+    trackEvent('compat_explorer_browse_all_click', { code: dogtype.code });
+    void Linking.openURL(`${webBase}/dogtype`).catch(() => {});
+  }
+
+  function openSnoot() {
+    trackEvent('compat_explorer_unlock_boop_click', { code: dogtype.code });
+    router.push('/fun/snoot');
   }
 
   function toggleExpand(match: Dogtype) {
@@ -226,20 +290,74 @@ export default function CompatExplorer({ savedProfile }: Props) {
       <Text style={styles.subtitle}>
         {allRevealed
           ? `Tap any match to see if your dogs get along — and share it.`
-          : `Tap to reveal who ${dogName} vibes with →`}
+          : `${dogName}’s strongest match is here. Unlock the rest by playing or inviting.`}
+      </Text>
+      {/* Honesty disclaimer, always visible (most owners never reach allRevealed
+          now that the deck is gated) — mirrors the web explorer. */}
+      <Text style={styles.persistentDisclaimer}>
+        A playful vibe read from the Dogtypes — not a score. Real matches are worked out dog-by-dog when you swipe.
       </Text>
 
       <View style={styles.deck}>
         {matches.map((match, index) => {
-          const state = index < revealed ? 'revealed' : index === revealed ? 'next' : 'locked';
+          const isRevealed = index < revealed;
+          const isNextLocked = index === revealed;
           const vibe = dogtypeVibe(dogtype.code, match.code);
-          const isExpanded = state === 'revealed' && expandedCode === match.code;
+          const isExpanded = isRevealed && expandedCode === match.code;
           const other = isExpanded ? dogtypeByCode(match.code) : null;
           const compat = isExpanded && other ? dogtypeCompat(dogtype.code, other.code) : null;
           return (
             <View key={match.code} style={styles.slot}>
+              {isNextLocked && ledgerLoading ? (
+                // Ledger still loading — a neutral placeholder, so a user who
+                // already earned keys never sees the lure flash before unlock.
+                <RevealCard
+                  state="locked"
+                  index={index}
+                  total={matches.length}
+                  match={match}
+                  vibe={vibe}
+                  density={densityLine(match)}
+                  rankLabel={null}
+                  isExpanded={false}
+                  dogName={dogName}
+                  onToggle={() => {}}
+                />
+              ) : isNextLocked ? (
+                // The lure: hint there ARE more good matches, and offer the two
+                // honest ways to earn the key that reveals the next one.
+                <View style={styles.lockedLure}>
+                  <View style={styles.lureHeader}>
+                    <Text style={styles.lureLock}>🔒</Text>
+                    <View style={styles.lureHeaderText}>
+                      <Text style={styles.lureTitle}>
+                        {lockedRemaining} more great {lockedRemaining === 1 ? 'vibe' : 'vibes'} for {dogName}
+                      </Text>
+                      <Text style={styles.lureSub}>
+                        Earn a key to reveal the next one — {dogName}’s kind of dog is out there.
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.lureRow}>
+                    <Pressable style={styles.lureBoopBtn} onPress={openSnoot} accessibilityRole="button">
+                      <Text style={styles.lureBoopText}>
+                        🐽 Boop {dogName}
+                        {boopsToNextKey !== null ? ` (${boopsToNextKey} to a key)` : ''}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.lureInviteBtn, sharing && { opacity: 0.6 }]}
+                      onPress={handleUnlockInvite}
+                      disabled={sharing}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.lureInviteText}>{sharing ? 'Preparing…' : '📤 Invite to unlock'}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
               <RevealCard
-                state={state}
+                state={isRevealed ? 'revealed' : 'locked'}
                 index={index}
                 total={matches.length}
                 match={match}
@@ -248,9 +366,9 @@ export default function CompatExplorer({ savedProfile }: Props) {
                 rankLabel={rankLabel(match)}
                 isExpanded={isExpanded}
                 dogName={dogName}
-                onReveal={() => handleReveal(index, match)}
                 onToggle={() => toggleExpand(match)}
               />
+              )}
               {isExpanded && other && compat && (
                 <View style={styles.detail}>
                   {/* What this type IS — its own blurb, straight from the
@@ -320,6 +438,21 @@ export default function CompatExplorer({ savedProfile }: Props) {
         })}
       </View>
 
+      {/* Always-available way to explore every type, so the locked matches
+          never feel like a wall. */}
+      <Pressable onPress={openBrowseAll} accessibilityRole="link">
+        <Text style={styles.browseAll}>Browse all 16 Dogtypes →</Text>
+      </Pressable>
+
+      {/* Hidden capture node for the locked-card invite. Rendered at natural
+          size but visually hidden and non-interactive, so captureRef can still
+          snapshot it (a zero-height parent would clip it). */}
+      {nextLockedType && nextLockedCompat && (
+        <View style={styles.hiddenCapture} pointerEvents="none" accessible={false}>
+          <DogtypeCompatCard ref={lockedCardRef} aType={dogtype} bType={nextLockedType} aName={dogName} compat={nextLockedCompat} />
+        </View>
+      )}
+
       {allRevealed && (
         <View style={styles.closer}>
           <Text style={styles.closerText}>That’s all {dogName}’s best matches 🎉</Text>
@@ -337,7 +470,7 @@ export default function CompatExplorer({ savedProfile }: Props) {
 }
 
 interface RevealCardProps {
-  state: 'revealed' | 'next' | 'locked';
+  state: 'revealed' | 'locked';
   index: number;
   total: number;
   match: Dogtype;
@@ -346,11 +479,10 @@ interface RevealCardProps {
   rankLabel: string | null;
   isExpanded: boolean;
   dogName: string;
-  onReveal: () => void;
   onToggle: () => void;
 }
 
-function RevealCard({ state, index, total, match, vibe, density, rankLabel, isExpanded, dogName, onReveal, onToggle }: RevealCardProps) {
+function RevealCard({ state, index, total, match, vibe, density, rankLabel, isExpanded, dogName, onToggle }: RevealCardProps) {
   const anim = useRef(new Animated.Value(state === 'revealed' ? 1 : 0)).current;
 
   useEffect(() => {
@@ -398,31 +530,12 @@ function RevealCard({ state, index, total, match, vibe, density, rankLabel, isEx
     );
   }
 
-  if (state === 'next') {
-    return (
-      <Pressable
-        style={[styles.card, styles.cardNext]}
-        onPress={onReveal}
-        accessibilityRole="button"
-        accessibilityLabel={`Reveal match ${index + 1} of ${total}`}
-      >
-        <Text style={styles.cardEmoji}>❓</Text>
-        <View style={styles.cardBody}>
-          <Text style={styles.nextPrompt}>Tap to reveal</Text>
-          <Text style={styles.nextSub}>
-            Match {index + 1} of {total}
-          </Text>
-        </View>
-      </Pressable>
-    );
-  }
-
-  // locked — not yet reachable
+  // locked — further down the deck, not yet unlockable.
   return (
     <View style={[styles.card, styles.cardLocked]} accessible={false}>
-      <Text style={[styles.cardEmoji, styles.lockedGlyph]}>🐾</Text>
+      <Text style={[styles.cardEmoji, styles.lockedGlyph]}>🔒</Text>
       <View style={styles.cardBody}>
-        <Text style={styles.lockedText}>Hidden</Text>
+        <Text style={styles.lockedText}>Locked</Text>
         <Text style={styles.nextSub}>
           Match {index + 1} of {total}
         </Text>
@@ -449,6 +562,7 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginTop: 2 },
   subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.brownMid, marginTop: 4, lineHeight: 18 },
+  persistentDisclaimer: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 6, lineHeight: 15 },
   deck: { marginTop: 14, gap: 10 },
   slot: { gap: 10 },
   card: {
@@ -496,7 +610,6 @@ const styles = StyleSheet.create({
   densityMain: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown, marginTop: 8 },
   densitySub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 1 },
   expandHint: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginTop: 8 },
-  nextPrompt: { fontFamily: fonts.bold, fontSize: 16, color: colors.brown },
   nextSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 2 },
   lockedText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brownLight },
   detail: { alignItems: 'stretch' },
@@ -538,6 +651,52 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 14,
   },
+
+  // Locked-match lure
+  lockedLure: {
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    backgroundColor: `${colors.primary}0D`, // ~5%
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  lureHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  lureLock: { fontSize: 30, width: 40, textAlign: 'center' },
+  lureHeaderText: { flex: 1 },
+  lureTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
+  lureSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 2, lineHeight: 16 },
+  lureRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  lureBoopBtn: {
+    flex: 1,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: `${colors.primary}66`,
+    backgroundColor: colors.white,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  lureBoopText: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, textAlign: 'center' },
+  lureInviteBtn: {
+    flex: 1,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    alignItems: 'center',
+    ...shadow.button,
+  },
+  lureInviteText: { fontFamily: fonts.bold, fontSize: 12, color: colors.white, textAlign: 'center' },
+  browseAll: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 12,
+  },
+  // Laid out at natural size but off-screen + invisible, so react-native-view-shot
+  // can still capture it for the locked-card invite.
+  hiddenCapture: { position: 'absolute', left: -9999, top: 0 },
+
   closer: { marginTop: 16, alignItems: 'center' },
   closerText: { fontFamily: fonts.display, fontSize: 16, color: colors.brown, textAlign: 'center' },
   cta: {

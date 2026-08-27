@@ -576,10 +576,10 @@ export default function AppPage() {
               />
 
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">No dogs nearby yet</p>
+              <p className="font-display text-2xl text-brown">The neighborhood’s still quiet</p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                You might be the first dog parent in your neighborhood. We re-check every time
-                you open this tab.
+                We haven’t found other pups near you yet — we check again every time you open
+                Discover, so keep an eye out.
               </p>
 
               {/* Recruit Card — the actual growth lever here is a stranger
@@ -589,7 +589,7 @@ export default function AppPage() {
               {savedProfile && (
                 <>
                   <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                    {dogName}{savedProfile.ai?.vibeCheck?.archetype.name ? ` (a ${savedProfile.ai.vibeCheck.archetype.name})` : ''} is the first dog here — be their first friend.
+                    Share {dogName}’s card{savedProfile.ai?.vibeCheck?.archetype.name ? ` — a ${savedProfile.ai.vibeCheck.archetype.name}` : ''} to bring dog parents near you into the pack. The more locals join, the sooner {dogName} finds a playdate.
                   </p>
                   <div className="scale-[0.85] origin-top -mb-8">
                     <DogTradingCard profile={savedProfile} innerRef={recruitCardRef} />
@@ -629,7 +629,7 @@ export default function AppPage() {
                   onClick={handleInviteFriend}
                   className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
                 >
-                  Invite a Dog Parent
+                  Invite dog parents nearby
                 </button>
               </div>
               {lastCheckedLabel && (

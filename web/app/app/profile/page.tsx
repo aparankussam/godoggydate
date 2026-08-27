@@ -509,14 +509,23 @@ export default function ProfilePage() {
         {savedProfile && (
           <div className="card rounded-[2rem] overflow-hidden">
             <div className="bg-gradient-to-br from-cream-dark via-cream to-white px-5 py-5 flex items-center gap-4">
-              <div className="w-20 h-20 rounded-[1.4rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center">
+              {/* Tap the photo to cycle through the gallery (loops back to the
+                  first). Purely a preview — the shared Trading Card always uses
+                  the starred cover, and leaving the page re-seeds to the hero. */}
+              <button
+                type="button"
+                onClick={() => { if (photos.length > 1) { setActivePhoto((i) => (i + 1) % photos.length); feedback.tap(); } }}
+                disabled={photos.length <= 1}
+                aria-label={photos.length > 1 ? `${name} photo ${safeActive + 1} of ${photos.length} — tap for next` : name}
+                className="w-20 h-20 rounded-[1.4rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center enabled:cursor-pointer disabled:cursor-default"
+              >
                 {photos[safeActive] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={photos[safeActive]} alt={name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-4xl">🐕</span>
                 )}
-              </div>
+              </button>
               <div className="min-w-0 flex-1">
                 {vibeCheck?.archetype.name && (
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">
