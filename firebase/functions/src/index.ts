@@ -1021,15 +1021,42 @@ function activeCelebrations(dog: FirebaseFirestore.DocumentData, now: Date): Cel
   const day = now.getDate();
   const hits: CelebrationHit[] = [];
 
-  // Birthday — the whole birth month (birthYear is year-only, so no exact day).
+  // Birthday. When the owner gave an exact birthDay this fires on the DAY;
+  // otherwise it falls back to the whole birth month. This mirrors
+  // shared/milestones.ts, which already upgrades to an exact-day celebration
+  // when birthDay is set — without this branch the push said "birthday month"
+  // all month while the profile card said "today", and now that a single
+  // MM/DD/YYYY box makes exact days easy to enter, that mismatch would be the
+  // common case rather than a rarity.
   if (typeof dog.birthMonth === 'number' && dog.birthMonth >= 1 && dog.birthMonth <= 12) {
-    if (month === dog.birthMonth - 1) {
-      const turning = typeof dog.birthYear === 'number' ? year - dog.birthYear : null;
+    const turning = typeof dog.birthYear === 'number' ? year - dog.birthYear : null;
+    // Requires birthYear too, matching shared/milestones.ts's exact-day branch
+    // (`validDay(birthDay) && typeof birthYear === 'number'`) — otherwise the
+    // push and the in-app card would disagree about which mode a legacy doc is in.
+    const hasExactDay =
+      typeof dog.birthDay === 'number' && dog.birthDay >= 1 && dog.birthDay <= 31 &&
+      typeof dog.birthYear === 'number';
+
+    if (hasExactDay) {
+      // Same Feb-29 rollover the Gotcha Day branch below uses, so a leap-day
+      // birthday still fires and fires on the day the card shows.
+      const occ = new Date(year, dog.birthMonth - 1, dog.birthDay);
+      if (occ.getMonth() === month && occ.getDate() === day) {
+        hits.push({
+          kind: 'birthday',
+          year,
+          title: `🎂 It's ${name}'s birthday!`,
+          body: turning != null && turning >= 1
+            ? `${name} turns ${turning} today. Make it a good one.`
+            : `Give ${name} some extra treats today.`,
+        });
+      }
+    } else if (month === dog.birthMonth - 1) {
       hits.push({
         kind: 'birthday',
         year,
         title: `🎂 It's ${name}'s birthday month!`,
-        body: turning != null && turning >= 0
+        body: turning != null && turning >= 1
           ? `${name} turns ${turning} this month. Make it a good one.`
           : `Give ${name} some extra treats this month.`,
       });
@@ -1040,16 +1067,36 @@ function activeCelebrations(dog: FirebaseFirestore.DocumentData, now: Date): Cel
   // card uses (new Date rolls Feb 29 to Mar 1 in a non-leap year), so a
   // leap-day Gotcha Day still fires — and fires on the same day the card shows.
   if (typeof dog.adoptionDate === 'string') {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dog.adoptionDate.trim());
-    if (m) {
-      const ay = Number(m[1]); const am = Number(m[2]); const ad = Number(m[3]);
+    const text = dog.adoptionDate.trim();
+    const exact = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    // adoptionDate is deliberately polymorphic — 'YYYY-MM' is the documented
+    // month-only form the profile form actively teaches ("Month and year is
+    // enough"). This branch used to demand full ISO, so every month-only
+    // Gotcha Day silently never fired a push while the profile card happily
+    // celebrated it. Month-only fires on the 1st, matching shared/milestones.ts.
+    const monthOnly = exact ? null : /^(\d{4})-(\d{2})$/.exec(text);
+
+    if (exact) {
+      const ay = Number(exact[1]); const am = Number(exact[2]); const ad = Number(exact[3]);
       const occ = new Date(year, am - 1, ad);
-      if (occ.getMonth() === month && occ.getDate() === day) {
+      if (am >= 1 && am <= 12 && occ.getMonth() === month && occ.getDate() === day) {
         const years = year - ay;
         if (years >= 1) {
           hits.push({
             kind: 'gotcha', year,
             title: `🏡 ${name}'s Gotcha Day`,
+            body: `${years} year${years === 1 ? '' : 's'} since ${name} came home.`,
+          });
+        }
+      }
+    } else if (monthOnly) {
+      const ay = Number(monthOnly[1]); const am = Number(monthOnly[2]);
+      if (am >= 1 && am <= 12 && month === am - 1 && day === 1) {
+        const years = year - ay;
+        if (years >= 1) {
+          hits.push({
+            kind: 'gotcha', year,
+            title: `🏡 ${name}'s Gotcha Day month`,
             body: `${years} year${years === 1 ? '' : 's'} since ${name} came home.`,
           });
         }
@@ -1077,8 +1124,23 @@ function activeCelebrations(dog: FirebaseFirestore.DocumentData, now: Date): Cel
   return hits;
 }
 
-export const sendCelebrationNotifications = functions.pubsub
-  .schedule('every 24 hours')
+// Runs mid-morning US Pacific rather than "every 24 hours". Two reasons, both
+// load-bearing now that a birthday can fire on an EXACT day:
+//  1. activeCelebrations derives today's month/day from `new Date()`, and the
+//     Functions runtime clock is UTC. At 9am Pacific it is 16:00/17:00 UTC on
+//     the SAME calendar date, so the UTC date the function reads matches the
+//     owner's calendar date across the whole continental US. On the old
+//     unpinned schedule a run near UTC midnight would judge "today" as the next
+//     day for western owners — and because the dedup marker is once-per-year,
+//     that off-by-one would be permanent, not merely late.
+//  2. A celebration push lands at a humane hour instead of overnight.
+// The timeout is raised for the same reason as onRatingCreated: this walks the
+// whole dogs collection sequentially, and the month-only Gotcha Day branch
+// concentrates those hits on the 1st of each month.
+export const sendCelebrationNotifications = functions
+  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .pubsub.schedule('0 9 * * *')
+  .timeZone('America/Los_Angeles')
   .onRun(async () => {
     const now = new Date();
     const snap = await db.collection('dogs').get();
@@ -1097,11 +1159,21 @@ export const sendCelebrationNotifications = functions.pubsub
         } catch {
           continue; // already celebrated this occasion this year
         }
-        await sendPushToUser(dogId, {
-          title: hit.title,
-          body: hit.body,
-          data: { type: 'celebration', kind: hit.kind, dogId, link: 'https://godoggydate.com/app/profile' },
-        });
+        try {
+          await sendPushToUser(dogId, {
+            title: hit.title,
+            body: hit.body,
+            data: { type: 'celebration', kind: hit.kind, dogId, link: 'https://godoggydate.com/app/profile' },
+          });
+        } catch (err) {
+          // The marker is claimed BEFORE sending (that ordering is what makes
+          // the dedup safe against concurrent runs), so a failed send would
+          // otherwise burn this occasion's only chance for the whole year.
+          // Release it so the next run can retry.
+          console.error(`Celebration push failed for ${dogId} (${hit.kind}); releasing marker`, err);
+          await markerRef.delete().catch(() => {});
+          continue;
+        }
         sent += 1;
       }
     }

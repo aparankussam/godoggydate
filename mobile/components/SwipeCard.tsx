@@ -16,11 +16,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import type { DiscoverDog } from '../lib/discover';
 import { resolveHeroIndex } from '../lib/coverPhoto';
+import { getRenderablePhotos } from '../lib/photos';
 
 // The photo the card should OPEN on — the owner's cover pick (or AI hero),
 // clamped to the real photos so a stale index never lands out of range.
 function heroIndexFor(dog: DiscoverDog): number {
-  const real = dog.photos.filter((p) => p && !p.startsWith('_'));
+  const real = getRenderablePhotos(dog.photos);
   const h = resolveHeroIndex(dog);
   return typeof h === 'number' && h >= 0 && h < real.length ? h : 0;
 }
@@ -90,7 +91,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     const [photoIndex, setPhotoIndex] = useState(() => heroIndexFor(dog));
 
     // Filter out placeholder strings
-    const photos = dog.photos.filter((p) => p && !p.startsWith('_'));
+    const photos = getRenderablePhotos(dog.photos);
     const photoCount = photos.length;
 
     // Reset to the dog's cover/hero photo whenever the dog changes (new card)
@@ -117,19 +118,11 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
       },
     }));
 
-    // Called from worklet thread — must be defined before gesture
-    function advancePhoto(tapX: number, cardWidth = CARD_WIDTH) {
-      const isRight = tapX > cardWidth * 0.5;
-      if (__DEV__) {
-        console.log(
-          `[SwipeCard] advancePhoto tapX=${tapX.toFixed(1)} cardWidth=${cardWidth} isRight=${isRight} photoIndex=${photoIndex} photoCount=${photoCount}`,
-        );
-      }
-      if (isRight) {
-        setPhotoIndex((i) => Math.min(i + 1, photoCount - 1));
-      } else {
-        setPhotoIndex((i) => Math.max(i - 1, 0));
-      }
+    // Any tap advances to the next photo and wraps back to the first after
+    // the last. Runs on the JS thread via runOnJS; photoCount is always >= 2
+    // when this is called (guarded in the tap gesture below).
+    function advancePhoto() {
+      setPhotoIndex((i) => (i + 1) % photoCount);
     }
 
     const panGesture = Gesture.Pan()
@@ -171,14 +164,12 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
       .enabled(isTop)
       .maxDuration(250)
       .maxDistance(10)
-      .onEnd((e) => {
-        if (photoCount <= 1) {
-          return;
-        }
-        if (__DEV__) {
-          console.log('[SwipeCard] tap recognized', { x: e.x, y: e.y });
-        }
-        runOnJS(advancePhoto)(e.x, CARD_WIDTH);
+      // RNGH fires onEnd with success=false on a cancelled/failed tap — without
+      // this guard a cancelled tap would still advance the photo (harmless when
+      // taps also went backward, but now every tap is forward-only).
+      .onEnd((_e, success) => {
+        if (!success || photoCount <= 1) return;
+        runOnJS(advancePhoto)();
       });
 
     const gesture = Gesture.Exclusive(panGesture, tapGesture);

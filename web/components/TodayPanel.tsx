@@ -1,4 +1,5 @@
 'use client';
+import { reminderDueLabel } from '../../shared/dates';
 // web/components/TodayPanel.tsx
 // "Today" — the Discover tab's front door when the deck has nothing to show.
 //
@@ -57,14 +58,10 @@ function daysUntilDue(dueDate: number, now: number): number {
   return Math.round((startOfLocalDay(dueDate) - startOfLocalDay(now)) / DAY_MS);
 }
 
-// Wording matches RemindersSection so the same reminder doesn't describe itself
-// two different ways on two tabs.
-function dueText(days: number, dueDate: number): string {
-  if (days < 0) return `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} overdue`;
-  if (days === 0) return 'Due today';
-  if (days === 1) return 'Due tomorrow';
-  if (days <= 7) return `Due in ${days} days`;
-  return `Due ${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+// Wording lives in shared/dates.ts's reminderDueLabel so the same reminder
+// can't describe itself two different ways on two tabs.
+function dueText(_days: number, dueDate: number): string {
+  return reminderDueLabel(dueDate).text;
 }
 
 interface ProfilePrompt {

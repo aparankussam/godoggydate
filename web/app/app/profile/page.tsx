@@ -19,7 +19,7 @@ import { getFirebase } from '../../../shared/utils/firebase';
 import type { User, SavedDogProfile } from '../../../lib/auth';
 import DogProfileForm from '../../../components/DogProfileForm';
 import { trackEvent } from '../../../lib/analytics';
-import { getRenderablePhotos } from '../../../lib/photos';
+import { getRenderablePhotos, resolveHeroIndex } from '../../../lib/photos';
 import { deleteAccount } from '../../../lib/account';
 import DogTradingCard from '../../../components/DogTradingCard';
 import HandoffCard from '../../../components/HandoffCard';
@@ -75,10 +75,26 @@ export default function ProfilePage() {
   const [householdReminders, setHouseholdReminders] = useState<Record<string, Reminder[]>>({});
   const cardRef = useRef<HTMLDivElement>(null);
   const handoffRef = useRef<HTMLDivElement>(null);
+  // One-shot guard: the live listeners below re-spread savedProfile on every
+  // household/best-friend update, so seeding on each change would yank the
+  // owner back to the cover photo mid-browse.
+  const photoSeeded = useRef(false);
 
   // One Pro read for the whole page — drives the upsell/manage surface (no Pro-
   // exclusive feature is gated yet). Lifetime Founding Members count as Pro.
   const pro = useProEntitlement(authUser?.uid ?? null);
+
+  // Open on the owner's own cover pick, the same photo their swipe card leads
+  // with. Without this the profile always opened on photo 0 and contradicted
+  // the card about which photo is the hero.
+  useEffect(() => {
+    if (photoSeeded.current || !savedProfile) return;
+    const real = getRenderablePhotos(savedProfile.photos);
+    if (real.length === 0) return;
+    photoSeeded.current = true;
+    const hero = resolveHeroIndex(savedProfile);
+    setActivePhoto(typeof hero === 'number' && hero >= 0 && hero < real.length ? hero : 0);
+  }, [savedProfile]);
   function handleUpgrade() {
     document.getElementById('pro-upsell')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -324,6 +340,10 @@ export default function ProfilePage() {
       // Founding badge, and "would meet again" pill until a reload. safe's
       // explicit nulls (cleared dates/cover) still override prev.
       setSavedProfile((prev) => (prev ? { ...prev, ...safe } : safe));
+      // Re-arm the one-shot photo seeding: the owner may have just changed
+      // their cover pick (or removed the photo it named), and the latch would
+      // otherwise leave the gallery showing the photo that WAS the hero.
+      photoSeeded.current = false;
       setShowEdit(false);
       setEditFocus(null);
       setEditSnapshot(null);

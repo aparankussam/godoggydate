@@ -19,6 +19,7 @@ import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
 import { loadBoops, unlockedStickers, type Sticker } from '../../lib/boops';
+import { resolveHeroIndex } from '../../lib/coverPhoto';
 
 const CANVAS = Math.min(Dimensions.get('window').width - 40, 360);
 const STICKER = 60;
@@ -62,7 +63,7 @@ export default function StickerStudioScreen() {
   const { user, profile } = useSession();
   const dogId = user?.uid ?? '';
   const dogName = profile?.name?.trim() || 'Your dog';
-  const hero = getHeroPhoto(profile?.photos, profile?.ai?.vibeCheck?.heroPhotoIndex);
+  const hero = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
 
   const [photoUri, setPhotoUri] = useState<string | undefined>(hero ?? undefined);
   const [stickers, setStickers] = useState<Sticker[]>([]);

@@ -15,12 +15,13 @@ import { trackEvent } from '../../lib/analytics';
 import AdventurePassportCard from '../../components/AdventurePassportCard';
 import { adventuresFor, ADVENTURE_COUNT } from '../../../shared/adventures';
 import { loadCompleted, saveCompleted, type CompletedMap } from '../../lib/adventures';
+import { resolveHeroIndex } from '../../lib/coverPhoto';
 
 export default function AdventuresScreen() {
   const { user, profile } = useSession();
   const dogId = user?.uid ?? '';
   const dogName = profile?.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(profile?.photos, profile?.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
 
   const deck = useMemo(() => adventuresFor(profile ?? undefined), [profile]);
   const [completed, setCompleted] = useState<CompletedMap>({});

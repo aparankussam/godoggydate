@@ -15,7 +15,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '../../../../shared/utils/firebase';
 import { onAuthStateChanged } from '../../../../lib/auth';
 import type { User, SavedDogProfile } from '../../../../lib/auth';
-import { getRenderablePhotos } from '../../../../lib/photos';
+import { getRenderablePhotos, resolveHeroIndex } from '../../../../lib/photos';
 import { breedConfidencePhrase } from '../../../../lib/vibeCheck';
 import VibeTypeCard from '../../../../components/VibeTypeCard';
 
@@ -65,7 +65,11 @@ export default function MatchedDogProfilePage() {
         const dogSnap = await getDoc(doc(db, 'dogs', otherUserId));
         if (!cancelled) {
           if (dogSnap.exists()) {
-            setProfile(dogSnap.data() as SavedDogProfile);
+            const data = dogSnap.data() as SavedDogProfile;
+            setProfile(data);
+            const realPhotos = getRenderablePhotos(data.photos);
+            const hero = resolveHeroIndex(data);
+            setActivePhoto(typeof hero === 'number' && hero >= 0 && hero < realPhotos.length ? hero : 0);
           } else {
             setNotFoundOrDenied(true);
           }
@@ -124,15 +128,32 @@ export default function MatchedDogProfilePage() {
       </header>
 
       <div className="max-w-2xl mx-auto px-5 py-6 flex flex-col gap-5">
-        {/* Hero photo */}
-        <div className="rounded-[2rem] overflow-hidden bg-gradient-to-br from-gold to-primary aspect-square flex items-center justify-center">
+        {/* Hero photo — tap to advance, looping back to the first after the
+            last (mirrors the discover swipe card's tap-to-cycle). */}
+        <button
+          type="button"
+          onClick={() => photos.length > 1 && setActivePhoto((i) => (i + 1) % photos.length)}
+          disabled={photos.length <= 1}
+          aria-label={photos.length > 1 ? `Photo ${safeActive + 1} of ${photos.length}. Tap for next.` : undefined}
+          className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-gold to-primary aspect-square flex items-center justify-center w-full text-left"
+        >
           {photos[safeActive] ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photos[safeActive]} alt={profile.name} className="w-full h-full object-cover" />
           ) : (
             <span className="text-8xl">🐕</span>
           )}
-        </div>
+          {photos.length > 1 && (
+            <div className="absolute top-4 left-4 right-4 flex gap-1.5">
+              {photos.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1 flex-1 rounded-full ${i === safeActive ? 'bg-white' : 'bg-white/40'}`}
+                />
+              ))}
+            </div>
+          )}
+        </button>
 
         {/* Rest of photos — tap to make one the main photo. */}
         {photos.length > 1 && (

@@ -16,6 +16,8 @@ import { getFirebase } from './firebase';
 import { isUserChatUnlocked } from '../../shared/matchAccess';
 import { getBlockedUserIds } from './blocks';
 import { getEntitlements } from './entitlements';
+import { getHeroPhoto, getRenderablePhotos } from './photos';
+import { resolveHeroIndex } from './coverPhoto';
 
 const MATCH_THREAD_PREVIEW = 'New message';
 
@@ -24,6 +26,10 @@ export interface MatchedDog {
   name: string;
   breed: string;
   photos: string[];
+  /** The photo this dog LEADS with — the owner's cover pick, else the AI hero,
+   *  else the first real photo. Resolved here (where the full dog doc is in
+   *  hand) so a match row shows the same photo as the profile it opens. */
+  heroPhoto: string | null;
   location?: string;
 }
 
@@ -58,6 +64,9 @@ interface FirestoreDogDoc {
   breed?: string;
   photos?: string[];
   location?: string;
+  // Read only to resolve the hero photo (see MatchedDog.heroPhoto).
+  coverPhotoIndex?: number | null;
+  ai?: { vibeCheck?: { heroPhotoIndex?: number } | null } | null;
 }
 
 interface FirestoreMatchDoc {
@@ -126,7 +135,11 @@ async function fetchDogSummary(dogId: string): Promise<MatchedDog | null> {
       id: snap.id,
       name: data.name?.trim() || 'Unnamed dog',
       breed: data.breed?.trim() || 'Unknown breed',
-      photos: Array.isArray(data.photos) ? data.photos.filter(Boolean) : [],
+      // getRenderablePhotos (not bare filter(Boolean)) — both save paths pad
+      // the stored array with the '_placeholder_' token to reach the minimum
+      // photo count, and that token must never reach an <Image source={{uri}}>.
+      photos: getRenderablePhotos(data.photos),
+      heroPhoto: getHeroPhoto(data.photos, resolveHeroIndex(data)),
       location: data.location?.trim(),
     };
   } catch (error) {
@@ -150,12 +163,19 @@ async function normalizeMatchDoc(
   const dog: MatchedDog =
     fetchedDog ??
     (nestedDog && nestedDog.name
-      ? nestedDog
+      ? // The denormalized copy on the match doc predates heroPhoto, so fall
+        // back to its first RENDERABLE photo — photos[0] can be the
+        // '_placeholder_' padding token, which must never reach an <Image>.
+        (() => {
+          const real = getRenderablePhotos(nestedDog.photos);
+          return { ...nestedDog, photos: real, heroPhoto: nestedDog.heroPhoto ?? real[0] ?? null };
+        })()
       : {
           id: otherDogId ?? id,
           name: 'Unknown dog',
           breed: 'Unknown breed',
           photos: [],
+          heroPhoto: null,
         });
 
   return {

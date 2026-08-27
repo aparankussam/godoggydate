@@ -19,6 +19,7 @@ import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from '../components/DogtypeCard';
 import { computeDogtype } from '../../shared/dogtype';
+import { resolveHeroIndex } from '../lib/coverPhoto';
 
 const READING_MS = 1600;
 
@@ -26,7 +27,7 @@ export default function DogtypeRevealScreen() {
   const { profile } = useSession();
   const dogtype = computeDogtype(profile ?? undefined);
   const dogName = profile?.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(profile?.photos, profile?.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
 
   const [phase, setPhase] = useState<'reading' | 'revealed'>('reading');
   const [sharing, setSharing] = useState(false);

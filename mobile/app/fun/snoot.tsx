@@ -15,6 +15,7 @@ import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
+import { resolveHeroIndex } from '../../lib/coverPhoto';
 import {
   loadBoops,
   persistBoops,
@@ -34,7 +35,7 @@ export default function SnootScreen() {
   const { user, profile } = useSession();
   const dogId = user?.uid ?? '';
   const dogName = profile?.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(profile?.photos, profile?.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
 
   const [state, setState] = useState<BoopState>({ allTime: 0, todayCount: 0, todayDate: '', energy: MAX_ENERGY, energyAtMs: Date.now() });
   const [ready, setReady] = useState(false);

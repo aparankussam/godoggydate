@@ -22,6 +22,7 @@ import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import HumanReviewCard from './HumanReviewCard';
 import type { SavedDogProfile } from '../lib/profile';
+import { formatUsDate, formatUsMonthYear } from '../../shared/dates';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -46,7 +47,7 @@ function cacheKey(uid: string): string {
 
 function formatToday(): string {
   try {
-    return new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatUsDate(new Date());
   } catch {
     return '';
   }
@@ -54,7 +55,7 @@ function formatToday(): string {
 
 function formatNextDue(ms: number): string {
   try {
-    return new Date(ms).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    return formatUsMonthYear(new Date(ms));
   } catch {
     return 'next quarter';
   }
@@ -82,7 +83,11 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
         const parsed = JSON.parse(raw) as CachedReview;
         if (!parsed?.review || typeof parsed.generatedAtMs !== 'number') return;
         setReview(parsed.review);
-        setDateLabel(parsed.dateLabel);
+        // Re-derive rather than trusting the cached STRING: the label was
+        // formatted at generate time, so a cache written before the US-format
+        // sweep would keep the old format alive for a whole quarter — including
+        // inside the shared keepsake PNG.
+        setDateLabel(formatUsDate(new Date(parsed.generatedAtMs)));
         setGeneratedAtMs(parsed.generatedAtMs);
       } catch {
         /* corrupt / unavailable cache — cadence just falls back to server caps */

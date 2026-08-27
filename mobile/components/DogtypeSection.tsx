@@ -13,6 +13,7 @@ import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
 import { computeDogtype } from '../../shared/dogtype';
 import type { SavedDogProfile } from '../lib/profile';
+import { resolveHeroIndex } from '../lib/coverPhoto';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -29,7 +30,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
   const dogtype = computed;
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(savedProfile.photos, savedProfile.ai?.vibeCheck?.heroPhotoIndex);
+  const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
 
   async function handleShare() {
     if (sharing) return;

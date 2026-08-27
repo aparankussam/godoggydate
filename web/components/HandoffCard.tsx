@@ -1,4 +1,5 @@
 'use client';
+import { formatUsDate, reminderDueLabel } from '../../shared/dates';
 // web/components/HandoffCard.tsx
 // The Handoff Card — one image the owner hands to a sitter, walker, groomer,
 // or the friend watching the dog this weekend.
@@ -40,15 +41,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Anything further out than this isn't a handoff concern. */
 const UPCOMING_WINDOW_DAYS = 60;
 
+// Keeps this card's "<date> · <relative>" shape while taking the relative
+// half from shared/dates.ts, so the wording matches the other reminder
+// surfaces and the absolute half is US-formatted with a year.
 function dueText(dueDate: number): { text: string; urgent: boolean } {
-  const days = Math.round((dueDate - Date.now()) / DAY_MS);
-  const date = new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const { days, urgent } = reminderDueLabel(dueDate);
+  const date = formatUsDate(new Date(dueDate));
   if (days < 0) {
-    return { text: `${date} · ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} overdue`, urgent: true };
+    const n = Math.abs(days);
+    return { text: `${date} · ${n} day${n === 1 ? '' : 's'} overdue`, urgent: true };
   }
   if (days === 0) return { text: `${date} · today`, urgent: true };
   if (days === 1) return { text: `${date} · tomorrow`, urgent: true };
-  return { text: date, urgent: false };
+  return { text: date, urgent };
 }
 
 function capitalize(value?: string): string | undefined {

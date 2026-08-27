@@ -1,4 +1,5 @@
 'use client';
+import { formatUsMonthYear } from '../../shared/dates';
 // web/components/DiptychSection.tsx
 // Profile-page surface for the DAY 1 vs DAY N diptych — the National Dog Day
 // hook. The owner picks their EARLIEST photo and their LATEST photo from their
@@ -77,7 +78,7 @@ export default function DiptychSection({ savedProfile }: Props) {
   const latestUrl = photos[Math.min(latestIdx, photos.length - 1)];
 
   const earliestLabel = earliestDate
-    ? earliestDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+    ? formatUsMonthYear(earliestDate)
     : undefined;
 
   // Need at least 1 day (dating the earliest photo to today is not a "then vs now").

@@ -132,8 +132,11 @@ export default function MatchesTab() {
                 style={styles.avatarWrap}
                 onPress={() => router.push({ pathname: '/dog/[matchId]', params: { matchId: match.id } })}
               >
-                {match.dog.photos[0] ? (
-                  <Image source={{ uri: match.dog.photos[0] }} style={styles.avatar} />
+                {/* heroPhoto, not photos[0] — this thumbnail is the tap target
+                    for the dog's profile, which opens on the owner's cover
+                    pick, so showing photo 0 here made the two disagree. */}
+                {match.dog.heroPhoto ? (
+                  <Image source={{ uri: match.dog.heroPhoto }} style={styles.avatar} />
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback]}>
                     <Text style={styles.avatarEmoji}>🐕</Text>

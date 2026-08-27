@@ -10,6 +10,11 @@ paths = [
     '''\.env\.example''',          # template file — placeholders only
     '''.*\.next/cache/.*''',       # Next.js build cache (env values inlined at build)
     '''.*/\.next/cache/.*''',
+    # CocoaPods lock file: every entry is "<PodName>: <40-char SHA-1 checksum
+    # of the podspec>", e.g. "AppAuth: d4f13a8fe...". The hex checksums trip
+    # gitleaks' generic-api-key entropy rule but are pod content hashes, not
+    # credentials — confirmed by inspecting the flagged lines.
+    '''.*/?Podfile\.lock''',
 ]
 regexes = [
     '''(sk|pk|rk)_test_placeholder''',

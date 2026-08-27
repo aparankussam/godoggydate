@@ -4,6 +4,7 @@ import { calculateCompatibility } from '../../shared/utils/matchingEngine';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { getFirebase } from './firebase';
 import { getBlockedUserIds } from './blocks';
+import { getRenderablePhotos } from './photos';
 
 export interface DiscoverDog {
   id: string;
@@ -78,6 +79,12 @@ function normalizeSavedProfile(value: SavedDogProfile): SavedDogProfile {
   return {
     ...value,
     playStyles: Array.isArray(value.playStyles) ? value.playStyles : [],
+    // Deliberately the RAW stored array. isProfileComplete() only counts
+    // photos.length (shared/profile.ts) and both save paths PAD with the
+    // '_placeholder_' token precisely to reach that minimum — so stripping
+    // placeholders HERE would fail the completeness gate below and empty the
+    // whole feed. Placeholders are stripped at the DiscoverDog boundary
+    // instead, which is what actually reaches an <Image>.
     photos: Array.isArray(value.photos) ? value.photos.filter(Boolean) : [],
     temperament: Array.isArray(value.temperament) ? value.temperament : [],
     prompts: Array.isArray(value.prompts) ? value.prompts : [],
@@ -140,7 +147,11 @@ export async function fetchDiscoverFeed(
         sex: dog.sex,
         size: dog.size,
         energyLevel: dog.energyLevel,
-        photos: dog.photos,
+        // Strip the '_placeholder_' padding token here — this is the boundary
+        // where photos reach an <Image source={{uri}}>. Placeholders are only
+        // ever appended AFTER the real photos, so a real photo's index (and
+        // coverPhotoIndex, which points into it) never shifts.
+        photos: getRenderablePhotos(dog.photos),
         playStyles: dog.playStyles,
         location,
         distanceMiles: distanceMiles > 0 ? distanceMiles : undefined,

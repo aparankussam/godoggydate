@@ -17,6 +17,7 @@
   ],
   "exclude": [
     "./**/*.test.ts",
+    "../shared/**/*.test.ts",
     "../shared/utils/firebase.ts"
   ],
   "extends": "expo/tsconfig.base"

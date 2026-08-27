@@ -15,9 +15,19 @@ import { getFirebase } from '../../lib/firebase';
 import { useSession } from '../../lib/session';
 import { getOtherDogId } from '../../lib/firestoreData';
 import { breedConfidencePhrase } from '../../lib/vibeCheck';
+import { resolveHeroIndex } from '../../lib/coverPhoto';
+import { getRenderablePhotos } from '../../lib/photos';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import { colors, fonts, radius } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
+
+// Mirrors mobile/components/SwipeCard.tsx's heroIndexFor — the photo this
+// screen should open on: the owner's cover pick (or AI hero), clamped to the
+// real (non-placeholder) photos so a stale index never lands out of range.
+function heroIndexFor(photos: string[], profile: SavedDogProfile): number {
+  const h = resolveHeroIndex(profile);
+  return typeof h === 'number' && h >= 0 && h < photos.length ? h : 0;
+}
 
 export default function MatchedDogProfileScreen() {
   const { matchId } = useLocalSearchParams<{ matchId?: string | string[] }>();
@@ -27,6 +37,7 @@ export default function MatchedDogProfileScreen() {
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   useEffect(() => {
     if (!user || !resolvedMatchId) return;
@@ -48,7 +59,10 @@ export default function MatchedDogProfileScreen() {
         const dogSnap = await getDoc(doc(db, 'dogs', otherDogId));
         if (!cancelled) {
           if (dogSnap.exists()) {
-            setProfile(dogSnap.data() as SavedDogProfile);
+            const data = dogSnap.data() as SavedDogProfile;
+            setProfile(data);
+            const realPhotos = getRenderablePhotos(data.photos);
+            setPhotoIndex(heroIndexFor(realPhotos, data));
           } else {
             setFailed(true);
           }
@@ -82,7 +96,7 @@ export default function MatchedDogProfileScreen() {
     );
   }
 
-  const photos = (profile.photos ?? []).filter((p) => p && !p.startsWith('_'));
+  const photos = getRenderablePhotos(profile.photos);
   const vibeCheck = profile.ai?.vibeCheck;
 
   return (
@@ -95,18 +109,36 @@ export default function MatchedDogProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          {photos[0] ? (
-            <Image source={{ uri: photos[0] }} style={styles.heroImage} />
+        <Pressable
+          style={styles.hero}
+          disabled={photos.length <= 1}
+          onPress={() => setPhotoIndex((i) => (i + 1) % photos.length)}
+          accessibilityRole={photos.length > 1 ? 'button' : undefined}
+          accessibilityLabel={photos.length > 1 ? `Photo ${photoIndex + 1} of ${photos.length}. Tap for next.` : undefined}
+        >
+          {photos[photoIndex] ? (
+            <Image source={{ uri: photos[photoIndex] }} style={styles.heroImage} />
           ) : (
             <Text style={styles.heroEmoji}>🐕</Text>
           )}
-        </View>
+          {photos.length > 1 && (
+            <View style={styles.photoBars} pointerEvents="none">
+              {photos.map((_, i) => (
+                <View key={i} style={[styles.photoBar, i === photoIndex && styles.photoBarActive]} />
+              ))}
+            </View>
+          )}
+        </Pressable>
 
         {photos.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoStrip}>
-            {photos.slice(1).map((url, i) => (
-              <Image key={i} source={{ uri: url }} style={styles.photoStripItem} />
+            {photos.map((url, i) => (
+              <Pressable key={i} onPress={() => setPhotoIndex(i)}>
+                <Image
+                  source={{ uri: url }}
+                  style={[styles.photoStripItem, i === photoIndex && styles.photoStripItemActive]}
+                />
+              </Pressable>
             ))}
           </ScrollView>
         )}
@@ -186,8 +218,15 @@ const styles = StyleSheet.create({
   },
   heroImage: { width: '100%', height: '100%' },
   heroEmoji: { fontSize: 72 },
+  photoBars: {
+    position: 'absolute', top: 12, left: 10, right: 10,
+    flexDirection: 'row', gap: 4,
+  },
+  photoBar: { flex: 1, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.38)' },
+  photoBarActive: { backgroundColor: 'rgba(255,255,255,0.95)' },
   photoStrip: { marginBottom: 16 },
   photoStripItem: { width: 84, height: 84, borderRadius: radius.md, marginRight: 8, backgroundColor: colors.creamDark },
+  photoStripItemActive: { borderWidth: 2, borderColor: colors.primary },
   name: { fontFamily: fonts.display, fontSize: 28, color: colors.brown },
   meta: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight, marginTop: 4 },
   foundingBadge: {

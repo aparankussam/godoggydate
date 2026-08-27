@@ -118,20 +118,37 @@ export default function LetterSection({ savedProfile, userId }: Props) {
 
       {letter && (
         <>
-          {/* 540×960 card scaled to fit the profile column. The negative bottom
-              margin reclaims the whitespace the transform-scale leaves behind. */}
-          <div className="mt-1 flex justify-center overflow-hidden">
-            <div className="origin-top scale-[0.6]" style={{ marginBottom: -384 }}>
-              <LetterCard
-                ref={cardRef}
-                salutation={letter.salutation}
-                body={letter.body}
-                signOff={letter.signOff}
-                dogName={letter.dogName || dogName}
-                occasion={letter.occasion}
-                occasionSubtitle={letter.occasionSubtitle}
-              />
-            </div>
+          {/* On-screen reader: the full letter at natural size, never
+              trimmed — the page scrolls it like any other content. */}
+          <div className="mt-1 flex justify-center">
+            <LetterCard
+              variant="screen"
+              salutation={letter.salutation}
+              body={letter.body}
+              signOff={letter.signOff}
+              dogName={letter.dogName || dogName}
+              occasion={letter.occasion}
+              occasionSubtitle={letter.occasionSubtitle}
+            />
+          </div>
+
+          {/* Capture node — the fixed 9:16 keepsake actually captured for
+              sharing. Rendered off-screen, UNTRANSFORMED (a CSS transform
+              here would make html2canvas export the transformed, smaller
+              size — see LetterCard's header comment), so it never appears in
+              the layout; only its pixels get captured. Mirrors the existing
+              off-screen capture pattern at web/app/app/fun/snoot/page.tsx. */}
+          <div style={{ position: 'absolute', left: -99999, top: 0 }} aria-hidden="true">
+            <LetterCard
+              ref={cardRef}
+              variant="capture"
+              salutation={letter.salutation}
+              body={letter.body}
+              signOff={letter.signOff}
+              dogName={letter.dogName || dogName}
+              occasion={letter.occasion}
+              occasionSubtitle={letter.occasionSubtitle}
+            />
           </div>
 
           <button

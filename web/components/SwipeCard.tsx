@@ -7,7 +7,7 @@
 import { forwardRef, useState, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
-import { resolveHeroIndex, getHeroFocus } from '../lib/photos';
+import { resolveHeroIndex, getHeroFocus, getRenderablePhotos } from '../lib/photos';
 import { QUALITY_STYLES } from './CompatBreakdown';
 
 interface CardDog {
@@ -54,7 +54,7 @@ const TAP_THRESHOLD = 8;
 
 // Strip placeholder tokens so they never hit an <img src>
 function realPhotos(photos?: string[]): string[] {
-  return (photos ?? []).filter((p) => p && !p.startsWith('_'));
+  return getRenderablePhotos(photos);
 }
 
 // The photo the card should OPEN on — the owner's cover pick (or AI hero),
@@ -123,6 +123,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const [photoIndex, setPhotoIndex] = useState(() => heroIndexFor(dog));
 
   const startX = useRef(0);
+  const startY = useRef(0);
   const releaseTimerRef = useRef<number | null>(null);
 
   const runSwipe = useCallback((direction: 'left' | 'right', options?: { immediate?: boolean }) => {
@@ -170,6 +171,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!isTop || gone) return;
     startX.current = e.clientX;
+    startY.current = e.clientY;
     setIsDragging(true);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }, [gone, isTop]);
@@ -184,29 +186,36 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
     setIsDragging(false);
 
     const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
 
     if (dx > THRESHOLD) {
       runSwipe('right');
     } else if (dx < -THRESHOLD) {
       runSwipe('left');
-    } else if (Math.abs(dx) < TAP_THRESHOLD) {
-      // It's a tap — advance/retreat photos if there are multiple
+    } else if (Math.abs(dx) < TAP_THRESHOLD && Math.abs(dy) < TAP_THRESHOLD) {
+      // A tap (not a drag, and not a vertical flick) — advance to the next
+      // photo, wrapping back to the first after the last.
       const photos = realPhotos(dog.photos);
       if (photos.length > 1) {
-        // Right half of card = next photo, left half = previous photo
-        const cardEl = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const tapX = e.clientX - cardEl.left;
-        if (tapX > cardEl.width / 2) {
-          setPhotoIndex((i) => (i + 1) % photos.length);
-        } else {
-          setPhotoIndex((i) => (i - 1 + photos.length) % photos.length);
-        }
+        setPhotoIndex((i) => (i + 1) % photos.length);
       }
       setDragX(0);
     } else {
       setDragX(0);
     }
   }, [isDragging, runSwipe, dog.photos]);
+
+  // A CANCELLED pointer (an OS edge gesture, a second touch, the tab losing
+  // focus) is neither a released drag nor a tap — routing it through
+  // handlePointerUp would land in the tap branch (a cancel reports the last
+  // known coordinates, so dx/dy are ~0 after a stationary press) and advance
+  // the photo. This is the web twin of the RNGH `success` guard in
+  // mobile/components/SwipeCard.tsx's tap gesture.
+  const handlePointerCancel = useCallback(() => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    setDragX(0);
+  }, [isDragging]);
 
   const peekScale  = 1 - stackIndex * 0.04;
   const peekOffset = stackIndex * 12;
@@ -256,7 +265,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       {/* ── Card shell ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0 overflow-hidden rounded-[2.15rem] bg-transparent shadow-[0_18px_40px_rgba(0,0,0,0.12)]">

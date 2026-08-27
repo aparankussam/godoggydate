@@ -33,6 +33,7 @@ import { requestApproxLocation, type LocationStatus } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
 import { getChatUnlockPitch } from '../../../shared/utils/stripe';
 import * as Haptics from 'expo-haptics';
+import { formatUsMonthYear } from '../../../shared/dates';
 
 const MATCH_HEADLINES = ["It's a Match!", 'MUTUAL WOOF'];
 
@@ -44,7 +45,7 @@ function getEnergyLabel(energyLevel: number): string {
 
 function formatMemberSince(timestamp?: number): string | null {
   if (!timestamp || !Number.isFinite(timestamp)) return null;
-  return new Date(timestamp).toLocaleDateString([], { month: 'short', year: 'numeric' });
+  return formatUsMonthYear(new Date(timestamp));
 }
 
 function formatDensityLine(withinFive: number, withinRadius: number, radiusMiles: number): string {

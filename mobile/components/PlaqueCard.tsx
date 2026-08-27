@@ -25,6 +25,7 @@ import { trackEvent } from '../lib/analytics';
 import { computeDogtype } from '../../shared/dogtype';
 import { computePlaque, type Plaque } from '../../shared/plaque';
 import type { SavedDogProfile } from '../lib/profile';
+import { formatUsMonthYear } from '../../shared/dates';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -118,7 +119,7 @@ export default function PlaqueCard({ savedProfile }: Props) {
   // Current month, computed once so it's stable across re-renders (and matches
   // between the visible card and the captured PNG).
   const [monthLabel] = useState(() =>
-    new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    formatUsMonthYear(new Date()),
   );
 
   const dogName = savedProfile.name?.trim() || 'Your dog';

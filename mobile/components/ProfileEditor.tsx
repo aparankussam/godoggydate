@@ -14,19 +14,26 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { uploadDogPhoto } from '../lib/storage';
 import { isProfileComplete, type SavedDogProfile } from '../lib/profile';
-import { getVaccinationStatus, parseLocalIsoDate } from '../../shared/profile';
+import { getVaccinationStatus } from '../../shared/profile';
+import {
+  birthFieldsFromPartial,
+  formatUsPartial,
+  isBirthYearInRange,
+  maskUsDateInput,
+  parseUsDateInput,
+  partialFromAdoptionDate,
+  partialFromBirthFields,
+  partialFromIsoDate,
+  toAdoptionDateIso,
+  toIsoDate,
+  MIN_BIRTH_YEAR,
+} from '../../shared/dates';
 
 const AGE_OPTIONS = [
   { value: 'puppy', label: 'Puppy' },
   { value: 'adult', label: 'Adult' },
   { value: 'senior', label: 'Senior' },
 ] as const;
-
-/** True only if y/m(1–12)/d is a real calendar date — rejects Feb 31, Apr 31, etc. */
-function isRealCalendarDate(y: number, m: number, d: number): boolean {
-  const dt = new Date(y, m - 1, d);
-  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
-}
 
 const SEX_OPTIONS = [
   { value: 'M', label: 'Male' },
@@ -77,7 +84,7 @@ const VACCINATED_CHOICES = [
 
 type ValidationErrors = Partial<Record<
   'photos' | 'name' | 'breed' | 'age' | 'sex' | 'size' | 'playStyles' | 'zip' | 'city' | 'state'
-  | 'rabiesExpiry',
+  | 'rabiesExpiry' | 'birthDate' | 'adoptionDate',
   string
 >>;
 
@@ -120,20 +127,22 @@ export default function ProfileEditor({
   // unanswered and stays distinct from an explicit false, the only value the
   // matching engine treats as blocking.
   const [vaccinated, setVaccinated] = useState<boolean | null>(initialProfile?.vaccinated ?? null);
-  const [rabiesExpiry, setRabiesExpiry] = useState(initialProfile?.rabiesExpiry ?? '');
-  // Birthday & milestones (all optional) — powers Life Stage + Milestones. Kept
-  // as strings for the inputs, parsed on save (mirrors web/DogProfileForm).
-  const [birthYear, setBirthYear] = useState(
-    typeof initialProfile?.birthYear === 'number' ? String(initialProfile.birthYear) : '',
+  // Rabies expiry is typed as US MM/DD/YYYY and stored as 'YYYY-MM-DD'.
+  const [rabiesExpiry, setRabiesExpiry] = useState(
+    formatUsPartial(partialFromIsoDate(initialProfile?.rabiesExpiry)),
   );
-  const [birthMonth, setBirthMonth] = useState(
-    typeof initialProfile?.birthMonth === 'number' ? String(initialProfile.birthMonth) : '',
+  // Birthday & Gotcha Day (both optional) — ONE US MM/DD/YYYY box each, still
+  // stored as the same three numbers / polymorphic string as before. Partial
+  // entry is preserved: a rescue owner who only knows the month can type
+  // "06/2021", and a birthday can even be year-only.
+  const [birthDate, setBirthDate] = useState(
+    formatUsPartial(partialFromBirthFields(
+      initialProfile?.birthYear, initialProfile?.birthMonth, initialProfile?.birthDay,
+    )),
   );
-  const [birthDay, setBirthDay] = useState(
-    typeof initialProfile?.birthDay === 'number' ? String(initialProfile.birthDay) : '',
+  const [adoptionDate, setAdoptionDate] = useState(
+    formatUsPartial(partialFromAdoptionDate(initialProfile?.adoptionDate)),
   );
-  // adoptionDate may be 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month only).
-  const [adoptionDate, setAdoptionDate] = useState(initialProfile?.adoptionDate ?? '');
   const [zip, setZip] = useState(initialProfile?.zip ?? '');
   const [city, setCity] = useState(initialProfile?.city ?? '');
   const [usState, setUsState] = useState(initialProfile?.state ?? '');
@@ -157,10 +166,15 @@ export default function ProfileEditor({
 
   // Same helper the web form and the swipe card use, so the preview below
   // cannot drift from what other owners are actually shown.
-  const vaccinationPreview = useMemo(
-    () => getVaccinationStatus({ rabiesExpiry, vaccinated }),
-    [rabiesExpiry, vaccinated],
-  );
+  const vaccinationPreview = useMemo(() => {
+    // rabiesExpiry state is US MM/DD/YYYY; getVaccinationStatus reads strict
+    // ISO, so convert at this boundary or the preview silently drops the date.
+    const parsed = parseUsDateInput(rabiesExpiry);
+    return getVaccinationStatus({
+      rabiesExpiry: parsed.ok ? toIsoDate(parsed.value) : null,
+      vaccinated,
+    });
+  }, [rabiesExpiry, vaccinated]);
 
   const locationLabel = useMemo(() => {
     if (zip.trim()) return zip.trim();
@@ -178,11 +192,39 @@ export default function ProfileEditor({
     if (!size) next.size = 'Choose a size';
     if (playStyles.length === 0) next.playStyles = 'Pick at least 1 play style';
 
-    // Optional. Only a string that isn't a real calendar date is an error — a
-    // date in the past is valid input and must stay savable, since "expired" is
-    // exactly what this field is for.
-    if (rabiesExpiry.trim() && !parseLocalIsoDate(rabiesExpiry)) {
-      next.rabiesExpiry = 'Use YYYY-MM-DD, like 2027-04-18';
+    // The three date fields below are all OPTIONAL — blank stays valid and
+    // still clears the stored value. But a NON-EMPTY value that can't be parsed
+    // MUST block the save: every one of these used to coerce silently to null,
+    // and because saves are { merge: true } that null is written — so a single
+    // typo would permanently delete a date the owner had already entered
+    // correctly. Erroring is what makes a free-text date box safe.
+    if (rabiesExpiry.trim()) {
+      const parsed = parseUsDateInput(rabiesExpiry);
+      // A past date is valid input and must stay savable — "expired" is exactly
+      // what this field is for.
+      if (!parsed.ok || !toIsoDate(parsed.value)) {
+        next.rabiesExpiry = 'Use MM/DD/YYYY, like 04/18/2027';
+      }
+    }
+
+    if (birthDate.trim()) {
+      const parsed = parseUsDateInput(birthDate);
+      if (!parsed.ok) {
+        next.birthDate = 'Use MM/DD/YYYY — or just 06/2021, or 2021';
+      } else if (!isBirthYearInRange(parsed.value.year)) {
+        next.birthDate = `Year must be between ${MIN_BIRTH_YEAR} and ${new Date().getFullYear()}`;
+      }
+    }
+
+    if (adoptionDate.trim()) {
+      const parsed = parseUsDateInput(adoptionDate);
+      if (!parsed.ok) {
+        next.adoptionDate = 'Use MM/DD/YYYY — or just 06/2021';
+      } else if (!toAdoptionDateIso(parsed.value)) {
+        // Year-only has no stored form for Gotcha Day, so say so rather than
+        // inventing a January date and firing a wrong celebration.
+        next.adoptionDate = 'Add at least the month, like 06/2021';
+      }
     }
 
     const trimmedZip = zip.trim();
@@ -242,6 +284,19 @@ export default function ProfileEditor({
     setPhotos((prev: PhotoItem[]) => prev.filter((photo: PhotoItem) => photo.id !== id));
   }
 
+  // The URL the owner's cover pick currently points at, captured once from the
+  // profile as loaded. Mobile has no cover picker (the pick is made on web), but
+  // it CAN remove/reorder photos — and it never wrote coverPhotoIndex, so the
+  // stale stored index survived { merge: true } and silently began pointing at a
+  // different photo on every surface that resolves the hero. Re-deriving the
+  // index from this URL at save time keeps the owner's pick attached to the
+  // photo they actually chose, and clears it honestly when that photo is gone.
+  const initialCoverUrl = useMemo(() => {
+    const real = (initialProfile?.photos ?? []).filter((u) => u && !u.startsWith('_'));
+    const idx = initialProfile?.coverPhotoIndex;
+    return typeof idx === 'number' && idx >= 0 && idx < real.length ? real[idx] : null;
+  }, [initialProfile]);
+
   async function handleSubmit() {
     const nextErrors = validate();
     setErrors(nextErrors);
@@ -271,6 +326,16 @@ export default function ProfileEditor({
       const safePhotos = uploadedPhotos.slice(0, 6);
       while (safePhotos.length < 3) safePhotos.push('_placeholder_');
 
+      // Re-point the owner's cover pick at the photo it actually names (see
+      // initialCoverUrl). null — not undefined — when that photo is gone, so
+      // the { merge: true } write really clears the stale index instead of
+      // leaving it to select an unrelated photo.
+      const nextCoverIndex = (() => {
+        if (!initialCoverUrl) return null;
+        const i = safePhotos.indexOf(initialCoverUrl);
+        return i >= 0 ? i : null;
+      })();
+
       await onSubmit({
         name: name.trim(),
         breed: breed.trim(),
@@ -285,27 +350,26 @@ export default function ProfileEditor({
         // null, not undefined, when empty: saves are { merge: true } and
         // stripUndefined drops undefined keys, so omitting it would leave a
         // date the owner just deleted in place.
-        rabiesExpiry: rabiesExpiry.trim() || null,
-        // Birthday & milestones — parsed + range-checked; null (not undefined)
-        // when empty so a cleared value actually clears under { merge: true }.
-        birthYear: (() => { const y = Number(birthYear); return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : null; })(),
-        birthMonth: (() => { const m = Number(birthMonth); return Number.isInteger(m) && m >= 1 && m <= 12 ? m : null; })(),
-        birthDay: (() => {
-          const y = Number(birthYear), m = Number(birthMonth), d = Number(birthDay);
-          if (!(Number.isInteger(d) && d >= 1 && d <= 31)) return null;
-          // Keep the day only if it forms a real calendar date (drops Feb 31).
-          return Number.isInteger(y) && Number.isInteger(m) && isRealCalendarDate(y, m, d) ? d : null;
+        // Typed as US MM/DD/YYYY, stored as 'YYYY-MM-DD' — the stored shape is
+        // unchanged. validate() has already blocked a non-empty-but-unparseable
+        // value, so reaching null here means the owner really did clear it.
+        rabiesExpiry: (() => {
+          const parsed = parseUsDateInput(rabiesExpiry);
+          return parsed.ok ? toIsoDate(parsed.value) : null;
         })(),
-        // Accept 'YYYY-MM-DD' (exact, real date) or 'YYYY-MM' (valid month only); else clear.
+        // Birthday & Gotcha Day — the SAME stored fields and rules as before,
+        // now derived by the shared helpers. null (not undefined) when empty so
+        // a cleared value actually clears under { merge: true }.
+        ...(() => {
+          const parsed = parseUsDateInput(birthDate);
+          return birthFieldsFromPartial(parsed.ok ? parsed.value : null);
+        })(),
         adoptionDate: (() => {
-          const t = adoptionDate.trim();
-          const mo = /^(\d{4})-(\d{2})$/.exec(t);
-          if (mo) { const m = +mo[2]; return m >= 1 && m <= 12 ? t : null; }
-          const fu = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-          if (fu) { const y = +fu[1], m = +fu[2], d = +fu[3]; return m >= 1 && m <= 12 && d >= 1 && d <= 31 && isRealCalendarDate(y, m, d) ? t : null; }
-          return null;
+          const parsed = parseUsDateInput(adoptionDate);
+          return parsed.ok ? toAdoptionDateIso(parsed.value) : null;
         })(),
         photos: safePhotos,
+        coverPhotoIndex: nextCoverIndex,
         location: locationLabel,
         city: city.trim() || undefined,
         state: usState.trim().toUpperCase() || undefined,
@@ -523,53 +587,37 @@ export default function ProfileEditor({
           Optional — unlocks {name.trim() || 'your dog'}&apos;s life stage plus birthday and Gotcha Day celebrations.
         </Text>
 
-        <Text style={styles.subLabel}>Birth year</Text>
+        <Text style={styles.subLabel}>Birthday</Text>
         <TextInput
-          style={styles.input}
-          placeholder="e.g. 2021"
+          style={[styles.input, errors.birthDate && styles.inputError]}
+          placeholder="MM/DD/YYYY"
           placeholderTextColor={colors.brownLight}
-          value={birthYear}
-          onChangeText={setBirthYear}
-          keyboardType="number-pad"
-          maxLength={4}
-        />
-
-        <Text style={styles.subLabel}>Birth month (optional, 1–12)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. 6"
-          placeholderTextColor={colors.brownLight}
-          value={birthMonth}
-          onChangeText={setBirthMonth}
-          keyboardType="number-pad"
-          maxLength={2}
-        />
-
-        <Text style={styles.subLabel}>Birth day (optional, 1–31)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. 14"
-          placeholderTextColor={colors.brownLight}
-          value={birthDay}
-          onChangeText={setBirthDay}
-          keyboardType="number-pad"
-          maxLength={2}
-        />
-
-        <Text style={styles.subLabel}>Gotcha Day (optional) — the day they came home</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="2021-08 or 2021-08-14"
-          placeholderTextColor={colors.brownLight}
-          value={adoptionDate}
-          onChangeText={setAdoptionDate}
+          value={birthDate}
+          // number-pad + an explicit mask, NOT numbers-and-punctuation: that
+          // keyboard is iOS-only and falls back to the full keyboard on Android.
+          onChangeText={(t) => setBirthDate(maskUsDateInput(t))}
           keyboardType="numbers-and-punctuation"
           autoCapitalize="none"
           maxLength={10}
         />
+        {errors.birthDate ? <Text style={styles.error}>{errors.birthDate}</Text> : null}
+
+        <Text style={styles.subLabel}>Gotcha Day — the day they came home</Text>
+        <TextInput
+          style={[styles.input, errors.adoptionDate && styles.inputError]}
+          placeholder="MM/DD/YYYY"
+          placeholderTextColor={colors.brownLight}
+          value={adoptionDate}
+          onChangeText={(t) => setAdoptionDate(maskUsDateInput(t))}
+          keyboardType="numbers-and-punctuation"
+          autoCapitalize="none"
+          maxLength={10}
+        />
+        {errors.adoptionDate ? <Text style={styles.error}>{errors.adoptionDate}</Text> : null}
+
         <Text style={styles.helper}>
-          Just year-month (2021-08) is fine — we&apos;ll celebrate the month. Add the day (2021-08-14) and we&apos;ll
-          celebrate the exact day. Same for the birthday: month only, or add the day.
+          Don&apos;t know the exact day? Month and year is enough — type 06/2021 and we&apos;ll celebrate the
+          month. For the birthday, even just the year (2021) works.
         </Text>
       </View>
 
@@ -587,11 +635,11 @@ export default function ProfileEditor({
 
         <Text style={styles.subLabel}>Rabies expiry date (optional)</Text>
         <TextInput
-          style={styles.input}
-          placeholder="2027-04-18"
+          style={[styles.input, errors.rabiesExpiry && styles.inputError]}
+          placeholder="MM/DD/YYYY"
           placeholderTextColor={colors.brownLight}
           value={rabiesExpiry}
-          onChangeText={setRabiesExpiry}
+          onChangeText={(t) => setRabiesExpiry(maskUsDateInput(t))}
           keyboardType="numbers-and-punctuation"
           autoCapitalize="none"
           maxLength={10}
@@ -716,6 +764,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.brown,
   },
+  inputError: { borderColor: colors.primary },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {

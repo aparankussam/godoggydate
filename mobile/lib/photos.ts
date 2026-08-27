@@ -5,7 +5,12 @@
 export function getRenderablePhotos(
   photos?: Array<string | null | undefined>,
 ): string[] {
-  return (photos ?? []).filter((photo): photo is string => {
+  // Array.isArray, not `?? []` — callers pass values straight off a Firestore
+  // document, where a malformed/legacy field can be a non-array. `??` only
+  // substitutes for null/undefined, so a string or object would reach .filter
+  // and throw.
+  if (!Array.isArray(photos)) return [];
+  return photos.filter((photo): photo is string => {
     if (typeof photo !== 'string') return false;
     const trimmed = photo.trim();
     return trimmed !== '' && trimmed !== '_placeholder_';

@@ -119,11 +119,31 @@ export default function LetterSection({ savedProfile }: Props) {
 
       {letter && (
         <>
-          {/* The sealed-letter card (captured for sharing). Constrained width so
-              the 9:16 keepsake sits neatly inside the profile column. */}
+          {/* On-screen reader: the full letter, never trimmed — the profile
+              ScrollView carries whatever height it needs. */}
           <View style={styles.cardFrame}>
             <LetterCard
+              variant="screen"
+              salutation={letter.salutation}
+              body={letter.body}
+              signOff={letter.signOff}
+              dogName={letter.dogName || dogName}
+              occasion={letter.occasion}
+              occasionSubtitle={letter.occasionSubtitle}
+            />
+          </View>
+
+          {/* Capture node — the fixed 9:16 keepsake actually captured for
+              sharing. Kept in the real layout tree (so react-native-view-shot
+              captures a genuinely on-screen, in-window view — this repo has
+              no precedent for capturing a view positioned off-window, which
+              is a known flaky spot on some Android/RN combinations) but
+              collapsed to zero footprint by its wrapper, so it never takes
+              visible space or appears to the owner. */}
+          <View style={styles.captureWrap} pointerEvents="none">
+            <LetterCard
               ref={cardRef}
+              variant="capture"
               salutation={letter.salutation}
               body={letter.body}
               signOff={letter.signOff}
@@ -190,6 +210,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     overflow: 'hidden',
     alignSelf: 'stretch',
+  },
+  // Collapses the capture node to zero footprint while keeping it genuinely
+  // on-screen/in-window (not off-canvas) — see the render-site comment above.
+  captureWrap: {
+    height: 0,
+    overflow: 'hidden',
   },
   secondaryButton: {
     borderWidth: 1,

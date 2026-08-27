@@ -1,4 +1,5 @@
 'use client';
+import { formatUsMonthYear } from '../../shared/dates';
 // web/components/PlaqueCard.tsx
 // "EMPLOYEE OF THE MONTH" — a walnut-and-brass office plaque for a dog, built on
 // top of its deterministic Dogtype (shared/dogtype.ts) and shared/plaque.ts. The
@@ -172,7 +173,7 @@ export default function PlaqueCard({ savedProfile }: Props) {
   // first client render agree except across a month boundary mid-request, which
   // is acceptable for a playful, monthly-rotating title.
   const [monthLabel] = useState(() =>
-    new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    formatUsMonthYear(new Date()),
   );
 
   const dogName = savedProfile.name?.trim() || 'Your dog';

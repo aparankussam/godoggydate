@@ -15,7 +15,7 @@ import { onAuthStateChanged } from '../../../lib/auth';
 import type { User } from '../../../lib/auth';
 import type { SavedDogProfile } from '../../../lib/auth';
 import { SkeletonMatchRow } from '../../../components/SkeletonCard';
-import { getPrimaryRenderablePhoto } from '../../../lib/photos';
+import { getHeroPhoto, resolveHeroIndex } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
@@ -260,7 +260,7 @@ export default function MatchesPage() {
           <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3">
             {matches.map((m) => {
               const dog = m.otherProfile;
-              const photo = getPrimaryRenderablePhoto(dog?.photos);
+              const photo = getHeroPhoto(dog?.photos, resolveHeroIndex(dog));
               const name  = dog?.name ?? 'Mystery Dog';
               const breed = dog?.breed ?? 'Unknown breed';
               const hasLastMsg = !!m.lastMessage;

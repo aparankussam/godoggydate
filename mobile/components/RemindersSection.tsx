@@ -10,6 +10,7 @@ import { Animated, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 import { colors, fonts, radius } from '../constants/theme';
 import { REMINDER_PRESETS, completeReminder, createReminder, deleteReminder } from '../lib/reminders';
 import type { Reminder, ReminderType } from '../../shared/types';
+import { reminderDueLabel } from '../../shared/dates';
 
 interface Props {
   dogId: string;
@@ -25,14 +26,9 @@ const QUICK_PICKS: { label: string; days: number }[] = [
   { label: '1 year', days: 365 },
 ];
 
-function dueLabel(dueDate: number): { text: string; urgent: boolean } {
-  const days = Math.round((dueDate - Date.now()) / DAY_MS);
-  if (days < 0) return { text: `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} overdue`, urgent: true };
-  if (days === 0) return { text: 'Due today', urgent: true };
-  if (days === 1) return { text: 'Due tomorrow', urgent: true };
-  if (days <= 7) return { text: `Due in ${days} days`, urgent: false };
-  return { text: `Due ${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`, urgent: false };
-}
+// Wording lives in shared/dates.ts's reminderDueLabel so the same reminder
+// can't describe itself two different ways across tabs or platforms.
+const dueLabel = reminderDueLabel;
 
 export default function RemindersSection({ dogId, reminders }: Props) {
   const [showAdd, setShowAdd] = useState(false);

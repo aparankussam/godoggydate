@@ -13,7 +13,8 @@
 // Self-contained: reads only the owner's own profile, computes nothing from
 // other users, and shares via the same react-native-view-shot path (captureAndShare)
 // as every other card. No native date picker dependency — the date is a
-// YYYY-MM-DD text field, matching the rabies-expiry input in ProfileEditor.
+// US MM/DD/YYYY text field, matching the rabies-expiry input in ProfileEditor
+// and every other date the app asks for (shared/dates.ts).
 
 import { useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -23,23 +24,22 @@ import { getRenderablePhotos } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DiptychCard from './DiptychCard';
+import { formatUsMonthYear, maskUsDateInput, parseUsDateInput } from '../../shared/dates';
 
 interface Props {
   savedProfile: SavedDogProfile;
 }
 
-/** Local-midnight Date from a YYYY-MM-DD string, or null if malformed/invalid. */
+/** Local-midnight Date from a US MM/DD/YYYY string, or null if incomplete or
+ *  not a real calendar date (rejects roll-overs like 02/31 so the day count
+ *  stays honest). Shares the app's one date parser. */
 function parseInputDate(value: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (!m) return null;
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const d = new Date(year, month - 1, day);
-  // Reject roll-over dates (e.g. 2022-02-31 → Mar 3) so the label stays honest.
-  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
-  return d;
+  const parsed = parseUsDateInput(value);
+  if (!parsed.ok) return null;
+  const { year, month, day } = parsed.value;
+  // The day count needs an exact day — a month-only value can't anchor it.
+  if (month === null || day === null) return null;
+  return new Date(year, month - 1, day);
 }
 
 /** Whole days from a local-midnight earliest date to today, DST-immune.
@@ -76,7 +76,7 @@ export default function DiptychSection({ savedProfile }: Props) {
   const latestUrl = photos[Math.min(latestIdx, photos.length - 1)];
 
   const earliestLabel = earliestDate
-    ? earliestDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+    ? formatUsMonthYear(earliestDate)
     : undefined;
 
   // Need at least 1 day (dating the earliest photo to today is not a "then vs now").
@@ -146,15 +146,15 @@ export default function DiptychSection({ savedProfile }: Props) {
       <Text style={styles.pickerLabel}>When was that earliest photo taken?</Text>
       <TextInput
         style={styles.input}
-        placeholder="2022-03-18"
+        placeholder="MM/DD/YYYY"
         placeholderTextColor={colors.brownLight}
         value={dateValue}
-        onChangeText={setDateValue}
+        onChangeText={(t) => setDateValue(maskUsDateInput(t))}
         keyboardType="numbers-and-punctuation"
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={10}
-        accessibilityLabel="Earliest photo date, formatted year-month-day"
+        accessibilityLabel="Earliest photo date, formatted month slash day slash year"
       />
       {futureDate ? (
         <Text style={styles.warn}>That date is in the future — pick the day your earliest photo was actually taken.</Text>

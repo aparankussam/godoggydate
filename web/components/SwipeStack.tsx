@@ -1,4 +1,5 @@
 'use client';
+import { formatUsMonthYear } from '../../shared/dates';
 // web/components/SwipeStack.tsx
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -62,7 +63,7 @@ export default function SwipeStack({
 
   function formatMemberSince(timestamp: number | undefined): string | null {
     if (!timestamp || !Number.isFinite(timestamp)) return null;
-    return new Date(timestamp).toLocaleDateString([], { month: 'short', year: 'numeric' });
+    return formatUsMonthYear(new Date(timestamp));
   }
 
   useEffect(() => {

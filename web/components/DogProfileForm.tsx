@@ -5,7 +5,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
 import { isProfileComplete } from '../lib/auth';
-import { getVaccinationStatus, parseLocalIsoDate } from '../../shared/profile';
+import { getVaccinationStatus } from '../../shared/profile';
+import {
+  birthFieldsFromPartial,
+  formatUsPartial,
+  isBirthYearInRange,
+  maskUsDateInput,
+  parseUsDateInput,
+  partialFromAdoptionDate,
+  partialFromBirthFields,
+  partialFromIsoDate,
+  toAdoptionDateIso,
+  toIsoDate,
+  MIN_BIRTH_YEAR,
+} from '../../shared/dates';
 import { uploadDogPhoto } from '../lib/storage';
 import { getFirebase } from '../shared/utils/firebase';
 import { BREEDS } from '../../shared/types/breeds';
@@ -58,17 +71,6 @@ const DEFAULT_PROMPTS = [
 
 const MAX_PHOTOS = 6;
 const MIN_PHOTOS = 3;
-
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-/** True only if y/m(1–12)/d is a real calendar date — rejects Feb 31, Apr 31, etc. */
-function isRealCalendarDate(y: number, m: number, d: number): boolean {
-  const dt = new Date(y, m - 1, d);
-  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
-}
 
 const US_STATES: { abbr: string; name: string }[] = [
   { abbr: 'AL', name: 'Alabama' }, { abbr: 'AK', name: 'Alaska' },
@@ -128,6 +130,8 @@ interface ValidationErrors {
   state: string;
   personality: string;
   rabiesExpiry: string;
+  birthDate: string;
+  adoptionDate: string;
 }
 
 function countComplete(p: {
@@ -168,6 +172,8 @@ const EMPTY_ERRORS: ValidationErrors = {
   state: '',
   personality: '',
   rabiesExpiry: '',
+  birthDate: '',
+  adoptionDate: '',
 };
 
 export default function DogProfileForm({ onSaved, saving, initialProfile, focusSection }: Props) {
@@ -190,18 +196,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   // page. null is genuinely unanswered and stays distinguishable from an
   // explicit "no" (the only value the matching engine blocks on).
   const [vaccinated, setVaccinated] = useState<boolean | null>(null);
+  // Typed as US MM/DD/YYYY, stored as 'YYYY-MM-DD' — stored shape unchanged.
   const [rabiesExpiry, setRabiesExpiry] = useState('');
-  // Birthday & milestones (all optional). Kept as strings for the inputs and
-  // parsed on save. birthYear powers the life-stage read; birthMonth the
-  // birthday-MONTH celebration; adoptionDate ('YYYY-MM-DD') Gotcha Day.
-  const [birthYear, setBirthYear] = useState('');
-  const [birthMonth, setBirthMonth] = useState('');
-  const [birthDay, setBirthDay] = useState(''); // optional exact day
-  // Gotcha Day is captured as year + month + optional day so owners who only
-  // remember the month can still log it (composed into adoptionDate on save).
-  const [gotchaYear, setGotchaYear] = useState('');
-  const [gotchaMonth, setGotchaMonth] = useState('');
-  const [gotchaDay, setGotchaDay] = useState('');
+  // Birthday & Gotcha Day (both optional) — ONE US MM/DD/YYYY box each, still
+  // stored as the same three numbers / polymorphic string as before. Partial
+  // entry is preserved: "06/2021" for month+year, and the birthday even takes a
+  // bare "2021".
+  const [birthDate, setBirthDate] = useState('');
+  const [adoptionDateInput, setAdoptionDateInput] = useState('');
   const [prompts, setPrompts] = useState(
     DEFAULT_PROMPTS.map((prompt) => ({ prompt, answer: '' })),
   );
@@ -233,7 +235,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   const sexRef = useRef<HTMLDivElement | null>(null);
   const sizeRef = useRef<HTMLDivElement | null>(null);
   const energyRef = useRef<HTMLInputElement | null>(null);
-  const birthYearRef = useRef<HTMLInputElement | null>(null);
+  // Also the 'Add birth date' deep-link target from LifeStageCard.
+  const birthDateRef = useRef<HTMLInputElement | null>(null);
+  const adoptionDateRef = useRef<HTMLInputElement | null>(null);
   const zipRef = useRef<HTMLInputElement | null>(null);
   const locationRef = useRef<HTMLInputElement | null>(null);
   const stateRef = useRef<HTMLSelectElement | null>(null);
@@ -248,9 +252,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   // Deep-link: when opened via the "Add birth date" nudge, scroll to and focus
   // the birthday inputs instead of dumping the user at the top of the form.
   useEffect(() => {
-    if (focusSection === 'birthday' && birthYearRef.current) {
-      birthYearRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const t = window.setTimeout(() => birthYearRef.current?.focus(), 250);
+    if (focusSection === 'birthday' && birthDateRef.current) {
+      birthDateRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const t = window.setTimeout(() => birthDateRef.current?.focus(), 250);
       return () => window.clearTimeout(t);
     }
   }, [focusSection]);
@@ -269,17 +273,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     setNotGoodWith(initialProfile.notGoodWith ?? []);
     setBehaviorFlags(initialProfile.behaviorFlags ?? []);
     setVaccinated(initialProfile.vaccinated ?? null);
-    setRabiesExpiry(initialProfile.rabiesExpiry ?? '');
-    setBirthYear(typeof initialProfile.birthYear === 'number' ? String(initialProfile.birthYear) : '');
-    setBirthMonth(typeof initialProfile.birthMonth === 'number' ? String(initialProfile.birthMonth) : '');
-    setBirthDay(typeof initialProfile.birthDay === 'number' ? String(initialProfile.birthDay) : '');
+    setRabiesExpiry(formatUsPartial(partialFromIsoDate(initialProfile.rabiesExpiry)));
+    setBirthDate(formatUsPartial(partialFromBirthFields(
+      initialProfile.birthYear, initialProfile.birthMonth, initialProfile.birthDay,
+    )));
     // adoptionDate may be 'YYYY-MM-DD' (exact) or 'YYYY-MM' (month only).
-    {
-      const g = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec((initialProfile.adoptionDate ?? '').trim());
-      setGotchaYear(g ? String(Number(g[1])) : '');
-      setGotchaMonth(g ? String(Number(g[2])) : '');
-      setGotchaDay(g && g[3] ? String(Number(g[3])) : '');
-    }
+    setAdoptionDateInput(formatUsPartial(partialFromAdoptionDate(initialProfile.adoptionDate)));
     setCoverPhotoIndex(typeof initialProfile.coverPhotoIndex === 'number' ? initialProfile.coverPhotoIndex : -1);
     setCoverFocusX(typeof initialProfile.coverFocusX === 'number' ? initialProfile.coverFocusX : 50);
     setCoverFocusY(typeof initialProfile.coverFocusY === 'number' ? initialProfile.coverFocusY : 50);
@@ -472,12 +471,38 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : '',
       state: !hasZip && hasCity && !hasState ? 'Select a state' : '',
       personality: temperament.length === 0 && playStyles.length === 0 ? 'Pick at least one' : '',
-      // Optional field — only a value that isn't a real calendar date is an
-      // error. An expiry in the past is valid input and must stay savable:
-      // "expired" is the state this field exists to surface.
-      rabiesExpiry: rabiesExpiry.trim() && !parseLocalIsoDate(rabiesExpiry)
-        ? 'Use the date on the certificate (YYYY-MM-DD)'
-        : '',
+      // The three date fields below are OPTIONAL — blank stays valid and still
+      // clears the stored value. But a NON-EMPTY value that can't be parsed
+      // MUST block the save: these used to coerce silently to null, and because
+      // saves are { merge: true } that null is WRITTEN, so one typo would
+      // permanently delete a date the owner had already entered correctly.
+      // (The old <select>s made a bad date unenterable; a free-text box can't.)
+      //
+      // An expiry in the PAST is valid input and must stay savable: "expired"
+      // is the state this field exists to surface.
+      rabiesExpiry: (() => {
+        if (!rabiesExpiry.trim()) return '';
+        const parsed = parseUsDateInput(rabiesExpiry);
+        return parsed.ok && toIsoDate(parsed.value) ? '' : 'Use MM/DD/YYYY, like 04/18/2027';
+      })(),
+      birthDate: (() => {
+        if (!birthDate.trim()) return '';
+        const parsed = parseUsDateInput(birthDate);
+        if (!parsed.ok) return 'Use MM/DD/YYYY — or just 06/2021, or 2021';
+        if (!isBirthYearInRange(parsed.value.year)) {
+          return `Year must be between ${MIN_BIRTH_YEAR} and ${new Date().getFullYear()}`;
+        }
+        return '';
+      })(),
+      adoptionDate: (() => {
+        if (!adoptionDateInput.trim()) return '';
+        const parsed = parseUsDateInput(adoptionDateInput);
+        if (!parsed.ok) return 'Use MM/DD/YYYY — or just 06/2021';
+        // Year-only has no stored form for Gotcha Day — say so rather than
+        // inventing a January date and firing a wrong celebration push.
+        if (!toAdoptionDateIso(parsed.value)) return 'Add at least the month, like 06/2021';
+        return '';
+      })(),
     };
   }
 
@@ -495,6 +520,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       'state',
       'personality',
       'rabiesExpiry',
+      'birthDate',
+      'adoptionDate',
     ];
 
     const firstInvalid = order.find((field) => nextErrors[field]);
@@ -513,6 +540,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       state: stateRef.current,
       personality: null,
       rabiesExpiry: rabiesExpiryRef.current,
+      // birthDateRef is also the 'Add birth date' deep-link target from
+      // LifeStageCard — see the scroll/focus effect above.
+      birthDate: birthDateRef.current,
+      adoptionDate: adoptionDateRef.current,
     };
 
     const target = targets[firstInvalid];
@@ -537,7 +568,15 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
 
   // Same helper every rendering surface uses, so the preview below the form
   // cannot drift from what the swipe card actually says.
-  const vaccinationPreview = getVaccinationStatus({ rabiesExpiry, vaccinated });
+  // rabiesExpiry state is US MM/DD/YYYY; getVaccinationStatus reads strict
+  // ISO, so convert at this boundary or the preview silently drops the date.
+  const vaccinationPreview = (() => {
+    const parsed = parseUsDateInput(rabiesExpiry);
+    return getVaccinationStatus({
+      rabiesExpiry: parsed.ok ? toIsoDate(parsed.value) : null,
+      vaccinated,
+    });
+  })();
 
   const zipStr = zip.trim();
   const cityStr = city.trim();
@@ -643,42 +682,25 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         // re-saves an unchanged date, and derive dueDate with
         // parseLocalIsoDate(...).getTime() so the reminder doesn't fire a day
         // early west of Greenwich.
-        rabiesExpiry: rabiesExpiry.trim() || null,
-        // Birthday & milestones — parsed and range-checked; invalid input is
-        // simply not saved (the life-stage/milestone code also rejects garbage).
-        // adoptionDate uses null-when-empty for the same { merge: true } reason
-        // as rabiesExpiry above.
-        // null (not undefined) when empty/invalid so a cleared value actually
-        // clears under { merge: true } — undefined is stripped and would keep
-        // the stale value (same contract as adoptionDate/rabiesExpiry).
-        birthYear: (() => {
-          const y = Number(birthYear);
-          return Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear() ? y : null;
+        // Typed as US MM/DD/YYYY, stored as 'YYYY-MM-DD' — stored shape
+        // unchanged. getValidationErrors() has already blocked a non-empty
+        // unparseable value, so null here means the owner really did clear it.
+        rabiesExpiry: (() => {
+          const parsed = parseUsDateInput(rabiesExpiry);
+          return parsed.ok ? toIsoDate(parsed.value) : null;
         })(),
-        birthMonth: (() => {
-          const m = Number(birthMonth);
-          return Number.isInteger(m) && m >= 1 && m <= 12 ? m : null;
+        // Birthday & Gotcha Day — the SAME stored fields and rules as before,
+        // now derived by the shared helpers so web and mobile can't drift.
+        // null (not undefined) when empty so a cleared value actually clears
+        // under { merge: true } — undefined is stripped and would keep the
+        // stale value.
+        ...(() => {
+          const parsed = parseUsDateInput(birthDate);
+          return birthFieldsFromPartial(parsed.ok ? parsed.value : null);
         })(),
-        birthDay: (() => {
-          const y = Number(birthYear), m = Number(birthMonth), d = Number(birthDay);
-          if (!(Number.isInteger(d) && d >= 1 && d <= 31)) return null;
-          // Keep the day only if it forms a real calendar date (drops Feb 31 →
-          // month-only); the exact-day birthday needs a valid year+month anyway.
-          return Number.isInteger(y) && Number.isInteger(m) && isRealCalendarDate(y, m, d) ? d : null;
-        })(),
-        // Compose Gotcha Day: full date when a real day is known, else month-only
-        // ('YYYY-MM'), else null (cleared / incomplete). Needs both year+month.
         adoptionDate: (() => {
-          const y = Number(gotchaYear);
-          const m = Number(gotchaMonth);
-          if (!(Number.isInteger(y) && y >= 1990 && y <= new Date().getFullYear())) return null;
-          if (!(Number.isInteger(m) && m >= 1 && m <= 12)) return null;
-          const mm = String(m).padStart(2, '0');
-          const d = Number(gotchaDay);
-          if (Number.isInteger(d) && d >= 1 && d <= 31 && isRealCalendarDate(y, m, d)) {
-            return `${y}-${mm}-${String(d).padStart(2, '0')}`;
-          }
-          return `${y}-${mm}`;
+          const parsed = parseUsDateInput(adoptionDateInput);
+          return parsed.ok ? toAdoptionDateIso(parsed.value) : null;
         })(),
         prompts: prompts.filter((prompt) => prompt.answer.trim()),
       });
@@ -1103,13 +1125,23 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           <label htmlFor="rabies-expiry" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
             Rabies expiry date <span className="font-normal text-brown-light">(optional)</span>
           </label>
+          {/* Masked text rather than <input type="date">: the native picker
+              renders in the BROWSER's locale (so a non-US browser shows a
+              non-US order) and mobile teaches MM/DD/YYYY for this same field.
+              One format for one field, on both platforms. */}
           <input
             id="rabies-expiry"
             ref={rabiesExpiryRef}
-            type="date"
+            type="text"
+            inputMode="numeric"
+            placeholder="MM/DD/YYYY"
+            maxLength={10}
             value={rabiesExpiry}
-            onChange={(e) => setRabiesExpiry(e.target.value)}
-            className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+            onChange={(e) => setRabiesExpiry(maskUsDateInput(e.target.value))}
+            aria-invalid={!!errors.rabiesExpiry}
+            className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
+              errors.rabiesExpiry ? 'border-red-400' : 'border-border'
+            }`}
           />
           <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
             The date printed on the certificate — the one boarding, daycare, groomers and landlords all
@@ -1163,112 +1195,47 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             celebrations.
           </p>
 
-          <p className="mt-3 mb-1.5 text-xs font-semibold text-brown-mid">🎂 Birthday</p>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label htmlFor="birth-year" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
-                Year
-              </label>
-              <input
-                id="birth-year"
-                ref={birthYearRef}
-                type="number"
-                inputMode="numeric"
-                min={1990}
-                max={new Date().getFullYear()}
-                placeholder="2021"
-                value={birthYear}
-                onChange={(e) => setBirthYear(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-              />
-            </div>
-            <div>
-              <label htmlFor="birth-month" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
-                Month
-              </label>
-              <select
-                id="birth-month"
-                value={birthMonth}
-                onChange={(e) => setBirthMonth(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-              >
-                <option value="">—</option>
-                {MONTH_NAMES.map((m, i) => (
-                  <option key={m} value={i + 1}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="birth-day" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
-                Day <span className="font-normal">(optional)</span>
-              </label>
-              <select
-                id="birth-day"
-                value={birthDay}
-                onChange={(e) => setBirthDay(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-              >
-                <option value="">—</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <label htmlFor="birth-date" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+            🎂 Birthday
+          </label>
+          <input
+            id="birth-date"
+            ref={birthDateRef}
+            type="text"
+            inputMode="numeric"
+            placeholder="MM/DD/YYYY"
+            maxLength={10}
+            value={birthDate}
+            onChange={(e) => setBirthDate(maskUsDateInput(e.target.value))}
+            aria-invalid={!!errors.birthDate}
+            className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
+              errors.birthDate ? 'border-red-400' : 'border-border'
+            }`}
+          />
+          {errors.birthDate && <p className="mt-1 text-xs text-red-500">{errors.birthDate}</p>}
 
-          <p className="mt-4 mb-1.5 text-xs font-semibold text-brown-mid">🏡 Gotcha Day <span className="font-normal text-brown-light">(the day they came home)</span></p>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label htmlFor="gotcha-year" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
-                Year
-              </label>
-              <input
-                id="gotcha-year"
-                type="number"
-                inputMode="numeric"
-                min={1990}
-                max={new Date().getFullYear()}
-                placeholder="2022"
-                value={gotchaYear}
-                onChange={(e) => setGotchaYear(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-              />
-            </div>
-            <div>
-              <label htmlFor="gotcha-month" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
-                Month
-              </label>
-              <select
-                id="gotcha-month"
-                value={gotchaMonth}
-                onChange={(e) => setGotchaMonth(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-              >
-                <option value="">—</option>
-                {MONTH_NAMES.map((m, i) => (
-                  <option key={m} value={i + 1}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="gotcha-day" className="mb-1.5 block text-[11px] font-semibold text-brown-light">
-                Day <span className="font-normal">(optional)</span>
-              </label>
-              <select
-                id="gotcha-day"
-                value={gotchaDay}
-                onChange={(e) => setGotchaDay(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-2 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-              >
-                <option value="">—</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <label htmlFor="gotcha-date" className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+            🏡 Gotcha Day <span className="font-normal text-brown-light">(the day they came home)</span>
+          </label>
+          <input
+            id="gotcha-date"
+            ref={adoptionDateRef}
+            type="text"
+            inputMode="numeric"
+            placeholder="MM/DD/YYYY"
+            maxLength={10}
+            value={adoptionDateInput}
+            onChange={(e) => setAdoptionDateInput(maskUsDateInput(e.target.value))}
+            aria-invalid={!!errors.adoptionDate}
+            className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
+              errors.adoptionDate ? 'border-red-400' : 'border-border'
+            }`}
+          />
+          {errors.adoptionDate && <p className="mt-1 text-xs text-red-500">{errors.adoptionDate}</p>}
+
           <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
-            Just year + month is fine — we&apos;ll celebrate the month. Add the exact day and we&apos;ll celebrate the day itself.
+            Don&apos;t know the exact day? Month and year is enough — type 06/2021 and we&apos;ll celebrate the
+            month. For the birthday, even just the year (2021) works.
           </p>
         </div>
 

@@ -14,6 +14,7 @@ import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import type { SavedDogProfile } from '../lib/profile';
 import ApologyCard from './ApologyCard';
+import { formatUsDate } from '../../shared/dates';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -21,7 +22,7 @@ interface Props {
 
 function formatToday(): string {
   try {
-    return new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatUsDate(new Date());
   } catch {
     return '';
   }

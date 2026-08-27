@@ -1,4 +1,5 @@
 'use client';
+import { reminderDueLabel } from '../../shared/dates';
 // web/components/RemindersSection.tsx
 // Cadence — a calendar for the dog-care dates nobody holds in their head.
 // The one feature this week's strategy research identified as genuinely
@@ -17,14 +18,9 @@ interface Props {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function dueLabel(dueDate: number): { text: string; urgent: boolean } {
-  const days = Math.round((dueDate - Date.now()) / DAY_MS);
-  if (days < 0) return { text: `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} overdue`, urgent: true };
-  if (days === 0) return { text: 'Due today', urgent: true };
-  if (days === 1) return { text: 'Due tomorrow', urgent: true };
-  if (days <= 7) return { text: `Due in ${days} days`, urgent: false };
-  return { text: `Due ${new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`, urgent: false };
-}
+// Wording lives in shared/dates.ts's reminderDueLabel so the same reminder
+// can't describe itself two different ways across tabs or platforms.
+const dueLabel = reminderDueLabel;
 
 function toDateInputValue(ms: number): string {
   const d = new Date(ms);

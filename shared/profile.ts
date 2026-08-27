@@ -1,4 +1,5 @@
 import type { DogAIProfile, DogProfile, PlayStyle } from './types';
+import { formatUsIso } from './dates';
 
 export interface SavedDogProfile {
   name: string;
@@ -249,11 +250,6 @@ export function isPubliclyDiscoverable(
 // ("Owner marked: …"), and an absence is stated as an absence. Nothing here
 // renders as a verification — nobody checks these.
 
-const MONTH_LABELS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
 /**
  * Parse 'YYYY-MM-DD' into a Date at LOCAL midnight, or null if it isn't a real
  * calendar date.
@@ -285,13 +281,12 @@ export function parseLocalIsoDate(iso: string | null | undefined): Date | null {
   return date;
 }
 
-// Fixed month names rather than toLocaleDateString: this string is rendered by
-// a client component that Next also renders on the server, and a locale that
-// differs between the two produces a hydration mismatch.
+// US MM/DD/YYYY, matching every other absolute date in the app. Arithmetic
+// rather than toLocaleDateString: this string is rendered by a client component
+// that Next also renders on the server, and a locale that differs between the
+// two produces a hydration mismatch.
 export function formatLocalIsoDate(iso: string | null | undefined): string | null {
-  const date = parseLocalIsoDate(iso);
-  if (!date) return null;
-  return `${MONTH_LABELS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  return formatUsIso(iso);
 }
 
 export type VaccinationTone =

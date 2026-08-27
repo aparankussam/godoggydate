@@ -15,11 +15,12 @@ import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
 import WantedPosterCard from '../../components/WantedPosterCard';
 import { computeWanted } from '../../../shared/wanted';
+import { resolveHeroIndex } from '../../lib/coverPhoto';
 
 export default function WantedScreen() {
   const { profile } = useSession();
   const dogName = profile?.name?.trim() || 'Your dog';
-  const heroPhoto = getHeroPhoto(profile?.photos, profile?.ai?.vibeCheck?.heroPhotoIndex);
+  const heroPhoto = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
   const poster = computeWanted(profile ?? undefined);
 
   const [photoUri, setPhotoUri] = useState<string | undefined>(heroPhoto ?? undefined);

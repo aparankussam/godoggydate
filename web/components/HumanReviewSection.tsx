@@ -1,4 +1,5 @@
 'use client';
+import { formatUsDate, formatUsMonthYear } from '../../shared/dates';
 // web/components/HumanReviewSection.tsx
 // Profile-page surface for "My Human: A Review": the dog files a deadpan,
 // review-site-style write-up of its owner — a benign star score, Pros, gentle
@@ -64,7 +65,7 @@ function saveCached(uid: string, value: CachedReview): void {
 
 function formatToday(): string {
   try {
-    return new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatUsDate(new Date());
   } catch {
     return '';
   }
@@ -72,7 +73,7 @@ function formatToday(): string {
 
 function formatNextDue(ms: number): string {
   try {
-    return new Date(ms).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    return formatUsMonthYear(new Date(ms));
   } catch {
     return 'next quarter';
   }
@@ -96,7 +97,11 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
     const cached = loadCached(userId);
     if (cached) {
       setReview(cached.review);
-      setDateLabel(cached.dateLabel);
+      // Re-derive rather than trusting the cached STRING: the label was
+      // formatted at generate time, so a cache written before the US-format
+      // sweep would keep the old format alive for a whole quarter — including
+      // inside the shared keepsake PNG.
+      setDateLabel(formatUsDate(new Date(cached.generatedAtMs)));
       setGeneratedAtMs(cached.generatedAtMs);
     }
   }, [userId]);

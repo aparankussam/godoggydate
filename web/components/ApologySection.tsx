@@ -1,4 +1,5 @@
 'use client';
+import { formatUsDate } from '../../shared/dates';
 // web/components/ApologySection.tsx
 // Profile-page surface for the "Notes-App Apology": the owner types what their
 // dog did, taps generate, and gets a formal celebrity-style non-apology in the
@@ -21,7 +22,7 @@ const CRIME_MAX_LEN = 280;
 
 function formatToday(): string {
   try {
-    return new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return formatUsDate(new Date());
   } catch {
     return '';
   }

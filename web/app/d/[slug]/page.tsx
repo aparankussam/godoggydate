@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getAdminDb } from '../../../lib/firebaseAdmin';
 import { parseDogSlugToUid, toDogSlug } from '../../../lib/dogSlug';
-import { getRenderablePhotos } from '../../../lib/photos';
+import { getRenderablePhotos, resolveHeroIndex } from '../../../lib/photos';
 import DogTradingCard from '../../../components/DogTradingCard';
 import type { SavedDogProfile } from '../../../lib/auth';
 
@@ -129,6 +129,15 @@ export default async function PublicDogPage({ params }: PageProps) {
 
   const { profile } = result;
   const photos = getRenderablePhotos(profile.photos);
+  // DogTradingCard leads with the owner's COVER pick (getHeroPhoto +
+  // resolveHeroIndex), not photo 0 — so the strip below must exclude THAT
+  // photo, not blindly slice(1), or the hero appears twice and one photo is
+  // never shown. Mirrors getHeroPhoto's fallback: a missing/stale index means 0.
+  const heroIdx = (() => {
+    const h = resolveHeroIndex(profile);
+    return typeof h === 'number' && h >= 0 && h < photos.length ? h : 0;
+  })();
+  const stripPhotos = photos.filter((_, i) => i !== heroIdx).slice(0, 4);
 
   return (
     <div className="min-h-screen bg-cream flex flex-col items-center px-5 py-10 gap-8">
@@ -140,12 +149,12 @@ export default async function PublicDogPage({ params }: PageProps) {
 
       {photos.length > 1 && (
         <div className="flex gap-2 max-w-[360px] overflow-x-auto">
-          {photos.slice(1, 5).map((url, i) => (
+          {stripPhotos.map((url, i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={i}
               src={url}
-              alt={`${profile.name} photo ${i + 2}`}
+              alt={`${profile.name} photo ${i + 1} of ${stripPhotos.length}`}
               className="w-20 h-20 rounded-2xl object-cover shrink-0 border border-border"
             />
           ))}
