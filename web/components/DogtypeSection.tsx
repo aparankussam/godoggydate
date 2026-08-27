@@ -19,9 +19,10 @@ import CompatExplorer from './CompatExplorer';
 
 interface Props {
   savedProfile: SavedDogProfile;
+  userId: string;
 }
 
-export default function DogtypeSection({ savedProfile }: Props) {
+export default function DogtypeSection({ savedProfile, userId }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const storyRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
@@ -147,7 +148,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
 
       {/* "Who does your dog get along with?" — tap-to-reveal explorer with a
           real, widened-scope density count (replaces the old static list). */}
-      <CompatExplorer savedProfile={savedProfile} />
+      <CompatExplorer savedProfile={savedProfile} userId={userId} />
 
       {/* How the type was read — the four real axes */}
       <button

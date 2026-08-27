@@ -274,10 +274,17 @@ export function dogtypeCodeDecode(code: string | null | undefined): string | nul
 
 export type DogtypeVibe = 'great' | 'good' | 'spicy';
 
-export function dogtypeVibe(aCode: string, bCode: string): DogtypeVibe {
+/**
+ * The raw axis-compatibility score two Dogtypes earn (higher = better fit).
+ * Deterministic and transparent — the same heuristic dogtypeVibe thresholds
+ * into a tier. Exposed so a list of matches can be RANKED honestly (a strictly
+ * higher score is a strictly better fit) rather than shown in arbitrary order.
+ * Still never a percentage or a real dog-to-dog match number.
+ */
+export function dogtypeMatchScore(aCode: string, bCode: string): number {
   const a = aCode.toUpperCase();
   const b = bCode.toUpperCase();
-  if (a.length !== 4 || b.length !== 4) return 'good';
+  if (a.length !== 4 || b.length !== 4) return 0;
 
   let score = 0;
   // Energy: one high + one low is a classic balance; both-high can be a lot.
@@ -292,6 +299,15 @@ export function dogtypeVibe(aCode: string, bCode: string): DogtypeVibe {
   if (a[3] !== b[3]) score += 1;
   else if (a[3] === 'B') score -= 1;
 
+  return score;
+}
+
+export function dogtypeVibe(aCode: string, bCode: string): DogtypeVibe {
+  const a = aCode.toUpperCase();
+  const b = bCode.toUpperCase();
+  if (a.length !== 4 || b.length !== 4) return 'good';
+
+  const score = dogtypeMatchScore(a, b);
   if (score >= 3) return 'great';
   if (score <= 0) return 'spicy';
   return 'good';
@@ -363,13 +379,47 @@ export function dogtypeCompat(aCode: string, bCode: string): DogtypeCompat | nul
   return { vibe, emoji: '🐾', headline: 'Different vibes, real potential', note };
 }
 
-/** Up to `limit` type codes that tend to vibe best with the given code. */
-export function dogtypeBestMatches(code: string, limit = 3): Dogtype[] {
+export interface RankedDogtype {
+  type: Dogtype;
+  /** The raw axis score (dogtypeMatchScore) this match earned. */
+  score: number;
+  /** 1-based position after sorting by score desc. Ties share the same order
+   *  in the list but this is a plain index, not a claim of strict superiority —
+   *  use `isClearTop` for that. */
+  rank: number;
+  /** True only for the single highest match AND only when it strictly beats
+   *  the runner-up, so "#1 easiest match" is never asserted over a tie. */
+  isClearTop: boolean;
+}
+
+/**
+ * The dog's "great" vibe matches, RANKED by real axis score (highest first).
+ * Sort is deterministic: score desc, ties broken by catalogue order so the
+ * same dog always sees the same sequence. `isClearTop` is honest — it's only
+ * set when the top score strictly exceeds the second, never on a tie.
+ */
+export function dogtypeRankedMatches(code: string, limit = 3): RankedDogtype[] {
   const self = code.toUpperCase();
-  return DOGTYPE_CODES.filter((c) => c !== self)
-    .map((c) => ({ c, vibe: dogtypeVibe(self, c) }))
-    .filter((x) => x.vibe === 'great')
-    .slice(0, limit)
-    .map((x) => dogtypeByCode(x.c))
-    .filter((t): t is Dogtype => t !== null);
+  const scored = DOGTYPE_CODES.filter((c) => c !== self)
+    .map((c, catalogueIndex) => ({ c, catalogueIndex, score: dogtypeMatchScore(self, c) }))
+    .filter((x) => dogtypeVibe(self, x.c) === 'great')
+    .sort((x, y) => (y.score - x.score) || (x.catalogueIndex - y.catalogueIndex))
+    .slice(0, limit);
+
+  const topScore = scored.length > 0 ? scored[0].score : 0;
+  const secondScore = scored.length > 1 ? scored[1].score : -Infinity;
+  const clearTop = topScore > secondScore;
+
+  return scored
+    .map((x, i) => {
+      const type = dogtypeByCode(x.c);
+      return type ? { type, score: x.score, rank: i + 1, isClearTop: i === 0 && clearTop } : null;
+    })
+    .filter((r): r is RankedDogtype => r !== null);
+}
+
+/** Up to `limit` type codes that vibe best with the given code, ranked best
+ *  first (see dogtypeRankedMatches). Kept for callers that only need the types. */
+export function dogtypeBestMatches(code: string, limit = 3): Dogtype[] {
+  return dogtypeRankedMatches(code, limit).map((r) => r.type);
 }

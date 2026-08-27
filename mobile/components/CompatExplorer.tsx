@@ -29,12 +29,13 @@ import { fetchDogtypeCounts, type DogtypeCounts } from '../lib/dogtypeCounts';
 import DogtypeCompatCard from './DogtypeCompatCard';
 import {
   computeDogtype,
-  dogtypeBestMatches,
   dogtypeByCode,
   dogtypeCompat,
+  dogtypeRankedMatches,
   dogtypeVibe,
   type Dogtype,
   type DogtypeVibe,
+  type RankedDogtype,
 } from '../../shared/dogtype';
 import type { SavedDogProfile } from '../lib/profile';
 
@@ -44,7 +45,7 @@ interface Props {
 
 type Compat = NonNullable<ReturnType<typeof dogtypeCompat>>;
 
-// How many best-match types to reveal. dogtypeBestMatches only returns "great"
+// How many best-match types to reveal. dogtypeRankedMatches only returns "great"
 // vibes, so a code with fewer than this simply reveals fewer cards.
 const MAX_REVEALS = 5;
 
@@ -61,10 +62,11 @@ function bareName(name: string): string {
 }
 
 // Light, honest pluralization for the density line ("Party Puppy" -> "Party
-// Puppies", "Old Soul" -> "Old Souls"). Only used for display copy.
+// Puppies", "Old Soul" -> "Old Souls", "Velvet Couch Potato" -> "Potatoes").
+// Only used for display copy. Mirrors the web twin's rule set.
 function pluralize(name: string): string {
   if (/[^aeiou]y$/i.test(name)) return name.replace(/y$/i, 'ies');
-  if (/(s|x|z|ch|sh)$/i.test(name)) return `${name}es`;
+  if (/(s|x|z|ch|sh|o)$/i.test(name)) return `${name}es`;
   return `${name}s`;
 }
 
@@ -81,7 +83,10 @@ export default function CompatExplorer({ savedProfile }: Props) {
   const viewedRef = useRef(false);
 
   const code = computed?.code ?? '';
-  const matches = code ? dogtypeBestMatches(code, MAX_REVEALS) : [];
+  // Ranked by real axis score (best first) so we can honestly badge a clear #1.
+  const ranked = code ? dogtypeRankedMatches(code, MAX_REVEALS) : [];
+  const matches = ranked.map((r) => r.type);
+  const rankByCode = new Map<string, RankedDogtype>(ranked.map((r) => [r.type.code, r]));
 
   // Census once, on mount — mirrors discover's all-dogs fetch. Never throws.
   useEffect(() => {
@@ -150,23 +155,67 @@ export default function CompatExplorer({ savedProfile }: Props) {
     setSharing(false);
   }
 
+  // Same capture-and-share mechanic as handleShare — the shared image IS the
+  // invite (it carries the brand + a "what's your dog?" prompt). Copy-only:
+  // there is deliberately no attribution backend tying a signup back to this.
+  async function handleInvite(other: Dogtype, compat: Compat) {
+    if (sharing) return;
+    setSharing(true);
+    trackEvent('compat_explorer_invite_click', { a: dogtype.code, b: other.code, vibe: compat.vibe });
+    const result = await captureAndShare(
+      cardRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-invite-${other.code}.png`,
+      `Know a ${bareName(other.name)}? ${dogName} is looking for one.`,
+    );
+    if (result === 'shared') {
+      trackEvent('compat_explorer_invite_shared', { a: dogtype.code, b: other.code, vibe: compat.vibe, method: 'native_share' });
+    }
+    if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    setSharing(false);
+  }
+
   function handleCta() {
     trackEvent('compat_explorer_cta_click', { code: dogtype.code });
     void Linking.openURL(`${webBase}/compat/${dogtype.code}`).catch(() => {});
   }
 
+  function openTypePage(typeCode: string) {
+    trackEvent('compat_explorer_type_page_click', { code: dogtype.code, match_code: typeCode });
+    void Linking.openURL(`${webBase}/dogtype/${typeCode}`).catch(() => {});
+  }
+
+  /** True when this type has no real dogs on the app yet. null while counting. */
+  function isZeroCount(matchCode: string): boolean | null {
+    if (!counts) return null;
+    return (counts.byCode[matchCode] ?? 0) === 0;
+  }
+
+  // A short, honest superlative for the strongest match only. A tie (two matches
+  // sharing the top score) never earns "#1" — see dogtypeRankedMatches.isClearTop.
+  function rankLabel(match: Dogtype): string | null {
+    const r = rankByCode.get(match.code);
+    if (!r) return null;
+    if (r.isClearTop) return `⭐ ${dogName}’s #1 easiest match`;
+    return null;
+  }
+
   function densityLine(match: Dogtype): { main: string; sub: string | null } {
     if (!counts) return { main: 'Counting the pack…', sub: null };
     const n = counts.byCode[match.code] ?? 0;
+    const bare = bareName(match.name);
+    const plural = pluralize(bare);
     if (n === 0) {
-      return { main: 'None yet — you’d be the first.', sub: null };
+      // Not a dead end — a rare, specific vibe that hasn't joined yet. The
+      // count is a nationwide census, so we never claim anything local.
+      return {
+        main: `No ${plural} on GoDoggyDate yet`,
+        sub: `One of ${dogName}’s rarer vibes so far — not a dead end.`,
+      };
     }
-    const label = pluralize(bareName(match.name));
-    // No city-level claim — the count is nationwide, so "be the first in {city}"
-    // would assert a local fact we have no data for (frequently false).
     return {
-      main: `${n} ${label} on GoDoggyDate`,
-      sub: null,
+      // Singularize a lone dog — "1 Old Soul", not "1 Old Souls".
+      main: `${n} ${n === 1 ? bare : plural} on GoDoggyDate`,
+      sub: 'You meet them one swipe at a time.',
     };
   }
 
@@ -196,6 +245,7 @@ export default function CompatExplorer({ savedProfile }: Props) {
                 match={match}
                 vibe={vibe}
                 density={densityLine(match)}
+                rankLabel={rankLabel(match)}
                 isExpanded={isExpanded}
                 dogName={dogName}
                 onReveal={() => handleReveal(index, match)}
@@ -203,16 +253,65 @@ export default function CompatExplorer({ savedProfile }: Props) {
               />
               {isExpanded && other && compat && (
                 <View style={styles.detail}>
+                  {/* What this type IS — its own blurb, straight from the
+                      engine, so "Invite a Lazy Goofball" isn't asking the owner
+                      to recruit something they can't picture. */}
+                  <Text style={styles.typeBlurb}>{other.blurb}</Text>
+
+                  {/* Why THESE two vibe — the existing side-by-side card. */}
                   <View style={styles.detailCardWrap}>
                     <DogtypeCompatCard ref={cardRef} aType={dogtype} bType={other} aName={dogName} compat={compat} />
                   </View>
-                  <Pressable
-                    style={[styles.shareButton, sharing && { opacity: 0.6 }]}
-                    onPress={() => handleShare(other, compat)}
-                    disabled={sharing}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.shareText}>{sharing ? 'Preparing…' : '📤 Share this match'}</Text>
+
+                  {isZeroCount(other.code) === null ? (
+                    // Census still loading — hold the CTA rather than flashing
+                    // the wrong (Share) branch for a type that may be zero-count.
+                    <View style={[styles.shareButton, { opacity: 0.6 }]}>
+                      <Text style={styles.shareText}>Checking GoDoggyDate…</Text>
+                    </View>
+                  ) : isZeroCount(other.code) ? (
+                    // No dogs of this type yet: the honest way to fill the vibe
+                    // is to recruit one, so the share IS the invite (copy-only;
+                    // no attribution backend).
+                    <>
+                      <Pressable
+                        style={[styles.shareButton, sharing && { opacity: 0.6 }]}
+                        onPress={() => handleInvite(other, compat)}
+                        disabled={sharing}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.shareText}>
+                          {sharing ? 'Preparing…' : `🐾 Invite a ${bareName(other.name)} →`}
+                        </Text>
+                      </Pressable>
+                      <Text style={styles.inviteMicro}>
+                        Real matches still happen when you both swipe.
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Pressable
+                        style={[styles.shareButton, sharing && { opacity: 0.6 }]}
+                        onPress={() => handleShare(other, compat)}
+                        disabled={sharing}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.shareText}>{sharing ? 'Preparing…' : '📤 Share this match'}</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleInvite(other, compat)}
+                        disabled={sharing}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.inviteNudge}>
+                          🐾 Know another {bareName(other.name)}? Invite them
+                        </Text>
+                      </Pressable>
+                    </>
+                  )}
+
+                  <Pressable onPress={() => openTypePage(other.code)} accessibilityRole="link">
+                    <Text style={styles.typeLink}>See the full {bareName(other.name)} page →</Text>
                   </Pressable>
                 </View>
               )}
@@ -244,13 +343,14 @@ interface RevealCardProps {
   match: Dogtype;
   vibe: DogtypeVibe;
   density: { main: string; sub: string | null };
+  rankLabel: string | null;
   isExpanded: boolean;
   dogName: string;
   onReveal: () => void;
   onToggle: () => void;
 }
 
-function RevealCard({ state, index, total, match, vibe, density, isExpanded, dogName, onReveal, onToggle }: RevealCardProps) {
+function RevealCard({ state, index, total, match, vibe, density, rankLabel, isExpanded, dogName, onReveal, onToggle }: RevealCardProps) {
   const anim = useRef(new Animated.Value(state === 'revealed' ? 1 : 0)).current;
 
   useEffect(() => {
@@ -281,6 +381,7 @@ function RevealCard({ state, index, total, match, vibe, density, isExpanded, dog
           <Text style={styles.cardEmoji}>{match.emoji}</Text>
           <View style={styles.cardBody}>
             <Text style={styles.cardName}>{match.name}</Text>
+            {rankLabel && <Text style={styles.rankLabel}>{rankLabel}</Text>}
             <View style={styles.vibePill}>
               <Text style={styles.vibePillText}>
                 {meta.emoji} {meta.label}
@@ -391,6 +492,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   vibePillText: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownMid },
+  rankLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.gold, marginTop: 4 },
   densityMain: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown, marginTop: 8 },
   densitySub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 1 },
   expandHint: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginTop: 8 },
@@ -398,6 +500,14 @@ const styles = StyleSheet.create({
   nextSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 2 },
   lockedText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brownLight },
   detail: { alignItems: 'stretch' },
+  typeBlurb: {
+    fontFamily: fonts.body,
+    fontStyle: 'italic',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.brownMid,
+    marginBottom: 12,
+  },
   detailCardWrap: { alignItems: 'center', marginBottom: 12 },
   shareButton: {
     backgroundColor: colors.primary,
@@ -407,6 +517,27 @@ const styles = StyleSheet.create({
     ...shadow.button,
   },
   shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  inviteMicro: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: colors.brownLight,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  inviteNudge: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.primary,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  typeLink: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.primary,
+    textAlign: 'center',
+    marginTop: 14,
+  },
   closer: { marginTop: 16, alignItems: 'center' },
   closerText: { fontFamily: fonts.display, fontSize: 16, color: colors.brown, textAlign: 'center' },
   cta: {

@@ -597,7 +597,7 @@ export default function ProfilePage() {
             the next real celebration. The reason to come back every day. ── */}
         {savedProfile && complete && authUser && (
           <>
-            <DogtypeSection savedProfile={savedProfile} />
+            <DogtypeSection savedProfile={savedProfile} userId={authUser.uid} />
             <EarnedStickers dogId={authUser.uid} />
             <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
             <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
