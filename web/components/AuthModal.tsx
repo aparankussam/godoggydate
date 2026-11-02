@@ -4,8 +4,27 @@
 // opens this modal — never the raw Google chooser directly.
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { trackEvent } from '../lib/analytics';
 import { signInWithGoogle, signInWithGoogleIdToken } from '../lib/auth';
+import { getFirebase } from '../shared/utils/firebase';
+
+// Bump when the Terms change materially, so acceptance can be re-collected.
+const TERMS_VERSION = '2026-11';
+
+// Best effort: a failed write must not strand someone who just signed in. The
+// checkbox above the sign-in button has already been ticked by this point.
+async function recordTermsAcceptance() {
+  const { auth, db } = getFirebase();
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  await setDoc(
+    doc(db, 'users', uid),
+    { termsAcceptedAt: serverTimestamp(), termsVersion: TERMS_VERSION, ageConfirmed18: true },
+    { merge: true },
+  ).catch((error) => console.error('recordTermsAcceptance failed', error));
+}
 
 interface Props {
   isOpen: boolean;
@@ -17,6 +36,7 @@ interface Props {
 export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
   const [error, setError] = useState('');
   const [oneTapReady, setOneTapReady] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
@@ -27,7 +47,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) {
+    // Google's button and One Tap only exist once the 18+ box is ticked, so
+    // neither path can create an account without it.
+    if (!isOpen || !agreed) {
       setOneTapReady(false);
       window.google?.accounts.id.cancel();
       return;
@@ -49,6 +71,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       setError('');
       try {
         await signInWithGoogleIdToken(response.credential);
+        await recordTermsAcceptance();
         trackEvent('sign_in_success', {
           method: 'google_one_tap',
         });
@@ -104,7 +127,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       }
       window.google?.accounts.id.cancel();
     };
-  }, [googleClientId, isOpen, onClose, onSuccess]);
+  }, [agreed, googleClientId, isOpen, onClose, onSuccess]);
 
   if (!isOpen) return null;
 
@@ -115,6 +138,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
     });
     try {
       await signInWithGoogle();
+      await recordTermsAcceptance();
       trackEvent('sign_in_success', {
         method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
       });
@@ -165,6 +189,22 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           </p>
         </div>
 
+        <label className="w-full flex items-start gap-2.5 text-xs leading-relaxed text-brown-mid cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+          />
+          <span>
+            I&apos;m 18 or older and agree to the{' '}
+            <Link href="/terms" target="_blank" className="font-semibold text-primary underline underline-offset-2">Terms</Link>
+            {' '}and{' '}
+            <Link href="/privacy" target="_blank" className="font-semibold text-primary underline underline-offset-2">Privacy Policy</Link>.
+          </span>
+        </label>
+
+        {agreed && (
         <div className="w-full mt-1 flex flex-col items-center gap-3">
           <div ref={googleButtonRef} className="min-h-[44px] w-full flex justify-center" />
 
@@ -192,6 +232,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
             </button>
           )}
         </div>
+        )}
 
         {error && (
           <p className="text-xs text-red-500 -mt-1">{error}</p>

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../shared/utils/stripe';
 import { absoluteUrl } from '../../lib/site';
 
 export const metadata: Metadata = {
@@ -44,9 +43,9 @@ export default function TermsPage() {
 
           <p><strong className="text-brown">Reporting safety concerns:</strong> if a meetup goes wrong or you have safety concerns about another user, use the in-app Report/Block feature and, for any injury or emergency, contact local emergency services and animal control directly — GoDoggyDate is not a substitute for either.</p>
 
-          <p>Current launch pricing uses one-time match unlocks. Features and pricing may change as the product evolves during early access.</p>
+          <p><strong className="text-brown">What&apos;s for sale:</strong> GoDoggyDate is free to use during early access, including chat. The one paid option is Founding Member, a one-time $39 purchase. It includes every future Pro feature at no extra cost for as long as GoDoggyDate operates. Pro features are not live yet, and Founding Member is not a guarantee that the service will continue. Features and pricing may change during early access. Any future subscription will show its price and renewal terms before you pay.</p>
 
-          <p><strong className="text-brown">Refunds:</strong> the {formatPrice(CHAT_UNLOCK_PRICE_CENTS)} chat unlock is a one-time digital purchase. If a payment was made in error, was duplicated, or the unlocked match failed to open chat within a reasonable time, contact us within 14 days of purchase at <a href="mailto:support@godoggydate.com" className="font-semibold text-primary underline underline-offset-2">support@godoggydate.com</a> for a refund. Refunds are not available once you have exchanged messages with your match.</p>
+          <p><strong className="text-brown">Refunds:</strong> Founding Member is refundable for any reason within 14 days of purchase. A refund or chargeback ends Founding Member status. To request a refund, contact us at <a href="mailto:support@godoggydate.com" className="font-semibold text-primary underline underline-offset-2">support@godoggydate.com</a>.</p>
 
           <p><strong className="text-brown">Governing law:</strong> these terms are governed by the laws of the state in which GoBotsAI is organized, without regard to conflict-of-law principles.</p>
 

@@ -26,6 +26,13 @@ Run these before any soft launch or public launch:
    - `sign_in_success`
 10. Set `GOOGLE_SITE_VERIFICATION`, deploy, and submit `https://godoggydate.com/sitemap.xml` in Google Search Console
 
+Safety and payment alerts (required before deploying functions):
+
+- Create a Slack or Discord incoming webhook and run `firebase functions:secrets:set OPS_ALERT_WEBHOOK_URL`. Reports and paid-but-ungranted checkouts alert here; deploy needs this secret to exist.
+- Add `checkout.session.async_payment_succeeded` and `customer.subscription.created|updated|deleted` to the Stripe webhook endpoint.
+- Set `AI_GLOBAL_DAILY_LIMIT` on Vercel if the 2,000 AI calls/day default doesn't fit.
+- Disable Email/Password and Anonymous sign-in in Firebase Auth. The website doesn't use them, and mobile guest mode must be reworked before it ships.
+
 Manual checks still required:
 
 - Set the real Expo EAS project id via `EXPO_PUBLIC_EAS_PROJECT_ID` (or `EAS_PROJECT_ID`) for `mobile/app.config.js`

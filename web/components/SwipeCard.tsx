@@ -9,8 +9,10 @@ import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
 import { resolveHeroIndex, getHeroFocus, getRenderablePhotos } from '../lib/photos';
 import { QUALITY_STYLES } from './CompatBreakdown';
+import ReportProfileMenu from './ReportProfileMenu';
 
 interface CardDog {
+  ownerId?: string;
   id: string;
   firestoreId?: string;
   name: string;
@@ -467,6 +469,16 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
           </div>
 
           <div className="pointer-events-none absolute inset-0 rounded-[2.15rem] ring-1 ring-black/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]" />
+
+          {/* Only in the real deck (it passes onOpenDetails), not on public share
+              pages. Blocking swipes the card away as a pass. */}
+          {onOpenDetails && isTop && dog.ownerId && (
+            <ReportProfileMenu
+              targetUserId={dog.ownerId}
+              className="absolute right-4 top-4 z-10"
+              onBlocked={() => runSwipe('left')}
+            />
+          )}
 
           {/* Details button */}
           {onOpenDetails && (

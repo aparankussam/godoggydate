@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AuthModal from '../components/AuthModal';
@@ -7,6 +7,7 @@ import FoundingPackSection from '../components/FoundingPackSection';
 import { trackEvent } from '../lib/analytics';
 import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
+import { getEntitlements, getFoundingMemberLink, isProActive } from '../lib/entitlements';
 
 export default function HomePage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function HomePage() {
   const [signedIn,    setSignedIn]    = useState(false);
   const [userId,      setUserId]      = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  // Set when sign-in was opened from the $39 button, so it resumes checkout.
+  const resumeFoundingCheckout = useRef(false);
 
   // Quick auth check — determines whether to show "Get Started" or "Open App"
   useEffect(() => {
@@ -29,6 +32,20 @@ export default function HomePage() {
   useEffect(() => {
     trackEvent('landing_view');
   }, []);
+
+  async function handleAuthSuccess() {
+    const uid = getFirebase().auth.currentUser?.uid;
+    if (resumeFoundingCheckout.current && uid) {
+      resumeFoundingCheckout.current = false;
+      const link = getFoundingMemberLink(uid);
+      if (link && !isProActive(await getEntitlements(uid))) {
+        // Same tab: a popup opened after an async step gets blocked.
+        window.location.href = link;
+        return;
+      }
+    }
+    router.push('/app');
+  }
 
   // If already signed in, CTAs go straight to /app
   function handleCTA(source: string) {
@@ -69,8 +86,13 @@ export default function HomePage() {
     <main className="min-h-screen bg-cream">
       <AuthModal
         isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        onSuccess={() => router.push('/app')}
+        onClose={() => {
+          // Dismissed: a later plain sign-in shouldn't jump to checkout. On success
+          // this runs after handleAuthSuccess has already read the flag.
+          resumeFoundingCheckout.current = false;
+          setShowAuth(false);
+        }}
+        onSuccess={handleAuthSuccess}
       />
 
       {/* Nav */}
@@ -159,7 +181,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <FoundingPackSection signedInUserId={userId} onRequireAuth={() => setShowAuth(true)} />
+      <FoundingPackSection signedInUserId={userId} onRequireAuth={() => {
+          resumeFoundingCheckout.current = true;
+          setShowAuth(true);
+        }} />
 
       {/* Features */}
       <section className="bg-cream-dark py-20">
