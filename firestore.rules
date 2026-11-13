@@ -337,6 +337,19 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Pack Day — open group playdates at a public place. Members can read
+    // events and see who is going (the same dogs/{uid} docs are already readable
+    // by any signed-in member). Every write — creating, joining, leaving,
+    // cancelling — goes through the createPackDay / rsvpPackDay / cancelPackDay
+    // callables, which enforce capacity, per-member limits and blocks
+    // atomically and are the only place `official` can ever be set. Anonymous
+    // visitors see a counts-only public page rendered server-side via the Admin
+    // SDK, so no public read rule is needed here.
+    match /packDays/{eventId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
     match /payments/{paymentId} {
       allow read:   if isSignedIn()
                     && resource.data.userId == request.auth.uid;

@@ -33,6 +33,13 @@ Safety and payment alerts (required before deploying functions):
 - Set `AI_GLOBAL_DAILY_LIMIT` on Vercel if the 2,000 AI calls/day default doesn't fit.
 - Disable Email/Password and Anonymous sign-in in Firebase Auth. The website doesn't use them, and mobile guest mode must be reworked before it ships.
 
+Pack Day (group playdates):
+
+- Deploys with the functions (`createPackDay`, `rsvpPackDay`, `cancelPackDay`, `sendPackDayReminders`) and `firestore.rules` (`packDays/` is read-only for clients). Deploy functions and rules before the website: the new Pack Day tab reads `packDays/` and fails until the rules are live.
+- `sendPackDayReminders` runs on Cloud Scheduler (every 30 minutes), like the other scheduled functions.
+- The ⭐ Official badge is set by hand: host the event as yourself, then set `official: true` on its `packDays/{id}` document in the Firebase console. Clients cannot set it.
+- Smoke test with two accounts: host one, RSVP from the second, check the host's push, open `/pack/{id}` signed out, cancel, and confirm the attendee's push.
+
 Manual checks still required:
 
 - Set the real Expo EAS project id via `EXPO_PUBLIC_EAS_PROJECT_ID` (or `EAS_PROJECT_ID`) for `mobile/app.config.js`

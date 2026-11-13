@@ -8,6 +8,7 @@ import { trackEvent } from '../lib/analytics';
 import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
 import { getEntitlements, getFoundingMemberLink, isProActive } from '../lib/entitlements';
+import { takePendingPackDay } from '../lib/packDayPending';
 
 export default function HomePage() {
   const router = useRouter();
@@ -44,7 +45,9 @@ export default function HomePage() {
         return;
       }
     }
-    router.push('/app');
+    // A visitor who came from a shared Pack Day goes back to that event.
+    const pendingPackDay = takePendingPackDay();
+    router.push(pendingPackDay ? `/app/pack/${pendingPackDay}` : '/app');
   }
 
   // If already signed in, CTAs go straight to /app

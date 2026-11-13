@@ -33,6 +33,7 @@ import DogTradingCard from '../../components/DogTradingCard';
 import TodayPanel from '../../components/TodayPanel';
 import { shareOrDownloadCard } from '../../lib/shareCard';
 import { toDogSlug } from '../../lib/dogSlug';
+import { takePendingPackDay } from '../../lib/packDayPending';
 
 // ── Seed feed ─────────────────────────────────────────────────────────────────
 type FeedDog = DiscoverFeedDog;
@@ -160,7 +161,10 @@ export default function AppPage() {
       }
       setProfileSavedToast(true);
       setTimeout(() => setProfileSavedToast(false), 3000);
-      router.replace('/app');
+      // A new member who arrived from a shared Pack Day goes back to it now
+      // that they have a dog to RSVP with.
+      const pendingPackDay = completed ? takePendingPackDay() : null;
+      router.replace(pendingPackDay ? `/app/pack/${pendingPackDay}` : '/app');
     } catch {
       setProfileSaveError('We could not save your dog profile. Check your connection and try again.');
     } finally {

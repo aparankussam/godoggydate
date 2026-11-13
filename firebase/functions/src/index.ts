@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
+import { makePackDayFunctions } from './packDay';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -700,6 +701,13 @@ export const deleteAccount = functions
       await batch.commit();
     } catch (error) {
       console.error('deleteAccount: could not delete household invites', { uid, error });
+    }
+
+    // Pack Days they hosted (cancelled, attendees told) or joined.
+    try {
+      await packDay.cleanupPackDaysForUser(uid);
+    } catch (error) {
+      console.error('deleteAccount: could not clean up Pack Days', { uid, error });
     }
 
     // Uploaded images. Firestore deletion alone left every photo permanently
@@ -1502,3 +1510,12 @@ export const removeHouseholdMember = functions.https.onCall(async (data, context
 
   return { removed: memberUid };
 });
+
+// ── Pack Day: open group playdates ─────────────────────────────────────────────
+// All writes to packDays/ go through these callables (firestore.rules is
+// read-only for clients). See ./packDay.ts.
+const packDay = makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay });
+export const createPackDay = packDay.createPackDay;
+export const rsvpPackDay = packDay.rsvpPackDay;
+export const cancelPackDay = packDay.cancelPackDay;
+export const sendPackDayReminders = packDay.sendPackDayReminders;
