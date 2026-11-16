@@ -30,7 +30,7 @@
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_live_51THvxTEEHtCw5yviBv4N5pRdmxk0p8EZUHRgmg1zl0oAteGiOI8bubYj86CxtL71PlpXr44t7Kz7fBN3B1azuV2T00o6DUA16w",
         "EXPO_PUBLIC_PAYMENTS_API_URL": "https://godoggydate.com",
         "EXPO_PUBLIC_WEB_URL": "https://godoggydate.com",
-        "EXPO_PUBLIC_FOUNDING_MEMBER_PAYMENT_LINK": "https://buy.stripe.com/00w14ne9Hfwq5In90Pgfu00"
+        "EXPO_PUBLIC_FOUNDING_MEMBER_PAYMENT_LINK": "https://buy.stripe.com/8x26oGblq1nw2qv6MU3Nm00"
       }
     }
   },
