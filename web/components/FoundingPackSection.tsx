@@ -8,8 +8,10 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
 import { getFoundingMemberLink } from '../lib/entitlements';
+import { useProEntitlement } from '../lib/useProEntitlement';
 import { getFoundingPackPitch, FOUNDING_PACK_SIZE } from '../shared/utils/stripe';
 import { trackEvent } from '../lib/analytics';
+import { FOUNDING_MEMBER_LIMIT } from '../../shared/pro';
 
 interface Props {
   signedInUserId: string | null;
@@ -19,6 +21,11 @@ interface Props {
 export default function FoundingPackSection({ signedInUserId, onRequireAuth }: Props) {
   const [count, setCount] = useState<number | null>(null);
   const pitch = getFoundingPackPitch();
+  const pro = useProEntitlement(signedInUserId);
+  // Signed out still shows the offer (sign-in resumes checkout). Signed in, hide
+  // it for anyone who already has Pro, so nobody pays twice.
+  const showFoundingOffer =
+    Boolean(process.env.NEXT_PUBLIC_FOUNDING_MEMBER_PAYMENT_LINK?.trim()) && !pro.loading && !pro.isPro;
 
   useEffect(() => {
     const { db } = getFirebase();
@@ -69,12 +76,27 @@ export default function FoundingPackSection({ signedInUserId, onRequireAuth }: P
           </div>
         </div>
 
-        <button
-          onClick={handleFoundingMemberClick}
-          className="btn-primary mt-8 text-base px-7 py-3.5"
-        >
-          🐾 Or go Founding Member — $39 once, Pro for life
-        </button>
+        <p className="mt-3 text-sm text-brown-mid">
+          Free: the first {FOUNDING_PACK_SIZE} dogs with a profile get a numbered spot. No payment needed.
+        </p>
+
+        {showFoundingOffer && (
+          <div className="mt-10 rounded-3xl border border-gold/40 bg-white px-6 py-6">
+            <h3 className="font-display text-2xl text-brown">Back GoDoggyDate early — $39, once</h3>
+            <p className="mt-2 text-sm leading-relaxed text-brown-mid">
+              Everything in the app is free today. Founding Members get every future Pro feature at no
+              extra cost for as long as GoDoggyDate runs. Limited to the first {FOUNDING_MEMBER_LIMIT}
+              members. Pro features aren&apos;t live yet, so this is mainly a way to support a small,
+              independent app. Refundable within 14 days.
+            </p>
+            <button
+              onClick={handleFoundingMemberClick}
+              className="btn-primary mt-5 text-base px-7 py-3.5"
+            >
+              Become a Founding Member — $39 once
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

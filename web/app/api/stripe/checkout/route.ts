@@ -4,22 +4,19 @@ import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
 import { siteUrl } from '../../../../lib/site';
 import { PRO_TRIAL_DAYS, type ProTier } from '../../../../../shared/pro';
 
-// goDoggyDate Pro subscription checkout + Founding Member one-time checkout.
+// goDoggyDate Pro subscription checkout.
 //
 // Creates a Stripe Checkout Session for the authenticated user and returns its
-// URL. Mode is 'subscription' for Pro tiers and 'payment' for 'founding'.
+// URL (mode 'subscription'). Founding Member is NOT sold here: it is sold only
+// through its Payment Link, whose Stripe-side limit caps how many are sold.
 // The webhook (firebase/functions stripeWebhook) is the SOLE writer of
 // entitlements — this route never writes users/{uid}/private/entitlements.
 //
 // Env: STRIPE_SECRET_KEY, and one price id per tier:
 //   STRIPE_PRO_PRICE_MONTHLY / STRIPE_PRO_PRICE_ANNUAL — recurring Pro prices
-//   STRIPE_FOUNDING_MEMBER_PRICE_ID               — one-time $39 founding price
 // Missing config → 503, client hides the CTA (isProConfigured).
 
-type CheckoutTier = ProTier | 'founding';
-
-function priceIdForTier(tier: CheckoutTier): string | undefined {
-  if (tier === 'founding') return process.env.STRIPE_FOUNDING_MEMBER_PRICE_ID?.trim() || undefined;
+function priceIdForTier(tier: ProTier): string | undefined {
   const id =
     tier === 'annual'
       ? process.env.STRIPE_PRO_PRICE_ANNUAL
@@ -80,7 +77,12 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const tier: CheckoutTier = body?.tier === 'annual' ? 'annual' : body?.tier === 'founding' ? 'founding' : 'monthly';
+  // A session created here would not count against the Payment Link's limit,
+  // so a founding request is refused outright.
+  if (body?.tier === 'founding') {
+    return NextResponse.json({ error: 'Founding Member is not available through this route' }, { status: 400 });
+  }
+  const tier: ProTier = body?.tier === 'annual' ? 'annual' : 'monthly';
 
   const priceId = priceIdForTier(tier);
   if (!priceId) {
@@ -159,10 +161,8 @@ export async function POST(request: Request) {
     // Stripe does not de-duplicate trials per customer, so this is enforced here.
     const grantTrial = PRO_TRIAL_DAYS > 0 && !hasAnySubHistory;
 
-    const isFoundingTier = tier === 'founding';
-
     const session = await stripe.checkout.sessions.create({
-      mode: isFoundingTier ? 'payment' : 'subscription',
+      mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       // client_reference_id + metadata both carry the uid so the webhook can
       // attribute the session to the right user regardless of which field it reads.
@@ -170,22 +170,18 @@ export async function POST(request: Request) {
       // update/delete events (which have no session) can still attribute.
       client_reference_id: uid,
       metadata: { firebaseUid: uid, tier },
-      ...(!isFoundingTier
-        ? {
-            subscription_data: {
-              metadata: { firebaseUid: uid, tier },
-              ...(grantTrial ? { trial_period_days: PRO_TRIAL_DAYS } : {}),
-            },
-          }
-        : {}),
+      subscription_data: {
+        metadata: { firebaseUid: uid, tier },
+        ...(grantTrial ? { trial_period_days: PRO_TRIAL_DAYS } : {}),
+      },
       ...(reuseCustomerId
         ? { customer: reuseCustomerId }
         : email
           ? { customer_email: email }
           : {}),
       allow_promotion_codes: true,
-      success_url: `${origin}/app/profile?${isFoundingTier ? 'founding=success' : 'pro=success'}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/app/profile?${isFoundingTier ? 'founding=cancel' : 'pro=cancel'}`,
+      success_url: `${origin}/app/profile?pro=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/app/profile?pro=cancel`,
     });
 
     if (!session.url) {

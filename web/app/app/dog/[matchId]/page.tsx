@@ -18,6 +18,7 @@ import type { User, SavedDogProfile } from '../../../../lib/auth';
 import { getRenderablePhotos, resolveHeroIndex } from '../../../../lib/photos';
 import { breedConfidencePhrase } from '../../../../lib/vibeCheck';
 import VibeTypeCard from '../../../../components/VibeTypeCard';
+import ReportProfileMenu from '../../../../components/ReportProfileMenu';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -35,6 +36,7 @@ export default function MatchedDogProfilePage() {
   const [loading, setLoading] = useState(true);
   const [notFoundOrDenied, setNotFoundOrDenied] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
+  const [otherUid, setOtherUid] = useState<string | null>(null);
 
   useEffect(() => {
     const { auth } = getFirebase();
@@ -62,6 +64,7 @@ export default function MatchedDogProfilePage() {
           return;
         }
         const otherUserId = match.dog1UserId === authUser.uid ? match.dog2UserId : match.dog1UserId;
+        if (!cancelled) setOtherUid(otherUserId);
         const dogSnap = await getDoc(doc(db, 'dogs', otherUserId));
         if (!cancelled) {
           if (dogSnap.exists()) {
@@ -125,6 +128,14 @@ export default function MatchedDogProfilePage() {
           ←
         </button>
         <span className="font-display text-lg text-brown truncate">{profile.name}&apos;s profile</span>
+        {otherUid && (
+          <ReportProfileMenu
+            targetUserId={otherUid}
+            matchId={matchId}
+            className="relative ml-auto"
+            onBlocked={() => router.replace('/app/matches')}
+          />
+        )}
       </header>
 
       <div className="max-w-2xl mx-auto px-5 py-6 flex flex-col gap-5">

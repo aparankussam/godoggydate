@@ -1,8 +1,9 @@
 // web/lib/blocks.ts
 // Client-side blocking. Blocks live at blocks/{userId}/blocked/{targetUserId}
-// (owner read/write per firestore.rules). Blocking hides the target from the
-// blocker's discover feed, matches list, and inbox. Server-side reciprocal
-// hiding (they can't see you either) is a future Cloud Function concern.
+// (owner read/write per firestore.rules). firestore.rules stops messages and new
+// matches across a block in either direction; the onBlockWrite function mirrors
+// each block to blocks/{target}/blockedBy/{blocker} so both people's feeds hide
+// each other.
 
 import {
   collection,
@@ -27,12 +28,15 @@ export async function unblockUser(currentUserId: string, targetUserId: string): 
   await deleteDoc(doc(db, 'blocks', currentUserId, 'blocked', targetUserId));
 }
 
-/** Returns the set of user ids the current user has blocked. */
+/** Returns everyone hidden from the current user: blocked by them, or blocking them. */
 export async function getBlockedUserIds(currentUserId: string): Promise<Set<string>> {
   const { db } = getFirebase();
   try {
-    const snap = await getDocs(collection(db, 'blocks', currentUserId, 'blocked'));
-    return new Set(snap.docs.map((d) => d.id));
+    const [blocked, blockedBy] = await Promise.all([
+      getDocs(collection(db, 'blocks', currentUserId, 'blocked')),
+      getDocs(collection(db, 'blocks', currentUserId, 'blockedBy')),
+    ]);
+    return new Set([...blocked.docs, ...blockedBy.docs].map((d) => d.id));
   } catch {
     // Offline or transient failure — fail open so the feed still renders.
     return new Set();

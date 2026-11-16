@@ -33,11 +33,11 @@ interface Props {
 // What Pro / Founding actually gets you TODAY. There is no Pro-exclusive feature
 // live yet (everything built so far is free for everyone), so we don't pretend
 // there is — the honest value right now is permanent founding status and being
-// first in line, at a price locked for life. Upcoming features are in
+// first in line. Upcoming features are in
 // COMING_BENEFITS, clearly framed as not-yet-shipped.
 const LIVE_BENEFITS = [
-  { emoji: '⭐', text: 'A permanent Founding Member spot — a numbered place among the first dogs here' },
-  { emoji: '🚀', text: 'First access to every Pro feature as it ships — at the founding price, locked for life' },
+  { emoji: '⭐', text: 'A permanent Founding Member status on your account' },
+  { emoji: '🚀', text: 'First access to every Pro feature as it ships' },
   { emoji: '💛', text: 'Directly back a solo-built app in its earliest days' },
 ];
 // Clearly framed as upcoming, never as shipped.

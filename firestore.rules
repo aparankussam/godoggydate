@@ -49,6 +49,12 @@ service cloud.firestore {
           && (chatFreeLaunchMode() || matchData.chatFreeZone != false || matchData.chatUnlocked == true || hasLifetimeUnlocks());
     }
 
+    // Symmetric, so it never needs to know which side the caller is on.
+    function isBlockedEitherWay(uidA, uidB) {
+      return exists(/databases/$(database)/documents/blocks/$(uidA)/blocked/$(uidB))
+          || exists(/databases/$(database)/documents/blocks/$(uidB)/blocked/$(uidA));
+    }
+
     match /users/{userId} {
       allow read:   if isOwner(userId);
       allow create: if isOwner(userId);
@@ -187,9 +193,30 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
+    // Written only by the onBlockWrite function. Lets the blocked person's own
+    // feed hide the blocker without exposing the blocker's list.
+    match /blocks/{userId}/blockedBy/{blockerId} {
+      allow read:  if isOwner(userId);
+      allow write: if false;
+    }
+
     match /matches/{matchId} {
       allow read:   if isSignedIn() && isPartyToMatch(resource.data);
       allow create: if isSignedIn()
+                    // Exactly what both clients write. Without this a creator
+                    // could add userAId/userBId, which isPartyToMatch trusts,
+                    // and let a third person read the thread.
+                    && request.resource.data.keys().hasOnly([
+                         'dog1Id', 'dog2Id', 'dog1UserId', 'dog2UserId',
+                         'chatUnlocked', 'dog1ChatUnlocked', 'dog2ChatUnlocked',
+                         'createdAt', 'lastMessage', 'lastMessageTime', 'lastMessageFromUid',
+                         'dog1LastReadAt', 'dog2LastReadAt'
+                       ])
+                    // One pair, one match: otherwise a single mutual like could
+                    // mint unlimited match docs, each sending a push.
+                    && matchId == request.resource.data.dog1UserId + '_' + request.resource.data.dog2UserId
+                    && request.resource.data.dog1UserId < request.resource.data.dog2UserId
+                    && !isBlockedEitherWay(request.resource.data.dog1UserId, request.resource.data.dog2UserId)
                     && request.resource.data.dog1UserId is string
                     && request.resource.data.dog2UserId is string
                     && request.resource.data.dog1Id == request.resource.data.dog1UserId
@@ -230,6 +257,18 @@ service cloud.firestore {
 
         allow create: if isSignedIn()
                       && request.resource.data.fromUserId == request.auth.uid
+                      && request.resource.data.keys().hasOnly([
+                           'text', 'fromUserId', 'senderId', 'isSystem', 'read',
+                           'createdAt', 'type', 'playdate'
+                         ])
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() <= 1000
+                      // System banners are styled as coming from the app itself.
+                      && request.resource.data.get('isSystem', false) == false
+                      && !isBlockedEitherWay(
+                           get(/databases/$(database)/documents/matches/$(matchId)).data.dog1UserId,
+                           get(/databases/$(database)/documents/matches/$(matchId)).data.dog2UserId
+                         )
                       && exists(/databases/$(database)/documents/matches/$(matchId))
                       && isPartyToMatch(get(/databases/$(database)/documents/matches/$(matchId)).data)
                       && canCurrentUserChat(get(/databases/$(database)/documents/matches/$(matchId)).data);
@@ -296,6 +335,19 @@ service cloud.firestore {
 
       allow update: if false;
       allow delete: if false;
+    }
+
+    // Pack Day — open group playdates at a public place. Members can read
+    // events and see who is going (the same dogs/{uid} docs are already readable
+    // by any signed-in member). Every write — creating, joining, leaving,
+    // cancelling — goes through the createPackDay / rsvpPackDay / cancelPackDay
+    // callables, which enforce capacity, per-member limits and blocks
+    // atomically and are the only place `official` can ever be set. Anonymous
+    // visitors see a counts-only public page rendered server-side via the Admin
+    // SDK, so no public read rule is needed here.
+    match /packDays/{eventId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
     }
 
     match /payments/{paymentId} {

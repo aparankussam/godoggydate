@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
+import { guardAiRequest } from '../../../../lib/aiGuard';
 import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, PERSON_TOPIC_STEMS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 
@@ -150,12 +151,18 @@ export async function POST(request: Request) {
   }
 
   let uid: string;
+  let signInProvider: string | undefined;
   try {
-    uid = (await getAdminAuth().verifyIdToken(bearerToken)).uid;
+    const decoded = await getAdminAuth().verifyIdToken(bearerToken);
+    uid = decoded.uid;
+    signInProvider = decoded.firebase?.sign_in_provider;
   } catch (error) {
     console.error('human-review auth failed', error);
     return NextResponse.json({ error: 'Invalid Firebase ID token' }, { status: 401 });
   }
+
+  const denied = await guardAiRequest(signInProvider);
+  if (denied) return denied;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {

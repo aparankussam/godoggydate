@@ -33,7 +33,8 @@ interface Props {
 
 const TABS = [
   { href: '/app',           label: 'Discover',  emoji: '🐾' },
-  { href: '/app/matches',   label: 'Matches',   emoji: '💛', badge: 'unreadMatches'  as const },
+  { href: '/app/pack',      label: 'Pack Day',  emoji: '🌳' },
+  { href: '/app/matches',  label: 'Matches',   emoji: '💛', badge: 'unreadMatches'  as const },
   { href: '/app/messages',  label: 'Messages',  emoji: '💬', badge: 'unreadMessages' as const },
   { href: '/app/profile',   label: 'Profile',   emoji: '🐕' },
 ] as const;

@@ -8,7 +8,7 @@
 import { getFirebase } from '../shared/utils/firebase';
 import type { ProTier } from '../../shared/pro';
 
-export type CheckoutTier = ProTier | 'founding';
+export type CheckoutTier = ProTier;
 
 /**
  * Pro CTAs only go live once the founder has created the Stripe Prices and

@@ -3,11 +3,15 @@ import * as admin from 'firebase-admin';
 import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
+import { makePackDayFunctions } from './packDay';
 
 admin.initializeApp();
 const db = admin.firestore();
 const stripeSecretKey = defineSecret('STRIPE_SECRET_KEY');
 const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
+// Slack- or Discord-compatible incoming webhook URL for anything a human must
+// act on: user reports and payments that couldn't be attributed.
+const opsAlertWebhookUrl = defineSecret('OPS_ALERT_WEBHOOK_URL');
 
 // Founding Member lifetime tier — checkout sessions below this amount never
 // grant the entitlement ($39.00).
@@ -66,6 +70,35 @@ function getOtherUnlockField(field: 'dog1ChatUnlocked' | 'dog2ChatUnlocked') {
   return field === 'dog1ChatUnlocked' ? 'dog2ChatUnlocked' : 'dog1ChatUnlocked';
 }
 
+// A marker with no processedAt after this long means the handler died mid-run
+// (timeout, instance kill) without reaching its catch block.
+const STALE_STRIPE_EVENT_MS = 5 * 60 * 1000;
+
+// Never throws: a failed alert must not fail the work that triggered it. The
+// console.error is the backstop — it lands in Cloud Logging either way.
+async function sendOpsAlert(text: string): Promise<void> {
+  console.error('[ops-alert]', text);
+  try {
+    const response = await fetch(opsAlertWebhookUrl.value(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Slack reads `text`, Discord reads `content`.
+      body: JSON.stringify({ text, content: text }),
+    });
+    if (!response.ok) console.error('sendOpsAlert: webhook rejected', { status: response.status });
+  } catch (error) {
+    console.error('sendOpsAlert: webhook failed', { error });
+  }
+}
+
+async function isBlockedEitherWay(uidA: string, uidB: string): Promise<boolean> {
+  const [aBlockedB, bBlockedA] = await Promise.all([
+    db.doc(`blocks/${uidA}/blocked/${uidB}`).get(),
+    db.doc(`blocks/${uidB}/blocked/${uidA}`).get(),
+  ]);
+  return aBlockedB.exists || bBlockedA.exists;
+}
+
 async function markStripeEventStarted(event: Stripe.Event): Promise<boolean> {
   try {
     await db.collection('stripeEvents').doc(event.id).create({
@@ -80,6 +113,13 @@ async function markStripeEventStarted(event: Stripe.Event): Promise<boolean> {
       : '';
 
     if (code === '6' || code === 'already-exists') {
+      const markerRef = db.collection('stripeEvents').doc(event.id);
+      const marker = (await markerRef.get()).data();
+      const startedAtMs = marker?.createdAt?.toMillis?.() ?? 0;
+      if (!marker?.processedAt && Date.now() - startedAtMs > STALE_STRIPE_EVENT_MS) {
+        await markerRef.update({ createdAt: admin.firestore.FieldValue.serverTimestamp() });
+        return true;
+      }
       return false;
     }
 
@@ -200,7 +240,7 @@ async function writeProEntitlementFromSubscription(uid: string, sub: Stripe.Subs
 // ── Stripe Webhook ─────────────────────────────────────────────────────────────
 
 export const stripeWebhook = functions
-  .runWith({ secrets: [stripeSecretKey, stripeWebhookSecret] })
+  .runWith({ secrets: [stripeSecretKey, stripeWebhookSecret, opsAlertWebhookUrl] })
   .https.onRequest(async (req, res) => {
     const sig = req.headers['stripe-signature'] as string;
     const webhookSecret = stripeWebhookSecret.value();
@@ -307,7 +347,11 @@ export const stripeWebhook = functions
         const paymentIntentId =
           typeof charge.payment_intent === 'string' ? charge.payment_intent : '';
 
-        if (paymentIntentId) {
+        // A partial refund (goodwill credit, duplicate fee) keeps access: only a
+        // full refund or a dispute takes it away.
+        const revokesAccess = event.type === 'charge.dispute.created' || charge.refunded === true;
+
+        if (paymentIntentId && revokesAccess) {
           const paymentSnap = await db.doc(`payments/${paymentIntentId}`).get();
           if (paymentSnap.exists) {
             const paymentData = paymentSnap.data() as StoredPaymentDoc & { type?: string };
@@ -386,11 +430,12 @@ export const stripeWebhook = functions
         // so the session carries the purchasing user's Firebase uid.
         // Guards: must actually be paid, and must be at least the Founding
         // Member price — a cheaper product on this Stripe account must never
-        // grant the entitlement.
+        // grant the entitlement. Subtotal, not total, so a promo code the owner
+        // handed out still grants what the buyer was promised.
         const uid = session.client_reference_id;
         const paidEnough =
           session.payment_status === 'paid' &&
-          (session.amount_total ?? 0) >= FOUNDING_MEMBER_MIN_CENTS &&
+          (session.amount_subtotal ?? 0) >= FOUNDING_MEMBER_MIN_CENTS &&
           session.currency === 'usd';
         const paymentIntentId =
           typeof session.payment_intent === 'string' ? session.payment_intent : '';
@@ -419,6 +464,24 @@ export const stripeWebhook = functions
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             }, { merge: true });
           }
+        }
+
+        // Money was taken but nothing was granted: keep a server-only record and
+        // tell a human, since the buyer sees a successful Stripe receipt.
+        if (session.payment_status === 'paid' && !(uid && paidEnough)) {
+          await db.doc(`orphanedPayments/${session.id}`).set({
+            checkoutSessionId: session.id,
+            paymentIntentId: paymentIntentId || null,
+            hasClientReference: Boolean(uid),
+            amountSubtotal: session.amount_subtotal ?? null,
+            amountTotal: session.amount_total ?? null,
+            currency: session.currency ?? null,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          await sendOpsAlert(
+            `Paid Stripe checkout granted nothing: session ${session.id}, ` +
+            `client reference ${uid ? 'present' : 'missing'}. Grant it by hand or refund it.`,
+          );
         }
 
         await finalizeStripeEvent(event.id, uid && paidEnough ? 'processed' : 'ignored', {
@@ -640,6 +703,13 @@ export const deleteAccount = functions
       console.error('deleteAccount: could not delete household invites', { uid, error });
     }
 
+    // Pack Days they hosted (cancelled, attendees told) or joined.
+    try {
+      await packDay.cleanupPackDaysForUser(uid);
+    } catch (error) {
+      console.error('deleteAccount: could not clean up Pack Days', { uid, error });
+    }
+
     // Uploaded images. Firestore deletion alone left every photo permanently
     // fetchable: Storage download URLs carry their own ?alt=media&token=,
     // which bypasses storage.rules entirely, so "delete my account" was
@@ -821,7 +891,11 @@ export const onMatchCreatedNotify = functions.firestore
     const participants = [data.dog1UserId, data.dog2UserId].filter(Boolean) as string[];
     if (participants.length !== 2) return;
 
-    await Promise.all(participants.map(async (uid) => {
+    // firestore.rules denies a match across a block; this covers one that was
+    // created just before the block landed.
+    const blocked = await isBlockedEitherWay(participants[0], participants[1]);
+
+    await Promise.all((blocked ? [] : participants).map(async (uid) => {
       const otherUid = participants.find((p) => p !== uid);
       const otherName = await getDogName(otherUid);
       await sendPushToUser(uid, {
@@ -859,6 +933,7 @@ export const onMessageCreatedNotify = functions.firestore
     const recipient = [matchData.dog1UserId, matchData.dog2UserId]
       .find((uid) => uid && uid !== message.fromUserId);
     if (!recipient) return;
+    if (await isBlockedEitherWay(message.fromUserId, recipient)) return;
 
     const senderName = await getDogName(message.fromUserId);
     const isPlaydate = message.type === 'playdate_proposal' || message.type === 'playdate_confirmed';
@@ -872,6 +947,68 @@ export const onMessageCreatedNotify = functions.firestore
         link: `https://godoggydate.com/app/messages/${matchId}`,
       },
     });
+  });
+
+// ── Safety: reports and blocks ─────────────────────────────────────────────────
+
+const REPORT_EVIDENCE_MESSAGES = 50;
+
+// Snapshot the thread at report time: deleteAccount removes shared threads, so
+// without this a reported user could erase the evidence by deleting their
+// account. safetyEvidence has no client rule, so it is Admin-only. The alert
+// carries ids only — message contents stay in Firestore, not in a chat tool.
+export const onReportCreated = functions
+  .runWith({ secrets: [opsAlertWebhookUrl] })
+  .firestore.document('reports/{reportId}')
+  .onCreate(async (snap, context) => {
+    const { reportId } = context.params as { reportId: string };
+    const report = snap.data() as {
+      reporterId?: string;
+      targetUserId?: string;
+      matchId?: string;
+      reason?: string;
+    };
+
+    let evidenceSaved = false;
+    if (report.matchId) {
+      try {
+        const messages = await db
+          .collection(`matches/${report.matchId}/messages`)
+          .orderBy('createdAt', 'desc')
+          .limit(REPORT_EVIDENCE_MESSAGES)
+          .get();
+        await db.doc(`safetyEvidence/${reportId}`).set({
+          ...report,
+          messages: messages.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+          capturedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        evidenceSaved = true;
+      } catch (error) {
+        console.error('onReportCreated: evidence snapshot failed', { reportId, error });
+      }
+    }
+
+    await sendOpsAlert(
+      `GoDoggyDate report (${report.reason ?? 'no reason'}): ` +
+      `reporter ${report.reporterId}, target ${report.targetUserId}, ` +
+      `match ${report.matchId ?? 'none'}, report ${reportId}, ` +
+      `evidence ${evidenceSaved ? 'saved' : 'NOT saved'}. Review within 24 hours.`,
+    );
+  });
+
+// Reverse index so the blocked person's own feed can hide the blocker: they
+// can't read the blocker's list, and shouldn't. Enforcement itself lives in
+// firestore.rules and doesn't depend on this trigger.
+export const onBlockWrite = functions.firestore
+  .document('blocks/{uid}/blocked/{targetId}')
+  .onWrite(async (change, context) => {
+    const { uid, targetId } = context.params as { uid: string; targetId: string };
+    const reverseRef = db.doc(`blocks/${targetId}/blockedBy/${uid}`);
+    if (change.after.exists) {
+      await reverseRef.set({ createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    } else {
+      await reverseRef.delete();
+    }
   });
 
 // ── Cleanup: delete matches older than 180 days with no chat activity ──────────
@@ -1373,3 +1510,12 @@ export const removeHouseholdMember = functions.https.onCall(async (data, context
 
   return { removed: memberUid };
 });
+
+// ── Pack Day: open group playdates ─────────────────────────────────────────────
+// All writes to packDays/ go through these callables (firestore.rules is
+// read-only for clients). See ./packDay.ts.
+const packDay = makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay });
+export const createPackDay = packDay.createPackDay;
+export const rsvpPackDay = packDay.rsvpPackDay;
+export const cancelPackDay = packDay.cancelPackDay;
+export const sendPackDayReminders = packDay.sendPackDayReminders;

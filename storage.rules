@@ -7,9 +7,9 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function isImageOrVideo() {
-      return request.resource.contentType.matches('image/.*')
-          || request.resource.contentType.matches('video/.*');
+    // An explicit list rather than image/.*, which would admit SVG (scriptable).
+    function isPhoto() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
     }
 
     function isUnder10MB() {
@@ -26,7 +26,7 @@ service firebase.storage {
       allow read:   if isSignedIn();
       allow write:  if isSignedIn()
                     && request.auth.uid == userId
-                    && isImageOrVideo()
+                    && isPhoto()
                     && isUnder10MB();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
@@ -48,7 +48,7 @@ service firebase.storage {
       allow read:   if isSignedIn();
       allow write:  if isSignedIn()
                     && request.auth.uid == userId
-                    && request.resource.contentType.matches('image/.*')
+                    && isPhoto()
                     && isUnder10MB();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }

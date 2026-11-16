@@ -309,7 +309,7 @@ export default function ProfilePage() {
       router.replace('/');
     } catch (err) {
       console.error('Account deletion failed:', err);
-      setDeleteError('We could not delete your account right now. Please try again or email support@godoggydate.com.');
+      setDeleteError('We could not delete your account right now. Please try again or email godoggydate@gobotsai.com.');
       setDeleting(false);
     }
   }
@@ -751,7 +751,7 @@ export default function ProfilePage() {
                 <p className="text-sm font-semibold text-red-700">Delete your account permanently?</p>
                 <p className="mt-1 text-xs leading-relaxed text-brown-light">
                   This removes your dog&apos;s profile, all matches, messages, and swipe history.
-                  Chat unlock purchases are not refunded. This cannot be undone.
+                  Past purchases aren&apos;t refunded automatically: email godoggydate@gobotsai.com first if you&apos;re within the 14-day refund window. This cannot be undone.
                 </p>
                 {deleteError && <p className="mt-2 text-xs text-red-600">{deleteError}</p>}
                 <div className="mt-3 flex gap-2">
@@ -892,8 +892,8 @@ export default function ProfilePage() {
           >
             <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
             <p className="mt-1 text-xs leading-relaxed text-brown-light">
-              Pro for life at the founding price — first access to every Pro feature the moment it ships,
-              locked in forever. Back the app in its first days and never pay for Pro again.
+              Every future Pro feature at no extra cost, for as long as GoDoggyDate runs. Pro features
+              aren&apos;t live yet, so this mainly supports a small, independent app. Refundable within 14 days.
             </p>
           </a>
         )}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
+import { guardAiRequest } from '../../../../lib/aiGuard';
 import { resolveBreed } from '../../../../../shared/types/breeds';
 import type { DogSize, DogVibeCheck, PlayStyle } from '../../../../../shared/types';
 
@@ -347,13 +348,18 @@ export async function POST(request: Request) {
   const idToken = authHeader.slice('Bearer '.length).trim();
 
   let uid: string;
+  let signInProvider: string | undefined;
   try {
     const decoded = await getAdminAuth().verifyIdToken(idToken);
     uid = decoded.uid;
+    signInProvider = decoded.firebase?.sign_in_provider;
   } catch (error) {
     console.error('vibe-check auth failed', error);
     return NextResponse.json({ error: 'Invalid Firebase ID token' }, { status: 401 });
   }
+
+  const denied = await guardAiRequest(signInProvider);
+  if (denied) return denied;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {

@@ -26,6 +26,26 @@ Run these before any soft launch or public launch:
    - `sign_in_success`
 10. Set `GOOGLE_SITE_VERIFICATION`, deploy, and submit `https://godoggydate.com/sitemap.xml` in Google Search Console
 
+Safety and payment alerts (required before deploying functions):
+
+- Create a Slack or Discord incoming webhook and run `firebase functions:secrets:set OPS_ALERT_WEBHOOK_URL`. Reports and paid-but-ungranted checkouts alert here; deploy needs this secret to exist.
+- Add `checkout.session.async_payment_succeeded` and `customer.subscription.created|updated|deleted` to the Stripe webhook endpoint.
+- Set `AI_GLOBAL_DAILY_LIMIT` on Vercel if the 2,000 AI calls/day default doesn't fit.
+- Disable Email/Password and Anonymous sign-in in Firebase Auth. The website doesn't use them, and mobile guest mode must be reworked before it ships.
+
+Founding Member cap (first 100):
+
+- The site and Terms say Founding Member is limited to the first 100 members (`FOUNDING_MEMBER_LIMIT` in `shared/pro.ts`). The real cap is in Stripe: on the Payment Link, turn on **Options → Limit the number of payments** and set it to 100. Don't deploy the copy without it.
+- The Payment Link is the only way to buy Founding Member. `/api/stripe/checkout` refuses `tier: "founding"` because a session created there would not count against the Stripe limit. Remove `STRIPE_FOUNDING_MEMBER_PRICE_ID` from Vercel; nothing reads it now.
+- Not the same as the free Founding Pack (first 500 dogs with a profile get a numbered spot).
+
+Pack Day (group playdates):
+
+- Deploys with the functions (`createPackDay`, `rsvpPackDay`, `cancelPackDay`, `sendPackDayReminders`) and `firestore.rules` (`packDays/` is read-only for clients). Deploy functions and rules before the website: the new Pack Day tab reads `packDays/` and fails until the rules are live.
+- `sendPackDayReminders` runs on Cloud Scheduler (every 30 minutes), like the other scheduled functions.
+- The ⭐ Official badge is set by hand: host the event as yourself, then set `official: true` on its `packDays/{id}` document in the Firebase console. Clients cannot set it.
+- Smoke test with two accounts: host one, RSVP from the second, check the host's push, open `/pack/{id}` signed out, cancel, and confirm the attendee's push.
+
 Manual checks still required:
 
 - Set the real Expo EAS project id via `EXPO_PUBLIC_EAS_PROJECT_ID` (or `EAS_PROJECT_ID`) for `mobile/app.config.js`
