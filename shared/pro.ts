@@ -99,6 +99,16 @@ export function isProActive(
   return true;
 }
 
+/**
+ * How many Founding Member ($39, one-time) purchases are ever sold. The hard
+ * cap lives in Stripe (Payment Link → "Limit the number of payments"); this
+ * constant only drives the wording, so change both together.
+ *
+ * Not the same as FOUNDING_PACK_SIZE, the free numbered spots for the first
+ * dogs with a profile.
+ */
+export const FOUNDING_MEMBER_LIMIT = 100;
+
 export type ProSource = 'founding' | 'subscription' | null;
 
 export function proSource(ent: Entitlements | null | undefined): ProSource {

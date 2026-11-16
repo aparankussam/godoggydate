@@ -33,6 +33,12 @@ Safety and payment alerts (required before deploying functions):
 - Set `AI_GLOBAL_DAILY_LIMIT` on Vercel if the 2,000 AI calls/day default doesn't fit.
 - Disable Email/Password and Anonymous sign-in in Firebase Auth. The website doesn't use them, and mobile guest mode must be reworked before it ships.
 
+Founding Member cap (first 100):
+
+- The site and Terms say Founding Member is limited to the first 100 members (`FOUNDING_MEMBER_LIMIT` in `shared/pro.ts`). The real cap is in Stripe: on the Payment Link, turn on **Options → Limit the number of payments** and set it to 100. Don't deploy the copy without it.
+- The Payment Link is the only way to buy Founding Member. `/api/stripe/checkout` refuses `tier: "founding"` because a session created there would not count against the Stripe limit. Remove `STRIPE_FOUNDING_MEMBER_PRICE_ID` from Vercel; nothing reads it now.
+- Not the same as the free Founding Pack (first 500 dogs with a profile get a numbered spot).
+
 Pack Day (group playdates):
 
 - Deploys with the functions (`createPackDay`, `rsvpPackDay`, `cancelPackDay`, `sendPackDayReminders`) and `firestore.rules` (`packDays/` is read-only for clients). Deploy functions and rules before the website: the new Pack Day tab reads `packDays/` and fails until the rules are live.

@@ -192,7 +192,7 @@ export default function ProfileTab() {
               console.error('Account deletion failed:', error);
               Alert.alert(
                 'Could not delete account',
-                'Please try again or email support@godoggydate.com.',
+                'Please try again or email godoggydate@gobotsai.com.',
               );
               setDeleting(false);
             }
