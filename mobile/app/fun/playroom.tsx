@@ -1,7 +1,9 @@
 // mobile/app/fun/playroom.tsx
 // The Playroom — one home for the playful, shareable generators built from the
 // dog's own profile (Roast, Notes-App Apology, Texts, My Human Review, the
-// pass-the-phone quiz, and the Employee-of-the-Month plaque). Grouped into a
+// pass-the-phone quiz, and the Employee-of-the-Month plaque), plus quick-links
+// to the standalone toys (Snoot Boop, Sticker Studio, Barkle, Wanted Poster,
+// Adventure Passport and the Excuse Note). Grouped into a
 // single screen so the profile stays about the dog's life, and the fun lives
 // one tap away. Each section is self-contained and only calls the AI routes on
 // an explicit tap, so an idle Playroom costs nothing.
@@ -47,6 +49,7 @@ export default function PlayroomScreen() {
               { key: 'barkle', emoji: '🟩', label: 'Barkle', route: '/fun/barkle' },
               { key: 'wanted', emoji: '🤠', label: 'Wanted Poster', route: '/fun/wanted' },
               { key: 'adventures', emoji: '🗺️', label: 'Adventure Passport', route: '/fun/adventures' },
+              { key: 'excuse', emoji: '📜', label: 'Excuse Note', route: '/fun/excuse' },
             ].map((t) => (
               <Pressable
                 key={t.key}

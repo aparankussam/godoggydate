@@ -16,6 +16,7 @@ import { colors, fonts, radius } from '../constants/theme';
 import { useSession } from '../lib/session';
 import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
+import { webUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from '../components/DogtypeCard';
 import { computeDogtype } from '../../shared/dogtype';
@@ -74,10 +75,15 @@ export default function DogtypeRevealScreen() {
     if (sharing || !dogtype) return;
     setSharing(true);
     trackEvent('dogtype_share_click', { code: dogtype.code, from: 'reveal' });
+    // Same caption and /dogtype/<CODE> link as web's Dogtype share.
     const result = await captureAndShare(
       cardRef,
       `${dogName.toLowerCase().replace(/\s+/g, '-')}-dogtype.png`,
       `Share ${dogName}'s Dogtype`,
+      {
+        caption: `${dogName} is ${dogtype.name} ${dogtype.emoji} on GoDoggyDate. What's your dog's Dogtype?`,
+        url: webUrl(`/dogtype/${dogtype.code}`),
+      },
     );
     if (result === 'shared') trackEvent('dogtype_shared', { code: dogtype.code, method: 'native_share', from: 'reveal' });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
