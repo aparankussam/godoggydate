@@ -227,7 +227,8 @@ export default function PackDayDetailPage() {
           <Link href="/app/pack" aria-label="Back to Pack Days" className="text-xl text-brown">←</Link>
           <span className="font-display text-xl text-brown truncate">Pack Day</span>
         </div>
-        {!isHost && <ReportProfileMenu targetUserId={event.hostUid} />}
+        {/* eventId lets onReportCreated snapshot this event as evidence. */}
+        {!isHost && <ReportProfileMenu targetUserId={event.hostUid} eventId={event.id} />}
       </header>
 
       <div className="p-4 lg:max-w-2xl lg:mx-auto lg:px-8 lg:py-8 space-y-5">

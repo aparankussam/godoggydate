@@ -11,6 +11,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { checkContent, CONTENT_FILTER_MESSAGE } from './contentFilter';
 
 const MIN_CAPACITY = 4;
 const MAX_CAPACITY = 12;
@@ -68,6 +69,11 @@ function cleanText(value: unknown, label: string, max: number, required: boolean
   if (text.length > max) throw new HttpsError('invalid-argument', `${label} must be ${max} characters or fewer.`);
   if (CONTACT_PATTERN.test(text)) {
     throw new HttpsError('invalid-argument', `Leave links and contact details out of the ${label.toLowerCase()}. Members message each other in the app.`);
+  }
+  // Slurs, sexual solicitation and threats (Apple guideline 1.2). The apps
+  // check first; this catches a client that skipped it.
+  if (!checkContent(text).ok) {
+    throw new HttpsError('invalid-argument', CONTENT_FILTER_MESSAGE);
   }
   return text;
 }

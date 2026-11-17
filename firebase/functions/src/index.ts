@@ -4,6 +4,12 @@ import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
 import { makePackDayFunctions } from './packDay';
+import {
+  MODERATED_MESSAGE_TEXT,
+  checkMessageContent,
+  dogProfileContentFixes,
+  isSafeDocId,
+} from './moderation';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -1068,11 +1074,80 @@ export const onMatchCreatedNotify = functions.firestore
     }
   });
 
-export const onMessageCreatedNotify = functions.firestore
-  .document('matches/{matchId}/messages/{messageId}')
+// ── Content filter: chat messages and dog profiles ─────────────────────────────
+// Apple guideline 1.2. Both apps run shared/contentFilter.ts before sending,
+// but a modified client can skip that, so the server checks every write again
+// (with the mirrored copy in ./contentFilter). What was refused is kept in
+// moderationLog/, which has no client rule, so it is Admin-only, like
+// safetyEvidence. Alerts carry ids only, never the text.
+
+/**
+ * Replaces a refused chat message in place. Does nothing if another run of
+ * this trigger (a duplicate delivery) already did it, so the alert goes out
+ * once. The playdate card is dropped too: the apps draw it from `playdate`,
+ * not `text`, and a proposal with a refused place shouldn't stay acceptable.
+ * Admin writes bypass the "messages are never updated" rule.
+ */
+async function moderateMessage(
+  snap: functions.firestore.QueryDocumentSnapshot,
+  matchId: string,
+  messageId: string,
+  reason: string,
+): Promise<void> {
+  const message = snap.data();
+  const logRef = db.doc(`moderationLog/message_${matchId}_${messageId}`);
+  const moderated = await db.runTransaction(async (tx) => {
+    const fresh = await tx.get(snap.ref);
+    if (!fresh.exists || fresh.data()?.moderated === true) return false;
+    tx.update(snap.ref, {
+      text: MODERATED_MESSAGE_TEXT,
+      moderated: true,
+      moderationReason: reason,
+      moderatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      type: admin.firestore.FieldValue.delete(),
+      playdate: admin.firestore.FieldValue.delete(),
+    });
+    tx.set(logRef, {
+      kind: 'message',
+      uid: message.fromUserId ?? message.senderId ?? null,
+      matchId,
+      messageId,
+      reason,
+      original: {
+        text: message.text ?? null,
+        type: message.type ?? null,
+        playdate: message.playdate ?? null,
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+  if (!moderated) return;
+
+  await sendOpsAlert(
+    `GoDoggyDate content filter removed a chat message (${reason}): ` +
+    `sender ${message.fromUserId ?? message.senderId ?? 'unknown'}, match ${matchId}, message ${messageId}. ` +
+    `Original in ${logRef.path}. Check whether the sender needs action.`,
+  );
+}
+
+// The same trigger runs the filter and sends the push, so a refused message
+// is replaced before anyone is notified and never pushed at all. Replacing it
+// is an update, which doesn't fire onCreate again, so there's no second push
+// and no loop.
+export const onMessageCreatedNotify = functions
+  .runWith({ secrets: [opsAlertWebhookUrl] })
+  .firestore.document('matches/{matchId}/messages/{messageId}')
   .onCreate(async (snap, context) => {
-    const message = snap.data() as { fromUserId?: string; text?: string; type?: string };
-    const { matchId } = context.params as { matchId: string };
+    const message = snap.data() as { fromUserId?: string; text?: string; type?: string; playdate?: unknown };
+    const { matchId, messageId } = context.params as { matchId: string; messageId: string };
+
+    const verdict = checkMessageContent(message);
+    if (!verdict.ok) {
+      await moderateMessage(snap, matchId, messageId, verdict.reason);
+      return;
+    }
+
     if (!message.fromUserId) return;
 
     const matchSnap = await db.doc(`matches/${matchId}`).get();
@@ -1098,14 +1173,79 @@ export const onMessageCreatedNotify = functions.firestore
     });
   });
 
+// Clears only the owner-typed fields that fail (see dogProfileContentFixes for
+// which fields), never the AI `ai` fields. Loop-safe: only fields that changed
+// in this write are checked, and the cleared values pass, so the trigger fired
+// by our own update finds nothing to do. Server-only writes (trust score,
+// founding number, Vibe Check) change no text field and return before any read.
+export const onDogProfileWriteModerate = functions
+  .runWith({ secrets: [opsAlertWebhookUrl] })
+  .firestore.document('dogs/{uid}')
+  .onWrite(async (change, context) => {
+    if (!change.after.exists) return;
+    const { uid } = context.params as { uid: string };
+    const before = change.before.exists ? change.before.data() : undefined;
+    if (dogProfileContentFixes(before, change.after.data() ?? {}).problems.length === 0) return;
+
+    // Re-check against the current doc inside a transaction, so an owner who
+    // has already re-saved clean text (or edited a list since) keeps it.
+    const ref = change.after.ref;
+    const applied = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(ref);
+      if (!fresh.exists) return null;
+      const fixes = dogProfileContentFixes(before, fresh.data() ?? {});
+      if (fixes.problems.length === 0) return null;
+      tx.update(ref, fixes.updates);
+      const logRef = db.collection('moderationLog').doc();
+      tx.set(logRef, {
+        kind: 'dog_profile',
+        uid,
+        problems: fixes.problems,
+        original: fixes.original,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return { fixes, logPath: logRef.path };
+    });
+    if (!applied) return;
+
+    const summary = applied.fixes.problems.map((p) => `${p.field} (${p.reason})`).join(', ');
+    await sendOpsAlert(
+      `GoDoggyDate content filter cleared dog profile text: dog ${uid}, ${summary}. ` +
+      `Original in ${applied.logPath}. Check whether the owner needs action.`,
+    );
+  });
+
 // ── Safety: reports and blocks ─────────────────────────────────────────────────
 
 const REPORT_EVIDENCE_MESSAGES = 50;
 
-// Snapshot the thread at report time: deleteAccount removes shared threads, so
-// without this a reported user could erase the evidence by deleting their
-// account. safetyEvidence has no client rule, so it is Admin-only. The alert
-// carries ids only — message contents stay in Firestore, not in a chat tool.
+// The parts of a Pack Day a moderator needs to judge a report about it. The
+// event doc is deleted when its host deletes their account, so this is copied
+// at report time, the same as a chat thread.
+function packDayEvidence(event: FirebaseFirestore.DocumentData): Record<string, unknown> {
+  const startsAtMs = typeof event.startsAtMs === 'number' ? event.startsAtMs : null;
+  return {
+    title: event.title ?? null,
+    note: event.note ?? null,
+    placeName: event.placeName ?? null,
+    city: event.city ?? null,
+    state: event.state ?? null,
+    hostUid: event.hostUid ?? null,
+    hostDogName: event.hostDogName ?? null,
+    startsAtMs,
+    startsAt: startsAtMs !== null ? new Date(startsAtMs).toISOString() : null,
+    localDate: event.localDate ?? null,
+    localTime: event.localTime ?? null,
+    status: event.status ?? null,
+  };
+}
+
+// Snapshot the thread (for a chat or match report) or the event (for a Pack
+// Day report) at report time: deleteAccount removes shared threads and hosted
+// events, so without this a reported user could erase the evidence by deleting
+// their account. safetyEvidence has no client rule, so it is Admin-only. The
+// alert carries ids only — message and event text stay in Firestore, not in a
+// chat tool.
 export const onReportCreated = functions
   .runWith({ secrets: [opsAlertWebhookUrl] })
   .firestore.document('reports/{reportId}')
@@ -1115,32 +1255,59 @@ export const onReportCreated = functions
       reporterId?: string;
       targetUserId?: string;
       matchId?: string;
+      eventId?: string;
       reason?: string;
+      source?: string;
     };
+    // Both ids are client-written and go into document paths.
+    const matchId = isSafeDocId(report.matchId) ? report.matchId : null;
+    const eventId = isSafeDocId(report.eventId) ? report.eventId : null;
 
-    let evidenceSaved = false;
-    if (report.matchId) {
+    const evidence: Record<string, unknown> = {};
+    if (matchId) {
       try {
         const messages = await db
-          .collection(`matches/${report.matchId}/messages`)
+          .collection(`matches/${matchId}/messages`)
           .orderBy('createdAt', 'desc')
           .limit(REPORT_EVIDENCE_MESSAGES)
           .get();
+        evidence.messages = messages.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      } catch (error) {
+        console.error('onReportCreated: thread snapshot failed', { reportId, error });
+      }
+    }
+    let eventFound = false;
+    if (eventId) {
+      try {
+        const eventSnap = await db.doc(`packDays/${eventId}`).get();
+        eventFound = eventSnap.exists;
+        evidence.packDay = eventSnap.exists ? packDayEvidence(eventSnap.data() ?? {}) : null;
+      } catch (error) {
+        console.error('onReportCreated: Pack Day snapshot failed', { reportId, eventId, error });
+      }
+    }
+
+    let evidenceSaved = false;
+    if (Object.keys(evidence).length > 0) {
+      try {
         await db.doc(`safetyEvidence/${reportId}`).set({
           ...report,
-          messages: messages.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+          ...evidence,
           capturedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         evidenceSaved = true;
       } catch (error) {
-        console.error('onReportCreated: evidence snapshot failed', { reportId, error });
+        console.error('onReportCreated: evidence write failed', { reportId, error });
       }
     }
 
+    const where = eventId
+      ? `Pack Day ${eventId}${eventFound ? '' : ' (event not found)'}`
+      : `match ${matchId ?? 'none'}`;
     await sendOpsAlert(
-      `GoDoggyDate report (${report.reason ?? 'no reason'}): ` +
+      `GoDoggyDate report (${report.reason ?? 'no reason'}, source ${report.source ?? 'not given'}): ` +
       `reporter ${report.reporterId}, target ${report.targetUserId}, ` +
-      `match ${report.matchId ?? 'none'}, report ${reportId}, ` +
+      `${where}, report ${reportId}, ` +
       `evidence ${evidenceSaved ? 'saved' : 'NOT saved'}. Review within 24 hours.`,
     );
   });

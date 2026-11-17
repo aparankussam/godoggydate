@@ -1,7 +1,9 @@
 'use client';
 // web/components/ReportProfileMenu.tsx
 // Report / block for someone you haven't necessarily matched with, so a profile
-// can be flagged from the swipe card and the dog page, not only inside chat.
+// can be flagged from the swipe card, the dog page and a Pack Day event, not
+// only inside chat. Writes the same report documents as the iPhone app
+// (mobile/lib/reports.ts).
 
 import { useState } from 'react';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -14,11 +16,13 @@ type Reason = 'block' | 'spam' | 'inappropriate';
 interface Props {
   targetUserId: string;
   matchId?: string;
+  /** Set on a Pack Day event page, so the server snapshots that event as evidence. */
+  eventId?: string;
   className?: string;
   onBlocked?: () => void;
 }
 
-export default function ReportProfileMenu({ targetUserId, matchId, className, onBlocked }: Props) {
+export default function ReportProfileMenu({ targetUserId, matchId, eventId, className, onBlocked }: Props) {
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const uid = getFirebase().auth.currentUser?.uid;
@@ -28,24 +32,44 @@ export default function ReportProfileMenu({ targetUserId, matchId, className, on
   async function submit(reason: Reason) {
     const { db } = getFirebase();
     setOpen(false);
+    const source = eventId ? 'packday' : 'profile';
+
+    // Block first and on its own, as in chat: the safety action must not
+    // depend on the report write.
+    if (reason === 'block') {
+      try {
+        await blockUser(uid!, targetUserId);
+      } catch (error) {
+        console.error('Block failed', error);
+        setNotice('That didn’t go through. Please try again.');
+        return;
+      }
+    }
+
+    let reported = false;
     try {
-      // Block first and independently, as in chat: the safety action must not
-      // depend on the report write.
-      if (reason === 'block') await blockUser(uid!, targetUserId);
       await setDoc(doc(db, 'reports', `${uid}_${targetUserId}_${Date.now()}`), {
         reporterId: uid,
         targetUserId,
         ...(matchId ? { matchId } : {}),
+        ...(eventId ? { eventId } : {}),
         reason,
-        source: 'profile',
+        source,
         createdAt: serverTimestamp(),
       });
-      trackEvent('report_submitted', { reason, source: 'profile' });
-      setNotice(reason === 'block' ? 'Blocked.' : 'Report sent. Thank you.');
-      if (reason === 'block') onBlocked?.();
+      reported = true;
+      trackEvent('report_submitted', { reason, source });
     } catch (error) {
       console.error('Report failed', error);
-      setNotice('That didn\u2019t go through. Please try again.');
+    }
+
+    if (reason === 'block') {
+      // The block went through, which is what protects them, so carry on
+      // even if the report itself didn't save.
+      setNotice(reported ? 'Blocked.' : 'Blocked. The report didn’t save, but they can’t contact you.');
+      onBlocked?.();
+    } else {
+      setNotice(reported ? 'Report sent. Thank you.' : 'That didn’t go through. Please try again.');
     }
   }
 

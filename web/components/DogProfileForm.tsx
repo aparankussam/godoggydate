@@ -22,6 +22,7 @@ import {
 import { uploadDogPhoto } from '../lib/storage';
 import { getFirebase } from '../shared/utils/firebase';
 import { BREEDS } from '../../shared/types/breeds';
+import { checkContent, CONTENT_FILTER_MESSAGE } from '../../shared/contentFilter';
 import CoverPhotoEditor from './CoverPhotoEditor';
 
 const SIZES: { value: 'S' | 'M' | 'L' | 'XL'; label: string }[] = [
@@ -129,9 +130,17 @@ interface ValidationErrors {
   city: string;
   state: string;
   personality: string;
+  prompts: string;
   rabiesExpiry: string;
   birthDate: string;
   adoptionDate: string;
+}
+
+// Owner-typed text other dog owners will see is run through the shared
+// content filter before saving (Apple guideline 1.2). The server checks the
+// saved profile again and clears anything that slips past. Empty is fine.
+function contentFilterError(value: string): string {
+  return value.trim() && !checkContent(value).ok ? CONTENT_FILTER_MESSAGE : '';
 }
 
 function countComplete(p: {
@@ -171,6 +180,7 @@ const EMPTY_ERRORS: ValidationErrors = {
   city: '',
   state: '',
   personality: '',
+  prompts: '',
   rabiesExpiry: '',
   birthDate: '',
   adoptionDate: '',
@@ -240,6 +250,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   const adoptionDateRef = useRef<HTMLInputElement | null>(null);
   const zipRef = useRef<HTMLInputElement | null>(null);
   const locationRef = useRef<HTMLInputElement | null>(null);
+  const promptsRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<HTMLSelectElement | null>(null);
   const rabiesExpiryRef = useRef<HTMLInputElement | null>(null);
 
@@ -461,16 +472,18 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
 
     return {
       photos: photos.length < 3 ? 'Add at least 3 photos' : '',
-      name: !name.trim() ? 'Required' : '',
-      breed: !breed.trim() ? 'Required' : '',
+      name: !name.trim() ? 'Required' : contentFilterError(name),
+      breed: !breed.trim() ? 'Required' : contentFilterError(breed),
       age: !age ? 'Required' : '',
       sex: !sex ? 'Required' : '',
       size: !size ? 'Required' : '',
       energy: Number.isFinite(energyLevel) ? '' : 'Required',
       zip: hasZip && !/^\d{5}(-\d{4})?$/.test(zip.trim()) ? "That ZIP doesn't smell right" : '',
-      city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : '',
+      // The city is saved even when a ZIP is given, so it's always checked.
+      city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : contentFilterError(city),
       state: !hasZip && hasCity && !hasState ? 'Select a state' : '',
       personality: temperament.length === 0 && playStyles.length === 0 ? 'Pick at least one' : '',
+      prompts: prompts.some((prompt) => contentFilterError(prompt.answer)) ? CONTENT_FILTER_MESSAGE : '',
       // The three date fields below are OPTIONAL — blank stays valid and still
       // clears the stored value. But a NON-EMPTY value that can't be parsed
       // MUST block the save: these used to coerce silently to null, and because
@@ -519,6 +532,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       'city',
       'state',
       'personality',
+      'prompts',
       'rabiesExpiry',
       'birthDate',
       'adoptionDate',
@@ -539,6 +553,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       city: locationRef.current,
       state: stateRef.current,
       personality: null,
+      prompts: promptsRef.current,
       rabiesExpiry: rabiesExpiryRef.current,
       // birthDateRef is also the 'Add birth date' deep-link target from
       // LifeStageCard — see the scroll/focus effect above.
@@ -1089,23 +1104,31 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           {errors.state && <p className="mt-1 text-xs text-red-500">{errors.state}</p>}
         </div>
 
-        <div>
+        <div ref={promptsRef} tabIndex={-1}>
           <label className="mb-1.5 block text-sm font-semibold text-brown-mid">
             About your dog <span className="font-normal text-brown-light">(optional)</span>
           </label>
           <div className="flex flex-col gap-3">
-            {prompts.map((prompt, i) => (
-              <div key={prompt.prompt}>
-                <p className="mb-1 text-xs text-brown-light">{prompt.prompt}</p>
-                <input
-                  value={prompt.answer}
-                  onChange={(e) => setPromptAnswer(i, e.target.value)}
-                  placeholder="Your answer…"
-                  className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
-                />
-              </div>
-            ))}
+            {prompts.map((prompt, i) => {
+              // Only marked after a save attempt, like the other fields.
+              const refused = !!errors.prompts && !!contentFilterError(prompt.answer);
+              return (
+                <div key={prompt.prompt}>
+                  <p className="mb-1 text-xs text-brown-light">{prompt.prompt}</p>
+                  <input
+                    value={prompt.answer}
+                    onChange={(e) => setPromptAnswer(i, e.target.value)}
+                    placeholder="Your answer…"
+                    aria-invalid={refused}
+                    className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
+                      refused ? 'border-red-400' : 'border-border'
+                    }`}
+                  />
+                </div>
+              );
+            })}
           </div>
+          {errors.prompts && <p className="mt-1 text-xs text-red-500">{errors.prompts}</p>}
         </div>
 
         {/* Vaccination. The date is the real artifact here: `vaccinated` was a
