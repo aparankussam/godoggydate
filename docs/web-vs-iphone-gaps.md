@@ -2,6 +2,29 @@
 
 Audit of 17 Nov 2026, against commit b99411a (TestFlight build 30).
 
+## Status (branch `claude/iphone-parity`)
+
+**Lists A and B are built.** They have not yet been tested on a device. Known leftovers:
+
+- **A3.**
+  - The server-side filter needs a functions deploy.
+  - Profile owners aren't told when the server clears a field; only ops is alerted.
+- **A11.** Revoking Apple tokens needs the Apple provider's OAuth code flow set up in the Firebase console. Until then the app logs the failure and deletes the account anyway.
+- **A12 and push in general:**
+  - The `aps-environment` entitlement was missing, and has been added.
+  - Push also needs an APNs key in the EAS credentials.
+  - Check on TestFlight that a push token is issued.
+- **B1.**
+  - The Pack Day start-time chips cover 6 AM to 9:45 PM.
+  - After signing in, people aren't taken back to the event they came from.
+- **B4.** The Today panel's nudges open the Profile tab, not the editor's exact section.
+- **B9.**
+  - Links were added to the trading card, Dogtype, letter and milestone shares.
+  - The other Playroom shares still send only the image, though the URL is printed on the card.
+- **B10.** Universal links need the website deployed (it serves `/.well-known/apple-app-site-association`) and a new native build.
+
+Lists C, D and E are untouched, apart from E1's report evidence, which is done.
+
 **Method.** Each feature was compared on both sides by reading what the user can actually do, not by file names. The most serious findings were then spot-checked by hand:
 - the 200-message chat limit
 - report/block missing from Discover and the dog page
