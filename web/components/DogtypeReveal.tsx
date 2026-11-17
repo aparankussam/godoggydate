@@ -15,9 +15,17 @@
 // Accessibility: honors prefers-reduced-motion by skipping the whole staged
 // sequence and simply cross-fading the final state in. SSR-safe — every
 // window/matchMedia touch is inside useEffect or a typeof guard.
+//
+// Share: the same Dogtype card image and /dogtype/<CODE> link that
+// DogtypeSection shares, so the reveal moment can be shared on the spot (the
+// iPhone reveal leads with this). The card is rendered off-screen for capture.
 
 import { useEffect, useRef, useState } from 'react';
 import type { Dogtype } from '../../shared/dogtype';
+import DogtypeCard from './DogtypeCard';
+import { shareOrDownloadCard } from '../lib/shareCard';
+import { trackEvent } from '../lib/analytics';
+import { feedback } from '../lib/feedback';
 
 interface Props {
   dogtype: Dogtype;
@@ -25,6 +33,10 @@ interface Props {
   onDone: () => void;
   /** Optional — personalizes the intro line ("Bella, meet your Dogtype"). */
   dogName?: string;
+  /** Optional — the dog's cover photo for the shared card (emoji otherwise). */
+  photoUrl?: string;
+  /** CSS object-position for that photo's cover crop. */
+  photoFocus?: string;
 }
 
 // Same spark/zen split the DogtypeCard uses, so the reveal's colorway matches
@@ -47,13 +59,44 @@ const TAGLINE_AT = 980;
 const CHIP_START = 1220;
 const CHIP_STEP = 140;
 
-export default function DogtypeReveal({ dogtype, onDone, dogName }: Props) {
+export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, photoFocus }: Props) {
   const [reduced, setReduced] = useState(false);
   const [showButton, setShowButton] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const axes = dogtype.axes;
-  const intro = dogName?.trim() ? `${dogName.trim()}, meet your Dogtype` : 'Meet your Dogtype';
+  const trimmedName = dogName?.trim() ?? '';
+  const intro = trimmedName ? `${trimmedName}, meet your Dogtype` : 'Meet your Dogtype';
+  // The quiz can run without a name; "My dog" reads right in a share caption.
+  const shareName = trimmedName || 'My dog';
+
+  // Same image, link and caption as DogtypeSection's share.
+  async function handleShare() {
+    if (!cardRef.current || sharing) return;
+    setSharing(true);
+    trackEvent('dogtype_share_click', { code: dogtype.code, from: 'reveal' });
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://godoggydate.com';
+      const result = await shareOrDownloadCard(
+        cardRef.current,
+        `${shareName.toLowerCase().replace(/\s+/g, '-')}-dogtype.png`,
+        {
+          publicUrl: `${origin}/dogtype/${dogtype.code}`,
+          dogName: shareName,
+          shareTitle: `${shareName} is ${dogtype.name}`,
+          shareText: `${shareName} is ${dogtype.name} ${dogtype.emoji} on GoDoggyDate. What's your dog's Dogtype?`,
+        },
+      );
+      feedback.success();
+      trackEvent('dogtype_shared', { code: dogtype.code, method: result, from: 'reveal' });
+    } catch {
+      /* non-critical — let them retry */
+    } finally {
+      setSharing(false);
+    }
+  }
 
   useEffect(() => {
     // Detect reduced-motion once on mount (SSR-safe: only runs client-side).
@@ -185,23 +228,47 @@ export default function DogtypeReveal({ dogtype, onDone, dogName }: Props) {
         ))}
       </div>
 
-      {/* Exit — appears once the burst has landed (immediately in reduced mode). */}
-      <button
-        type="button"
-        onClick={onDone}
-        className={`relative mt-10 rounded-full bg-white px-8 py-3 font-bold text-brown shadow-lg transition-all hover:scale-105 active:scale-95 ${
-          showButton ? '' : 'pointer-events-none'
-        }`}
+      {/* Share + exit — appear once the burst has landed (immediately in
+          reduced mode). Share leads, as on the iPhone reveal. */}
+      <div
+        className={`relative mt-10 flex flex-col items-center gap-3 ${showButton ? '' : 'pointer-events-none'}`}
         style={{
           ...(reduced
             ? { opacity: showButton ? 1 : 0 }
             : { animation: showButton ? 'dtrRise 400ms ease-out both' : undefined, opacity: showButton ? 1 : 0 }),
         }}
-        tabIndex={showButton ? 0 : -1}
         aria-hidden={!showButton}
       >
-        See my Dogtype
-      </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          disabled={sharing}
+          className="rounded-full bg-white px-8 py-3 font-bold text-brown shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
+          tabIndex={showButton ? 0 : -1}
+        >
+          {sharing ? 'Preparing…' : trimmedName ? `📤 Share ${trimmedName}'s Dogtype` : '📤 Share this Dogtype'}
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-full border border-white/60 px-8 py-2.5 font-bold text-white transition-all hover:bg-white/10 active:scale-95"
+          tabIndex={showButton ? 0 : -1}
+        >
+          See my Dogtype
+        </button>
+      </div>
+
+      {/* Off-screen card, rendered only for html2canvas capture. text-left
+          undoes the overlay's centring so it captures as on the profile. */}
+      <div className="fixed -left-[9999px] top-0 text-left" aria-hidden="true">
+        <DogtypeCard
+          dogtype={dogtype}
+          dogName={shareName}
+          photoUrl={photoUrl}
+          photoFocus={photoFocus}
+          innerRef={cardRef}
+        />
+      </div>
     </div>
   );
 }

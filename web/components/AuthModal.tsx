@@ -7,7 +7,13 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { trackEvent } from '../lib/analytics';
-import { signInWithGoogle, signInWithGoogleIdToken } from '../lib/auth';
+import {
+  APPLE_SIGN_IN_ENABLED,
+  completeRedirectSignIn,
+  signInWithApple,
+  signInWithGoogle,
+  signInWithGoogleIdToken,
+} from '../lib/auth';
 import {
   androidChromeIntentUrl,
   detectInAppBrowser,
@@ -32,6 +38,31 @@ async function recordTermsAcceptance() {
   ).catch((error) => console.error('recordTermsAcceptance failed', error));
 }
 
+/** Plain-language text for an Apple sign-in error code. */
+function appleErrorMessage(code: string, inAppBrowserName: string | null): string {
+  switch (code) {
+    case 'auth/popup-closed-by-user':
+    case 'auth/user-cancelled':
+      return 'The Apple window closed before sign-in finished. Tap “Continue with Apple” to try again.';
+    case 'auth/operation-not-allowed':
+      return "Sign in with Apple isn't working on the website yet. If you joined with Apple on iPhone, keep using the app for now.";
+    case 'auth/account-exists-with-different-credential':
+      return 'You already have a GoDoggyDate account with this email that signs in with Google. Use “Continue with Google” instead.';
+    default:
+      return inAppBrowserName
+        ? `Apple sign-in can't finish inside this app's browser. Open this page in ${inAppBrowserName} and try again.`
+        : 'Apple sign-in failed. Please try again.';
+  }
+}
+
+function AppleLogo() {
+  return (
+    <svg width="17" height="20" viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true">
+      <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105.6-57-155.5-127C46.7 790.7 0 663 0 541.8c0-194.4 126.4-297.5 250.8-297.5 66.1 0 121.2 43.4 162.7 43.4 39.5 0 101.1-46 176.3-46 28.5 0 130.9 2.6 198.3 99.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z" />
+    </svg>
+  );
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -48,6 +79,38 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
   // Set after mount so server and client render the same markup first.
   const [inApp, setInApp] = useState<InAppBrowserInfo | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [appleBusy, setAppleBusy] = useState(false);
+  // A failed Apple redirect lands back here with the modal closed, so its
+  // error gets a small toast of its own instead of the in-modal line.
+  const [redirectError, setRedirectError] = useState('');
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+
+  // Finish an Apple sign-in that fell back to a full-page redirect. The 18+
+  // box was ticked before leaving (the button only exists once it is), so
+  // acceptance is recorded here exactly as the popup path does.
+  useEffect(() => {
+    if (!APPLE_SIGN_IN_ENABLED) return;
+    completeRedirectSignIn()
+      .then(async (method) => {
+        if (!method) return;
+        await recordTermsAcceptance();
+        trackEvent('sign_in_success', { method: 'apple_redirect' });
+        onSuccessRef.current?.();
+      })
+      .catch((err: unknown) => {
+        const code = (err as { code?: string }).code ?? '';
+        const info = detectInAppBrowser(window.navigator.userAgent);
+        trackEvent('sign_in_failure', {
+          method: 'apple_redirect',
+          error_code: code || 'unknown',
+          in_app_browser: info.isInApp,
+        });
+        setRedirectError(
+          appleErrorMessage(code, info.isInApp ? externalBrowserName(info.platform) : null),
+        );
+      });
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -143,7 +206,25 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
     };
   }, [agreed, googleClientId, isOpen, onClose, onSuccess]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    if (!redirectError) return null;
+    return (
+      <div
+        role="alert"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex max-w-[90vw] items-start gap-3 rounded-2xl bg-brown px-5 py-3 text-sm font-semibold text-white shadow-lg"
+      >
+        <span>{redirectError}</span>
+        <button
+          type="button"
+          onClick={() => setRedirectError('')}
+          aria-label="Dismiss"
+          className="-mr-1 text-lg leading-none text-white/80 hover:text-white"
+        >
+          ×
+        </button>
+      </div>
+    );
+  }
 
   const externalBrowser = inApp ? externalBrowserName(inApp.platform) : 'your browser';
   const chromeIntentUrl =
@@ -163,6 +244,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
 
   async function handleGoogleSignIn() {
     setError('');
+    setRedirectError('');
     trackEvent('sign_in_attempt', {
       method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
     });
@@ -192,6 +274,36 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           ? `Google doesn't allow sign-in inside this app's browser. Open this page in ${externalBrowser} and try again.`
           : 'Sign-in failed. Please try again.',
       );
+    }
+  }
+
+  async function handleAppleSignIn() {
+    if (appleBusy) return;
+    setError('');
+    setRedirectError('');
+    setAppleBusy(true);
+    trackEvent('sign_in_attempt', { method: 'apple_popup' });
+    try {
+      // If popups are blocked this navigates to Apple and never resolves;
+      // the redirect effect above finishes the sign-in on the way back.
+      await signInWithApple();
+      await recordTermsAcceptance();
+      trackEvent('sign_in_success', { method: 'apple_popup' });
+      onSuccess?.();
+      onClose();
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? '';
+      if (code === 'auth/cancelled-popup-request') return; // superseded by a newer popup
+      if (code !== 'auth/popup-closed-by-user') {
+        trackEvent('sign_in_failure', {
+          method: 'apple_popup',
+          error_code: code || 'unknown',
+          in_app_browser: Boolean(inApp),
+        });
+      }
+      setError(appleErrorMessage(code, inApp ? externalBrowser : null));
+    } finally {
+      setAppleBusy(false);
     }
   }
 
@@ -299,11 +411,29 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               Continue with Google
             </button>
           )}
+
+          {/* Same 18+ gate as Google: it only exists once the box is ticked.
+              Shaped to sit with whichever Google button is showing. */}
+          {APPLE_SIGN_IN_ENABLED && (
+            <button
+              type="button"
+              onClick={handleAppleSignIn}
+              disabled={appleBusy}
+              className={`w-full flex items-center justify-center gap-2.5 bg-black text-white font-semibold shadow-sm transition-colors hover:bg-black/85 disabled:opacity-60 ${
+                oneTapReady
+                  ? 'max-w-[320px] min-h-[44px] rounded-full px-6 text-[15px]'
+                  : 'rounded-2xl px-6 py-4 text-base font-bold'
+              }`}
+            >
+              <AppleLogo />
+              {appleBusy ? 'Opening Apple…' : 'Continue with Apple'}
+            </button>
+          )}
         </div>
         )}
 
-        {error && (
-          <p className="text-xs text-red-500 -mt-1">{error}</p>
+        {(error || redirectError) && (
+          <p className="text-xs text-red-500 -mt-1">{error || redirectError}</p>
         )}
 
         <p className="text-xs text-brown-light">Free to join · No subscription needed</p>
