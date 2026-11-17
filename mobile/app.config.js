@@ -32,6 +32,12 @@ module.exports = {
       bundleIdentifier: 'com.godoggydate.app',
       googleServicesFile: './GoogleService-Info.plist',
       usesAppleSignIn: true,
+      // Universal links: household invites (/app/household/join) and Pack Day
+      // pages (/pack/*) open the app when it's installed. The site serves the
+      // matching file at /.well-known/apple-app-site-association
+      // (web/app/.well-known/apple-app-site-association/route.ts). Native
+      // change: needs a new build; EAS syncs the Associated Domains capability.
+      associatedDomains: ['applinks:godoggydate.com'],
       config: {
         // Standard HTTPS only; qualifies for the EAR mass-market exemption.
         // Skips Apple's encryption compliance prompt on every future build.

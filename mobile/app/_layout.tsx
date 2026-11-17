@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, type Href } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { StripeProvider } from '@stripe/stripe-react-native';
@@ -15,20 +15,56 @@ import { SessionProvider, useSession } from '../lib/session';
 import { addNotificationTapListener, registerForPushNotifications } from '../lib/push';
 import { colors } from '../constants/theme';
 
-/** Registers this device for push once signed in, and routes notification taps. */
+/**
+ * Saves this device's push token on sign-in when permission is already
+ * granted (it never prompts; see lib/push.ts), and routes notification taps.
+ */
 function PushBootstrap() {
-  const { user } = useSession();
+  const { user, loading, profileComplete } = useSession();
+  const uid = user?.uid ?? null;
+  const ready = !loading && Boolean(uid) && profileComplete;
+  const readyRef = useRef(ready);
+  const loadingRef = useRef(loading);
+  const pendingRoute = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-    void registerForPushNotifications(user.uid);
-  }, [user]);
+    if (!uid) return;
+    void registerForPushNotifications(uid);
+  }, [uid]);
 
-  useEffect(() => {
-    return addNotificationTapListener((matchId) => {
-      router.push({ pathname: '/chat/[matchId]', params: { matchId } });
-    });
+  const flush = useCallback(() => {
+    const route = pendingRoute.current;
+    if (!route) return;
+    pendingRoute.current = null;
+    // Wait a tick: on a cold start the root index screen redirects in the
+    // same commit that makes us ready, and the tapped screen belongs on top
+    // of wherever that lands.
+    setTimeout(() => {
+      if (route.startsWith('/(tabs)/')) router.navigate(route as Href);
+      else router.push(route as Href);
+    }, 0);
   }, []);
+
+  useEffect(() => {
+    readyRef.current = ready;
+    loadingRef.current = loading;
+    if (ready) flush();
+    // Signed out, or no finished profile: nothing a notification points at
+    // is reachable, so drop it rather than jump there later.
+    else if (!loading) pendingRoute.current = null;
+  }, [flush, loading, ready]);
+
+  useEffect(() => {
+    return addNotificationTapListener((route) => {
+      if (readyRef.current) {
+        pendingRoute.current = route;
+        flush();
+      } else if (loadingRef.current) {
+        // Cold start: hold it until the session has loaded.
+        pendingRoute.current = route;
+      }
+    });
+  }, [flush]);
 
   return null;
 }
@@ -69,6 +105,8 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="welcome" />
             <Stack.Screen name="onboarding" />
+            <Stack.Screen name="household/index" />
+            <Stack.Screen name="household/join" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen
               name="chat/[matchId]"
