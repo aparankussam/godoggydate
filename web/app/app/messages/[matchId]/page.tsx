@@ -32,6 +32,8 @@ import PlaydateMemoryCard from '../../../../components/PlaydateMemoryCard';
 import PlaydateHeadsUpCard from '../../../../components/PlaydateHeadsUpCard';
 import { shareOrDownloadCard } from '../../../../lib/shareCard';
 import { setBestFriend, clearBestFriend } from '../../../../lib/bestFriend';
+import { checkContent, CONTENT_FILTER_MESSAGE } from '../../../../../shared/contentFilter';
+import { parseLocalIsoDate } from '../../../../../shared/profile';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -49,10 +51,25 @@ interface Message {
   isSystem?:  boolean;
   type?:      'playdate_proposal' | 'playdate_confirmed';
   playdate?:  PlaydateDetails;
+  // Set by the server's content filter (onMessageCreatedNotify), which also
+  // replaces the text with a neutral notice and drops any playdate card.
+  moderated?: boolean;
 }
 
 function playdateKey(p?: PlaydateDetails): string {
   return p ? `${p.date}|${p.time}|${p.place}` : '';
+}
+
+/**
+ * True when a playdate's date is a real 'YYYY-MM-DD', the only form that can
+ * be compared with today. Older iPhone builds stored the date as typed text
+ * ("Sat, July 12"); that date is unknown, so it is shown as typed but never
+ * counts as upcoming or past, and never brings up the rating prompt.
+ */
+function hasIsoDate(p: PlaydateDetails): boolean {
+  return typeof p.date === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(p.date)
+    && parseLocalIsoDate(p.date) !== null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -132,6 +149,10 @@ export default function ChatPage() {
   const [chatInput, setChatInput]           = useState('');
   const [sending, setSending]               = useState(false);
   const [sendError, setSendError]           = useState<string | null>(null);
+  // The client-side content filter refused the draft. Shown inline next to
+  // the box that holds the text (the message input or the playdate form), and
+  // the text stays put so the user can rephrase it.
+  const [contentError, setContentError]     = useState<'message' | 'playdate' | null>(null);
   const [chatUnlocked, setChatUnlocked]     = useState(false);
   const [hasLifetime, setHasLifetime]       = useState(false);
   // The $39 offer only exists while paid founding spots #51–150 are open.
@@ -141,7 +162,7 @@ export default function ChatPage() {
   const [loadRetryToken, setLoadRetryToken] = useState(0);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [showReportMenu, setShowReportMenu] = useState(false);
-  const [reportDone, setReportDone]         = useState<string | null>(null);
+  const [reportDone, setReportDone]         = useState<{ text: string; failed: boolean } | null>(null);
   const [showPlaydateForm, setShowPlaydateForm] = useState(false);
   const [playdateDraft, setPlaydateDraft]   = useState<PlaydateDetails>({ date: '', time: '', place: '' });
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -320,6 +341,7 @@ export default function ChatPage() {
           isSystem:   data.isSystem ?? false,
           type:       data.type,
           playdate:   data.playdate,
+          moderated:  data.moderated === true,
         };
       });
       setMessages(msgs);
@@ -354,9 +376,17 @@ export default function ChatPage() {
     extra?: { type: Message['type']; playdate: PlaydateDetails },
   ): Promise<boolean> => {
     if (!text.trim() || !authUser || !matchId || sending || !canChat) return false;
+    const trimmed = text.trim().slice(0, MAX_MESSAGE_LENGTH);
+    // Checked before the input is cleared, so a refused draft stays in the box
+    // to be rephrased. The server runs the same filter again on every message.
+    // The text of a playdate already includes its date, time and place.
+    if (!checkContent(trimmed).ok) {
+      setContentError(extra?.type === 'playdate_proposal' ? 'playdate' : 'message');
+      return false;
+    }
+    setContentError(null);
     setSending(true);
     setSendError(null);
-    const trimmed = text.trim().slice(0, MAX_MESSAGE_LENGTH);
     setChatInput('');
     let delivered = false;
 
@@ -426,10 +456,16 @@ export default function ChatPage() {
   // type="date"> value, so these compare lexicographically as local calendar
   // days (a UTC-based comparison would roll the date over early for anyone west
   // of Greenwich and late for anyone east).
+  //
+  // Only ISO dates take part (see hasIsoDate). A free-text date from an older
+  // iPhone build compared as text against 'YYYY-MM-DD' used to read as always
+  // upcoming ("Sat…" > "2026…") or always past, which pinned the Heads-Up card
+  // forever or asked for a rating before the meetup.
   const todayIso = new Date().toLocaleDateString('en-CA');
   const confirmedPlaydates = messages
-    .filter((m) => m.type === 'playdate_confirmed' && m.playdate)
-    .map((m) => m.playdate!);
+    .filter((m) => m.type === 'playdate_confirmed' && m.playdate && !m.moderated)
+    .map((m) => m.playdate!)
+    .filter(hasIsoDate);
   const upcomingPlaydate =
     confirmedPlaydates
       .filter((p) => p.date >= todayIso)
@@ -437,7 +473,8 @@ export default function ChatPage() {
   // A rating is only honest once the meetup has actually happened. This used to
   // fire the moment a playdate was CONFIRMED — so a date a week out prompted
   // "How did it go?", and the resulting ratings doc is folded into the other
-  // dog's trustScore by the onRatingCreated Cloud Function.
+  // dog's trustScore by the onRatingCreated Cloud Function. An unknown
+  // (free-text) date never counts as past.
   const hasPastPlaydate = confirmedPlaydates.some((p) => p.date < todayIso);
 
   const proposePlaydate = useCallback(async () => {
@@ -519,7 +556,7 @@ export default function ChatPage() {
         await blockUser(authUser.uid, otherUserId);
       } catch (error) {
         console.error('Block failed:', error);
-        setReportDone('Block failed — check your connection and try again.');
+        setReportDone({ text: 'Block failed — check your connection and try again.', failed: true });
         setShowReportMenu(false);
         setTimeout(() => setReportDone(null), 3000);
         return;
@@ -528,23 +565,41 @@ export default function ChatPage() {
 
     // Unique id per submission so repeat reports are creates, never updates.
     const reportId = `${authUser.uid}_${otherUserId}_${Date.now()}`;
+    let reported = false;
     try {
       await setDoc(doc(db, 'reports', reportId), {
         reporterId:   authUser.uid,
         targetUserId: otherUserId,
         matchId,
         reason,
+        source:       'chat',
         createdAt:    serverTimestamp(),
       });
+      reported = true;
       trackEvent('report_submitted', {
         match_id: matchId,
         reason,
       });
-    } catch { /* non-blocking — fire and forget */ }
+    } catch (error) {
+      console.error('Report failed:', error);
+    }
     setShowReportMenu(false);
-    setReportDone(reason === 'block' ? 'User blocked.' : 'Report submitted. Thank you.');
+
+    // Say what actually happened. This used to read "Report submitted" even
+    // when the write failed, so a person who reported harassment believed
+    // someone would review it when nothing had been saved.
     if (reason === 'block') {
-      setTimeout(() => router.replace('/app/messages'), 1200);
+      // The block itself succeeded above, which is what protects them.
+      setReportDone(reported
+        ? { text: 'User blocked.', failed: false }
+        : { text: 'User blocked. The report didn’t save, but they can’t contact you.', failed: false });
+      setTimeout(() => router.replace('/app/messages'), reported ? 1200 : 2500);
+    } else if (reported) {
+      setReportDone({ text: 'Report submitted. Thank you.', failed: false });
+      setTimeout(() => setReportDone(null), 3000);
+    } else {
+      setReportDone({ text: 'Report didn’t send — check your connection and try again.', failed: true });
+      setTimeout(() => setReportDone(null), 4000);
     }
   }, [authUser, otherUserId, matchId, router]);
 
@@ -650,8 +705,13 @@ export default function ChatPage() {
 
       {/* Confirmation toast */}
       {reportDone && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-brown text-white text-sm font-semibold rounded-full px-5 py-2.5 shadow-lg">
-          {reportDone}
+        <div
+          role={reportDone.failed ? 'alert' : 'status'}
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 text-white text-sm font-semibold rounded-full px-5 py-2.5 shadow-lg max-w-[90vw] text-center ${
+            reportDone.failed ? 'bg-red-600' : 'bg-brown'
+          }`}
+        >
+          {reportDone.text}
         </div>
       )}
 
@@ -802,6 +862,22 @@ export default function ChatPage() {
           </div>
         )}
         {messages.map((msg) => {
+          if (msg.moderated) {
+            // Removed by the server's content filter. Muted and never drawn as
+            // a playdate card, whatever else is left on the document.
+            const fromMe = msg.fromUserId === authUser.uid;
+            return (
+              <div
+                key={msg.id}
+                className={`max-w-[80%] rounded-[1.25rem] border border-dashed border-border bg-cream-dark px-4 py-2.5 ${
+                  fromMe ? 'self-end' : 'self-start'
+                }`}
+              >
+                <p className="text-sm italic text-brown-light">{msg.text}</p>
+                <p className="mt-1 text-[10px] text-brown-light">{formatTime(msg.createdAt)}</p>
+              </div>
+            );
+          }
           if (msg.type === 'playdate_proposal' && msg.playdate) {
             const fromMe = msg.fromUserId === authUser.uid;
             const confirmed = confirmedPlaydateKeys.has(playdateKey(msg.playdate));
@@ -879,11 +955,21 @@ export default function ChatPage() {
               type="text"
               placeholder="Where? (e.g. Maple Dog Park)"
               value={playdateDraft.place}
-              onChange={(e) => setPlaydateDraft((d) => ({ ...d, place: e.target.value }))}
+              onChange={(e) => {
+                setPlaydateDraft((d) => ({ ...d, place: e.target.value }));
+                if (contentError === 'playdate') setContentError(null);
+              }}
               className="flex-1 min-w-[10rem] bg-cream rounded-xl px-3 py-2 text-sm text-brown placeholder:text-brown-light outline-none border border-transparent focus:border-primary/30"
               aria-label="Playdate place"
+              aria-invalid={contentError === 'playdate'}
+              aria-describedby={contentError === 'playdate' ? 'playdate-content-error' : undefined}
             />
           </div>
+          {contentError === 'playdate' && (
+            <p id="playdate-content-error" role="alert" className="mt-2 text-xs font-semibold text-red-600">
+              {CONTENT_FILTER_MESSAGE}
+            </p>
+          )}
           <div className="mt-2 flex gap-2">
             <button
               onClick={proposePlaydate}
@@ -893,7 +979,10 @@ export default function ChatPage() {
               Send proposal
             </button>
             <button
-              onClick={() => setShowPlaydateForm(false)}
+              onClick={() => {
+                setShowPlaydateForm(false);
+                if (contentError === 'playdate') setContentError(null);
+              }}
               className="rounded-full px-4 py-2 text-xs font-semibold text-brown-light hover:text-brown"
             >
               Cancel
@@ -924,12 +1013,26 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
+      {contentError === 'message' && (
+        <p
+          id="chat-content-error"
+          role="alert"
+          className="shrink-0 bg-white px-5 pt-2 text-xs font-semibold text-red-600 w-full lg:max-w-3xl lg:mx-auto"
+        >
+          {CONTENT_FILTER_MESSAGE}
+        </p>
+      )}
       <div className="shrink-0 flex gap-2 px-4 py-3 bg-white border-t border-border pb-safe w-full lg:max-w-3xl lg:mx-auto">
         <input
           className="flex-1 bg-cream rounded-full px-4 py-3 text-sm text-brown placeholder:text-brown-light outline-none border border-transparent focus:border-primary/30"
           placeholder={`Message ${dogName}…`}
           value={chatInput}
-          onChange={(e) => setChatInput(e.target.value)}
+          aria-invalid={contentError === 'message'}
+          aria-describedby={contentError === 'message' ? 'chat-content-error' : undefined}
+          onChange={(e) => {
+            setChatInput(e.target.value);
+            if (contentError === 'message') setContentError(null);
+          }}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(chatInput)}
           disabled={sending || !canChat}
           maxLength={MAX_MESSAGE_LENGTH}
