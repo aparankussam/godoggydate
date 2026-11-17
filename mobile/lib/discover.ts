@@ -43,6 +43,9 @@ export interface DiscoverDog {
   ai?: DogProfile['ai'];
   /** Owner's cover-photo pick, so the swipe card opens on the chosen hero. */
   coverPhotoIndex?: number | null;
+  /** Owner-set focal point for that cover (0–100), so the crop keeps the subject. */
+  coverFocusX?: number | null;
+  coverFocusY?: number | null;
   compat: CompatibilityResult;
 }
 
@@ -151,6 +154,8 @@ function toDiscoverDog(baseDog: DogProfile, id: string, saved: SavedDogProfile):
       compat.microcopy,
     ai: dog.ai,
     coverPhotoIndex: dog.coverPhotoIndex,
+    coverFocusX: dog.coverFocusX,
+    coverFocusY: dog.coverFocusY,
     compat,
   };
 }

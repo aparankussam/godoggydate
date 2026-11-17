@@ -11,8 +11,9 @@ import { colors, fonts, radius, shadow } from '../constants/theme';
 import CompatBreakdown from './CompatBreakdown';
 import { QUALITY_RING_COLORS } from './SwipeCard';
 import type { DiscoverDog } from '../lib/discover';
-import { resolveHeroIndex } from '../lib/coverPhoto';
+import { focusForPhoto, resolveHeroIndex } from '../lib/coverPhoto';
 import { breedConfidencePhrase } from '../lib/vibeCheck';
+import { CoverImage } from './CoverPhotoEditor';
 import { formatUsMonthYear } from '../../shared/dates';
 
 interface Props {
@@ -69,7 +70,10 @@ function DetailsBody({ dog, onClose, onLike, onReport }: Props & { dog: Discover
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   const photos = dog.photos;
-  const activePhoto = photos[Math.min(photoIndex, photos.length - 1)] ?? null;
+  const activeIndex = Math.min(photoIndex, photos.length - 1);
+  const activePhoto = photos[activeIndex] ?? null;
+  // The owner's focal point, while the gallery shows their cover.
+  const activeFocus = focusForPhoto(dog, activeIndex, openingPhotoIndex(dog));
   const vibeCheck = dog.ai?.vibeCheck;
   const memberSince = formatMemberSince(dog.createdAt);
   const hasScore = dog.compat.score > 0;
@@ -117,7 +121,12 @@ function DetailsBody({ dog, onClose, onLike, onReport }: Props & { dog: Discover
         {/* Photo gallery — the active photo full width, thumbnails below. */}
         {activePhoto && (
           <View style={styles.gallery}>
-            <Image source={{ uri: activePhoto }} style={styles.galleryHero} accessibilityLabel={dog.name} />
+            <CoverImage
+              uri={activePhoto}
+              focus={activeFocus}
+              style={styles.galleryHero}
+              accessibilityLabel={dog.name}
+            />
             {photos.length > 1 && (
               <ScrollView
                 horizontal
