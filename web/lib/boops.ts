@@ -4,11 +4,18 @@
 // mobile/lib/boops.ts, which is AsyncStorage-backed). Booping is a rapid-fire
 // gesture, so the network must never be in the tap loop: the count lives in
 // component state at 60fps and the component debounces persistence through here.
-// On-device only in v1 — the number shown is a literal count of the user's own
-// taps, nothing about the dog is asserted, so it's honest by construction.
+// The number shown is a literal count of the user's own taps, nothing about the
+// dog is asserted, so it's honest by construction.
+//
+// Synced across devices (lib/progressSync): each save marks progress dirty, and
+// a sync a couple of seconds later merges the count with users/{uid}/private/
+// progress, keeping the higher all-time count.
 //
 // SSR-safe: every window/localStorage access is guarded, so importing or
 // calling these on the server just returns fresh state / no-ops.
+
+import { applyBoopWrite, progressKeys, readBoopCounts } from '../../shared/progress';
+import { markProgressDirty } from './progressSync';
 
 export interface BoopState {
   allTime: number;
@@ -90,7 +97,7 @@ export const BOOP_MILESTONES: BoopMilestone[] = [
   { count: 1500, title: 'Snoot Sovereign', emoji: '🏆' },
 ];
 
-const KEY = (dogId: string) => `godoggydate.boops.${dogId}`;
+const KEY = progressKeys.boops;
 
 export function localDateStr(nowMs: number = Date.now()): string {
   const d = new Date(nowMs);
@@ -127,15 +134,23 @@ export function freshBoops(nowMs: number = Date.now()): BoopState {
   return { allTime: 0, todayCount: 0, todayDate: localDateStr(nowMs), energy: MAX_ENERGY, energyAtMs: nowMs };
 }
 
-/** Read + normalize the stored state (rolls the daily counter, regens energy). */
-export function loadBoops(dogId: string): BoopState {
+// The all-time count the Snoot Boop screen last loaded or saved, per dog. A save
+// adds the taps made since then on top of what's stored, so a sync that raised
+// the stored count while the screen was open isn't overwritten.
+const writeBase = new Map<string, number>();
+
+function readStored(dogId: string): unknown {
+  const raw = window.localStorage.getItem(KEY(dogId));
+  return raw ? JSON.parse(raw) : null;
+}
+
+function readState(dogId: string): BoopState {
   const now = Date.now();
   const today = localDateStr(now);
   if (!dogId || !hasStorage()) return freshBoops(now);
   try {
-    const raw = window.localStorage.getItem(KEY(dogId));
-    if (!raw) return freshBoops(now);
-    const parsed = JSON.parse(raw) as Partial<BoopState>;
+    const parsed = readStored(dogId) as Partial<BoopState> | null;
+    if (!parsed) return freshBoops(now);
     const allTime = typeof parsed.allTime === 'number' && parsed.allTime >= 0 ? Math.floor(parsed.allTime) : 0;
     // Roll the daily counter over if the stored day isn't today.
     const sameDay = parsed.todayDate === today;
@@ -154,19 +169,39 @@ export function loadBoops(dogId: string): BoopState {
   }
 }
 
+/** Read + normalize the stored state (rolls the daily counter, regens energy). */
+export function loadBoops(dogId: string): BoopState {
+  const state = readState(dogId);
+  if (dogId) writeBase.set(dogId, state.allTime);
+  return state;
+}
+
 /** All-time boop count for a dog — the cheap read used by the profile badge. */
 export function loadAllTime(dogId: string): number {
-  return loadBoops(dogId).allTime;
+  return readState(dogId).allTime;
 }
 
 /** Write immediately. Prefer `saveBoopsDebounced` in a tap loop. */
 export function persistBoops(dogId: string, state: BoopState): void {
   if (!dogId || !hasStorage()) return;
+  const base = writeBase.get(dogId);
+  writeBase.set(dogId, state.allTime);
   try {
-    window.localStorage.setItem(KEY(dogId), JSON.stringify(state));
+    let stored: unknown = null;
+    try {
+      stored = readStored(dogId);
+    } catch {
+      /* corrupt — overwrite it */
+    }
+    const counts = applyBoopWrite(readBoopCounts(stored), state, base);
+    window.localStorage.setItem(
+      KEY(dogId),
+      JSON.stringify({ ...counts, energy: state.energy, energyAtMs: state.energyAtMs }),
+    );
   } catch {
     /* private-mode / quota — the live in-memory count is what the user sees */
   }
+  markProgressDirty(dogId);
 }
 
 // ── Debounced saver — never write on every tap ───────────────────────────────

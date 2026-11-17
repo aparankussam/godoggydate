@@ -1,9 +1,14 @@
 'use client';
 // web/components/BarkleGame.tsx
 // BARKLE — the client game. Wordle for dog breeds: a mystery breed, six tries,
-// and a fresh clue revealed after every wrong guess. Public, no signup, no AI,
-// no network — all logic lives in shared/barkle.ts, all state lives here + in
-// localStorage so a refresh keeps your progress for the day.
+// and a fresh clue revealed after every wrong guess. Public, no signup, no AI —
+// all logic lives in shared/barkle.ts, all state lives here + in localStorage so
+// a refresh keeps your progress for the day. For someone who has signed in on
+// this browser, lib/progressSync also syncs the day's game with their account,
+// so a puzzle started on the iPhone app carries on here (and vice versa).
+//
+// The viral loop is the SPOILER-FREE result: an emoji-grid image
+// (BarkleResultCard, brand baked in) and the canonical buildShareText block.
 //
 // SSR-safe: today's puzzle depends on the local clock and on localStorage, so
 // nothing puzzle-specific renders until after mount (a stable skeleton shows
@@ -24,48 +29,26 @@ import {
   type GuessResult,
 } from '../../shared/barkle';
 import { trackEvent } from '../lib/analytics';
+import { shareOrDownloadCard } from '../lib/shareCard';
+import {
+  ensureProgressSyncFromAuth,
+  loadBarkleGuesses,
+  onProgressChange,
+  saveBarkleGuesses,
+} from '../lib/progressSync';
+import BarkleResultCard from './BarkleResultCard';
 
 type Status = 'playing' | 'won' | 'lost';
 
-const STORAGE_KEY = 'godoggydate.barkle.v1';
-
-interface SavedState {
-  puzzleNumber: number;
-  guessNames: string[]; // canonical breed names, in the order played
+// Today's guesses, replayed against today's breed (drops anything no longer recognised).
+function loadResults(puzzle: DailyPuzzle): GuessResult[] {
+  return loadBarkleGuesses(puzzle.puzzleNumber, puzzle.breed.name)
+    .map((name) => evaluateGuess(name, puzzle.breed))
+    .filter((r) => r.matched);
 }
 
-function loadSaved(): SavedState | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<SavedState>;
-    if (
-      typeof parsed?.puzzleNumber === 'number' &&
-      Array.isArray(parsed.guessNames) &&
-      parsed.guessNames.every((n) => typeof n === 'string')
-    ) {
-      return { puzzleNumber: parsed.puzzleNumber, guessNames: parsed.guessNames };
-    }
-  } catch {
-    // Corrupt or unavailable storage — start fresh, never throw.
-  }
-  return null;
-}
-
-function saveState(puzzleNumber: number, results: GuessResult[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    const payload: SavedState = {
-      puzzleNumber,
-      guessNames: results
-        .map((r) => r.matched?.name)
-        .filter((n): n is string => typeof n === 'string'),
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    // Storage full or blocked — the game still plays for this session.
-  }
+function guessNames(results: GuessResult[]): string[] {
+  return results.map((r) => r.matched?.name).filter((n): n is string => typeof n === 'string');
 }
 
 function statusFrom(results: GuessResult[]): Status {
@@ -101,23 +84,23 @@ export default function BarkleGame() {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [sharingImage, setSharingImage] = useState(false);
   const [countdown, setCountdown] = useState('');
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
-  // Resolve today's puzzle and rehydrate any saved progress — client-only.
+  // Resolve today's puzzle and rehydrate any saved progress — client-only. A
+  // sign-in, or a game synced from the app, re-reads it.
   useEffect(() => {
     const today = getDailyBreed();
     setPuzzle(today);
-    const saved = loadSaved();
-    if (saved && saved.puzzleNumber === today.puzzleNumber) {
-      const replay = saved.guessNames
-        .map((name) => evaluateGuess(name, today.breed))
-        .filter((r) => r.matched); // drop anything no longer recognised
-      setResults(replay);
-    }
+    setResults(loadResults(today));
     setMounted(true);
+    const offProgress = onProgressChange(() => setResults(loadResults(today)));
+    ensureProgressSyncFromAuth();
     return () => {
+      offProgress();
       if (copyTimer.current) clearTimeout(copyTimer.current);
     };
   }, []);
@@ -164,9 +147,9 @@ export default function BarkleGame() {
       setResults(next);
       setInput('');
       setError('');
-      saveState(puzzle.puzzleNumber, next);
-
       const outcome = statusFrom(next);
+      saveBarkleGuesses(puzzle.puzzleNumber, guessNames(next), outcome === 'won');
+
       if (outcome !== 'playing') {
         trackEvent('barkle_complete', {
           code: puzzle.breed.name,
@@ -190,9 +173,11 @@ export default function BarkleGame() {
 
   const share = useCallback(async () => {
     if (!shareText) return;
+    trackEvent('barkle_share_click', { method: 'text' });
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       try {
         await navigator.share({ text: shareText });
+        trackEvent('barkle_shared', { method: 'text' });
         return;
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
@@ -223,11 +208,31 @@ export default function BarkleGame() {
       }
     }
     if (didCopy) {
+      trackEvent('barkle_shared', { method: 'copied' });
       setCopied(true);
       if (copyTimer.current) clearTimeout(copyTimer.current);
       copyTimer.current = setTimeout(() => setCopied(false), 2000);
     }
   }, [shareText]);
+
+  // The spoiler-free image (same html2canvas path as the other web cards): the
+  // share sheet where the browser can share files, a PNG download otherwise.
+  const shareImage = useCallback(async () => {
+    if (!puzzle || !finished || !cardRef.current || sharingImage) return;
+    setSharingImage(true);
+    trackEvent('barkle_share_click', { method: 'image' });
+    try {
+      const result = await shareOrDownloadCard(cardRef.current, `barkle-${puzzle.puzzleNumber}.png`, {
+        shareTitle: `Barkle #${puzzle.puzzleNumber}`,
+        shareText,
+      });
+      trackEvent('barkle_shared', { method: result === 'shared' ? 'image' : 'image_download' });
+    } catch {
+      // Rendering failed — the text share still works; let them retry.
+    } finally {
+      setSharingImage(false);
+    }
+  }, [puzzle, finished, sharingImage, shareText]);
 
   // ── Loading skeleton (pre-mount) ────────────────────────────────────────────
   if (!mounted || !puzzle) {
@@ -393,9 +398,29 @@ export default function BarkleGame() {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col sm:flex-row items-stretch justify-center gap-3">
-            <button type="button" onClick={share} className="btn-primary text-base">
-              {copied ? 'Copied result!' : 'Share result'}
+          {/* The spoiler-free shareable card (brand + link baked in). The reveal
+              above is on-screen only and never shared. */}
+          <div className="mt-5 flex flex-col items-center">
+            <BarkleResultCard
+              ref={cardRef}
+              puzzleNumber={puzzle.puzzleNumber}
+              results={results}
+              won={status === 'won'}
+            />
+            <p className="mt-2 text-xs text-brown-light">Spoiler-free: the image never shows the breed.</p>
+          </div>
+
+          <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap items-stretch justify-center gap-3">
+            <button
+              type="button"
+              onClick={shareImage}
+              disabled={sharingImage}
+              className="btn-primary text-base disabled:opacity-60"
+            >
+              {sharingImage ? 'Preparing…' : '📤 Share image'}
+            </button>
+            <button type="button" onClick={share} className="btn-secondary text-base">
+              {copied ? 'Copied result!' : 'Share as text'}
             </button>
             <Link href="/quiz" className="btn-secondary text-base text-center">
               Try the Dogtype quiz

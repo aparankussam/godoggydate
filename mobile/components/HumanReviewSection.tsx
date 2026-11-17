@@ -8,14 +8,15 @@
 // the hard per-uid volume cap + anti-burst lock; on the client we cache the last
 // review locally (per uid, via AsyncStorage) and gate a fresh one to once every
 // ~90 days, re-showing the saved review in between with a note on when the next
-// is due. The owner can always re-share the card they already have.
+// is due. The owner can always re-share the card they already have. The cached
+// review syncs with the website (lib/progressSync), so the wait is per account.
 //
 // Self-contained: reads only the owner's own profile + a locally-cached result.
 
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { loadHumanReview, onProgressChange, saveHumanReview } from '../lib/progressSync';
 import { colors, fonts, radius } from '../constants/theme';
 import { requestHumanReview, type HumanReview } from '../lib/humanReview';
 import { captureAndShare } from '../lib/shareCard';
@@ -39,10 +40,6 @@ interface CachedReview {
   review: HumanReview;
   dateLabel: string;
   generatedAtMs: number;
-}
-
-function cacheKey(uid: string): string {
-  return `gdd:humanReview:${uid}`;
 }
 
 function formatToday(): string {
@@ -73,28 +70,30 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
 
-  // Hydrate any cached review after mount (async storage — never blocks render).
+  // Hydrate any cached review after mount (async storage — never blocks render),
+  // and again when one synced from the website lands.
   useEffect(() => {
     let active = true;
-    (async () => {
+    const hydrate = async () => {
       try {
-        const raw = await AsyncStorage.getItem(cacheKey(userId));
-        if (!raw || !active) return;
-        const parsed = JSON.parse(raw) as CachedReview;
-        if (!parsed?.review || typeof parsed.generatedAtMs !== 'number') return;
-        setReview(parsed.review);
+        const cached = await loadHumanReview(userId);
+        if (!cached || !active) return;
+        setReview(cached.review);
         // Re-derive rather than trusting the cached STRING: the label was
         // formatted at generate time, so a cache written before the US-format
         // sweep would keep the old format alive for a whole quarter — including
         // inside the shared keepsake PNG.
-        setDateLabel(formatUsDate(new Date(parsed.generatedAtMs)));
-        setGeneratedAtMs(parsed.generatedAtMs);
+        setDateLabel(formatUsDate(new Date(cached.generatedAtMs)));
+        setGeneratedAtMs(cached.generatedAtMs);
       } catch {
         /* corrupt / unavailable cache — cadence just falls back to server caps */
       }
-    })();
+    };
+    void hydrate();
+    const off = onProgressChange(() => void hydrate());
     return () => {
       active = false;
+      off();
     };
   }, [userId]);
 
@@ -115,14 +114,7 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
       setReview(result);
       setDateLabel(label);
       setGeneratedAtMs(at);
-      try {
-        await AsyncStorage.setItem(
-          cacheKey(userId),
-          JSON.stringify({ review: result, dateLabel: label, generatedAtMs: at } satisfies CachedReview),
-        );
-      } catch {
-        /* private mode / quota — cadence just falls back to server caps */
-      }
+      await saveHumanReview(userId, { review: result, dateLabel: label, generatedAtMs: at } satisfies CachedReview);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       trackEvent('human_review_generated', { model: result.model ?? 'unknown', stars: result.stars });
     } catch (e) {
