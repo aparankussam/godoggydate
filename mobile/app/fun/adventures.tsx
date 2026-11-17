@@ -70,8 +70,11 @@ export default function AdventuresScreen() {
     });
   }
 
-  const doneCount = Object.keys(completed).length;
+  // Count only quests that are in the current deck, as web does
+  // (AdventurePassportWeb.tsx), so a stale or renamed stored key can't push the
+  // count past the total (e.g. "19 / 18").
   const completedAdventures = deck.filter((a) => completed[a.id]);
+  const doneCount = completedAdventures.length;
 
   async function sharePassport() {
     if (sharing) return;
@@ -98,7 +101,7 @@ export default function AdventuresScreen() {
           <Text style={styles.progressBig}>{doneCount}<Text style={styles.progressOf}> / {ADVENTURE_COUNT}</Text></Text>
           <Text style={styles.progressLabel}>quests stamped with {dogName}</Text>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round((doneCount / ADVENTURE_COUNT) * 100)}%` }]} />
+            <View style={[styles.progressFill, { width: `${Math.min(100, Math.round((doneCount / ADVENTURE_COUNT) * 100))}%` }]} />
           </View>
         </View>
 

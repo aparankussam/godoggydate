@@ -11,11 +11,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import { computeMilestones, type Milestone } from '../../shared/milestones';
 import { captureAndShare } from '../lib/shareCard';
+import { dogPageUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
   savedProfile: SavedDogProfile;
+  /** The owner's uid. When set, shares carry a link to the dog's public page. */
+  userId?: string;
 }
 
 const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string }>(
@@ -37,7 +40,7 @@ const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string
 );
 CelebrationCard.displayName = 'CelebrationCard';
 
-export default function MilestonesCard({ savedProfile }: Props) {
+export default function MilestonesCard({ savedProfile, userId }: Props) {
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -57,13 +60,19 @@ export default function MilestonesCard({ savedProfile }: Props) {
     if (sharing || !celebrating) return;
     setSharing(true);
     trackEvent('milestone_share_click', { kind: celebrating.kind });
+    // Same caption as web's MilestonesCard, plus the dog's public page.
     const result = await captureAndShare(
       cardRef,
       `${dogName.toLowerCase().replace(/\s+/g, '-')}-${celebrating.kind}.png`,
       celebrating.title,
+      {
+        caption: `${celebrating.title} — ${celebrating.subtitle} 🎉`,
+        url: userId ? dogPageUrl(savedProfile.name ?? '', userId) : undefined,
+      },
     );
     if (result === 'shared') trackEvent('milestone_shared', { kind: celebrating.kind, method: 'native_share' });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    if (result === 'error') Alert.alert('Could not share', 'Please try again in a moment.');
     setSharing(false);
   }
 

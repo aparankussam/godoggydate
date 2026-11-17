@@ -19,15 +19,18 @@ import {
   type LetterKind,
 } from '../lib/letter';
 import { captureAndShare } from '../lib/shareCard';
+import { dogPageUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import type { SavedDogProfile } from '../lib/profile';
 import LetterCard from './LetterCard';
 
 interface Props {
   savedProfile: SavedDogProfile;
+  /** The owner's uid. When set, shares carry a link to the dog's public page. */
+  userId?: string;
 }
 
-export default function LetterSection({ savedProfile }: Props) {
+export default function LetterSection({ savedProfile, userId }: Props) {
   const cardRef = useRef<View>(null);
   const [letter, setLetter] = useState<Letter | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,13 +79,20 @@ export default function LetterSection({ savedProfile }: Props) {
     if (sharing || !letter) return;
     setSharing(true);
     trackEvent('letter_share_click', { kind: letter.kind });
+    // Same caption as web's LetterSection, plus the dog's public page.
     const result = await captureAndShare(
       cardRef,
       `${dogName.toLowerCase().replace(/\s+/g, '-')}-${letter.kind}-letter.png`,
       letter.occasion,
+      {
+        caption: `A letter from ${dogName} for ${letter.kind === 'gotcha' ? 'Gotcha Day' : 'their birthday'}. Written with AI from real moments on GoDoggyDate.`,
+        url: userId ? dogPageUrl(savedProfile.name ?? '', userId) : undefined,
+      },
     );
     if (result === 'shared') trackEvent('letter_shared', { kind: letter.kind, method: 'native_share' });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    // This used to fail silently, leaving the owner tapping a button that did nothing.
+    if (result === 'error') Alert.alert('Could not share', 'Please try again in a moment.');
     setSharing(false);
   }
 
