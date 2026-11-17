@@ -24,6 +24,7 @@ import { isUserChatUnlocked } from '../../../../../shared/matchAccess';
 import ChatUnlockPanel, { isSeedUserId } from '../../../../components/ChatUnlockPanel';
 import { blockUser } from '../../../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../../../lib/entitlements';
+import { useFoundingState } from '../../../../lib/founding';
 import { getChatUnlockPitch } from '../../../../../shared/utils/stripe';
 import { hasRatedPlaydate, submitPlaydateRating } from '../../../../lib/ratings';
 import PlaydateRatingModal from '../../../../components/PlaydateRatingModal';
@@ -133,6 +134,8 @@ export default function ChatPage() {
   const [sendError, setSendError]           = useState<string | null>(null);
   const [chatUnlocked, setChatUnlocked]     = useState(false);
   const [hasLifetime, setHasLifetime]       = useState(false);
+  // The $39 offer only exists while paid founding spots #51–150 are open.
+  const founding = useFoundingState();
   const [accessDenied, setAccessDenied]     = useState(false);
   const [loadError, setLoadError]           = useState(false);
   const [loadRetryToken, setLoadRetryToken] = useState(0);
@@ -725,14 +728,14 @@ export default function ChatPage() {
                   {getChatUnlockPitch()}
                 </p>
                 <ChatUnlockPanel matchId={matchId} dogName={dogName} />
-                {getFoundingMemberLink(authUser.uid) && (
+                {founding.phase === 'paid' && getFoundingMemberLink(authUser.uid) && (
                   <a
                     href={getFoundingMemberLink(authUser.uid)!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-3 block text-xs font-semibold text-primary underline underline-offset-2"
                   >
-                    🐾 Or go Founding Member — $39 once. Every chat, forever. Badge included.
+                    ⭐ Or become a Founding Member — $39 once. Every chat, forever, and a numbered badge.
                   </a>
                 )}
               </>

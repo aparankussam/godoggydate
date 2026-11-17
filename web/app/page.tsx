@@ -69,7 +69,7 @@ export default function HomePage() {
     { emoji: '⏳', title: 'Life in Dog Years', desc: 'See the life stage they\'re actually in — honest cohort averages, never a countdown.' },
     { emoji: '🎂', title: 'Every milestone', desc: 'Birthdays, Gotcha Day, and your anniversary together — remembered and celebrated on the day.' },
     { emoji: '🛡️', title: 'Playmates who fit', desc: 'When you want company, match with compatible dogs nearby — with the flags owners declare surfaced up front.' },
-    { emoji: '🐾', title: 'Founding Pack', desc: 'Get in early — a permanent, numbered spot among the first dogs here.' },
+    { emoji: '⭐', title: 'Founding Members', desc: 'Get in early. Only 150 dogs ever get a permanent, numbered Founding Member spot.' },
   ];
 
   const steps = [
@@ -184,10 +184,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      <FoundingPackSection signedInUserId={userId} onRequireAuth={() => {
+      <FoundingPackSection
+        signedInUserId={userId}
+        onClaimFreeSpot={() => handleCTA('founding_free_spot')}
+        onRequireAuth={() => {
           resumeFoundingCheckout.current = true;
           setShowAuth(true);
-        }} />
+        }}
+      />
 
       {/* Features */}
       <section className="bg-cream-dark py-20">
@@ -237,7 +241,7 @@ export default function HomePage() {
           </h2>
           <p className="text-[rgba(255,255,255,0.7)] mb-8 text-lg">
             Get their Dogtype, their life stage, and a Playroom of shareable cards in minutes — then find
-            the playmates who fit. Be among the first dogs in the Founding Pack.
+            the playmates who fit. Get in while Founding Member spots last.
           </p>
           <button
             onClick={() => handleCTA('footer_primary')}

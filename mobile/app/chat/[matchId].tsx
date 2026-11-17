@@ -36,6 +36,7 @@ import { useSession } from '../../lib/session';
 import { isUserChatUnlocked } from '../../../shared/matchAccess';
 import { blockUser } from '../../lib/blocks';
 import { onEntitlements, getFoundingMemberLink } from '../../lib/entitlements';
+import { useFoundingState } from '../../lib/founding';
 import { canOfferInAppPurchase } from '../../lib/pro';
 import { trackEvent } from '../../lib/analytics';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice, getChatUnlockPitch } from '../../../shared/utils/stripe';
@@ -70,6 +71,8 @@ export default function ChatScreen() {
   const [match, setMatch] = useState<MatchItem | null>(null);
   const [chatUnlocked, setChatUnlocked] = useState(false);
   const [hasLifetime, setHasLifetime] = useState(false);
+  // The $39 offer only exists while paid founding spots #51–150 are open.
+  const founding = useFoundingState();
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [awaitingVerification, setAwaitingVerification] = useState(false);
@@ -697,10 +700,10 @@ export default function ChatScreen() {
               </Pressable>
             </>
           )}
-          {canOfferInAppPurchase() && getFoundingMemberLink(user.uid) && (
+          {canOfferInAppPurchase() && founding.phase === 'paid' && getFoundingMemberLink(user.uid) && (
             <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink}>
               <Text style={styles.foundingMemberLinkText}>
-                🐾 Or become a Founding Member — $39 once. Pro for life at the founding price, first access to every Pro feature as it ships, and your Founding badge.
+                ⭐ Or become a Founding Member — $39 once. Pro for life, first access to every Pro feature as it ships, and a numbered Founding Member badge.
               </Text>
             </Pressable>
           )}

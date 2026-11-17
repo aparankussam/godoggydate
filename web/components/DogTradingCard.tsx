@@ -44,12 +44,12 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
       className="relative w-[360px] aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
       style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #E8633A 100%)' }}
     >
-      {/* Founding Pack badge — "1 of {SIZE}" makes the scarcity legible on
+      {/* Founding Member badge — "of {SIZE}" makes the scarcity legible on
           the card itself, not just on the profile page it's exported from. */}
       {typeof profile.foundingPackNumber === 'number' && (
         <div className="absolute top-5 left-5 z-10 rounded-full bg-black/25 backdrop-blur-sm px-3 py-1.5">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gold">
-            #{profile.foundingPackNumber} · 1 of {FOUNDING_PACK_SIZE}
+            Founding #{profile.foundingPackNumber} of {FOUNDING_PACK_SIZE}
           </p>
         </div>
       )}

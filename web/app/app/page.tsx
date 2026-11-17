@@ -25,7 +25,12 @@ import AuthModal from '../../components/AuthModal';
 import MatchModal from '../../components/MatchModal';
 import SkeletonCard from '../../components/SkeletonCard';
 import { trackEvent } from '../../lib/analytics';
-import { buildDiscoverFeed, buildDemoGalleryDogs, type DiscoverFeedDog } from '../../lib/discover';
+import {
+  buildDiscoverFeed,
+  buildDemoGalleryDogs,
+  DEFAULT_DISCOVER_RADIUS_MILES,
+  type DiscoverFeedDog,
+} from '../../lib/discover';
 import DemoGalleryGrid from '../../components/DemoGalleryGrid';
 import { requestApproxLocation } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
@@ -37,7 +42,6 @@ import { takePendingPackDay } from '../../lib/packDayPending';
 
 // ── Seed feed ─────────────────────────────────────────────────────────────────
 type FeedDog = DiscoverFeedDog;
-const DEFAULT_DISCOVER_RADIUS_MILES = 50;
 
 // Every dog in the deck lands in exactly one bucket, so the line can only ever
 // under-describe the deck — never claim a proximity it didn't measure.

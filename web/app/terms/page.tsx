@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { absoluteUrl } from '../../lib/site';
-import { FOUNDING_MEMBER_LIMIT } from '../../../shared/pro';
+import { FOUNDING_FREE_SPOTS, FOUNDING_PAID_SPOTS, FOUNDING_TOTAL } from '../../../shared/founding';
 
 export const metadata: Metadata = {
   title: 'Terms of Service | GoDoggyDate',
@@ -44,9 +44,9 @@ export default function TermsPage() {
 
           <p><strong className="text-brown">Reporting safety concerns:</strong> if a meetup goes wrong or you have safety concerns about another user, use the in-app Report/Block feature and, for any injury or emergency, contact local emergency services and animal control directly — GoDoggyDate is not a substitute for either.</p>
 
-          <p><strong className="text-brown">What&apos;s for sale:</strong> GoDoggyDate is free to use during early access, including chat. The one paid option is Founding Member, a one-time $39 purchase limited to the first {FOUNDING_MEMBER_LIMIT} members. It includes every future Pro feature at no extra cost for as long as GoDoggyDate operates. Pro features are not live yet, and Founding Member is not a guarantee that the service will continue. Features and pricing may change during early access. Any future subscription will show its price and renewal terms before you pay.</p>
+          <p><strong className="text-brown">What&apos;s for sale:</strong> GoDoggyDate is free to use during early access, including chat. Founding Member is a numbered status limited to {FOUNDING_TOTAL} members in total. The first {FOUNDING_FREE_SPOTS} dogs with a profile receive it free. After that it is a one-time $39 purchase, limited to the next {FOUNDING_PAID_SPOTS} members (#{FOUNDING_FREE_SPOTS + 1}–{FOUNDING_TOTAL}), and then Founding Member closes for good. Whether free or paid, it includes every future Pro feature at no extra cost for as long as GoDoggyDate operates. Pro features are not live yet, and Founding Member is not a guarantee that the service will continue. Features and pricing may change during early access. Any future subscription will show its price and renewal terms before you pay.</p>
 
-          <p><strong className="text-brown">Refunds:</strong> Founding Member is refundable for any reason within 14 days of purchase. A refund or chargeback ends Founding Member status. To request a refund, contact us at <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-primary underline underline-offset-2">godoggydate@gobotsai.com</a>.</p>
+          <p><strong className="text-brown">Refunds:</strong> a Founding Member purchase is refundable for any reason within 14 days. A refund or chargeback ends the Founding Member status that payment bought, and its number is retired rather than given to someone else. Free Founding Member status involves no payment, so refunds don&apos;t apply to it. To request a refund, contact us at <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-primary underline underline-offset-2">godoggydate@gobotsai.com</a>.</p>
 
           <p><strong className="text-brown">Governing law:</strong> these terms are governed by the laws of the State of Michigan, without regard to conflict-of-law principles.</p>
 

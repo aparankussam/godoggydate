@@ -7,6 +7,7 @@
  */
 
 import { CHAT_FREE_LAUNCH_MODE } from '../matchAccess';
+import { FOUNDING_FREE_SPOTS, FOUNDING_PAID_SPOTS, FOUNDING_TOTAL } from '../founding';
 
 // SOFT-LAUNCH "FOUNDING PACK" PRICING: 50 (Stripe's $0.50 USD minimum
 // charge) instead of the normal 499 ($4.99), framed as real, numbered
@@ -22,8 +23,10 @@ import { CHAT_FREE_LAUNCH_MODE } from '../matchAccess';
 export const CHAT_UNLOCK_PRICE_CENTS = 50;
 export const CHAT_UNLOCK_CURRENCY = 'usd';
 
-// Number of "Founding Pack" dogs the soft-launch price is honored for.
-export const FOUNDING_PACK_SIZE = 500;
+// How many Founding Member numbers will ever exist (#1–150). Comes from the
+// founding ladder in shared/founding.ts. The copy of this file in web/shared/
+// reads the same constant.
+export const FOUNDING_PACK_SIZE = FOUNDING_TOTAL;
 
 /** Standalone paywall pitch line, reused across every unlock surface. */
 export function getChatUnlockPitch(): string {
@@ -49,11 +52,8 @@ export function getChatUnlockPitch(): string {
  * price-anchored variant depends on chat pricing.
  */
 export function getFoundingPackPitch(): string | null {
-  if (CHAT_FREE_LAUNCH_MODE) {
-    return `Only ${FOUNDING_PACK_SIZE} dogs ever get a Founding Pack number. Yours is permanent, and it stops at ${FOUNDING_PACK_SIZE} for good.`;
-  }
-  if (CHAT_UNLOCK_PRICE_CENTS > 100) {
-    return `Only ${FOUNDING_PACK_SIZE} dogs ever get a Founding Pack number. Yours is permanent, and it stops at ${FOUNDING_PACK_SIZE} for good.`;
+  if (CHAT_FREE_LAUNCH_MODE || CHAT_UNLOCK_PRICE_CENTS > 100) {
+    return `Only ${FOUNDING_TOTAL} dogs will ever be Founding Members. The first ${FOUNDING_FREE_SPOTS} join free, the next ${FOUNDING_PAID_SPOTS} pay $39 once, and then it closes for good.`;
   }
   return `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} chats until the Founding Pack hits ${FOUNDING_PACK_SIZE} dogs. After that, ${formatPrice(499)}. Your number never expires — the price does.`;
 }

@@ -24,6 +24,7 @@ import MilestonesCard from '../../components/MilestonesCard';
 import LetterSection from '../../components/LetterSection';
 import ProUpsellCard from '../../components/ProUpsellCard';
 import type { Reminder } from '../../../shared/types';
+import { foundingBadgeLabel } from '../../../shared/founding';
 
 function openLegalLink(path: string) {
   const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
@@ -363,19 +364,16 @@ export default function ProfileTab() {
               </View>
             )}
 
-            {/* Founding Pack + trust badges — computed server-side, never
-                shown before now. No raw trust score (0-1 reads as a public
-                rating); a positive "would meet again" rate instead. */}
+            {/* Founding Member + trust badges — computed server-side. One
+                founding badge whether the spot was free (#1–50) or bought
+                (#51–150); a member who bought before the ladder may have no
+                number. No raw trust score (0-1 reads as a public rating); a
+                positive "would meet again" rate instead. */}
             {(typeof profile.foundingPackNumber === 'number' || (profile.ratingCount ?? 0) > 0 || pro.isFounding || bestFriendName) && (
               <View style={styles.statusBadgeRow}>
-                {typeof profile.foundingPackNumber === 'number' && (
-                  <View style={styles.foundingBadge}>
-                    <Text style={styles.foundingBadgeText}>🏅 Founding Pack #{profile.foundingPackNumber}</Text>
-                  </View>
-                )}
-                {pro.isFounding && (
+                {(typeof profile.foundingPackNumber === 'number' || pro.isFounding) && (
                   <View style={styles.memberBadge}>
-                    <Text style={styles.memberBadgeText}>⭐ Founding Member</Text>
+                    <Text style={styles.memberBadgeText}>{foundingBadgeLabel(profile.foundingPackNumber)}</Text>
                   </View>
                 )}
                 {(profile.ratingCount ?? 0) > 0 && (
@@ -672,19 +670,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 12,
-  },
-  foundingBadge: {
-    backgroundColor: `${colors.gold}26`, // ~15% opacity
-    borderWidth: 1,
-    borderColor: `${colors.gold}66`, // ~40% opacity
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  foundingBadgeText: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.brown,
   },
   memberBadge: {
     backgroundColor: colors.brown,

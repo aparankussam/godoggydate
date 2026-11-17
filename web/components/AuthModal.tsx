@@ -8,6 +8,12 @@ import Link from 'next/link';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { trackEvent } from '../lib/analytics';
 import { signInWithGoogle, signInWithGoogleIdToken } from '../lib/auth';
+import {
+  androidChromeIntentUrl,
+  detectInAppBrowser,
+  externalBrowserName,
+  type InAppBrowserInfo,
+} from '../lib/inAppBrowser';
 import { getFirebase } from '../shared/utils/firebase';
 
 // Bump when the Terms change materially, so acceptance can be re-collected.
@@ -39,10 +45,18 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
   const [agreed, setAgreed] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+  // Set after mount so server and client render the same markup first.
+  const [inApp, setInApp] = useState<InAppBrowserInfo | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       trackEvent('auth_open');
+      const info = detectInAppBrowser(window.navigator.userAgent);
+      setInApp(info.isInApp ? info : null);
+      if (info.isInApp) {
+        trackEvent('in_app_browser_notice', { app: info.app ?? 'unknown', platform: info.platform });
+      }
     }
   }, [isOpen]);
 
@@ -131,6 +145,22 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
 
   if (!isOpen) return null;
 
+  const externalBrowser = inApp ? externalBrowserName(inApp.platform) : 'your browser';
+  const chromeIntentUrl =
+    inApp?.platform === 'android' ? androidChromeIntentUrl(window.location.href) : null;
+
+  async function copyPageLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      // Clipboard can be blocked in webviews; the notice still tells people
+      // to use the app's own "Open in browser" menu item.
+      setError('Could not copy the link. Use the ••• menu and choose "Open in browser".');
+    }
+  }
+
   async function handleGoogleSignIn() {
     setError('');
     trackEvent('sign_in_attempt', {
@@ -155,8 +185,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       trackEvent('sign_in_failure', {
         method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
         error_code: code || 'unknown',
+        in_app_browser: Boolean(inApp),
       });
-      setError('Sign-in failed. Please try again.');
+      setError(
+        inApp
+          ? `Google doesn't allow sign-in inside this app's browser. Open this page in ${externalBrowser} and try again.`
+          : 'Sign-in failed. Please try again.',
+      );
     }
   }
 
@@ -188,6 +223,39 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
             Find safe, compatible playmates<br />for your dog nearby.
           </p>
         </div>
+
+        {inApp && (
+          <div
+            role="note"
+            className="w-full rounded-2xl border-2 border-primary/40 bg-white px-4 py-3 text-left text-xs leading-relaxed text-brown-mid"
+          >
+            <p className="font-semibold text-brown">
+              Open this page in {externalBrowser} to sign in
+            </p>
+            <p className="mt-1">
+              {inApp.app ? `${inApp.app}'s` : 'This app\'s'} built-in browser can&apos;t finish
+              Google sign-in. Tap the ••• or share icon and choose &ldquo;Open in{' '}
+              {externalBrowser}&rdquo;, or use a button below.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {chromeIntentUrl && (
+                <a
+                  href={chromeIntentUrl}
+                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-white"
+                >
+                  Open in Chrome
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={copyPageLink}
+                className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-brown"
+              >
+                {linkCopied ? 'Link copied ✓' : 'Copy link'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <label className="w-full flex items-start gap-2.5 text-xs leading-relaxed text-brown-mid cursor-pointer">
           <input

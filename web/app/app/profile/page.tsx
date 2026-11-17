@@ -38,6 +38,14 @@ import MilestonesCard from '../../../components/MilestonesCard';
 import LetterSection from '../../../components/LetterSection';
 import ProUpsellCard from '../../../components/ProUpsellCard';
 import { useProEntitlement } from '../../../lib/useProEntitlement';
+import {
+  FOUNDING_FREE_SPOTS,
+  FOUNDING_PAID_SPOTS,
+  FOUNDING_TOTAL,
+  foundingBadgeLabel,
+  foundingSpotsLeft,
+  useFoundingState,
+} from '../../../lib/founding';
 import { getHouseholdDogsForUser } from '../../../lib/household';
 import type { HouseholdDog } from '../../../lib/household';
 import type { Reminder } from '../../../../shared/types';
@@ -83,6 +91,8 @@ export default function ProfilePage() {
   // One Pro read for the whole page — drives the upsell/manage surface (no Pro-
   // exclusive feature is gated yet). Lifetime Founding Members count as Pro.
   const pro = useProEntitlement(authUser?.uid ?? null);
+  // The $39 offer only exists while paid spots #51–150 are open.
+  const founding = useFoundingState();
 
   // Open on the owner's own cover pick, the same photo their swipe card leads
   // with. Without this the profile always opened on photo 0 and contradicted
@@ -566,22 +576,18 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Founding Pack + trust + Founding Member badges — computed/granted
-                server-side, none shown before now: a database field with no UI
-                is worse than not having the feature. See getFoundingPackPitch
-                for why we never show a raw trust score (it reads as a public
-                rating; a positive "would meet again" rate is the honest,
-                non-gameable framing instead). */}
+            {/* Founding Member + trust badges — computed/granted server-side,
+                none shown before now: a database field with no UI is worse than
+                not having the feature. One founding badge whether the spot was
+                free (#1–50) or bought (#51–150); a member who bought before the
+                ladder existed may have no number. We never show a raw trust
+                score (it reads as a public rating; a positive "would meet
+                again" rate is the honest, non-gameable framing instead). */}
             {(typeof savedProfile.foundingPackNumber === 'number' || (savedProfile.ratingCount ?? 0) > 0 || hasLifetime || bestFriendName) && (
               <div className="flex flex-wrap gap-2 px-5 pb-4 -mt-1">
-                {typeof savedProfile.foundingPackNumber === 'number' && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/15 border border-gold/40 px-3 py-1.5 text-xs font-bold text-brown">
-                    🏅 Founding Pack #{savedProfile.foundingPackNumber}
-                  </span>
-                )}
-                {hasLifetime && (
+                {(typeof savedProfile.foundingPackNumber === 'number' || hasLifetime) && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-brown text-cream px-3 py-1.5 text-xs font-bold">
-                    ⭐ Founding Member
+                    {foundingBadgeLabel(savedProfile.foundingPackNumber)}
                   </span>
                 )}
                 {bestFriendName && (
@@ -878,11 +884,12 @@ export default function ProfilePage() {
             free removed the last reachable purchase path in the whole product.
             The profile is always reachable and doesn't interrupt a
             conversation to sell something. Hidden once the user has Pro by any
-            route (a subscriber or an existing Founding Member). */}
+            route (a subscriber or an existing Founding Member), and shown only
+            while paid spots #51–150 are open. */}
         {/* Not shown to a dogless household member: every benefit it sells
-            (chat unlocks, Founding Pack number) attaches to a dog they don't
+            (chat unlocks, Founding Member number) attaches to a dog they don't
             have. */}
-        {authUser && !householdOnly && !pro.loading && !pro.isPro && getFoundingMemberLink(authUser.uid) && (
+        {authUser && !householdOnly && !pro.loading && !pro.isPro && founding.phase === 'paid' && founding.count !== null && getFoundingMemberLink(authUser.uid) && (
           <a
             href={getFoundingMemberLink(authUser.uid)!}
             target="_blank"
@@ -892,8 +899,10 @@ export default function ProfilePage() {
           >
             <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
             <p className="mt-1 text-xs leading-relaxed text-brown-light">
-              Every future Pro feature at no extra cost, for as long as GoDoggyDate runs. Pro features
-              aren&apos;t live yet, so this mainly supports a small, independent app. Refundable within 14 days.
+              A permanent Founding Member number and every future Pro feature at no extra cost, for as long
+              as GoDoggyDate runs. {foundingSpotsLeft(founding.count)} of {FOUNDING_PAID_SPOTS} paid spots
+              left (#{FOUNDING_FREE_SPOTS + 1}–{FOUNDING_TOTAL}). Pro features aren&apos;t live yet, so this
+              mainly supports a small, independent app. Refundable within 14 days.
             </p>
           </a>
         )}
