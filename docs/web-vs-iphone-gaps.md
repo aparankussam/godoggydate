@@ -23,10 +23,27 @@ Audit of 17 Nov 2026, against commit b99411a (TestFlight build 30).
   - The other Playroom shares still send only the image, though the URL is printed on the card.
 - **B10.** Universal links need the website deployed (it serves `/.well-known/apple-app-site-association`) and a new native build.
 
-Lists C, D and E were not part of this round. A few items were done along the way:
-- C6 (compatibility bars in the match pop-up)
-- D7 (honest report failures on web)
-- E1's report evidence (the moderator take-down part of E1 is still open)
+**Lists C, D and E are built too, in a second round.** They haven't been tested on a device. Known leftovers:
+
+- **C4.** Photo focal points aren't applied to the Dogtype story card or the Sticker Studio thumbnails.
+- **C8.** The Snoot sound needs a new native build, which adds the `expo-audio` pod.
+- **D1.** Sign in with Apple on the website stays hidden until you finish the setup:
+  - an Apple Services ID with the return URL `https://godoggydate.firebaseapp.com/__/auth/handler`;
+  - a Sign in with Apple key;
+  - the Firebase Apple provider's OAuth code flow;
+  - `NEXT_PUBLIC_APPLE_SIGNIN_ENABLED=true` on Vercel.
+
+  The redirect fallback (used only when popups are blocked) can come back empty in Safari, unless `/__/auth` is proxied on godoggydate.com.
+- **E1.**
+  - Remove an event with `scripts/admin-remove-packday.cjs`.
+  - The event's text stays readable at its link, marked cancelled. If the text itself is the problem, delete the doc afterwards.
+  - Needs a functions deploy (the cancel notifications moved to `onPackDayCancelled`).
+- **E2.**
+  - Progress syncs through `users/{uid}/private/progress`.
+  - An open Snoot Boop screen shows synced boops only after it's reopened.
+  - Zoomies energy stays per device on purpose.
+- **E5.** Needs a functions deploy (`onDogProfileWriteModerate` now writes the owner's notice).
+- **Care sheet (both platforms).** The vaccination line ignores the rabies expiry date.
 
 **Method.** Each feature was compared on both sides by reading what the user can actually do, not by file names. The most serious findings were then spot-checked by hand:
 - the 200-message chat limit

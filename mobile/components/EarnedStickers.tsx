@@ -5,11 +5,12 @@
 // bought, and it links straight to the Sticker Studio to put them on a photo.
 // Renders nothing until something's earned, so it never adds empty chrome.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '../constants/theme';
-import { loadBoops, STICKERS, unlockedStickers } from '../lib/boops';
+import { loadBoopAllTime, STICKERS, unlockedStickers } from '../lib/boops';
+import { onProgressChange } from '../lib/progressSync';
 import { trackEvent } from '../lib/analytics';
 
 interface Props {
@@ -20,18 +21,34 @@ interface Props {
 export default function EarnedStickers({ dogId }: Props) {
   const [allTime, setAllTime] = useState<number | null>(null);
 
+  // Read-only: loadBoopAllTime, not loadBoops, so this row never moves the
+  // Snoot Boop screen's save baseline (lib/boops.ts).
+  const refresh = useCallback(
+    (isCancelled: () => boolean = () => false) => {
+      if (!dogId) return;
+      loadBoopAllTime(dogId)
+        .then((count) => { if (!isCancelled()) setAllTime(count); })
+        .catch(() => { if (!isCancelled()) setAllTime(null); });
+    },
+    [dogId],
+  );
+
   // Re-read whenever the Profile tab comes back into focus: the owner may
   // have just been booping in the Playroom.
   useFocusEffect(
     useCallback(() => {
-      if (!dogId) return undefined;
       let cancelled = false;
-      loadBoops(dogId)
-        .then((state) => { if (!cancelled) setAllTime(state.allTime); })
-        .catch(() => { if (!cancelled) setAllTime(null); });
+      refresh(() => cancelled);
       return () => { cancelled = true; };
-    }, [dogId]),
+    }, [refresh]),
   );
+
+  // And when boops synced from the website arrive while the tab is open.
+  useEffect(() => {
+    let cancelled = false;
+    const unsubscribe = onProgressChange(() => refresh(() => cancelled));
+    return () => { cancelled = true; unsubscribe(); };
+  }, [refresh]);
 
   // Nothing earned yet (or not yet read) — render nothing.
   if (allTime === null || allTime <= 0) return null;

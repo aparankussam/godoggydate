@@ -22,7 +22,7 @@ import { getHeroPhoto, getRenderablePhotos } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
 import { webUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
-import { loadBoops, unlockedStickers, STICKERS, type Sticker } from '../../lib/boops';
+import { loadBoopAllTime, unlockedStickers, STICKERS, type Sticker } from '../../lib/boops';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 
 const CANVAS = Math.min(Dimensions.get('window').width - 40, 360);
@@ -87,7 +87,8 @@ export default function StickerStudioScreen() {
     useCallback(() => {
       if (!dogId) return;
       let active = true;
-      loadBoops(dogId).then((s) => { if (active) setAllTime(s.allTime); });
+      // Read-only, so it never moves Snoot Boop's save baseline.
+      loadBoopAllTime(dogId).then((count) => { if (active) setAllTime(count); });
       return () => { active = false; };
     }, [dogId]),
   );
