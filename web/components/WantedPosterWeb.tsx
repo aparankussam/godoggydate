@@ -11,10 +11,15 @@
 // baked inside the captured region so a reposted screenshot still carries the
 // back-link), and offers a Share button. Works at N=1 — reads only the owner's
 // own profile.
+//
+// The mugshot defaults to the cover photo; the owner can swap in another of the
+// dog's photos or one from their device, like the iPhone's "Change the mugshot".
+// A device photo stays in this tab as an object URL: it is never uploaded or
+// saved to the profile, and html2canvas captures it like any same-origin image.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
-import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
+import { getHeroPhoto, resolveHeroIndex, getHeroFocus, getRenderablePhotos } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { computeWanted } from '../../shared/wanted';
@@ -32,9 +37,27 @@ interface Props {
 const INK = '#3A2A16';
 const INK_SOFT = '#6B4E2E';
 
+interface Mugshot {
+  src: string;
+  /** True for an object URL made from a file on the owner's device. */
+  fromDevice: boolean;
+}
+
 export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sharing, setSharing] = useState(false);
+  // null = the cover photo.
+  const [mugshot, setMugshot] = useState<Mugshot | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [mugshotError, setMugshotError] = useState<string | null>(null);
+
+  // Free a device photo's object URL once it's replaced or the poster unmounts.
+  useEffect(() => {
+    if (!mugshot?.fromDevice) return;
+    const src = mugshot.src;
+    return () => URL.revokeObjectURL(src);
+  }, [mugshot]);
 
   const poster = computeWanted({
     id: dogId,
@@ -50,7 +73,30 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
   if (!poster) return null;
 
   const dogName = savedProfile.name?.trim() || 'Your dog';
-  const photo = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
+  const heroPhoto = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
+  const profilePhotos = getRenderablePhotos(savedProfile.photos);
+  const photo = mugshot?.src ?? heroPhoto;
+  // The owner's focal point belongs to the cover photo; anything else centres.
+  const photoPosition = mugshot ? '50% 50%' : getHeroFocus(savedProfile);
+
+  function pickProfilePhoto(url: string) {
+    setMugshotError(null);
+    setMugshot(url === heroPhoto ? null : { src: url, fromDevice: false });
+    trackEvent('wanted_mugshot_change', { source: 'profile' });
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // so picking the same file again still fires onChange
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setMugshotError("That file isn't a photo. Pick a JPG or PNG.");
+      return;
+    }
+    setMugshotError(null);
+    setMugshot({ src: URL.createObjectURL(file), fromDevice: true });
+    trackEvent('wanted_mugshot_change', { source: 'device' });
+  }
 
   async function handleShare() {
     if (!cardRef.current || sharing) return;
@@ -119,7 +165,20 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
               <span style={{ fontSize: 72, lineHeight: 1 }} aria-hidden="true">🐕</span>
               {photo && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt={dogName} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getHeroFocus(savedProfile) }} />
+                <img
+                  src={photo}
+                  alt={dogName}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ objectPosition: photoPosition }}
+                  onError={() => {
+                    // A device file the browser can't decode (HEIC on desktop
+                    // Chrome, say): go back to the cover photo and say why.
+                    if (mugshot?.fromDevice) {
+                      setMugshot(null);
+                      setMugshotError("That photo couldn't be opened here. Try a JPG or PNG.");
+                    }
+                  }}
+                />
               )}
               {/* Sepia wash sells the aged-photo look */}
               <div className="absolute inset-0" style={{ backgroundColor: 'rgba(90,60,20,0.22)' }} aria-hidden="true" />
@@ -174,9 +233,79 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
 
       <button
         type="button"
+        onClick={() => setShowPicker((open) => !open)}
+        aria-expanded={showPicker}
+        className="btn-secondary w-full mt-4"
+      >
+        📸 Change the mugshot
+      </button>
+
+      {showPicker && (
+        <div className="mt-3 rounded-2xl border border-border bg-white p-4">
+          {profilePhotos.length > 1 && (
+            <>
+              <p className="text-xs font-bold text-brown mb-1.5">From {dogName}&apos;s photos</p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {profilePhotos.map((url, i) => {
+                  const selected = url === photo;
+                  return (
+                    <button
+                      key={`${i}-${url}`}
+                      type="button"
+                      onClick={() => pickProfilePhoto(url)}
+                      aria-label={`Use photo ${i + 1} as the mugshot`}
+                      aria-pressed={selected}
+                      className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                        selected ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <div className={`flex flex-wrap items-center gap-2 ${profilePhotos.length > 1 ? 'mt-3' : ''}`}>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary hover:bg-primary/5 transition-colors motion-reduce:transition-none"
+            >
+              🖼 Use a photo from your device
+            </button>
+            {mugshot && heroPhoto && (
+              <button
+                type="button"
+                onClick={() => { setMugshot(null); setMugshotError(null); }}
+                className="rounded-full px-3 py-2 text-sm font-semibold text-brown-light hover:text-brown transition-colors motion-reduce:transition-none"
+              >
+                Back to the cover photo
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFile}
+          />
+          <p className="mt-2 text-[11px] text-brown-light leading-snug">
+            A photo from your device stays on it, just for this poster. It isn&apos;t uploaded or saved to {dogName}&apos;s profile.
+          </p>
+        </div>
+      )}
+
+      {mugshotError && <p className="mt-2 text-xs text-primary">{mugshotError}</p>}
+
+      <button
+        type="button"
         onClick={handleShare}
         disabled={sharing}
-        className="btn-primary w-full mt-4 disabled:opacity-60"
+        className="btn-primary w-full mt-3 disabled:opacity-60"
       >
         {sharing ? 'Preparing…' : `Share ${dogName}'s Wanted Poster`}
       </button>

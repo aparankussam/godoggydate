@@ -197,6 +197,16 @@ export default function SwipeStack({
 
   if (!activeDog) return null;
 
+  // The details sheet's "Woof!": closes the sheet and likes, through the same
+  // path as the WOOF button (so guests get the sign-in prompt). The sheet only
+  // opens for the top card, but only ever like the dog it was showing.
+  const likeFromDetails = () => {
+    const dog = selectedDog;
+    setSelectedDog(null);
+    if (!dog || (dog.firestoreId ?? dog.id) !== (activeDog.firestoreId ?? activeDog.id)) return;
+    triggerButtonAction('right');
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {swipeError && (
@@ -433,6 +443,15 @@ export default function SwipeStack({
                   ))}
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={likeFromDetails}
+                aria-label={`Woof — like ${selectedDog.name}`}
+                className="mt-6 w-full min-h-[56px] rounded-full bg-primary px-6 text-lg font-black text-white shadow-[0_16px_30px_rgba(232,99,58,0.32)] outline-none transition-transform hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.98] [WebkitTapHighlightColor:transparent]"
+              >
+                Woof! 🐾
+              </button>
             </div>
           </div>
         </div>

@@ -28,6 +28,36 @@ interface ConversationItem {
   lastMessageFromUid: string | null;
   chatUnlocked: boolean;
   isNew: boolean;
+  /** The other person wrote last and you haven't opened the thread since. */
+  unread: boolean;
+}
+
+function toMillis(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (value && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  if (value && typeof (value as { seconds?: unknown }).seconds === 'number') {
+    return (value as { seconds: number }).seconds * 1000;
+  }
+  return undefined;
+}
+
+/** The iPhone list's rule (isMatchUnread in mobile/lib/firestoreData.ts): the
+ *  other person sent the last message, and this user's read slot
+ *  (dog1LastReadAt / dog2LastReadAt, stamped when they open the thread) is
+ *  missing or older than it. Older docs name the users userAId / userBId. */
+function isThreadUnread(data: Record<string, unknown>, uid: string): boolean {
+  const lastAt = toMillis(data.lastMessageAt) ?? toMillis(data.lastMessageTime);
+  const from = data.lastMessageFromUid;
+  if (!lastAt || typeof from !== 'string' || !from || from === uid) return false;
+  const readAt =
+    data.dog1UserId === uid ? toMillis(data.dog1LastReadAt)
+      : data.dog2UserId === uid ? toMillis(data.dog2LastReadAt)
+        : data.userAId === uid ? toMillis(data.dog1LastReadAt)
+          : data.userBId === uid ? toMillis(data.dog2LastReadAt)
+            : undefined;
+  return !readAt || readAt < lastAt;
 }
 
 // Compact relative time from a Firestore-style { seconds } timestamp.
@@ -82,6 +112,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
     dog1ChatUnlocked?: boolean | null;
     dog2ChatUnlocked?: boolean | null;
     createdAt: { seconds: number } | null;
+    unread: boolean;
   }> = [];
 
   for (const snap of [snap1, snap2]) {
@@ -100,6 +131,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
           dog1ChatUnlocked: data.dog1ChatUnlocked ?? null,
           dog2ChatUnlocked: data.dog2ChatUnlocked ?? null,
           createdAt: data.createdAt ?? null,
+          unread: isThreadUnread(data, uid),
         });
       }
     }
@@ -134,6 +166,7 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
         lastMessageFromUid: m.lastMessageFromUid,
         chatUnlocked: m.chatUnlocked,
         isNew: !m.lastMessage,
+        unread: m.unread,
       };
     }),
   );
@@ -268,20 +301,27 @@ export default function MessagesPage() {
                   href={`/app/messages/${c.matchId}`}
                   className="card rounded-[1.6rem] flex items-center gap-3 p-3 hover:-translate-y-0.5 hover:shadow-lg transition-all"
                 >
-                  {/* Avatar */}
-                  <div className="w-16 h-16 rounded-[1.2rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center">
-                    {photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photo} alt={name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-3xl">🐕</span>
+                  {/* Avatar, with the unread dot on its corner (as on iPhone) */}
+                  <div className="relative shrink-0">
+                    <div className="w-16 h-16 rounded-[1.2rem] overflow-hidden bg-gradient-to-br from-gold to-primary flex items-center justify-center">
+                      {photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={photo} alt={name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-3xl">🐕</span>
+                      )}
+                    </div>
+                    {c.unread && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary ring-2 ring-white">
+                        <span className="sr-only">Unread</span>
+                      </span>
                     )}
                   </div>
 
                   {/* Text */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-bold text-brown truncate">{name}</p>
+                      <p className={`truncate ${c.unread ? 'font-black text-brown' : 'font-bold text-brown'}`}>{name}</p>
                       {c.isNew && (
                         <span className="ml-2 shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
                           New
@@ -294,7 +334,7 @@ export default function MessagesPage() {
                       )}
                     </div>
                     <p className={`text-xs truncate mt-1 ${
-                      c.isNew ? 'text-primary font-medium' : 'text-brown-light'
+                      c.isNew ? 'text-primary font-medium' : c.unread ? 'text-brown font-semibold' : 'text-brown-light'
                     }`}>
                       {c.isNew
                         ? (c.chatUnlocked

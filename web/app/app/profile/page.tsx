@@ -31,6 +31,8 @@ import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
 import DogtypeSection from '../../../components/DogtypeSection';
+import DiptychSection, { DIPTYCH_MIN_PHOTOS } from '../../../components/DiptychSection';
+import ModerationNotice from '../../../components/ModerationNotice';
 import EarnedStickers from '../../../components/EarnedStickers';
 import LifeStageCard from '../../../components/LifeStageCard';
 import { feedback } from '../../../lib/feedback';
@@ -301,6 +303,19 @@ export default function ProfilePage() {
     return () => { cancelled = true; };
   }, [authUser, savedProfile?.bestFriendMatchId]);
 
+  // The server just cleared text from the profile (ModerationNotice saw a new
+  // notice): re-read it so the page, and the editor's next snapshot, stop
+  // showing the removed text. Merged so the listener-fed household fields stay.
+  async function refreshProfile() {
+    if (!authUser) return;
+    try {
+      const fresh = await getUserDogProfile(authUser.uid);
+      if (fresh) setSavedProfile((prev) => (prev ? { ...prev, ...fresh } : fresh));
+    } catch {
+      // Offline: the stale copy stays until the next load.
+    }
+  }
+
   async function handleSignOut() {
     setSigningOut(true);
     try {
@@ -446,7 +461,17 @@ export default function ProfilePage() {
         <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-8 lg:items-start">
 
         {/* Full-width across both columns */}
-        <div className="contents lg:block lg:col-span-2">
+        <div className="contents lg:block lg:col-span-2 lg:space-y-5">
+        {/* The content filter cleared some of this profile's text */}
+        {authUser && savedProfile && (
+          <ModerationNotice
+            uid={authUser.uid}
+            dogName={savedProfile.name}
+            onEdit={() => openEdit()}
+            onNotice={refreshProfile}
+          />
+        )}
+
         {/* Profile incomplete warning */}
         {!complete && savedProfile && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
@@ -653,6 +678,13 @@ export default function ProfilePage() {
               </button>
             ))}
           </div>
+        )}
+
+        {/* Day 1 vs Day N — needs two different photos for "then vs now",
+            the same minimum the component itself checks. Not gated on a
+            complete profile: it only uses the owner's own photos. */}
+        {savedProfile && photos.length >= DIPTYCH_MIN_PHOTOS && (
+          <DiptychSection savedProfile={savedProfile} />
         )}
 
         {/* Profile details card */}
