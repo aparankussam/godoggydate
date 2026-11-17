@@ -23,7 +23,10 @@ Audit of 17 Nov 2026, against commit b99411a (TestFlight build 30).
   - The other Playroom shares still send only the image, though the URL is printed on the card.
 - **B10.** Universal links need the website deployed (it serves `/.well-known/apple-app-site-association`) and a new native build.
 
-Lists C, D and E are untouched, apart from E1's report evidence, which is done.
+Lists C, D and E were not part of this round. A few items were done along the way:
+- C6 (compatibility bars in the match pop-up)
+- D7 (honest report failures on web)
+- E1's report evidence (the moderator take-down part of E1 is still open)
 
 **Method.** Each feature was compared on both sides by reading what the user can actually do, not by file names. The most serious findings were then spot-checked by hand:
 - the 200-message chat limit
