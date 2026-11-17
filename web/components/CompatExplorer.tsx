@@ -29,6 +29,7 @@ import { fetchDogtypeCounts, countForCode } from '../lib/dogtypeCounts';
 import type { DogtypeCounts } from '../lib/dogtypeCounts';
 import { loadAllTime, nextMilestone } from '../lib/boops';
 import { loadUnlocks, recordInvite, unlockedExtra } from '../lib/revealUnlocks';
+import { onProgressChange } from '../lib/progressSync';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
@@ -97,13 +98,21 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
     };
   }, []);
 
-  // Load the local unlock ledger, and re-read boop-derived keys on refocus.
+  // Load the local unlock ledger, and re-read boop-derived keys on refocus and
+  // when keys or boops synced from the iPhone app land.
   useEffect(() => {
     if (!userId) return;
     setInvitedCodes(loadUnlocks(userId).invitedCodes);
     const onFocus = () => setUnlockTick((t) => t + 1);
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    const offProgress = onProgressChange(() => {
+      setInvitedCodes(loadUnlocks(userId).invitedCodes);
+      setUnlockTick((t) => t + 1);
+    });
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      offProgress();
+    };
   }, [userId]);
 
   // One impression per mount, mirroring mobile, so the funnels have a denominator.

@@ -16,7 +16,7 @@ import { formatUsMonthYear } from '../../shared/dates';
 
 import { useMemo, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
-import { getRenderablePhotos, getHeroFocus } from '../lib/photos';
+import { getRenderablePhotos, getHeroFocus, getHeroPhoto, resolveHeroIndex } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import DiptychCard from './DiptychCard';
@@ -24,6 +24,9 @@ import DiptychCard from './DiptychCard';
 interface Props {
   savedProfile: SavedDogProfile;
 }
+
+/** Renderable photos (getRenderablePhotos) needed before the card is offered. */
+export const DIPTYCH_MIN_PHOTOS = 2;
 
 /** Local-midnight Date from a YYYY-MM-DD input value (avoids UTC off-by-one). */
 function parseInputDate(value: string): Date | null {
@@ -54,9 +57,11 @@ export default function DiptychSection({ savedProfile }: Props) {
   const [latestIdx, setLatestIdx] = useState(() => Math.max(0, photos.length - 1));
   const [dateValue, setDateValue] = useState('');
 
-  // Needs at least one photo to show a face; the date is required for an honest
+  // "Then vs now" needs two different photos: with one, both panels would be
+  // the same picture. The profile page mounts this on the same condition
+  // (DIPTYCH_MIN_PHOTOS renderable photos). The date is required for an honest
   // count, so the card stays hidden until the owner confirms one.
-  if (photos.length === 0) return null;
+  if (photos.length < DIPTYCH_MIN_PHOTOS) return null;
 
   const earliestDate = parseInputDate(dateValue);
   const maxDate = todayInputMax();
@@ -76,6 +81,9 @@ export default function DiptychSection({ savedProfile }: Props) {
 
   const earliestUrl = photos[Math.min(earliestIdx, photos.length - 1)];
   const latestUrl = photos[Math.min(latestIdx, photos.length - 1)];
+  // The owner's focal point is for the cover photo only; other photos centre.
+  const heroUrl = getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile));
+  const focusFor = (url: string) => (url === heroUrl ? photoFocus : undefined);
 
   const earliestLabel = earliestDate
     ? formatUsMonthYear(earliestDate)
@@ -198,8 +206,8 @@ export default function DiptychSection({ savedProfile }: Props) {
               dogName={dogName}
               earliestUrl={earliestUrl}
               latestUrl={latestUrl}
-              earliestFocus={photoFocus}
-              latestFocus={photoFocus}
+              earliestFocus={focusFor(earliestUrl)}
+              latestFocus={focusFor(latestUrl)}
               days={days}
               earliestLabel={earliestLabel}
             />

@@ -1,11 +1,22 @@
 import { ActivityIndicator, Alert, Image, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { router, useFocusEffect } from 'expo-router';
-import * as Sharing from 'expo-sharing';
-import { captureRef } from 'react-native-view-shot';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
-import ProfileEditor from '../../components/ProfileEditor';
-import { resolveHeroIndex, setCoverPhoto } from '../../lib/coverPhoto';
+import ProfileEditor, { type ProfileEditorSection } from '../../components/ProfileEditor';
+import {
+  DEFAULT_COVER_FOCUS,
+  focusForPhoto,
+  resolveHeroFocus,
+  resolveHeroIndex,
+  setCoverPhoto,
+  setCoverPhotoWithFocus,
+} from '../../lib/coverPhoto';
+import { CoverImage, CoverPhotoSheet } from '../../components/CoverPhotoEditor';
+import ModerationNotice from '../../components/ModerationNotice';
+import ProfileDetailsCard from '../../components/ProfileDetailsCard';
+import EarnedStickers from '../../components/EarnedStickers';
+import HandoffCard from '../../components/HandoffCard';
+import DiptychSection, { shouldShowDiptych } from '../../components/DiptychSection';
 import DogTradingCard from '../../components/DogTradingCard';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
@@ -17,28 +28,58 @@ import { onReminders } from '../../lib/reminders';
 import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
+import PushPermissionCard from '../../components/PushPermissionCard';
 import DogtypeSection from '../../components/DogtypeSection';
 import CompatExplorer from '../../components/CompatExplorer';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
 import LetterSection from '../../components/LetterSection';
 import ProUpsellCard from '../../components/ProUpsellCard';
+import { captureAndShare } from '../../lib/shareCard';
+import { dogPageUrl, webUrl } from '../../lib/webLinks';
 import type { Reminder } from '../../../shared/types';
 import { foundingBadgeLabel } from '../../../shared/founding';
 
-function openLegalLink(path: string) {
-  const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
-  Linking.openURL(`${base}${path}`).catch(() => {
+function openWebLink(url: string) {
+  Linking.openURL(url).catch(() => {
     Alert.alert('Could not open link', 'Please try again in a moment.');
   });
 }
 
+function openLegalLink(path: string) {
+  openWebLink(webUrl(path));
+}
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function asEditorSection(value: string | undefined): ProfileEditorSection | undefined {
+  return value === 'safety' || value === 'birthday' ? value : undefined;
+}
+
+/** The cover as last set from this screen, ahead of the session's copy. */
+interface OptimisticCover {
+  index: number;
+  focusX: number;
+  focusY: number;
+}
+
 export default function ProfileTab() {
-  const { user, profile, profileComplete, saveProfile, signOutUser, loading: sessionLoading } = useSession();
+  const { user, profile, profileComplete, saveProfile, refreshProfile, signOutUser, loading: sessionLoading } = useSession();
+  // Deep link into the editor: router.push('/(tabs)/profile?edit=1'), with
+  // '&section=safety' (or 'birthday') to open it scrolled to that section.
+  // The Today panel's nudges use it.
+  const params = useLocalSearchParams<{ edit?: string | string[]; section?: string | string[] }>();
+  const editParam = firstParam(params.edit);
+  const sectionParam = firstParam(params.section);
   const [editing, setEditing] = useState(false);
+  const [editSection, setEditSection] = useState<ProfileEditorSection | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sharingCard, setSharingCard] = useState(false);
+  const [sharingHandoff, setSharingHandoff] = useState(false);
+  const [coverSheetOpen, setCoverSheetOpen] = useState(false);
   const pro = useProEntitlement(user?.uid);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [householdMemberIds, setHouseholdMemberIds] = useState<string[]>([]);
@@ -46,15 +87,18 @@ export default function ProfileTab() {
   const [bestFriendMatchId, setBestFriendMatchId] = useState<string | null>(null);
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
-  // Optimistic cover index so the "★ Cover" indicator moves the instant it's set,
-  // without waiting on the Firestore round-trip / session refresh.
-  const [optimisticCover, setOptimisticCover] = useState<number | null>(null);
+  // Optimistic cover (index + focal point) so the "★ Cover" indicator and the
+  // crop move the instant they're set, without waiting on the Firestore
+  // round-trip / session refresh. Cleared when the editor saves, which writes
+  // its own cover fields.
+  const [optimisticCover, setOptimisticCover] = useState<OptimisticCover | null>(null);
   const [savingCover, setSavingCover] = useState(false);
   const photoInit = useRef(false);
   // The photo index to snap back to on blur (the starred cover). Kept current
   // each render so the focus-effect teardown can read it without unstable deps.
   const coverResetRef = useRef(0);
   const cardRef = useRef<View>(null);
+  const handoffRef = useRef<View>(null);
   // Lets an upsell nudge scroll straight to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
   const proYRef = useRef(0);
@@ -83,6 +127,19 @@ export default function ProfileTab() {
       };
     }, []),
   );
+
+  // Consume the deep link, then clear it, so the same link pushed again later
+  // still counts as a change and opens the editor again.
+  useEffect(() => {
+    if (editParam !== '1') return;
+    setEditSection(asEditorSection(sectionParam));
+    setEditing(true);
+    try {
+      router.setParams({ edit: undefined, section: undefined });
+    } catch {
+      // Navigation not ready yet; the editor is open either way.
+    }
+  }, [editParam, sectionParam]);
 
   // Cadence — the reminder calendar.
   useEffect(() => {
@@ -155,30 +212,94 @@ export default function ProfileTab() {
   }, [user, bestFriendMatchId]);
 
   async function handleShareCard() {
-    if (!cardRef.current || sharingCard) return;
+    if (!cardRef.current || sharingCard || !user || !profile) return;
     setSharingCard(true);
     trackEvent('trading_card_share_click');
+    // Same caption as web's trading-card share, with the dog's public page so
+    // the person receiving it has something to tap.
+    const dogName = profile.name?.trim() || 'my dog';
+    const pronoun = profile.sex === 'F' ? 'her' : profile.sex === 'M' ? 'his' : 'their';
+    const result = await captureAndShare(
+      cardRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-godoggydate-card.png`,
+      `${dogName} on GoDoggyDate`,
+      {
+        caption: `That's ${dogName} on GoDoggyDate — see ${pronoun} page:`,
+        url: dogPageUrl(profile.name ?? '', user.uid),
+      },
+    );
+    if (result === 'shared') trackEvent('trading_card_shared', { method: 'native_share' });
+    if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    if (result === 'error') Alert.alert('Could not share card', 'Please try again in a moment.');
+    setSharingCard(false);
+  }
+
+  function openEditor(section?: ProfileEditorSection) {
+    setEditSection(section);
+    setEditing(true);
+  }
+
+  function closeEditor() {
+    setEditing(false);
+    setEditSection(undefined);
+  }
+
+  // The care sheet goes to a sitter, not the public: no caption and no link to
+  // the dog's public page, the same choice web makes.
+  async function handleShareHandoff() {
+    if (!handoffRef.current || sharingHandoff || !profile) return;
+    setSharingHandoff(true);
+    trackEvent('handoff_card_share_click');
+    const dogName = profile.name?.trim() || 'dog';
+    const result = await captureAndShare(
+      handoffRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-care-sheet.png`,
+      `${dogName}’s care sheet`,
+    );
+    if (result === 'shared') trackEvent('handoff_card_shared', { method: 'native_share' });
+    if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    if (result === 'error') Alert.alert('Could not share card', 'Please try again in a moment.');
+    setSharingHandoff(false);
+  }
+
+  async function handleMakeCover(index: number) {
+    if (!user || savingCover) return;
+    setSavingCover(true);
     try {
-      const uri = await captureRef(cardRef, { format: 'png', quality: 1 });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png' });
-        trackEvent('trading_card_shared', { method: 'native_share' });
-      } else {
-        Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
-      }
-    } catch (error) {
-      console.warn('Failed to share trading card', error);
-      Alert.alert('Could not share card', 'Please try again in a moment.');
+      // A new cover starts centred (setCoverPhoto resets the focal point).
+      await setCoverPhoto(user.uid, index);
+      setOptimisticCover({ index, focusX: DEFAULT_COVER_FOCUS, focusY: DEFAULT_COVER_FOCUS });
+      refreshProfile().catch(() => {});
+    } catch {
+      Alert.alert('Could not save', 'Please try again.');
     } finally {
-      setSharingCard(false);
+      setSavingCover(false);
+    }
+  }
+
+  async function handleSaveCoverCrop(value: { coverIndex: number; focusX: number; focusY: number }) {
+    if (!user || savingCover) return;
+    setSavingCover(true);
+    try {
+      await setCoverPhotoWithFocus(user.uid, value.coverIndex, { x: value.focusX, y: value.focusY });
+      setOptimisticCover({ index: value.coverIndex, focusX: value.focusX, focusY: value.focusY });
+      setActivePhoto(value.coverIndex);
+      setCoverSheetOpen(false);
+      trackEvent('cover_photo_crop_saved', { source: 'profile' });
+      refreshProfile().catch(() => {});
+    } catch {
+      Alert.alert('Could not save', 'Please try again.');
+    } finally {
+      setSavingCover(false);
     }
   }
 
   async function handleDeleteAccount() {
+    // Same wording as web (web/app/app/profile/page.tsx). The Terms allow
+    // refunds within 14 days, so this must not say purchases aren't refunded.
     Alert.alert(
       'Delete your account permanently?',
-      'This removes your dog’s profile, all matches, messages, and swipe history. Chat unlock purchases are not refunded. This cannot be undone.',
+      'This removes your dog’s profile, all matches, messages, and swipe history. Past purchases aren’t refunded automatically: email godoggydate@gobotsai.com first if you’re within the 14-day refund window. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -235,11 +356,20 @@ export default function ProfileTab() {
           initialProfile={profile}
           saving={saving}
           submitLabel={profile ? 'Save changes' : 'Create profile'}
+          focusSection={editSection}
+          onCancel={profile ? closeEditor : undefined}
           onSubmit={async (nextProfile) => {
             try {
               setSaving(true);
               await saveProfile(nextProfile);
-              setEditing(false);
+              closeEditor();
+              // The form wrote its own cover pick and crop; drop any older
+              // optimistic value so the saved one shows.
+              setOptimisticCover(null);
+              // saveProfile keeps only what the form wrote. Re-read the dog doc
+              // so server-written fields — including a Vibe Check run from the
+              // editor, saved to dogs/{uid}.ai — show without a restart.
+              refreshProfile().catch(() => {});
             } catch (error) {
               const message = error instanceof Error ? error.message : 'We could not save your dog profile. Please try again.';
               Alert.alert('Save failed', message);
@@ -255,10 +385,17 @@ export default function ProfileTab() {
   const photos = (profile.photos ?? []).filter((photo: string) => photo && !photo.startsWith('_'));
   // Clamp so a stale index (after a photo is removed) never reads undefined.
   const safeActive = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
-  const currentCover = optimisticCover ?? (typeof profile.coverPhotoIndex === 'number' ? profile.coverPhotoIndex : (resolveHeroIndex(profile) ?? 0));
+  const currentCover = optimisticCover?.index ?? (typeof profile.coverPhotoIndex === 'number' ? profile.coverPhotoIndex : (resolveHeroIndex(profile) ?? 0));
   const activeIsCover = safeActive === currentCover;
   // Keep the blur-reset target current for the focus effect above.
   coverResetRef.current = photos.length > 0 && currentCover >= 0 && currentCover < photos.length ? currentCover : 0;
+  // The cover's focal point, from the optimistic value while one is pending.
+  const coverSource = optimisticCover
+    ? { coverPhotoIndex: optimisticCover.index, coverFocusX: optimisticCover.focusX, coverFocusY: optimisticCover.focusY }
+    : profile;
+  const heroFocus = focusForPhoto(coverSource, safeActive, currentCover);
+  const savedCoverFocus = resolveHeroFocus(coverSource);
+  const sheetCoverIndex = currentCover >= 0 && currentCover < photos.length ? currentCover : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -267,6 +404,15 @@ export default function ProfileTab() {
         <Text style={styles.subtitle}>
           {profileComplete ? 'Your profile is ready — start discovering nearby pups.' : "Complete your dog's profile to start discovering nearby pups."}
         </Text>
+
+        {/* E5: shown only while the server's notice doc exists. A new notice
+            means the server just cleared text on the dog doc, so re-read it. */}
+        <ModerationNotice
+          uid={user.uid}
+          dogName={profile.name}
+          onEdit={() => openEditor()}
+          onNotice={() => { refreshProfile().catch(() => {}); }}
+        />
 
         <View style={styles.card}>
           {photos[safeActive] ? (
@@ -280,7 +426,9 @@ export default function ProfileTab() {
                   : `Photo of ${profile.name}`
               }
             >
-              <Image source={{ uri: photos[safeActive] }} style={styles.hero} />
+              {/* Cropped around the owner's focal point while the cover shows,
+                  the same crop the swipe deck uses. */}
+              <CoverImage uri={photos[safeActive]} focus={heroFocus} style={styles.hero} />
             </Pressable>
           ) : null}
           <View style={styles.cardBody}>
@@ -306,25 +454,29 @@ export default function ProfileTab() {
               </ScrollView>
             )}
             {/* Cover-photo pick: make the selected photo the one that leads on
-                the profile + swipe deck (instead of always the first upload). */}
-            {photos.length > 1 && (
+                the profile + swipe deck (instead of always the first upload).
+                A new pick starts centred; once it's the cover, the owner can
+                drag what part of it shows (C4). */}
+            {photos.length > 0 && (
               activeIsCover ? (
-                <Text style={styles.coverHint}>★ This is {profile.name}&apos;s cover photo</Text>
+                <View style={styles.coverRow}>
+                  {photos.length > 1 && (
+                    <Text style={styles.coverHint}>★ This is {profile.name}&apos;s cover photo</Text>
+                  )}
+                  <Pressable
+                    disabled={savingCover}
+                    onPress={() => setCoverSheetOpen(true)}
+                    style={[styles.coverButton, savingCover && { opacity: 0.6 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Adjust what part of the cover photo shows on cards"
+                  >
+                    <Text style={styles.coverButtonText}>✥ Adjust the crop</Text>
+                  </Pressable>
+                </View>
               ) : (
                 <Pressable
                   disabled={savingCover}
-                  onPress={async () => {
-                    if (!user || savingCover) return;
-                    setSavingCover(true);
-                    try {
-                      await setCoverPhoto(user.uid, safeActive);
-                      setOptimisticCover(safeActive);
-                    } catch {
-                      Alert.alert('Could not save', 'Please try again.');
-                    } finally {
-                      setSavingCover(false);
-                    }
-                  }}
+                  onPress={() => handleMakeCover(safeActive)}
                   style={[styles.coverButton, savingCover && { opacity: 0.6 }]}
                   accessibilityRole="button"
                   accessibilityLabel={`Make photo ${safeActive + 1} the cover photo`}
@@ -396,6 +548,14 @@ export default function ProfileTab() {
           </View>
         </View>
 
+        {/* E3: Day 1 vs Day N. Same rule and place as web: any saved profile
+            with two or more real photos, after the photo strip and before the
+            details card. */}
+        {shouldShowDiptych(profile) && <DiptychSection savedProfile={profile} />}
+
+        {/* C7: the dog field by field, as on web's profile page. */}
+        <ProfileDetailsCard profile={profile} />
+
         {/* ── The Gen-Z viral layer: identity → invite → daily → life ──────── */}
         {user && profile && (
           <>
@@ -414,10 +574,12 @@ export default function ProfileTab() {
               <Text style={styles.revealCtaSub}>A shareable card, read from their real profile</Text>
             </Pressable>
             <DogtypeSection savedProfile={profile} />
+            {/* C5: stickers unlocked by booping; renders nothing until one is. */}
+            <EarnedStickers dogId={user.uid} />
             <CompatExplorer savedProfile={profile} userId={user.uid} />
-            <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
-            <MilestonesCard savedProfile={profile} />
-            <LetterSection savedProfile={profile} />
+            <LifeStageCard savedProfile={profile} onEditProfile={() => openEditor('birthday')} />
+            <MilestonesCard savedProfile={profile} userId={user.uid} />
+            <LetterSection savedProfile={profile} userId={user.uid} />
 
             {/* One entry to all the playful, shareable cards & games — they live
                 in the Playroom so the profile stays about the dog's life (mirrors
@@ -440,7 +602,32 @@ export default function ProfileTab() {
         )}
 
         {user && profile && <Text style={styles.sectionLabel}>🗓️ Care &amp; household</Text>}
+        {user && profile && <PushPermissionCard />}
         {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
+
+        {/* C2: the care sheet for a sitter or walker. Not gated on a complete
+            profile, as on web: it has nothing to do with swiping. */}
+        {user && profile && (
+          <View style={styles.handoffSection}>
+            <Text style={styles.tradingCardLabel}>Handoff card</Text>
+            <Text style={styles.handoffIntro}>
+              One image for a sitter, walker, or groomer — only what you told us, marked as yours rather
+              than ours.
+            </Text>
+            <HandoffCard ref={handoffRef} profile={profile} reminders={reminders} />
+            <Pressable
+              style={[styles.secondaryButton, sharingHandoff && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Share ${profile.name}'s care sheet`}
+              onPress={handleShareHandoff}
+              disabled={sharingHandoff}
+            >
+              <Text style={styles.secondaryText}>
+                {sharingHandoff ? 'Rendering…' : '📤 Share this card'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         {user && profile && (
           <HouseholdSection
@@ -476,11 +663,27 @@ export default function ProfileTab() {
                 {sharingCard ? 'Rendering…' : '📤 Share this card'}
               </Text>
             </Pressable>
+            {/* Mirrors web's "View <name>'s public page →" link under the card. */}
+            <Pressable
+              style={styles.publicPageLink}
+              accessibilityRole="link"
+              accessibilityLabel={`View ${profile.name}'s public page`}
+              onPress={() => openWebLink(dogPageUrl(profile.name ?? '', user.uid))}
+            >
+              <Text style={styles.publicPageText}>View {profile.name}&apos;s public page →</Text>
+            </Pressable>
           </View>
         )}
 
         <Text style={styles.sectionLabel}>Account</Text>
-        <Pressable style={styles.primaryButton} accessibilityRole="button" accessibilityLabel="Edit profile" onPress={() => setEditing(true)}>
+        {/* Which account this is — guests have no email, so no row. */}
+        {user.email ? (
+          <View style={styles.accountRow}>
+            <Text style={styles.accountLabel}>Account</Text>
+            <Text style={styles.accountEmail} numberOfLines={1} ellipsizeMode="middle">{user.email}</Text>
+          </View>
+        ) : null}
+        <Pressable style={styles.primaryButton} accessibilityRole="button" accessibilityLabel="Edit profile" onPress={() => openEditor()}>
           <Text style={styles.primaryText}>Edit profile</Text>
         </Pressable>
 
@@ -520,6 +723,19 @@ export default function ProfileTab() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {photos.length > 0 && (
+        <CoverPhotoSheet
+          visible={coverSheetOpen}
+          photos={photos}
+          coverIndex={sheetCoverIndex}
+          focus={savedCoverFocus}
+          dogName={profile.name?.trim() || 'your dog'}
+          saving={savingCover}
+          onCancel={() => setCoverSheetOpen(false)}
+          onSave={handleSaveCoverCrop}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -609,7 +825,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   coverBadgeText: { color: colors.white, fontSize: 12, fontWeight: '700', lineHeight: 14 },
-  coverHint: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginBottom: 12 },
+  coverHint: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginBottom: 8 },
+  coverRow: { marginBottom: 4 },
   coverButton: {
     alignSelf: 'flex-start',
     borderWidth: 1,
@@ -784,6 +1001,41 @@ const styles = StyleSheet.create({
   },
   tradingCardWrap: {
     alignItems: 'center',
+  },
+  handoffSection: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  handoffIntro: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.brownLight,
+    marginTop: -6,
+  },
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  accountLabel: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight },
+  accountEmail: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
+  publicPageLink: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  publicPageText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.brownLight,
   },
   deleteButton: {
     alignItems: 'center',

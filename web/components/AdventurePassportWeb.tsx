@@ -6,16 +6,17 @@
 // AdventurePassportCard.tsx.
 //
 // Honest by construction: completion is the owner's OWN checklist (no claim is
-// made about the dog), stored locally in localStorage keyed by dog — no
-// Firestore write, no rules change, no server dependency. The passport count is
-// a literal count of the owner's checked-off quests. Exported to PNG via the
-// same html2canvas path as DogtypeCard (brand + URL baked inside the capture).
+// made about the dog), stored in localStorage keyed by dog and synced with the
+// iPhone app through lib/progressSync. The passport count is a literal count of
+// the owner's checked-off quests. Exported to PNG via the same html2canvas path
+// as DogtypeCard (brand + URL baked inside the capture).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
+import { loadAdventures, onProgressChange, setAdventureDone } from '../lib/progressSync';
 import { adventuresFor, ADVENTURE_COUNT } from '../../shared/adventures';
 
 interface Props {
@@ -26,36 +27,6 @@ interface Props {
 }
 
 type CompletedMap = Record<string, number>;
-
-const storageKey = (dogId: string) => `godoggydate.adventures.${dogId}`;
-
-// SSR-safe load/save (localStorage keyed by dog). Guarded so a missing/blocked
-// store or bad JSON never throws — the live in-memory state is authoritative.
-function loadCompleted(dogId: string): CompletedMap {
-  if (typeof window === 'undefined' || !dogId) return {};
-  try {
-    const raw = window.localStorage.getItem(storageKey(dogId));
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return {};
-    const out: CompletedMap = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof v === 'number' && v > 0) out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function saveCompleted(dogId: string, map: CompletedMap): void {
-  if (typeof window === 'undefined' || !dogId) return;
-  try {
-    window.localStorage.setItem(storageKey(dogId), JSON.stringify(map));
-  } catch {
-    /* non-critical */
-  }
-}
 
 export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -72,11 +43,13 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
     [savedProfile.energyLevel, savedProfile.size],
   );
 
-  // Load persisted completion on mount / when the dog changes (client-only).
+  // Load persisted completion on mount / when the dog changes (client-only),
+  // and again when stamps synced from the iPhone app land.
   useEffect(() => {
-    setCompleted(loadCompleted(key));
+    setCompleted(loadAdventures(key));
     setReady(true);
     trackEvent('adventures_open', {});
+    return onProgressChange(() => setCompleted(loadAdventures(key)));
   }, [key]);
 
   function toggle(id: string) {
@@ -89,7 +62,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
         next[id] = Date.now();
         trackEvent('adventure_stamped', { quest: id });
       }
-      saveCompleted(key, next);
+      setAdventureDone(key, id, Boolean(next[id]));
       return next;
     });
   }
@@ -132,7 +105,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
         <h2 className="font-display text-xl text-brown leading-tight">🗺️ {dogName}&apos;s Adventure Passport</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           A bucket list picked to fit {dogName}. Stamp a quest when you two actually pull it off — it&apos;s your own
-          checklist, saved on this device.
+          checklist, {dogId ? 'saved to your account' : 'saved on this device'}.
         </p>
       </div>
 
@@ -250,7 +223,8 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
       </div>
 
       <p className="mt-3 text-[11px] text-brown-light leading-snug text-center">
-        Your own checklist — stamp a quest when you and {dogName} pull it off. 🐾 Saved on this device.
+        Your own checklist — stamp a quest when you and {dogName} pull it off. 🐾{' '}
+        {dogId ? 'Saved to your account.' : 'Saved on this device.'}
       </p>
     </section>
   );

@@ -2,11 +2,16 @@
 // Snoot Boop's counter — LOCAL-FIRST via AsyncStorage. Booping is a rapid-fire
 // gesture, so the network must never be in the tap loop (a per-tap Firestore
 // write would be laggy and costly). The count lives in component state at 60fps;
-// the component debounces persistence through here. On-device only in v1 — the
-// number shown is a literal count of the user's own taps, nothing about the dog
-// is asserted, so it's honest by construction.
+// the component debounces persistence through here. The number shown is a
+// literal count of the user's own taps, nothing about the dog is asserted, so
+// it's honest by construction.
+//
+// Synced across devices (lib/progressSync): each save marks progress dirty, and
+// a sync a couple of seconds later merges the count with users/{uid}/private/
+// progress, keeping the higher all-time count.
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { applyBoopWrite, progressKeys, readBoopCounts } from '../../shared/progress';
+import { markProgressDirty, readStoredJSON, updateStoredJSON } from './progressSync';
 
 export interface BoopState {
   allTime: number;
@@ -83,7 +88,7 @@ export const BOOP_MILESTONES: BoopMilestone[] = [
   { count: 1500, title: 'Snoot Sovereign', emoji: '🏆' },
 ];
 
-const KEY = (dogId: string) => `godoggydate.boops.${dogId}`;
+const KEY = progressKeys.boops;
 
 export function localDateStr(nowMs: number = Date.now()): string {
   const d = new Date(nowMs);
@@ -110,14 +115,18 @@ export function crossedMilestone(before: number, after: number): BoopMilestone |
   return m ?? null;
 }
 
-export async function loadBoops(dogId: string): Promise<BoopState> {
+// The all-time count the Snoot Boop screen last loaded or saved, per dog. A save
+// adds the taps made since then on top of what's stored, so a sync that raised
+// the stored count while the screen was open isn't overwritten.
+const writeBase = new Map<string, number>();
+
+async function readState(dogId: string): Promise<BoopState> {
   const today = localDateStr();
   const now = Date.now();
   const fresh = (): BoopState => ({ allTime: 0, todayCount: 0, todayDate: today, energy: MAX_ENERGY, energyAtMs: now });
   try {
-    const raw = await AsyncStorage.getItem(KEY(dogId));
-    if (!raw) return fresh();
-    const parsed = JSON.parse(raw) as Partial<BoopState>;
+    const parsed = (await readStoredJSON(KEY(dogId))) as Partial<BoopState> | null;
+    if (!parsed) return fresh();
     const allTime = typeof parsed.allTime === 'number' && parsed.allTime >= 0 ? Math.floor(parsed.allTime) : 0;
     // Roll the daily counter over if the stored day isn't today.
     const sameDay = parsed.todayDate === today;
@@ -136,10 +145,34 @@ export async function loadBoops(dogId: string): Promise<BoopState> {
   }
 }
 
+export async function loadBoops(dogId: string): Promise<BoopState> {
+  const state = await readState(dogId);
+  if (dogId) writeBase.set(dogId, state.allTime);
+  return state;
+}
+
+/**
+ * All-time count only, for screens that show it (Reveal Explorer keys, earned
+ * stickers) without saving boops. Unlike loadBoops it doesn't move the Snoot
+ * Boop screen's save baseline.
+ */
+export async function loadBoopAllTime(dogId: string): Promise<number> {
+  return (await readState(dogId)).allTime;
+}
+
 export async function persistBoops(dogId: string, state: BoopState): Promise<void> {
+  if (!dogId) return;
+  // Taken now, in call order, so rapid saves each count only their own taps.
+  const base = writeBase.get(dogId);
+  writeBase.set(dogId, state.allTime);
   try {
-    await AsyncStorage.setItem(KEY(dogId), JSON.stringify(state));
+    await updateStoredJSON(KEY(dogId), (stored) => ({
+      ...applyBoopWrite(readBoopCounts(stored), state, base),
+      energy: state.energy,
+      energyAtMs: state.energyAtMs,
+    }));
   } catch {
     /* non-critical — the live in-memory count is what the user sees */
   }
+  markProgressDirty(dogId);
 }

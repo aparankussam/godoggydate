@@ -97,6 +97,13 @@ export default function FunPage() {
           <Link href="/app/fun/sticker-studio" className="rounded-full border border-border bg-white px-3.5 py-1.5 text-sm font-bold text-brown hover:border-primary/40 transition-colors motion-reduce:transition-none">
             🎨 Sticker Studio
           </Link>
+          <Link
+            href="/excuse"
+            onClick={() => trackEvent('fun_hub_click', { source: 'playroom', target: 'excuse' })}
+            className="rounded-full border border-border bg-white px-3.5 py-1.5 text-sm font-bold text-brown hover:border-primary/40 transition-colors motion-reduce:transition-none"
+          >
+            📝 Excuse Note
+          </Link>
           <a href="#wanted" className="rounded-full border border-border bg-white px-3.5 py-1.5 text-sm font-bold text-brown hover:border-primary/40 transition-colors motion-reduce:transition-none">
             🤠 Wanted Poster
           </a>

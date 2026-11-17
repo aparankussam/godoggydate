@@ -1,15 +1,85 @@
 // mobile/components/HouseholdSection.tsx
 // Mirrors web/components/HouseholdSection.tsx — Household. Free, no payment
 // gating: the only mechanic that's a genuine viral vector at four total
-// users. Two differences from the web version: invite sharing uses the
+// users. One difference from the web version: invite sharing uses the
 // native Share sheet instead of clipboard copy (no clipboard dependency in
-// this project yet, and Share is built into react-native), and accepting an
-// invite has no separate route to land on — mobile has no equivalent of
-// web's /app/household/join page — so joining-by-code lives inline here.
+// this project yet, and Share is built into react-native).
+// The shared link (/app/household/join?code=…) opens app/household/join.tsx
+// when the app is installed (universal links), and the website otherwise.
+// HouseholdJoinForm below is the one code-entry form, also used by onboarding
+// and the join screen.
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, fonts, radius } from '../constants/theme';
-import { acceptHouseholdInvite, createHouseholdInvite, removeHouseholdMember } from '../lib/household';
+import {
+  acceptHouseholdInvite,
+  createHouseholdInvite,
+  normalizeInviteCode,
+  removeHouseholdMember,
+} from '../lib/household';
+import { webUrl } from '../lib/webLinks';
+
+interface JoinFormProps {
+  initialCode?: string | null;
+  /** Called after the invite is accepted. The form shows "Joining…" until it settles. */
+  onJoined?: (result: { dogId: string }) => void | Promise<void>;
+  /** Shows a Cancel link next to the button when provided. */
+  onCancel?: () => void;
+  submitLabel?: string;
+}
+
+export function HouseholdJoinForm({ initialCode, onJoined, onCancel, submitLabel = 'Join household' }: JoinFormProps) {
+  const [joinCode, setJoinCode] = useState(normalizeInviteCode(initialCode));
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  async function handleJoin() {
+    const code = normalizeInviteCode(joinCode);
+    if (!code) {
+      setJoinError('Enter the invite code');
+      return;
+    }
+    setJoining(true);
+    setJoinError(null);
+    try {
+      const result = await acceptHouseholdInvite(code);
+      await onJoined?.(result);
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : 'Could not join — check the code and try again');
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  return (
+    <View style={styles.joinForm}>
+      <TextInput
+        value={joinCode}
+        onChangeText={(v) => setJoinCode(normalizeInviteCode(v))}
+        placeholder="Invite code"
+        placeholderTextColor={colors.brownLight}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        maxLength={6}
+        style={styles.joinInput}
+        returnKeyType="go"
+        onSubmitEditing={handleJoin}
+        accessibilityLabel="Household invite code"
+      />
+      {joinError && <Text style={styles.errorText}>{joinError}</Text>}
+      <View style={styles.joinActions}>
+        <Pressable style={[styles.submitBtn, joining && { opacity: 0.6 }]} onPress={handleJoin} disabled={joining}>
+          <Text style={styles.submitText}>{joining ? 'Joining…' : submitLabel}</Text>
+        </Pressable>
+        {onCancel && (
+          <Pressable onPress={onCancel} hitSlop={8}>
+            <Text style={styles.cancelLink}>Cancel</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
 
 interface Props {
   /** The signed-in user's own dog. Never hardcode a name here — every
@@ -26,9 +96,6 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
   const [busyUid, setBusyUid] = useState<string | null>(null);
 
   const [showJoin, setShowJoin] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
-  const [joining, setJoining] = useState(false);
-  const [joinError, setJoinError] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
 
   async function handleInvite() {
@@ -46,10 +113,9 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
 
   async function handleShare() {
     if (!invite) return;
-    const webBase = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
     try {
       await Share.share({
-        message: `Join ${dogName || 'my dog'}'s household on GoDoggyDate — code ${invite.code}. ${webBase}/app/household/join?code=${invite.code}`,
+        message: `Join ${dogName || 'my dog'}'s household on GoDoggyDate — code ${invite.code}. ${webUrl(`/app/household/join?code=${invite.code}`)}`,
       });
     } catch {
       // User dismissed the share sheet — the code is still visible on screen.
@@ -64,25 +130,6 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
       // Non-critical — they can retry.
     } finally {
       setBusyUid(null);
-    }
-  }
-
-  async function handleJoin() {
-    if (!joinCode.trim()) {
-      setJoinError('Enter the invite code');
-      return;
-    }
-    setJoining(true);
-    setJoinError(null);
-    try {
-      await acceptHouseholdInvite(joinCode.trim());
-      setJoined(true);
-      setShowJoin(false);
-      setJoinCode('');
-    } catch (err) {
-      setJoinError(err instanceof Error ? err.message : 'Could not join — check the code and try again');
-    } finally {
-      setJoining(false);
     }
   }
 
@@ -133,26 +180,13 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
         {joined ? (
           <Text style={styles.joinedText}>You&apos;re in this household 🐾</Text>
         ) : showJoin ? (
-          <View style={styles.joinForm}>
-            <TextInput
-              value={joinCode}
-              onChangeText={(v) => setJoinCode(v.toUpperCase())}
-              placeholder="Invite code"
-              placeholderTextColor={colors.brownLight}
-              autoCapitalize="characters"
-              maxLength={6}
-              style={styles.joinInput}
-            />
-            {joinError && <Text style={styles.errorText}>{joinError}</Text>}
-            <View style={styles.joinActions}>
-              <Pressable style={[styles.submitBtn, joining && { opacity: 0.6 }]} onPress={handleJoin} disabled={joining}>
-                <Text style={styles.submitText}>{joining ? 'Joining…' : 'Join household'}</Text>
-              </Pressable>
-              <Pressable onPress={() => { setShowJoin(false); setJoinError(null); }} hitSlop={8}>
-                <Text style={styles.cancelLink}>Cancel</Text>
-              </Pressable>
-            </View>
-          </View>
+          <HouseholdJoinForm
+            onJoined={() => {
+              setJoined(true);
+              setShowJoin(false);
+            }}
+            onCancel={() => setShowJoin(false)}
+          />
         ) : (
           <Pressable onPress={() => setShowJoin(true)}>
             <Text style={styles.joinLink}>Have an invite code?</Text>

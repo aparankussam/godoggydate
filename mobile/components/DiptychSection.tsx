@@ -15,16 +15,31 @@
 // as every other card. No native date picker dependency — the date is a
 // US MM/DD/YYYY text field, matching the rabies-expiry input in ProfileEditor
 // and every other date the app asks for (shared/dates.ts).
+//
+// When it shows: the same rule as web — the Profile tab mounts it for any
+// saved profile with at least DIPTYCH_MIN_PHOTOS real photos (a complete
+// profile isn't required). See shouldShowDiptych below.
 
 import { useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, fonts, radius } from '../constants/theme';
 import type { SavedDogProfile } from '../lib/profile';
 import { getRenderablePhotos } from '../lib/photos';
+import { focusForPhoto, resolveHeroIndex } from '../lib/coverPhoto';
 import { captureAndShare } from '../lib/shareCard';
+import { webBaseUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import DiptychCard from './DiptychCard';
 import { formatUsMonthYear, maskUsDateInput, parseUsDateInput } from '../../shared/dates';
+
+/** A "then vs now" needs two different photos. */
+export const DIPTYCH_MIN_PHOTOS = 2;
+
+/** Whether the Profile tab shows the card: a saved profile with at least two
+ *  real photos (non-empty, not the '_placeholder_' padding). Same as web. */
+export function shouldShowDiptych(profile: Pick<SavedDogProfile, 'photos'> | null | undefined): boolean {
+  return !!profile && getRenderablePhotos(profile.photos).length >= DIPTYCH_MIN_PHOTOS;
+}
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -72,8 +87,15 @@ export default function DiptychSection({ savedProfile }: Props) {
   const days = earliestDate ? daysSince(earliestDate) : null;
   const futureDate = dateValue.trim().length > 0 && earliestDate !== null && days === null;
 
-  const earliestUrl = photos[Math.min(earliestIdx, photos.length - 1)];
-  const latestUrl = photos[Math.min(latestIdx, photos.length - 1)];
+  const safeEarliest = Math.min(earliestIdx, photos.length - 1);
+  const safeLatest = Math.min(latestIdx, photos.length - 1);
+  const earliestUrl = photos[safeEarliest];
+  const latestUrl = photos[safeLatest];
+  // The owner's focal point belongs to their cover photo, so it's used only
+  // on a panel showing that photo; anything else is centre-cropped.
+  const heroIdx = resolveHeroIndex(savedProfile) ?? 0;
+  const earliestFocus = focusForPhoto(savedProfile, safeEarliest, heroIdx);
+  const latestFocus = focusForPhoto(savedProfile, safeLatest, heroIdx);
 
   const earliestLabel = earliestDate
     ? formatUsMonthYear(earliestDate)
@@ -86,13 +108,19 @@ export default function DiptychSection({ savedProfile }: Props) {
     if (sharing || !ready || days === null) return;
     setSharing(true);
     trackEvent('diptych_share_click', { days });
+    // Same caption as web's share, with a link to the site.
     const result = await captureAndShare(
       cardRef,
       `${dogName.toLowerCase().replace(/\s+/g, '-')}-day1-vs-day${days}.png`,
       `${dogName}: Day 1 vs Day ${days}`,
+      {
+        caption: `Day 1 vs Day ${days} with ${dogName} 🐾 — ${days} days since our earliest photo. Make your dog's National Dog Day diptych on GoDoggyDate:`,
+        url: webBaseUrl(),
+      },
     );
     if (result === 'shared') trackEvent('diptych_shared', { method: 'native_share', days });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    if (result === 'error') Alert.alert('Could not share card', 'Please try again in a moment.');
     setSharing(false);
   }
 
@@ -173,6 +201,8 @@ export default function DiptychSection({ savedProfile }: Props) {
               dogName={dogName}
               earliestUrl={earliestUrl}
               latestUrl={latestUrl}
+              earliestFocus={earliestFocus}
+              latestFocus={latestFocus}
               days={days!}
               earliestLabel={earliestLabel}
             />

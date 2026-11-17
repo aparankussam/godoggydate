@@ -34,6 +34,7 @@ import {
   unlockedExtra,
   type UnlockSnapshot,
 } from '../lib/revealUnlocks';
+import { onProgressChange } from '../lib/progressSync';
 import DogtypeCompatCard from './DogtypeCompatCard';
 import {
   computeDogtype,
@@ -126,6 +127,21 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
       };
     }, [userId]),
   );
+
+  // Keys or boops synced from the website re-read the ledger without a refocus.
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    const off = onProgressChange(() => {
+      void loadUnlocks(userId).then((s) => {
+        if (alive) setSnapshot(s);
+      });
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (computed && matches.length > 0 && !viewedRef.current) {

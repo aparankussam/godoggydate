@@ -11,6 +11,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { checkContent, CONTENT_FILTER_MESSAGE } from './contentFilter';
 
 const MIN_CAPACITY = 4;
 const MAX_CAPACITY = 12;
@@ -68,6 +69,11 @@ function cleanText(value: unknown, label: string, max: number, required: boolean
   if (text.length > max) throw new HttpsError('invalid-argument', `${label} must be ${max} characters or fewer.`);
   if (CONTACT_PATTERN.test(text)) {
     throw new HttpsError('invalid-argument', `Leave links and contact details out of the ${label.toLowerCase()}. Members message each other in the app.`);
+  }
+  // Slurs, sexual solicitation and threats (Apple guideline 1.2). The apps
+  // check first; this catches a client that skipped it.
+  if (!checkContent(text).ok) {
+    throw new HttpsError('invalid-argument', CONTENT_FILTER_MESSAGE);
   }
   return text;
 }
@@ -292,6 +298,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
     return { joined: true };
   });
 
+  // Only flips the status. onPackDayCancelled tells the attendees, the same
+  // way it does for a moderator take-down (scripts/admin-remove-packday.cjs).
   const cancelPackDay = functions.https.onCall(async (data, context) => {
     const uid = requireUid(context, 'cancel a Pack Day');
     const eventId = typeof data?.eventId === 'string' ? data.eventId : '';
@@ -299,19 +307,67 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
       throw new HttpsError('invalid-argument', 'Invalid request.');
     }
     const ref = db.doc(`packDays/${eventId}`);
-    const snap = await ref.get();
-    if (!snap.exists) throw new HttpsError('not-found', 'That Pack Day no longer exists.');
-    const event = snap.data()!;
-    if (event.hostUid !== uid) throw new HttpsError('permission-denied', 'Only the host can cancel.');
-    if (event.status === 'cancelled') return { cancelled: true };
-
-    await ref.update({ status: 'cancelled', cancelledAtMs: Date.now() });
-    await notifyAttendees(eventId, event, {
-      title: 'Pack Day cancelled',
-      body: `${event.title as string} was cancelled by the host.`,
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new HttpsError('not-found', 'That Pack Day no longer exists.');
+      const event = snap.data()!;
+      if (event.hostUid !== uid) throw new HttpsError('permission-denied', 'Only the host can cancel.');
+      // Already cancelled, by the host or by a moderator: leave it as it is.
+      if (event.status === 'cancelled') return;
+      tx.update(ref, { status: 'cancelled', cancelledAtMs: Date.now() });
     });
     return { cancelled: true };
   });
+
+  // The one place a cancellation is announced, whoever cancelled: the host
+  // (cancelPackDay) or a moderator (scripts/admin-remove-packday.cjs, which
+  // also sets removedByModerator). It fires on the open -> cancelled change
+  // only, so later writes to a cancelled event never push again, and the
+  // cancelNotified flag stops a duplicate delivery of the same change from
+  // pushing twice. (deleteAccount deletes hosted events rather than
+  // cancelling them, and tells attendees itself.)
+  const onPackDayCancelled = functions.firestore
+    .document('packDays/{eventId}')
+    .onUpdate(async (change, context) => {
+      const before = change.before.data();
+      const event = change.after.data();
+      if (before.status === 'cancelled' || event.status !== 'cancelled') return;
+      const { eventId } = context.params as { eventId: string };
+
+      // Nobody needs to hear that something already over was cancelled.
+      const endsAtMs = (event.startsAtMs as number) + (event.durationMinutes as number) * 60_000;
+      if (Date.now() >= endsAtMs) return;
+
+      const ref = change.after.ref;
+      const claimed = await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(ref);
+        // Deleted since (say the host then deleted their account): still tell
+        // people, there's just nowhere to record that we did.
+        if (!fresh.exists) return true;
+        if (fresh.data()?.cancelNotified === true) return false;
+        tx.update(ref, { cancelNotified: true });
+        return true;
+      });
+      if (!claimed) return;
+
+      const title = event.title as string;
+      if (event.removedByModerator === true) {
+        await notifyAttendees(eventId, event, {
+          title: 'Pack Day cancelled',
+          body: `${title} was removed by GoDoggyDate.`,
+        });
+        await sendPushToUser(event.hostUid as string, {
+          title: 'Pack Day removed',
+          body: `${title} was removed by GoDoggyDate because it broke the community rules.`,
+          data: { type: 'packday', eventId, link: `${SITE}/app/pack/${eventId}` },
+        }).catch((error) => console.warn('packDay: host removal push failed', { eventId, error }));
+        return;
+      }
+      await notifyAttendees(eventId, event, {
+        title: 'Pack Day cancelled',
+        body: `${title} was cancelled by the host.`,
+      });
+    });
 
   async function notifyAttendees(
     eventId: string,
@@ -381,5 +437,12 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
     }
   }
 
-  return { createPackDay, rsvpPackDay, cancelPackDay, sendPackDayReminders, cleanupPackDaysForUser };
+  return {
+    createPackDay,
+    rsvpPackDay,
+    cancelPackDay,
+    onPackDayCancelled,
+    sendPackDayReminders,
+    cleanupPackDaysForUser,
+  };
 }

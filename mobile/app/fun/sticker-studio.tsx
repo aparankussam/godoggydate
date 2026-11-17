@@ -1,24 +1,28 @@
 // mobile/app/fun/sticker-studio.tsx
 // Sticker Studio — the payoff for booping. Every milestone unlocks decals; here
 // you drop them onto your dog's photo, drag them around, and share the result.
-// Pure local fun: image-picker for the photo, PanResponder for drag (no extra
-// native dep), react-native-view-shot to flatten + share. Honest by
-// construction — the stickers are earned by the user's own tap count.
+// Mirrors web/app/app/fun/sticker-studio: the photo is one of the dog's own
+// uploads (or one picked from the library), and the tray shows every sticker,
+// the locked ones with the boop count that unlocks them. Pure local fun:
+// PanResponder for drag (no extra native dep), react-native-view-shot to
+// flatten + share. Honest by construction — the stickers are earned by the
+// user's own tap count.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Animated, Dimensions, Image, PanResponder, Pressable,
   SafeAreaView, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
-import { getHeroPhoto } from '../../lib/photos';
+import { getHeroPhoto, getRenderablePhotos } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
+import { webUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
-import { loadBoops, unlockedStickers, type Sticker } from '../../lib/boops';
+import { loadBoopAllTime, unlockedStickers, STICKERS, type Sticker } from '../../lib/boops';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 
 const CANVAS = Math.min(Dimensions.get('window').width - 40, 360);
@@ -64,19 +68,53 @@ export default function StickerStudioScreen() {
   const dogId = user?.uid ?? '';
   const dogName = profile?.name?.trim() || 'Your dog';
   const hero = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
+  const gallery = getRenderablePhotos(profile?.photos);
 
   const [photoUri, setPhotoUri] = useState<string | undefined>(hero ?? undefined);
-  const [stickers, setStickers] = useState<Sticker[]>([]);
+  const [allTime, setAllTime] = useState(0);
   const [placed, setPlaced] = useState<Placed[]>([]);
   const [seq, setSeq] = useState(0);
   const [sharing, setSharing] = useState(false);
   const canvasRef = useRef<View>(null);
 
   useEffect(() => {
-    if (!dogId) return;
-    loadBoops(dogId).then((s) => setStickers(unlockedStickers(s.allTime)));
-    trackEvent('sticker_studio_open');
+    if (dogId) trackEvent('sticker_studio_open');
   }, [dogId]);
+
+  // Re-read the count whenever the screen comes back into view, so boops
+  // earned on the Snoot screen show up as unlocked stickers straight away.
+  useFocusEffect(
+    useCallback(() => {
+      if (!dogId) return;
+      let active = true;
+      // Read-only, so it never moves Snoot Boop's save baseline.
+      loadBoopAllTime(dogId).then((count) => { if (active) setAllTime(count); });
+      return () => { active = false; };
+    }, [dogId]),
+  );
+
+  // Default the canvas to the hero photo once the profile is there (unless a
+  // photo was already chosen).
+  useEffect(() => {
+    if (!photoUri && hero) setPhotoUri(hero);
+  }, [hero, photoUri]);
+
+  const stickers = unlockedStickers(allTime);
+  // The next sticker to earn (STICKERS is in unlock order).
+  const next = STICKERS.find((s) => allTime < s.unlockAt) ?? null;
+
+  // Back to the Snoot screen if it's already open underneath (opening a second
+  // one would leave two counters that overwrite each other's saves), else
+  // swap this screen for it.
+  function goBoop() {
+    Haptics.selectionAsync().catch(() => {});
+    router.dismissTo('/fun/snoot');
+  }
+
+  function choosePhoto(uri: string) {
+    Haptics.selectionAsync().catch(() => {});
+    setPhotoUri(uri);
+  }
 
   function addSticker(s: Sticker) {
     Haptics.selectionAsync().catch(() => {});
@@ -105,7 +143,15 @@ export default function StickerStudioScreen() {
     if (sharing) return;
     setSharing(true);
     trackEvent('sticker_studio_share_click', { stickers: placed.length });
-    const result = await captureAndShare(canvasRef, `${dogName.toLowerCase().replace(/\s+/g, '-')}-stickered.png`, `${dogName}`);
+    const result = await captureAndShare(
+      canvasRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-stickered.png`,
+      `${dogName}, decorated`,
+      {
+        caption: `I decorated ${dogName} with stickers I earned by booping 🐾 Make your own on GoDoggyDate.`,
+        url: webUrl('/'),
+      },
+    );
     if (result === 'shared') trackEvent('sticker_studio_shared', { stickers: placed.length, method: 'native_share' });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
     setSharing(false);
@@ -137,12 +183,42 @@ export default function StickerStudioScreen() {
 
         <Text style={styles.hint}>Tap a sticker to add it · drag to move · long-press to remove</Text>
 
+        {/* Photo: the dog's own uploads, plus one from the library */}
+        <View style={styles.photoSection}>
+          <Text style={styles.trayLabel}>Photo</Text>
+          <View style={styles.photoRow}>
+            {gallery.map((src, i) => {
+              const selected = photoUri === src;
+              return (
+                <Pressable
+                  key={`${i}-${src}`}
+                  style={[styles.photoThumb, selected && styles.photoThumbSelected]}
+                  onPress={() => choosePhoto(src)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${dogName} photo ${i + 1}`}
+                  accessibilityState={{ selected }}
+                >
+                  <Image source={{ uri: src }} style={styles.photoThumbImage} />
+                </Pressable>
+              );
+            })}
+            <Pressable
+              style={styles.photoAdd}
+              onPress={pickPhoto}
+              accessibilityRole="button"
+              accessibilityLabel="Choose a photo from your library"
+            >
+              <Text style={styles.photoAddText}>+</Text>
+            </Pressable>
+          </View>
+        </View>
+
         {/* Sticker tray */}
         {stickers.length === 0 ? (
           <View style={styles.locked}>
             <Text style={styles.lockedEmoji}>🔒</Text>
             <Text style={styles.lockedText}>Boop {dogName}&apos;s snoot to earn your first stickers — the first two unlock at 10 boops.</Text>
-            <Pressable style={styles.primaryButton} onPress={() => router.replace('/fun/snoot')}>
+            <Pressable style={styles.primaryButton} onPress={goBoop}>
               <Text style={styles.primaryText}>Go boop 🐽</Text>
             </Pressable>
           </View>
@@ -150,29 +226,59 @@ export default function StickerStudioScreen() {
           <>
             <Text style={styles.trayLabel}>Your stickers ({stickers.length})</Text>
             <View style={styles.tray}>
-              {stickers.map((s) => (
-                <Pressable key={s.id} style={styles.trayItem} onPress={() => addSticker(s)}>
-                  <Text style={styles.trayEmoji}>{s.emoji}</Text>
-                  <Text style={styles.trayName}>{s.label}</Text>
-                </Pressable>
-              ))}
+              {STICKERS.map((s) =>
+                allTime >= s.unlockAt ? (
+                  <Pressable
+                    key={s.id}
+                    style={styles.trayItem}
+                    onPress={() => addSticker(s)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add the ${s.label} sticker`}
+                  >
+                    <Text style={styles.trayEmoji}>{s.emoji}</Text>
+                    <Text style={styles.trayName}>{s.label}</Text>
+                  </Pressable>
+                ) : (
+                  <View
+                    key={s.id}
+                    style={[styles.trayItem, styles.trayItemLocked]}
+                    accessible
+                    accessibilityLabel={`Locked sticker. Unlocks at ${s.unlockAt.toLocaleString()} boops`}
+                  >
+                    <Text style={[styles.trayEmoji, styles.trayEmojiLocked]}>🔒</Text>
+                    <Text style={styles.trayUnlockAt}>{s.unlockAt.toLocaleString()}</Text>
+                  </View>
+                ),
+              )}
             </View>
 
+            {next && (
+              <Text style={styles.nextLine}>
+                Next: {next.emoji} {next.label} at {next.unlockAt.toLocaleString()} boops ·{' '}
+                <Text style={styles.nextLink} onPress={goBoop} accessibilityRole="link">
+                  keep booping
+                </Text>
+              </Text>
+            )}
+
             <View style={styles.actions}>
-              <Pressable style={styles.secondaryButton} onPress={pickPhoto}>
-                <Text style={styles.secondaryText}>📸 Change photo</Text>
-              </Pressable>
               {placed.length > 0 && (
-                <Pressable style={styles.secondaryButton} onPress={() => setPlaced([])}>
+                <Pressable style={[styles.secondaryButton, styles.clearButton]} onPress={() => setPlaced([])}>
                   <Text style={styles.secondaryText}>Clear</Text>
                 </Pressable>
               )}
+              <Pressable
+                style={[styles.primaryButton, styles.shareButton, sharing && { opacity: 0.6 }]}
+                onPress={handleShare}
+                disabled={sharing}
+              >
+                <Text style={styles.primaryText}>{sharing ? 'Rendering…' : '📤 Share your masterpiece'}</Text>
+              </Pressable>
             </View>
-            <Pressable style={[styles.primaryButton, sharing && { opacity: 0.6 }]} onPress={handleShare} disabled={sharing}>
-              <Text style={styles.primaryText}>{sharing ? 'Rendering…' : '📤 Share your masterpiece'}</Text>
-            </Pressable>
           </>
         )}
+
+        <Text style={styles.footnote}>Stickers are genuinely earned by your own boops — no shortcuts, no fabricated stats. 🐾</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -194,13 +300,37 @@ const styles = StyleSheet.create({
   trayLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, alignSelf: 'flex-start', textTransform: 'uppercase', letterSpacing: 1 },
   tray: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
   trayItem: { width: 62, height: 72, borderRadius: 16, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  trayItemLocked: { backgroundColor: `${colors.creamDark}99`, opacity: 0.7 },
   trayEmoji: { fontSize: 30 },
+  trayEmojiLocked: { fontSize: 24 },
   trayName: { fontFamily: fonts.body, fontSize: 9, color: colors.brownLight },
+  trayUnlockAt: { fontFamily: fonts.bold, fontSize: 10, color: colors.brownLight },
+  nextLine: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, textAlign: 'center' },
+  nextLink: { fontFamily: fonts.bold, color: colors.primary },
+  photoSection: { alignSelf: 'stretch', gap: 6 },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  photoThumb: { width: 52, height: 52, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.border },
+  photoThumbSelected: { borderColor: colors.primary },
+  photoThumbImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  photoAdd: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoAddText: { fontFamily: fonts.semibold, fontSize: 22, color: colors.brownLight },
   actions: { flexDirection: 'row', gap: 10, alignSelf: 'stretch' },
   secondaryButton: { flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, borderRadius: radius.full, paddingVertical: 13, alignItems: 'center' },
+  clearButton: { flex: 0, paddingHorizontal: 22, justifyContent: 'center' },
   secondaryText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
   primaryButton: { backgroundColor: colors.primary, borderRadius: radius.full, paddingVertical: 15, alignItems: 'center', alignSelf: 'stretch', ...shadow.button },
+  shareButton: { flex: 1, paddingHorizontal: 12 },
   primaryText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
+  footnote: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, textAlign: 'center', lineHeight: 16, paddingHorizontal: 16 },
   locked: { alignItems: 'center', gap: 10, paddingVertical: 20 },
   lockedEmoji: { fontSize: 44 },
   lockedText: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight, textAlign: 'center', lineHeight: 20 },

@@ -4,16 +4,24 @@
 // additional one unlocks when the owner earns a key, two honest ways:
 //   • reach a Snoot Boop milestone (derived from the boop count), or
 //   • invite a friend (the shared card IS the invite).
-// No backend, per-device. A key is always a real thing the owner did.
+// Local first, synced across devices by lib/progressSync (invited codes merge
+// as a union). A key is always a real thing the owner did.
 //
 // AsyncStorage is async (unlike web's synchronous localStorage), so the reads
 // here return Promises and the explorer loads the result into state on mount /
 // focus, then computes keys synchronously from that snapshot.
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loadBoops, BOOP_MILESTONES } from './boops';
+import { loadBoopAllTime, BOOP_MILESTONES } from './boops';
+import { progressKeys } from '../../shared/progress';
+import { markProgressDirty, readStoredJSON, updateStoredJSON } from './progressSync';
 
-const KEY = (dogId: string) => `godoggydate.revealUnlocks.${dogId}`;
+const KEY = progressKeys.unlocks;
+
+function codesFrom(raw: unknown): string[] {
+  const parsed = raw as { invitedCodes?: unknown } | null;
+  if (!parsed || !Array.isArray(parsed.invitedCodes)) return [];
+  return Array.from(new Set(parsed.invitedCodes.filter((c): c is string => typeof c === 'string')));
+}
 
 export interface UnlockSnapshot {
   /** Distinct match-type codes invited for — one key each (a set). */
@@ -28,20 +36,12 @@ export async function loadUnlocks(dogId: string): Promise<UnlockSnapshot> {
   let invitedCodes: string[] = [];
   let boopAllTime = 0;
   try {
-    const raw = await AsyncStorage.getItem(KEY(dogId));
-    if (raw) {
-      const parsed = JSON.parse(raw) as { invitedCodes?: unknown };
-      if (Array.isArray(parsed.invitedCodes)) {
-        invitedCodes = Array.from(
-          new Set(parsed.invitedCodes.filter((c): c is string => typeof c === 'string')),
-        );
-      }
-    }
+    invitedCodes = codesFrom(await readStoredJSON(KEY(dogId)));
   } catch {
     /* corrupt / unavailable — degrade to empty */
   }
   try {
-    boopAllTime = (await loadBoops(dogId)).allTime;
+    boopAllTime = await loadBoopAllTime(dogId);
   } catch {
     /* ignore — 0 keys from boops */
   }
@@ -69,13 +69,20 @@ export function unlockedExtra(snapshot: UnlockSnapshot, lockedTotal: number): nu
  */
 export async function recordInvite(dogId: string, matchCode: string): Promise<string[]> {
   if (!dogId || !matchCode) return [];
-  const snapshot = await loadUnlocks(dogId);
-  if (snapshot.invitedCodes.includes(matchCode)) return snapshot.invitedCodes;
-  const next = [...snapshot.invitedCodes, matchCode];
+  let codes: string[] = [matchCode];
   try {
-    await AsyncStorage.setItem(KEY(dogId), JSON.stringify({ invitedCodes: next }));
+    await updateStoredJSON(KEY(dogId), (raw) => {
+      const current = codesFrom(raw);
+      if (current.includes(matchCode)) {
+        codes = current;
+        return undefined;
+      }
+      codes = [...current, matchCode];
+      return { invitedCodes: codes };
+    });
+    markProgressDirty(dogId);
   } catch {
     /* best-effort — the in-memory update still reveals the card this session */
   }
-  return next;
+  return codes;
 }

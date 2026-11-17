@@ -5,7 +5,10 @@ import { colors, fonts, radius } from '../constants/theme';
 interface Props {
   dogName: string;
   dogBreed?: string;
-  photo?: string;
+  /** The dog's primary photo — the one it leads with (cover pick, else AI
+   *  hero, else first real photo), not raw photos[0], which can be the
+   *  '_placeholder_' padding token. */
+  photo?: string | null;
   /** null = this playdate has no rating. Renders no star row and no verdict
    *  line rather than inventing either. */
   stars: number | null;
@@ -26,6 +29,7 @@ function verdictLine(stars: number | null): string | null {
 const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, stars }, ref) => {
   const clampedStars = stars === null ? null : Math.max(0, Math.min(5, stars));
   const verdict = verdictLine(clampedStars);
+  const renderablePhoto = photo && photo.trim() && photo.trim() !== '_placeholder_' ? photo : null;
 
   return (
     <View ref={ref} style={styles.card}>
@@ -34,8 +38,8 @@ const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, 
       </View>
       <Text style={styles.pawEmoji}>🎾</Text>
 
-      {photo ? (
-        <Image source={{ uri: photo }} style={styles.photo} />
+      {renderablePhoto ? (
+        <Image source={{ uri: renderablePhoto }} style={styles.photo} />
       ) : (
         <View style={[styles.photo, styles.photoFallback]}>
           <Text style={{ fontSize: 64 }}>🐕</Text>

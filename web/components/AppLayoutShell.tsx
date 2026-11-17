@@ -18,6 +18,7 @@ import type { User, SavedDogProfile } from '../lib/auth';
 import { setAnalyticsUser, trackEvent } from '../lib/analytics';
 import { ensurePushRegisteredIfGranted } from '../lib/push';
 import { getHouseholdDogsForUser } from '../lib/household';
+import { startProgressSync, stopProgressSync } from '../lib/progressSync';
 import AppNav from './AppNav';
 
 interface Props {
@@ -38,6 +39,10 @@ export default function AppLayoutShell({ children }: Props) {
     const unsub = onAuthStateChanged(auth, async (user) => {
       setAuthUser(user);
       setAnalyticsUser(user?.uid ?? null);
+      // Boops, invite keys, passport stamps, Barkle and the Human Review wait
+      // follow the account between the website and the iPhone app.
+      if (user) startProgressSync(user.uid);
+      else stopProgressSync();
       // Reset per-account so a sign-out (or an account switch in the same
       // page session) can't leave the previous user's household access
       // deciding this user's nav.

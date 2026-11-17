@@ -1,19 +1,22 @@
 // mobile/app/fun/snoot.tsx
-// Snoot Boop — a shameless one-tap haptic toy. The dog's hero photo is a
-// boop-able snoot: tap it, it squishes, your palm buzzes, a counter climbs, and
-// milestone titles unlock. The only number shown is a literal count of YOUR OWN
-// taps (see lib/boops.ts) — nothing about the dog is asserted, so it's honest
-// candy. Count is local-first + debounced; the network is never in the tap loop.
+// Snoot Boop — a shameless one-tap toy. The dog's hero photo is a boop-able
+// snoot: tap it, it squishes, a "boop" plays, your palm buzzes, a counter
+// climbs, and milestone titles unlock. The only number shown is a literal count
+// of YOUR OWN taps (see lib/boops.ts) — nothing about the dog is asserted, so
+// it's honest candy. Count is local-first + debounced; the network is never in
+// the tap loop.
 
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, AppState, Easing, Pressable, SafeAreaView, StyleSheet, Text, View, Image } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import type { AudioPlayer } from 'expo-audio';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
+import { webUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 import {
@@ -31,6 +34,80 @@ import {
 
 const CONFETTI = ['🐾', '🐾', '🐾', '✨', '🦴', '🐾'];
 
+// ── Boop sounds ──────────────────────────────────────────────────────────────
+// Web synthesises a soft sine "boop" whose pitch climbs with the tap streak
+// (400 Hz + 28 Hz per step, streak 0–12; web/lib/feedback.ts). The app plays
+// the same boop pre-rendered at streak 0, 3, 6, 9 and 12, plus web's milestone
+// chime; scripts/make-boop-sounds.cjs makes the files.
+/* eslint-disable @typescript-eslint/no-require-imports -- Metro bundles static assets through require() */
+const BOOP_SOUNDS: number[] = [
+  require('../../assets/sounds/boop-1.wav'),
+  require('../../assets/sounds/boop-2.wav'),
+  require('../../assets/sounds/boop-3.wav'),
+  require('../../assets/sounds/boop-4.wav'),
+  require('../../assets/sounds/boop-5.wav'),
+];
+const MILESTONE_SOUND: number = require('../../assets/sounds/milestone.wav');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+/** The pre-rendered boop closest to web's pitch for this streak (0–12). */
+function boopSoundIndex(streak: number): number {
+  return Math.max(0, Math.min(BOOP_SOUNDS.length - 1, Math.round(streak / 3)));
+}
+
+/**
+ * Loads the boop players for as long as the screen is open. Sound is a bonus:
+ * expo-audio is imported lazily so a binary built without it, or any audio
+ * error, leaves the toy silent instead of breaking it. The 'ambient' audio
+ * session (playsInSilentMode false, mixing) respects the silent switch and
+ * leaves the owner's music playing.
+ */
+function useBoopSounds() {
+  const players = useRef<{ boops: AudioPlayer[]; milestone: AudioPlayer } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const created: AudioPlayer[] = [];
+    import('expo-audio')
+      .then((audio) => {
+        if (cancelled) return;
+        audio.setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' }).catch(() => {});
+        const make = (source: number) => {
+          const player = audio.createAudioPlayer(source);
+          created.push(player);
+          return player;
+        };
+        players.current = { boops: BOOP_SOUNDS.map((s) => make(s)), milestone: make(MILESTONE_SOUND) };
+      })
+      .catch(() => {
+        players.current = null;
+      });
+    return () => {
+      cancelled = true;
+      players.current = null;
+      created.forEach((player) => {
+        try { player.remove(); } catch { /* already gone */ }
+      });
+    };
+  }, []);
+
+  function play(player: AudioPlayer | undefined) {
+    if (!player) return;
+    try {
+      // Rewind so a rapid run of taps restarts the sound each time.
+      player.seekTo(0).catch(() => {});
+      player.play();
+    } catch {
+      /* sound is optional */
+    }
+  }
+
+  return {
+    boop: (streak: number) => play(players.current?.boops[boopSoundIndex(streak)]),
+    milestone: () => play(players.current?.milestone),
+  };
+}
+
 export default function SnootScreen() {
   const { user, profile } = useSession();
   const dogId = user?.uid ?? '';
@@ -42,8 +119,10 @@ export default function SnootScreen() {
   const [sharing, setSharing] = useState(false);
   const [, setTick] = useState(0); // 1s heartbeat so the energy meter refills visibly
   const badgeRef = useRef<View>(null);
+  const sounds = useBoopSounds();
 
-  // Escalating-haptic streak: rapid consecutive boops build a rising "beat".
+  // Escalating streak: rapid consecutive boops build a rising "beat" (a
+  // stronger haptic and a higher-pitched boop).
   const lastBoopMs = useRef(0);
   const streak = useRef(0);
 
@@ -165,6 +244,7 @@ export default function SnootScreen() {
       pending.current = null;
       void persistBoops(dogId, next);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      sounds.milestone();
       runConfetti();
       trackEvent('snoot_milestone', { count: milestone.count, title: milestone.title });
     } else {
@@ -174,6 +254,8 @@ export default function SnootScreen() {
           ? Haptics.ImpactFeedbackStyle.Medium
           : Haptics.ImpactFeedbackStyle.Light;
       Haptics.impactAsync(style).catch(() => {});
+      // Pitch climbs with the streak for a satisfying rally, as on web.
+      sounds.boop(streak.current);
     }
   }
 
@@ -181,7 +263,16 @@ export default function SnootScreen() {
     if (sharing) return;
     setSharing(true);
     trackEvent('snoot_share_click', { all_time: state.allTime });
-    const result = await captureAndShare(badgeRef, `${dogName.toLowerCase().replace(/\s+/g, '-')}-boops.png`, `${dogName}'s snoot`);
+    const result = await captureAndShare(
+      badgeRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-boops.png`,
+      `${dogName}'s snoot`,
+      {
+        // Web's caption and link.
+        caption: `I've booped ${dogName}'s snoot ${state.allTime.toLocaleString()} times 🐽 Boop your own dog on GoDoggyDate.`,
+        url: webUrl('/'),
+      },
+    );
     if (result === 'shared') trackEvent('snoot_shared', { all_time: state.allTime, method: 'native_share' });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
     setSharing(false);

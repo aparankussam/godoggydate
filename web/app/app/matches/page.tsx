@@ -38,6 +38,8 @@ interface MatchDoc {
   lastMessage:     string | null;
   lastMessageTime: { seconds: number } | null;
   lastMessageFromUid?: string | null;
+  /** The other person wrote last and you haven't opened the thread since. */
+  unread: boolean;
 }
 
 interface MatchWithProfile extends MatchDoc {
@@ -47,6 +49,35 @@ interface MatchWithProfile extends MatchDoc {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function toMillis(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (value && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  if (value && typeof (value as { seconds?: unknown }).seconds === 'number') {
+    return (value as { seconds: number }).seconds * 1000;
+  }
+  return undefined;
+}
+
+/** The iPhone list's rule (isMatchUnread in mobile/lib/firestoreData.ts): the
+ *  other person sent the last message, and this user's read slot
+ *  (dog1LastReadAt / dog2LastReadAt, stamped when they open the thread) is
+ *  missing or older than it. Older docs name the users userAId / userBId.
+ *  A new match with no messages is never "unread"; it gets the pill instead. */
+function isThreadUnread(data: Record<string, unknown>, uid: string): boolean {
+  const lastAt = toMillis(data.lastMessageAt) ?? toMillis(data.lastMessageTime);
+  const from = data.lastMessageFromUid;
+  if (!lastAt || typeof from !== 'string' || !from || from === uid) return false;
+  const readAt =
+    data.dog1UserId === uid ? toMillis(data.dog1LastReadAt)
+      : data.dog2UserId === uid ? toMillis(data.dog2LastReadAt)
+        : data.userAId === uid ? toMillis(data.dog1LastReadAt)
+          : data.userBId === uid ? toMillis(data.dog2LastReadAt)
+            : undefined;
+  return !readAt || readAt < lastAt;
+}
 
 // Compact relative time from a Firestore-style { seconds } timestamp.
 function relativeTime(seconds: number | null | undefined): string | null {
@@ -99,11 +130,12 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
     for (const d of snap.docs) {
       if (!seen.has(d.id)) {
         seen.add(d.id);
-        const data = d.data() as Omit<MatchDoc, 'matchId'>;
+        const data = d.data() as Omit<MatchDoc, 'matchId' | 'unread'>;
         docs.push({
           ...data,
           matchId: d.id,
           chatUnlocked: isUserChatUnlocked(data, uid) || entitlements.lifetimeChatUnlocks,
+          unread: isThreadUnread(d.data(), uid),
         });
       }
     }
@@ -273,24 +305,36 @@ export default function MatchesPage() {
                   {/* Photo — its own link, to the dog's profile. Previously
                       the whole row (photo included) went straight to chat,
                       with no way to see a matched dog's profile again. */}
-                  <Link
-                    href={`/app/dog/${m.matchId}`}
-                    aria-label={`View ${name}'s profile`}
-                    className="w-20 h-20 rounded-[1.2rem] bg-gradient-to-br from-gold to-primary flex items-center justify-center shrink-0 overflow-hidden"
-                  >
-                    {photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photo} alt={name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-4xl">🐕</span>
+                  <div className="relative shrink-0">
+                    <Link
+                      href={`/app/dog/${m.matchId}`}
+                      aria-label={`View ${name}'s profile`}
+                      className="w-20 h-20 rounded-[1.2rem] bg-gradient-to-br from-gold to-primary flex items-center justify-center overflow-hidden"
+                    >
+                      {photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={photo} alt={name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-4xl">🐕</span>
+                      )}
+                    </Link>
+                    {/* Unread dot on the photo's corner, as on iPhone. */}
+                    {m.unread && (
+                      <span
+                        className="pointer-events-none absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary ring-2 ring-white"
+                        aria-hidden="true"
+                      />
                     )}
-                  </Link>
+                  </div>
 
                   {/* Info + chat icon — link to the chat thread. */}
                   <Link href={`/app/messages/${m.matchId}`} className="flex-1 min-w-0 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-bold text-brown text-base truncate">{name}</p>
+                        <p className={`text-brown text-base truncate ${m.unread ? 'font-black' : 'font-bold'}`}>
+                          {name}
+                          {m.unread && <span className="sr-only"> (unread messages)</span>}
+                        </p>
                         {!hasLastMsg && (
                           <span className="shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
                             New match
@@ -299,7 +343,7 @@ export default function MatchesPage() {
                       </div>
                       <p className="text-xs text-brown-light truncate mt-0.5">{breed}</p>
                       {hasLastMsg && (
-                        <p className="text-xs text-brown-mid mt-1 truncate">
+                        <p className={`text-xs mt-1 truncate ${m.unread ? 'text-brown font-semibold' : 'text-brown-mid'}`}>
                           {messagePreview(m, authUser.uid, name)}
                         </p>
                       )}

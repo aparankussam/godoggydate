@@ -1,16 +1,19 @@
 // mobile/components/DogtypeSection.tsx
 // Profile surface for Dogtype — mirrors web/components/DogtypeSection.tsx.
 // Computes the dog's deterministic type from its own profile, renders the
-// shareable card, offers a playful "plays well with" line (clearly a vibe, not
-// a measured score), and a "how we read this" disclosure of the four real axes.
+// shareable card, offers a 9:16 "Share as Story" version (DogtypeStoryCard,
+// rendered off-screen for capture), and a "how we read this" disclosure of the
+// four real axes.
 
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
+import { webUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
+import DogtypeStoryCard from './DogtypeStoryCard';
 import { computeDogtype } from '../../shared/dogtype';
 import type { SavedDogProfile } from '../lib/profile';
 import { resolveHeroIndex } from '../lib/coverPhoto';
@@ -21,7 +24,9 @@ interface Props {
 
 export default function DogtypeSection({ savedProfile }: Props) {
   const cardRef = useRef<View>(null);
+  const storyRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
+  const [sharingStory, setSharingStory] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
 
   const computed = computeDogtype(savedProfile);
@@ -36,15 +41,41 @@ export default function DogtypeSection({ savedProfile }: Props) {
     if (sharing) return;
     setSharing(true);
     trackEvent('dogtype_share_click', { code: dogtype.code });
+    // Same caption and /dogtype/<CODE> link as web's DogtypeSection, so the
+    // person receiving it can look up their own dog's type.
     const result = await captureAndShare(
       cardRef,
       `${dogName.toLowerCase().replace(/\s+/g, '-')}-dogtype.png`,
-      `Share ${dogName}'s Dogtype`,
+      `${dogName} is ${dogtype.name}`,
+      {
+        caption: `${dogName} is ${dogtype.name} ${dogtype.emoji} on GoDoggyDate. What's your dog's Dogtype?`,
+        url: webUrl(`/dogtype/${dogtype.code}`),
+      },
     );
     if (result === 'shared') trackEvent('dogtype_shared', { code: dogtype.code, method: 'native_share' });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
     if (result === 'error') Alert.alert('Could not share', 'Please try again in a moment.');
     setSharing(false);
+  }
+
+  async function handleStoryShare() {
+    if (sharingStory) return;
+    setSharingStory(true);
+    trackEvent('story_share_click', { feature: 'dogtype', code: dogtype.code });
+    // Same caption and link as web's story share.
+    const result = await captureAndShare(
+      storyRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-dogtype-story.png`,
+      'My dog on GoDoggyDate',
+      {
+        caption: `${dogName} is ${dogtype.name} ${dogtype.emoji} on GoDoggyDate. What's your dog's Dogtype?`,
+        url: webUrl(`/dogtype/${dogtype.code}`),
+      },
+    );
+    if (result === 'shared') trackEvent('story_shared', { feature: 'dogtype', method: 'native_share' });
+    if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    if (result === 'error') Alert.alert('Could not share', 'Please try again in a moment.');
+    setSharingStory(false);
   }
 
   return (
@@ -85,6 +116,16 @@ export default function DogtypeSection({ savedProfile }: Props) {
         <Text style={styles.shareText}>{sharing ? 'Preparing…' : `📤 Share ${dogName}'s Dogtype`}</Text>
       </Pressable>
 
+      <Pressable
+        style={[styles.storyButton, sharingStory && { opacity: 0.6 }]}
+        onPress={handleStoryShare}
+        disabled={sharingStory}
+        accessibilityRole="button"
+        accessibilityHint="Shares a tall image sized for Instagram, TikTok and Snapchat stories"
+      >
+        <Text style={styles.storyText}>{sharingStory ? 'Preparing…' : '📱 Share as Story'}</Text>
+      </Pressable>
+
       {/* "Plays well with" now lives in the CompatExplorer (tap-to-reveal +
           real density), mounted right after this section on the profile. */}
 
@@ -107,6 +148,16 @@ export default function DogtypeSection({ savedProfile }: Props) {
           </Text>
         </View>
       )}
+
+      {/* Off-screen 9:16 story card — laid out for capture only, never seen. */}
+      <View
+        style={styles.offscreen}
+        pointerEvents="none"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <DogtypeStoryCard ref={storyRef} dogtype={dogtype} dogName={dogName} photoUrl={photo ?? undefined} />
+      </View>
     </View>
   );
 }
@@ -161,6 +212,19 @@ const styles = StyleSheet.create({
     ...shadow.button,
   },
   shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  storyButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    borderRadius: radius.full,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  storyText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
+  // Far off to the side (as web does) rather than above: this section sits deep
+  // in the profile's scroll content, where a negative top could land on screen.
+  offscreen: { position: 'absolute', left: -10000, top: 0 },
   playsWith: {
     marginTop: 14,
     borderRadius: radius.md,

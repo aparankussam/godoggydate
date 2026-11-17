@@ -1,31 +1,19 @@
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { useEffect } from 'react';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { colors, fonts } from '../constants/theme';
-import { useSession } from '../lib/session';
+import { homeRouteFor, useSession } from '../lib/session';
 
 export default function IndexScreen() {
-  const { loading, user, profileComplete } = useSession();
+  const { loading, user, profileComplete, householdOnly } = useSession();
 
+  // Signed out or an unfinished guest -> welcome; a finished profile ->
+  // Discover; invited onto someone's dog with none of their own -> the
+  // household screen; otherwise onboarding. See homeRouteFor.
   useEffect(() => {
     if (loading) return;
-    if (!user) {
-      router.replace('/welcome');
-      return;
-    }
-    if (profileComplete) {
-      router.replace('/(tabs)/discover');
-      return;
-    }
-    if (user.isAnonymous) {
-      router.replace('/welcome');
-      return;
-    }
-    if (!profileComplete) {
-      router.replace('/onboarding');
-      return;
-    }
-  }, [loading, profileComplete, user]);
+    router.replace(homeRouteFor({ user, profileComplete, householdOnly }) as Href);
+  }, [householdOnly, loading, profileComplete, user]);
 
   return (
     <SafeAreaView style={styles.container}>

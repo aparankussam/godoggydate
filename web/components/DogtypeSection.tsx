@@ -195,7 +195,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
 
       {/* Replayable animated reveal overlay */}
       {showReveal && (
-        <DogtypeReveal dogtype={dogtype} dogName={dogName} onDone={() => setShowReveal(false)} />
+        <DogtypeReveal dogtype={dogtype} dogName={dogName} photoUrl={photo ?? undefined} photoFocus={photoFocus} onDone={() => setShowReveal(false)} />
       )}
     </section>
   );

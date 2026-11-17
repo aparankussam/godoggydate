@@ -18,6 +18,7 @@ import {
   PACK_DAY_RULES,
 } from '../../../../../shared/packDay';
 import type { PackDayFormat } from '../../../../../shared/packDay';
+import { checkContentFields, CONTENT_FILTER_MESSAGE } from '../../../../../shared/contentFilter';
 
 const CAPACITIES = Array.from(
   { length: PACK_DAY_LIMITS.maxCapacity - PACK_DAY_LIMITS.minCapacity + 1 },
@@ -87,6 +88,12 @@ export default function NewPackDayPage() {
     }
     if (startsAt.getTime() < Date.now() + PACK_DAY_LIMITS.minLeadMinutes * 60_000) {
       setError('Start time must be at least an hour from now, so people have notice.');
+      return;
+    }
+    // Same filter the server runs in createPackDay; checked here so the host
+    // keeps their text and sees why before the round trip.
+    if (!checkContentFields([title, placeName, note]).ok) {
+      setError(CONTENT_FILTER_MESSAGE);
       return;
     }
     if (!accepted) {
