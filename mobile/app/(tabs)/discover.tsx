@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
-  Modal,
+  AppState,
   Pressable,
   SafeAreaView,
   Share,
@@ -12,7 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -22,38 +21,96 @@ import Animated, {
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
-import SwipeCard, { QUALITY_RING_COLORS, type SwipeCardRef } from '../../components/SwipeCard';
-import CompatBreakdown from '../../components/CompatBreakdown';
+import SwipeCard, { type SwipeCardRef } from '../../components/SwipeCard';
 import DogTradingCard from '../../components/DogTradingCard';
-import { fetchDiscoverFeed, DEFAULT_DISCOVER_RADIUS_MILES, type DiscoverDog } from '../../lib/discover';
+import MatchModal from '../../components/MatchModal';
+import TodayPanel from '../../components/TodayPanel';
+import DiscoverDetailsSheet from '../../components/DiscoverDetailsSheet';
+import {
+  fetchDiscoverFeed,
+  refreshDiscoverDog,
+  DEFAULT_DISCOVER_RADIUS_MILES,
+  type DiscoverDog,
+} from '../../lib/discover';
 import { recordSwipe } from '../../lib/matching';
+import { openReportSheet } from '../../lib/reports';
 import { trackEvent } from '../../lib/analytics';
 import { useSession } from '../../lib/session';
 import { requestApproxLocation, type LocationStatus } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
-import { getChatUnlockPitch } from '../../../shared/utils/stripe';
 import * as Haptics from 'expo-haptics';
-import { formatUsMonthYear } from '../../../shared/dates';
 
-const MATCH_HEADLINES = ["It's a Match!", 'MUTUAL WOOF'];
+/**
+ * Minimum gap between automatic deck refreshes (the tab regaining focus, the
+ * app returning to the foreground). Every refresh re-reads the whole dogs
+ * collection plus the viewer's swipes and blocks, so flicking between tabs
+ * must not re-run it each time. "Check again" ignores the gap.
+ */
+const AUTO_REFRESH_MIN_GAP_MS = 60_000;
 
-function getEnergyLabel(energyLevel: number): string {
-  if (energyLevel >= 75) return 'High energy';
-  if (energyLevel <= 35) return 'Mellow';
-  return 'Balanced';
+/**
+ * How a deck load was started:
+ * - initial: first load for this account; shows the full-screen spinner.
+ * - manual:  the "Check again" button; shows "Checking…" on the button.
+ * - silent:  something the deck depends on changed (coords landed, profile
+ *            completed); swaps the deck in place.
+ * - auto:    focus or foreground; silent, and skipped inside the minimum gap.
+ */
+type DeckLoadMode = 'initial' | 'manual' | 'silent' | 'auto';
+
+// Every dog in the deck lands in exactly one bucket, so the line can only ever
+// under-describe the deck — never claim a proximity it didn't measure. Mirrors
+// web/app/app/page.tsx.
+interface DensityCounts {
+  withinFive: number;
+  withinRadius: number;
+  beyondRadius: number;
+  unknownDistance: number;
 }
 
-function formatMemberSince(timestamp?: number): string | null {
-  if (!timestamp || !Number.isFinite(timestamp)) return null;
-  return formatUsMonthYear(new Date(timestamp));
+function countDensity(dogs: DiscoverDog[], radiusMiles: number): DensityCounts {
+  const located = dogs.filter(
+    (dog) => typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0,
+  ) as (DiscoverDog & { distanceMiles: number })[];
+  return {
+    withinFive: located.filter((dog) => dog.distanceMiles <= 5).length,
+    withinRadius: located.filter((dog) => dog.distanceMiles <= radiusMiles).length,
+    beyondRadius: located.filter((dog) => dog.distanceMiles > radiusMiles).length,
+    unknownDistance: dogs.length - located.length,
+  };
 }
 
-function formatDensityLine(withinFive: number, withinRadius: number, radiusMiles: number): string {
-  if (withinRadius === 0) return `Sniffed everyone within ${radiusMiles} mi. New dogs drop daily-ish.`;
-  if (withinFive === withinRadius) {
-    return `${withinRadius} within 5 mi`;
+function formatDensityLine(counts: DensityCounts, radiusMiles: number): string {
+  const parts: string[] = [];
+  if (counts.withinFive > 0) parts.push(`${counts.withinFive} within 5 mi`);
+  if (counts.withinRadius > counts.withinFive) {
+    parts.push(`${counts.withinRadius} within ${radiusMiles} mi`);
   }
-  return `${withinFive} within 5 mi · ${withinRadius} within ${radiusMiles} mi`;
+  if (counts.beyondRadius > 0) parts.push(`${counts.beyondRadius} farther out`);
+  // A dog with no shared coordinates isn't "nearby" — we don't know where it
+  // is. It used to be folded into the within-50-mi count, which told people
+  // there were dogs in their radius that the app had never located.
+  if (counts.unknownDistance > 0) {
+    parts.push(`${counts.unknownDistance} at an unknown distance`);
+  }
+  if (parts.length === 0) return `We’ll keep looking within ${radiusMiles} mi`;
+  return parts.join(' · ');
+}
+
+/** "3:07 PM" — built by hand so it reads the same on every Hermes build. */
+function formatClockTime(ms: number): string {
+  const date = new Date(ms);
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+}
+
+function swipeErrorMessage(action: 'like' | 'pass', name: string): string {
+  // The deck has already moved on, so the message says what happens next: no
+  // decision was saved, so the dog comes back on a later refresh.
+  return action === 'like'
+    ? `That like for ${name} didn’t save — check your connection. ${name} will come back round so you can try again.`
+    : `That pass didn’t save — check your connection. ${name} may come back round.`;
 }
 
 export default function DiscoverTab() {
@@ -62,13 +119,12 @@ export default function DiscoverTab() {
   const [radiusApplied, setRadiusApplied] = useState(false);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [swiping, setSwiping] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [likeCount, setLikeCount] = useState(0);
   const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
-  const [showBreakdown, setShowBreakdown] = useState(false);
   const [matchedDog, setMatchedDog] = useState<DiscoverDog | null>(null);
   const [matchedMatchId, setMatchedMatchId] = useState<string | null>(null);
-  const [matchHeadline, setMatchHeadline] = useState(MATCH_HEADLINES[0]);
   const [locationStatus, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
   const [swipeError, setSwipeError] = useState<string | null>(null);
   const [sharingRecruitCard, setSharingRecruitCard] = useState(false);
@@ -76,8 +132,28 @@ export default function DiscoverTab() {
   const topCardRef = useRef<SwipeCardRef>(null);
   const recruitCardRef = useRef<View>(null);
 
+  // Latest values for callbacks that outlive a render (swipe saves, AppState).
+  const deckRef = useRef<DiscoverDog[]>(deck);
+  deckRef.current = deck;
+  const indexRef = useRef(index);
+  indexRef.current = index;
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
+  const detailOpenRef = useRef(false);
+  detailOpenRef.current = detailDog !== null;
+
+  // Deck-load bookkeeping.
+  const loadedUidRef = useRef<string | null>(null);
+  const lastFetchStartedRef = useRef(0);
+  const fetchInFlightRef = useRef(false);
+  const fetchSeqRef = useRef(0);
+  const isFocusedRef = useRef(false);
+  const swipeErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const likeScale = useSharedValue(1);
   const passScale = useSharedValue(1);
+
+  const uid = user?.uid ?? null;
 
   // Ask for approximate location once per session if the dog profile has none stored.
   // Persists rounded coords to the user's own dog doc; respects denial silently.
@@ -111,66 +187,177 @@ export default function DiscoverTab() {
       });
   }, [profile, profileComplete, saveProfile, user]);
 
+  const loadDeck = useCallback(
+    async (mode: DeckLoadMode) => {
+      if (!uid) return;
+      if (mode === 'auto') {
+        // Only refresh a deck that has already loaded once for this account,
+        // never on top of a load in flight, never inside the minimum gap, and
+        // never while the details sheet is open (its "Woof!" acts on the top
+        // card, which a refresh could swap out underneath it).
+        if (loadedUidRef.current !== uid) return;
+        if (fetchInFlightRef.current) return;
+        if (Date.now() - lastFetchStartedRef.current < AUTO_REFRESH_MIN_GAP_MS) return;
+        if (detailOpenRef.current) return;
+      }
+
+      const seq = ++fetchSeqRef.current;
+      fetchInFlightRef.current = true;
+      lastFetchStartedRef.current = Date.now();
+      loadedUidRef.current = uid;
+      if (mode === 'initial') setLoading(true);
+      if (mode === 'manual') setChecking(true);
+
+      try {
+        const result = await fetchDiscoverFeed(uid);
+        if (seq !== fetchSeqRef.current) return;
+        setDeck(result.dogs);
+        setRadiusApplied(result.radiusApplied);
+        setIndex(0);
+        if (mode === 'manual') setLikeCount(0);
+        // Only a completed query counts as a check — a failed one must not be
+        // able to render a timestamp claiming we looked.
+        setLastCheckedAt(Date.now());
+      } catch (error) {
+        console.warn('Failed to load the Discover deck', error);
+      } finally {
+        if (seq === fetchSeqRef.current) {
+          fetchInFlightRef.current = false;
+          setLoading(false);
+          setChecking(false);
+        }
+      }
+    },
+    [uid],
+  );
+
+  const loadDeckRef = useRef(loadDeck);
+  loadDeckRef.current = loadDeck;
+
+  // First load for this account, then a silent reload whenever something the
+  // deck depends on changes: stored coords landing (so the radius filter
+  // engages) or the profile becoming complete.
   useEffect(() => {
-    if (!user) {
+    if (!uid) {
+      fetchSeqRef.current += 1;
+      fetchInFlightRef.current = false;
+      loadedUidRef.current = null;
       setDeck([]);
       setRadiusApplied(false);
+      setIndex(0);
+      setLastCheckedAt(null);
       setLoading(false);
       return;
     }
-    fetchDiscoverFeed(user.uid)
-      .then((result) => {
-        setDeck(result.dogs);
-        setRadiusApplied(result.radiusApplied);
-      })
-      .finally(() => setLoading(false));
-  // Re-fetch when stored coords land so the radius filter actually engages.
-  }, [user, profile?.lat, profile?.lng]);
+    void loadDeck(loadedUidRef.current === uid ? 'silent' : 'initial');
+  }, [uid, loadDeck, profile?.lat, profile?.lng, profileComplete]);
 
-  const handleSwipe = useCallback(
-    async (action: 'like' | 'pass') => {
-      const currentDog = deck[index];
-      if (!user || !currentDog || swiping) return;
+  // Refresh when the tab regains focus, as web does on visibilitychange/focus.
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      void loadDeckRef.current('auto');
+      return () => {
+        isFocusedRef.current = false;
+      };
+    }, []),
+  );
 
-      setSwiping(true);
-      try {
-        const result = await recordSwipe({
-          currentUserId: user.uid,
-          currentDogId: user.uid,
-          targetUserId: currentDog.ownerId,
-          targetDogId: currentDog.id,
-          action,
-        });
-
-        trackEvent('swipe_action', {
-          action,
-          dog_id: currentDog.id,
-          compatibility_score: currentDog.compat.score,
-        });
-        if (action === 'like') {
-          setLikeCount((n) => n + 1);
-          if (result.isMatch && result.matchId) {
-            trackEvent('match_created', {
-              match_id: result.matchId,
-              dog_id: currentDog.id,
-              compatibility_score: currentDog.compat.score,
-            });
-            setMatchHeadline(MATCH_HEADLINES[Math.floor(Math.random() * MATCH_HEADLINES.length)]);
-            setMatchedDog(currentDog);
-            setMatchedMatchId(result.matchId);
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
-        }
-        setIndex((prev) => prev + 1);
-      } catch (error) {
-        console.warn('Failed to record swipe', error);
-        setSwipeError('That like didn’t save — check your connection and try again.');
-        setTimeout(() => setSwipeError(null), 3500);
-      } finally {
-        setSwiping(false);
+  // …and when the app comes back to the foreground with this tab showing.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && isFocusedRef.current) {
+        void loadDeckRef.current('auto');
       }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => () => {
+    if (swipeErrorTimerRef.current) clearTimeout(swipeErrorTimerRef.current);
+  }, []);
+
+  const showSwipeError = useCallback((message: string) => {
+    if (swipeErrorTimerRef.current) clearTimeout(swipeErrorTimerRef.current);
+    setSwipeError(message);
+    swipeErrorTimerRef.current = setTimeout(() => setSwipeError(null), 4500);
+  }, []);
+
+  // Advance first, then save — as web/components/SwipeStack.tsx does. The card
+  // has already flown off screen by the time this runs, so waiting on the
+  // write left the deck stuck on an invisible card whenever the save failed.
+  const handleSwipe = useCallback(
+    (dog: DiscoverDog, action: 'like' | 'pass') => {
+      if (!uid) return;
+
+      // Only advance if this dog is still the top card (a block or a refresh
+      // may already have moved the deck on).
+      setIndex((prev) => (deckRef.current[prev]?.id === dog.id ? prev + 1 : prev));
+      trackEvent('swipe_action', {
+        action,
+        dog_id: dog.id,
+        compatibility_score: dog.compat.score,
+      });
+
+      void (async () => {
+        let result: Awaited<ReturnType<typeof recordSwipe>>;
+        try {
+          result = await recordSwipe({
+            currentUserId: uid,
+            currentDogId: uid,
+            targetUserId: dog.ownerId,
+            targetDogId: dog.id,
+            action,
+          });
+        } catch (error) {
+          console.warn('Failed to record swipe', error);
+          showSwipeError(swipeErrorMessage(action, dog.name));
+          return;
+        }
+
+        if (action !== 'like') return;
+        setLikeCount((n) => n + 1);
+        if (!result.isMatch || !result.matchId) return;
+
+        // Re-read the other dog before showing the pop-up, so a vaccination
+        // answer changed since the deck loaded can't be shown stale.
+        const fresh = await refreshDiscoverDog(uid, profileRef.current, dog);
+        trackEvent('match_created', {
+          match_id: result.matchId,
+          dog_id: fresh.id,
+          compatibility_score: fresh.compat.score,
+        });
+        setMatchedDog(fresh);
+        setMatchedMatchId(result.matchId);
+        void Haptics.notificationAsync(
+          fresh.compat.quality === 'blocked'
+            ? Haptics.NotificationFeedbackType.Warning
+            : Haptics.NotificationFeedbackType.Success,
+        );
+      })();
     },
-    [deck, index, swiping, user],
+    [showSwipeError, uid],
+  );
+
+  // After a block, the dog leaves the deck at once (getBlockedUserIds keeps it
+  // out of every later load). No pass is recorded; the block is the decision.
+  const dropDog = useCallback((dogId: string) => {
+    const position = deckRef.current.findIndex((dog) => dog.id === dogId);
+    if (position === -1) return;
+    setDetailDog((current) => (current?.id === dogId ? null : current));
+    setDeck((prev) => prev.filter((dog) => dog.id !== dogId));
+    if (position < indexRef.current) setIndex((i) => Math.max(0, i - 1));
+  }, []);
+
+  const handleReport = useCallback(
+    (dog: DiscoverDog) => {
+      if (!uid) return;
+      openReportSheet(
+        { reporterId: uid, targetUserId: dog.ownerId, source: 'profile' },
+        { name: dog.name, onBlocked: () => dropDog(dog.id) },
+      );
+    },
+    [dropDog, uid],
   );
 
   function bounce(sv: { value: number }) {
@@ -193,17 +380,9 @@ export default function DiscoverTab() {
     topCardRef.current?.triggerSwipe('like');
   }
 
-  function handleReset() {
-    if (!user) return;
-    setLoading(true);
-    fetchDiscoverFeed(user.uid)
-      .then((result) => {
-        setDeck(result.dogs);
-        setRadiusApplied(result.radiusApplied);
-        setIndex(0);
-        setLikeCount(0);
-      })
-      .finally(() => setLoading(false));
+  function handleCheckAgain() {
+    if (checking) return;
+    void loadDeck('manual');
   }
 
   async function handleInviteFriends() {
@@ -242,14 +421,20 @@ export default function DiscoverTab() {
     }
   }
 
-  function handleOpenMatchedChat() {
-    if (!matchedDog || !matchedMatchId) return;
+  function closeMatch() {
     setMatchedDog(null);
     setMatchedMatchId(null);
-    router.push({
-      pathname: '/chat/[matchId]',
-      params: { matchId: matchedMatchId, name: matchedDog.name },
-    });
+  }
+
+  function handleOpenMatchedChat() {
+    if (!matchedDog || !matchedMatchId) return;
+    const params = { matchId: matchedMatchId, name: matchedDog.name };
+    closeMatch();
+    router.push({ pathname: '/chat/[matchId]', params });
+  }
+
+  function openProfileTab() {
+    router.push('/(tabs)/profile');
   }
 
   const likeButtonStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
@@ -305,87 +490,22 @@ export default function DiscoverTab() {
   const topDog = deck[index] ?? null;
   const peekDog = deck[index + 1] ?? null;
   const visibleDogs = deck.slice(index);
-  const visibleWithinFive = visibleDogs.filter(
-    (dog) => typeof dog.distanceMiles === 'number' && dog.distanceMiles <= 5,
-  ).length;
-  const visibleWithinRadius = visibleDogs.filter(
-    (dog) =>
-      typeof dog.distanceMiles !== 'number' ||
-      dog.distanceMiles <= DEFAULT_DISCOVER_RADIUS_MILES,
-  ).length;
   const densityLine =
     visibleDogs.length === 0
       ? `Sniffed everyone within ${DEFAULT_DISCOVER_RADIUS_MILES} mi. New dogs drop daily-ish.`
-      : formatDensityLine(visibleWithinFive, visibleWithinRadius, DEFAULT_DISCOVER_RADIUS_MILES);
+      : formatDensityLine(
+          countDensity(visibleDogs, DEFAULT_DISCOVER_RADIUS_MILES),
+          DEFAULT_DISCOVER_RADIUS_MILES,
+        );
 
   return (
     <SafeAreaView style={styles.container}>
-      <Modal
-        visible={matchedDog !== null && matchedMatchId !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setMatchedDog(null);
-          setMatchedMatchId(null);
-        }}
-      >
-        {matchedDog && matchedMatchId ? (
-          <View style={styles.matchOverlay}>
-            <View style={styles.matchModal}>
-              <Text style={styles.matchBurst}>🐕 💛 🐶</Text>
-              <Text style={styles.matchTitle}>{matchHeadline}</Text>
-
-              {matchedDog.photos[0] ? (
-                <Image source={{ uri: matchedDog.photos[0] }} style={styles.matchPhoto} />
-              ) : (
-                <View style={styles.matchPhotoFallback}>
-                  <Text style={styles.matchPhotoFallbackEmoji}>🐕</Text>
-                </View>
-              )}
-
-              <Text style={styles.matchDogName}>{matchedDog.name}</Text>
-              <Text style={styles.matchDogMeta}>
-                {matchedDog.breed} · {matchedDog.compat.label}
-              </Text>
-
-              <View style={styles.matchReasonCard}>
-                <Text style={styles.matchReasonEyebrow}>Why you&apos;ll click</Text>
-                {matchedDog.compat.reasons.slice(0, 3).map((reason) => (
-                  <Text key={reason} style={styles.matchReasonText}>
-                    <Text style={styles.matchReasonBullet}>• </Text>
-                    {reason}
-                  </Text>
-                ))}
-                {matchedDog.compat.warnings.length > 0 ? (
-                  <View style={styles.matchWarningBox}>
-                    <Text style={styles.matchWarningLabel}>Worth knowing</Text>
-                    {matchedDog.compat.warnings.map((warning) => (
-                      <Text key={warning} style={styles.matchWarningText}>{warning}</Text>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-
-              <Text style={styles.matchUnlockText}>
-                {getChatUnlockPitch()}
-              </Text>
-
-              <Pressable style={styles.matchPrimaryBtn} onPress={handleOpenMatchedChat}>
-                <Text style={styles.matchPrimaryBtnText}>Say hi to {matchedDog.name}</Text>
-              </Pressable>
-              <Pressable
-                style={styles.matchSecondaryBtn}
-                onPress={() => {
-                  setMatchedDog(null);
-                  setMatchedMatchId(null);
-                }}
-              >
-                <Text style={styles.matchSecondaryBtnText}>Keep swiping</Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
-      </Modal>
+      <MatchModal
+        dog={matchedDog}
+        matchId={matchedMatchId}
+        onSayHi={handleOpenMatchedChat}
+        onKeepSwiping={closeMatch}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -408,7 +528,9 @@ export default function DiscoverTab() {
           {topDog && (
             <Pressable
               style={styles.infoBtn}
-              onPress={() => { setShowBreakdown(false); setDetailDog(topDog); }}
+              onPress={() => setDetailDog(topDog)}
+              accessibilityRole="button"
+              accessibilityLabel={`Details for ${topDog.name}`}
             >
               <Text style={styles.infoBtnText}>ℹ</Text>
             </Pressable>
@@ -428,7 +550,7 @@ export default function DiscoverTab() {
       {profile && profileComplete && !isPubliclyDiscoverable(profile) && (
         <Pressable
           style={styles.visibilityBanner}
-          onPress={() => router.push('/(tabs)/profile')}
+          onPress={openProfileTab}
         >
           <Text style={styles.visibilityBannerText}>
             Other dogs can&apos;t see you yet. Add a city or allow location to be
@@ -438,14 +560,37 @@ export default function DiscoverTab() {
         </Pressable>
       )}
 
+      {/* Same Today panel as the empty state, one line: above a live deck only
+          something already due earns space — swiping is the job here. */}
+      {!isDeckEmpty && (
+        <TodayPanel
+          dogId={user.uid}
+          profile={profile}
+          variant="strip"
+          onEditProfile={openProfileTab}
+          onOpenReminders={openProfileTab}
+        />
+      )}
+
       {/* Card stack area */}
       <View style={styles.stackArea}>
         {isDeckEmpty ? (
           <ScrollView contentContainerStyle={styles.emptyScrollContent} showsVerticalScrollIndicator={false}>
+            {/* Today — reminders, profile gaps, the things that are true for
+                THIS dog right now. Renders nothing when there's nothing real
+                to say. */}
+            <TodayPanel
+              dogId={user.uid}
+              profile={profile}
+              variant="full"
+              onEditProfile={openProfileTab}
+              onOpenReminders={openProfileTab}
+            />
+
             <Text style={styles.emptyEmoji}>🐕</Text>
             <Text style={styles.emptyTitle}>That&apos;s everyone for now</Text>
             <Text style={styles.emptyBody}>
-              We&apos;ll keep looking for new dogs within your radius. New dogs drop daily-ish.
+              We check again each time you come back to Discover. New dogs drop daily-ish.
             </Text>
 
             {/* Recruit Card — the actual growth lever here is a stranger
@@ -473,13 +618,27 @@ export default function DiscoverTab() {
             )}
 
             <View style={styles.emptySecondaryRow}>
-              <Pressable style={styles.emptySecondaryButton} onPress={handleReset}>
-                <Text style={styles.emptySecondaryButtonText}>Check again</Text>
+              {/* A genuine re-query (fetchDiscoverFeed re-reads the dogs
+                  collection every call). The empty state stays mounted while
+                  it runs, and the time below says when the last one finished —
+                  the only honest answer when nothing changed. */}
+              <Pressable
+                style={[styles.emptySecondaryButton, checking && { opacity: 0.6 }]}
+                onPress={handleCheckAgain}
+                disabled={checking}
+                accessibilityRole="button"
+              >
+                <Text style={styles.emptySecondaryButtonText}>
+                  {checking ? 'Checking…' : 'Check again'}
+                </Text>
               </Pressable>
               <Pressable style={styles.emptySecondaryButton} onPress={handleInviteFriends}>
                 <Text style={styles.emptySecondaryButtonText}>Invite dog parents nearby</Text>
               </Pressable>
             </View>
+            {lastCheckedAt !== null && (
+              <Text style={styles.lastChecked}>Last checked {formatClockTime(lastCheckedAt)}</Text>
+            )}
           </ScrollView>
         ) : (
           <>
@@ -487,7 +646,7 @@ export default function DiscoverTab() {
               <SwipeCard
                 key={peekDog.id}
                 dog={peekDog}
-                onSwipe={handleSwipe}
+                onSwipe={(action) => handleSwipe(peekDog, action)}
                 isTop={false}
                 stackIndex={1}
               />
@@ -496,7 +655,8 @@ export default function DiscoverTab() {
               ref={topCardRef}
               key={topDog!.id}
               dog={topDog!}
-              onSwipe={handleSwipe}
+              onSwipe={(action) => handleSwipe(topDog!, action)}
+              onReport={() => handleReport(topDog!)}
               isTop
               stackIndex={0}
             />
@@ -509,131 +669,42 @@ export default function DiscoverTab() {
         <View style={styles.actionRow}>
           {/* Pass */}
           <Animated.View style={passButtonStyle}>
-            <Pressable style={[styles.actionBtn, styles.passBtn]} onPress={handlePassPress}>
+            <Pressable
+              style={[styles.actionBtn, styles.passBtn]}
+              onPress={handlePassPress}
+              accessibilityRole="button"
+              accessibilityLabel="Pass"
+            >
               <Text style={styles.passIcon}>✕</Text>
             </Pressable>
           </Animated.View>
 
           {/* Like */}
           <Animated.View style={likeButtonStyle}>
-            <Pressable style={[styles.actionBtn, styles.likeBtn]} onPress={handleLikePress}>
+            <Pressable
+              style={[styles.actionBtn, styles.likeBtn]}
+              onPress={handleLikePress}
+              accessibilityRole="button"
+              accessibilityLabel="Woof"
+            >
               <Text style={styles.likeIcon}>🐾</Text>
             </Pressable>
           </Animated.View>
         </View>
       )}
 
-      {/* Dog detail modal */}
-      <Modal
-        visible={detailDog !== null}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setDetailDog(null)}
-        onDismiss={() => setDetailDog(null)}
-      >
-        {detailDog && (
-          <SafeAreaView style={styles.detailContainer}>
-            <View style={styles.detailHeader}>
-              <Text style={styles.detailName}>{detailDog.name}</Text>
-              <Pressable onPress={() => setDetailDog(null)}>
-                <Text style={styles.detailClose}>✕</Text>
-              </Pressable>
-            </View>
-            <ScrollView contentContainerStyle={styles.detailBody}>
-              <Text style={styles.detailSection}>About</Text>
-              <Text style={styles.detailLine}>
-                {detailDog.breed} · {detailDog.age} · {detailDog.size} · {detailDog.sex === 'M' ? 'Male' : 'Female'}
-              </Text>
-              <Text style={styles.detailLine}>📍 {detailDog.location}</Text>
-              {formatMemberSince(detailDog.createdAt) ? (
-                <Text style={styles.detailLine}>Member since {formatMemberSince(detailDog.createdAt)}</Text>
-              ) : null}
-              <View style={styles.detailStatsRow}>
-                <View style={styles.detailStatCard}>
-                  <Text style={styles.detailStatLabel}>Match</Text>
-                  <Text style={styles.detailStatValue}>{detailDog.compat.score}%</Text>
-                </View>
-                <View style={styles.detailStatCard}>
-                  <Text style={styles.detailStatLabel}>Energy</Text>
-                  <Text style={styles.detailStatValue}>{getEnergyLabel(detailDog.energyLevel)}</Text>
-                </View>
-              </View>
-              <View style={styles.compatCard}>
-                <View style={styles.compatHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.compatEyebrow}>Why you&apos;ll click</Text>
-                    <Text style={styles.compatTitle}>{detailDog.compat.label}</Text>
-                    {detailDog.compat.microcopy ? (
-                      <Text style={styles.compatMicrocopy}>{detailDog.compat.microcopy}</Text>
-                    ) : null}
-                  </View>
-                  {/* Ring color signals compat.quality — was a flat primary
-                      border regardless of tier, so a blocked match and a
-                      perfect one looked identically inviting. */}
-                  <View style={[styles.compatScoreRing, { borderColor: QUALITY_RING_COLORS[detailDog.compat.quality] ?? colors.primary }]}>
-                    <Text style={styles.compatScoreText}>{detailDog.compat.score}</Text>
-                  </View>
-                </View>
-                {detailDog.compat.reasons.slice(0, 3).map((reason) => (
-                  <Text key={reason} style={styles.compatReason}>
-                    <Text style={styles.compatReasonBullet}>• </Text>
-                    {reason}
-                  </Text>
-                ))}
-                {/* All warnings, not just the first — a second safety flag
-                    silently dropped is exactly the kind of detail an owner
-                    needs before agreeing to a meetup. */}
-                {detailDog.compat.warnings.length > 0 ? (
-                  <View style={styles.compatWarningBox}>
-                    <Text style={styles.compatWarningLabel}>Worth knowing</Text>
-                    {detailDog.compat.warnings.map((warning) => (
-                      <Text key={warning} style={styles.compatWarningText}>{warning}</Text>
-                    ))}
-                  </View>
-                ) : null}
-                <Pressable onPress={() => setShowBreakdown((v) => !v)} hitSlop={8}>
-                  <Text style={styles.compatShowMath}>
-                    {showBreakdown ? 'Hide the math' : 'Show the math'}
-                  </Text>
-                </Pressable>
-                {showBreakdown && (
-                  <View style={{ marginTop: 8 }}>
-                    <CompatBreakdown breakdown={detailDog.compat.breakdown} score={detailDog.compat.score} />
-                  </View>
-                )}
-              </View>
-              {detailDog.tagline ? (
-                <>
-                  <Text style={styles.detailSection}>Bio</Text>
-                  <Text style={styles.detailBio}>{detailDog.tagline}</Text>
-                </>
-              ) : null}
-              {detailDog.playStyles.length > 0 && (
-                <>
-                  <Text style={styles.detailSection}>Play style</Text>
-                  <View style={styles.detailTags}>
-                    {detailDog.playStyles.map((tag) => (
-                      <View key={tag} style={styles.detailTag}>
-                        <Text style={styles.detailTagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              )}
-              <View style={{ height: 32 }} />
-              <Pressable
-                style={styles.detailLikeBtn}
-                onPress={() => {
-                  setDetailDog(null);
-                  topCardRef.current?.triggerSwipe('like');
-                }}
-              >
-                <Text style={styles.detailLikeBtnText}>Woof! 🐾</Text>
-              </Pressable>
-            </ScrollView>
-          </SafeAreaView>
-        )}
-      </Modal>
+      <DiscoverDetailsSheet
+        dog={detailDog}
+        onClose={() => setDetailDog(null)}
+        onLike={() => {
+          const dog = detailDog;
+          setDetailDog(null);
+          // The sheet only opens for the top card, and auto-refresh waits
+          // while it's open — but only ever like the dog the sheet showed.
+          if (dog && topDog?.id === dog.id) topCardRef.current?.triggerSwipe('like');
+        }}
+        onReport={detailDog ? () => handleReport(detailDog) : undefined}
+      />
     </SafeAreaView>
   );
 }
@@ -762,149 +833,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.brownMid,
   },
-  matchOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(45,26,14,0.72)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  matchModal: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: radius.lg,
-    backgroundColor: colors.brown,
-    paddingHorizontal: 22,
-    paddingVertical: 24,
-    alignItems: 'center',
-  },
-  matchBurst: {
-    fontSize: 34,
-    marginBottom: 8,
-  },
-  matchTitle: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    color: colors.white,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  matchPhoto: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    marginBottom: 14,
-    borderWidth: 3,
-    borderColor: colors.gold,
-  },
-  matchPhotoFallback: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    marginBottom: 14,
-    borderWidth: 3,
-    borderColor: colors.gold,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  matchPhotoFallbackEmoji: {
-    fontSize: 44,
-  },
-  matchDogName: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.white,
-  },
-  matchDogMeta: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.78)',
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  matchReasonCard: {
-    width: '100%',
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginTop: 18,
-  },
-  matchReasonEyebrow: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  matchReasonText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.white,
-    marginTop: 10,
-  },
-  matchReasonBullet: {
-    color: colors.gold,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-  },
-  matchWarningBox: {
-    marginTop: 14,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(0,0,0,0.16)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  matchWarningLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.68)',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  matchWarningText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.white,
-    marginTop: 4,
-  },
-  matchUnlockText: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 19,
-    color: 'rgba(255,255,255,0.74)',
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 14,
-  },
-  matchPrimaryBtn: {
-    width: '100%',
-    borderRadius: radius.full,
-    backgroundColor: colors.gold,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  matchPrimaryBtnText: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    color: colors.brown,
-    fontSize: 16,
-  },
-  matchSecondaryBtn: {
-    paddingVertical: 12,
-    marginTop: 6,
-  },
-  matchSecondaryBtnText: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-  },
   stackArea: {
     flex: 1,
     alignItems: 'center',
@@ -1008,198 +936,10 @@ const styles = StyleSheet.create({
     color: colors.brownMid,
     fontSize: 14,
   },
-  // Detail modal
-  detailContainer: { flex: 1, backgroundColor: colors.cream },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  detailName: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.brown,
-  },
-  detailClose: {
-    fontSize: 20,
-    color: colors.brownLight,
-    padding: 4,
-  },
-  detailBody: { padding: 20 },
-  detailStatsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  detailStatCard: {
-    flex: 1,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  detailStatLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  detailStatValue: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 15,
-    color: colors.brown,
-    marginTop: 4,
-  },
-  compatCard: {
-    marginTop: 18,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(232,99,58,0.25)',
-    backgroundColor: colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  compatHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  compatEyebrow: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  compatTitle: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 16,
-    color: colors.brown,
-    marginTop: 6,
-  },
-  compatMicrocopy: {
+  lastChecked: {
     fontFamily: fonts.body,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.brownLight,
-    marginTop: 2,
-  },
-  compatShowMath: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 12,
-    color: colors.primary,
     marginTop: 12,
-    textDecorationLine: 'underline',
-  },
-  compatScoreRing: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  compatScoreText: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 16,
-    color: colors.primary,
-  },
-  compatReason: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brown,
-    lineHeight: 21,
-    marginTop: 10,
-  },
-  compatReasonBullet: {
-    color: colors.primary,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-  },
-  compatWarningBox: {
-    marginTop: 14,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(232,99,58,0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  compatWarningLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  compatWarningText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brown,
-    marginTop: 4,
-    lineHeight: 20,
-  },
-  detailSection: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 12,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  detailLine: {
-    fontFamily: fonts.body,
-    fontSize: 16,
-    color: colors.brown,
-    marginBottom: 4,
-    lineHeight: 24,
-  },
-  detailBio: {
-    fontFamily: fonts.body,
-    fontSize: 16,
-    color: colors.brownMid,
-    lineHeight: 24,
-    fontStyle: 'italic',
-  },
-  detailTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  detailTag: {
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  detailTagText: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 14,
-    color: colors.brownMid,
-  },
-  detailLikeBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadow.button,
-  },
-  detailLikeBtnText: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 17,
-    color: '#fff',
   },
 });
