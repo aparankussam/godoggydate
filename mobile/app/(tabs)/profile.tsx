@@ -15,6 +15,7 @@ import { onReminders } from '../../lib/reminders';
 import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
+import PushPermissionCard from '../../components/PushPermissionCard';
 import DogtypeSection from '../../components/DogtypeSection';
 import CompatExplorer from '../../components/CompatExplorer';
 import LifeStageCard from '../../components/LifeStageCard';
@@ -451,6 +452,7 @@ export default function ProfileTab() {
         )}
 
         {user && profile && <Text style={styles.sectionLabel}>🗓️ Care &amp; household</Text>}
+        {user && profile && <PushPermissionCard />}
         {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
 
         {user && profile && (

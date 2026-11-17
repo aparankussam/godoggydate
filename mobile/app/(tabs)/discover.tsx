@@ -34,6 +34,7 @@ import {
 } from '../../lib/discover';
 import { recordSwipe } from '../../lib/matching';
 import { openReportSheet } from '../../lib/reports';
+import { maybeAskForPushPermission } from '../../lib/push';
 import { trackEvent } from '../../lib/analytics';
 import { useSession } from '../../lib/session';
 import { requestApproxLocation, type LocationStatus } from '../../lib/location';
@@ -422,8 +423,19 @@ export default function DiscoverTab() {
   }
 
   function closeMatch() {
+    const askedFor = matchedDog?.name;
     setMatchedDog(null);
     setMatchedMatchId(null);
+    // A first match is the natural moment to ask about notifications: there's
+    // now someone to hear back from. Asked after the pop-up closes, and only
+    // while iOS's one-time prompt is still unused (the helper checks).
+    if (uid && askedFor) {
+      setTimeout(() => {
+        void maybeAskForPushPermission(uid, {
+          title: `Want to know when ${askedFor} replies?`,
+        });
+      }, 600);
+    }
   }
 
   function handleOpenMatchedChat() {
