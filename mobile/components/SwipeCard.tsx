@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
-import type { DimensionValue } from 'react-native';
+import type { DimensionValue, TextStyle, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -17,6 +17,7 @@ import { colors, fonts, radius } from '../constants/theme';
 import type { DiscoverDog } from '../lib/discover';
 import { resolveHeroIndex } from '../lib/coverPhoto';
 import { getRenderablePhotos } from '../lib/photos';
+import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
 
 // The photo the card should OPEN on — the owner's cover pick (or AI hero),
 // clamped to the real photos so a stale index never lands out of range.
@@ -62,12 +63,52 @@ function getEnergyLabel(energyLevel: number): string {
   return 'Balanced';
 }
 
+// Mirrors getLocationLabel in web/components/SwipeCard.tsx. 0 is a real
+// distance (same ~1 km cell), so it gets a number, not the fallback.
+function getLocationLabel(dog: DiscoverDog): string {
+  if (typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0) {
+    const city = dog.neighbourhood?.split(',')[0]?.trim();
+    const miles = dog.distanceMiles.toFixed(1);
+    return city ? `${city} · ${miles} mi` : `${miles} mi away`;
+  }
+  return dog.location;
+}
+
 /** Mirrors web/components/CompatBreakdown.tsx's QUALITY_STYLES.ringHex —
  *  keep the two in sync if the palette changes. */
 export const QUALITY_RING_COLORS: Record<string, string> = {
   perfect: '#4ade80',
   good: '#fbbf24',
   blocked: '#f87171',
+};
+
+// Vaccination pill styling, keyed by how much the underlying data supports.
+// Mirrors VACCINATION_PILL_STYLES in web/components/SwipeCard.tsx. Deliberately
+// no green ✓ anywhere: a checkmark on a self-reported boolean reads as a
+// verification badge, and nothing here is verified. Only an owner-supplied
+// certificate date earns the confident treatment, and even that stays worded
+// as the owner's claim.
+const VACCINATION_PILL_STYLES: Record<VaccinationTone, { pill: ViewStyle; text: TextStyle }> = {
+  dated: {
+    pill: { borderColor: 'rgba(167,243,208,0.5)', backgroundColor: 'rgba(2,44,34,0.6)' },
+    text: { color: '#ECFDF5' },
+  },
+  expired: {
+    pill: { borderColor: 'rgba(252,165,165,0.6)', backgroundColor: 'rgba(69,10,10,0.6)' },
+    text: { color: '#FEF2F2' },
+  },
+  'self-reported': {
+    pill: { borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(0,0,0,0.4)' },
+    text: { color: 'rgba(255,255,255,0.9)' },
+  },
+  unvaccinated: {
+    pill: { borderColor: 'rgba(252,211,77,0.6)', backgroundColor: 'rgba(69,26,3,0.6)' },
+    text: { color: '#FEF3C7' },
+  },
+  unstated: {
+    pill: { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(0,0,0,0.34)' },
+    text: { color: 'rgba(255,255,255,0.7)' },
+  },
 };
 
 export interface SwipeCardRef {
@@ -79,10 +120,12 @@ interface Props {
   onSwipe: (action: 'like' | 'pass') => void;
   isTop: boolean;
   stackIndex?: number;
+  /** Opens the report/block sheet. Shown only on the top card. */
+  onReport?: () => void;
 }
 
 const SwipeCard = forwardRef<SwipeCardRef, Props>(
-  ({ dog, onSwipe, isTop, stackIndex = 0 }, ref) => {
+  ({ dog, onSwipe, isTop, stackIndex = 0, onReport }, ref) => {
     const tx = useSharedValue(0);
     const ty = useSharedValue(0);
     const swipeHandled = useSharedValue(false);
@@ -160,10 +203,25 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
         }
       });
 
+    // The report button sits inside the card's own gesture area. An RN
+    // Pressable there would lose to the card's tap (the native tap activates,
+    // cancels the JS touch, and advances the photo instead), so the button is
+    // its own RNGH tap and the card's tap waits for it to fail.
+    const showReport = isTop && !!onReport;
+    const reportTapGesture = Gesture.Tap()
+      .enabled(showReport)
+      .hitSlop(8)
+      .maxDistance(10)
+      .runOnJS(true)
+      .onEnd((_e, success) => {
+        if (success) onReport?.();
+      });
+
     const tapGesture = Gesture.Tap()
       .enabled(isTop)
       .maxDuration(250)
       .maxDistance(10)
+      .requireExternalGestureToFail(reportTapGesture)
       // RNGH fires onEnd with success=false on a cancelled/failed tap — without
       // this guard a cancelled tap would still advance the photo (harmless when
       // taps also went backward, but now every tap is forward-only).
@@ -230,11 +288,11 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     const ageLabel =
       dog.age === 'puppy' ? 'Puppy' : dog.age === 'senior' ? 'Senior' : 'Adult';
     const sexLabel = dog.sex === 'M' ? 'Male' : 'Female';
-    const distLabel =
-      dog.distanceMiles != null
-        ? `${dog.distanceMiles} mi away`
-        : dog.location;
+    const distLabel = getLocationLabel(dog);
     const energyLabel = getEnergyLabel(dog.energyLevel);
+    const vaccination = getVaccinationStatus(dog);
+    const vaccinationIsWarning = vaccination.tone === 'expired' || vaccination.tone === 'unvaccinated';
+    const vaccinationStyle = VACCINATION_PILL_STYLES[vaccination.tone];
 
     return (
       <GestureDetector gesture={gesture}>
@@ -262,6 +320,37 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
                 />
               ))}
             </View>
+          )}
+
+          {/* Vaccination pill. getVaccinationStatus grades the copy to the
+              data: a real expiry date is quoted, an expired one is shown
+              rather than hidden (that's the case worth knowing before a
+              meetup), a bare boolean is attributed to the owner, and an
+              absence says so. Always rendered — "not stated" is information
+              too. Mirrors web/components/SwipeCard.tsx. */}
+          <View
+            style={[styles.vaccinationPill, vaccinationStyle.pill, showReport && styles.vaccinationPillWithReport]}
+            pointerEvents="none"
+          >
+            <Text style={[styles.vaccinationPillText, vaccinationStyle.text]} numberOfLines={1}>
+              {vaccinationIsWarning ? `⚠ ${vaccination.label}` : vaccination.label}
+            </Text>
+          </View>
+
+          {/* Report / block — top card only, as on web. Its own RNGH tap so
+              the card's photo-advance tap doesn't swallow it. */}
+          {showReport && (
+            <GestureDetector gesture={reportTapGesture}>
+              <View
+                style={styles.reportBtn}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={`Report or block ${dog.name}`}
+                onAccessibilityTap={onReport}
+              >
+                <Text style={styles.reportBtnText}>•••</Text>
+              </View>
+            </GestureDetector>
           )}
 
           {/* WOOF badge */}
@@ -369,13 +458,15 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
               </View>
             )}
 
-            {/* Safety warnings from detectUnsafePairings() — computed by the
-                engine but rendered nowhere until now, on either platform. */}
+            {/* Safety warnings from detectUnsafePairings(). Not sliced: the
+                engine returns every warning, and a local cap silently dropped
+                the third safety flag onward — exactly the detail an owner
+                needs before a like. Mirrors web/components/SwipeCard.tsx. */}
             {dog.compat.warnings.length > 0 && (
               <View style={styles.tagRow}>
-                {dog.compat.warnings.slice(0, 2).map((warning) => (
+                {dog.compat.warnings.map((warning) => (
                   <View key={warning} style={styles.warnTag}>
-                    <Text style={styles.warnTagText} numberOfLines={1}>
+                    <Text style={styles.warnTagText} numberOfLines={2}>
                       ⚠ {warning}
                     </Text>
                   </View>
@@ -437,6 +528,46 @@ const styles = StyleSheet.create({
   },
   photoBarActive: {
     backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+
+  // Vaccination pill + report button (top corners, under the photo bars)
+  vaccinationPill: {
+    position: 'absolute',
+    top: 24,
+    left: 14,
+    maxWidth: '78%',
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  vaccinationPillWithReport: {
+    maxWidth: '68%',
+  },
+  vaccinationPillText: {
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    fontSize: 10,
+  },
+  reportBtn: {
+    position: 'absolute',
+    top: 20,
+    right: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0,0,0,0.38)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 11,
+  },
+  reportBtnText: {
+    color: '#fff',
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    letterSpacing: 1,
   },
 
   // WOOF / PASS overlays

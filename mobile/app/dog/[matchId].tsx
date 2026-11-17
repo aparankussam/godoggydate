@@ -13,7 +13,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '../../lib/firebase';
 import { useSession } from '../../lib/session';
-import { getOtherDogId } from '../../lib/firestoreData';
+import { getOtherDogId, type MatchIdentityLike } from '../../lib/firestoreData';
+import { openReportSheet } from '../../lib/reports';
 import { breedConfidencePhrase } from '../../lib/vibeCheck';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 import { getRenderablePhotos } from '../../lib/photos';
@@ -30,19 +31,40 @@ function heroIndexFor(photos: string[], profile: SavedDogProfile): number {
   return typeof h === 'number' && h >= 0 && h < photos.length ? h : 0;
 }
 
+/** The other PERSON on the match — who a report or block is about. Reads the
+ *  user-id fields (current and legacy), as web's dog page does, and falls back
+ *  to the dog id, which is the owner's uid for every dogs/{uid} doc. */
+function getOtherUserId(data: MatchIdentityLike, currentUserId: string, otherDogId: string): string {
+  if (data.dog1UserId === currentUserId && data.dog2UserId) return data.dog2UserId;
+  if (data.dog2UserId === currentUserId && data.dog1UserId) return data.dog1UserId;
+  if (data.userAId === currentUserId && data.userBId) return data.userBId;
+  if (data.userBId === currentUserId && data.userAId) return data.userAId;
+  return otherDogId;
+}
+
 export default function MatchedDogProfileScreen() {
   const { matchId } = useLocalSearchParams<{ matchId?: string | string[] }>();
   const resolvedMatchId = Array.isArray(matchId) ? matchId[0] : matchId;
-  const { user } = useSession();
+  const { user, loading: sessionLoading } = useSession();
 
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
+  const [otherUserId, setOtherUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
 
   useEffect(() => {
-    if (!user || !resolvedMatchId) return;
+    // Signed out, or no match id: there's nothing to load, so stop the
+    // spinner and let the states below say why. This used to return early
+    // with `loading` still true, which spun forever.
+    if (sessionLoading) return;
+    if (!user || !resolvedMatchId) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
+    setLoading(true);
+    setFailed(false);
 
     (async () => {
       const db = getFirebase().db;
@@ -52,11 +74,13 @@ export default function MatchedDogProfileScreen() {
           if (!cancelled) { setFailed(true); setLoading(false); }
           return;
         }
-        const otherDogId = getOtherDogId(matchSnap.data(), user.uid);
+        const matchData = matchSnap.data() as MatchIdentityLike;
+        const otherDogId = getOtherDogId(matchData, user.uid);
         if (!otherDogId) {
           if (!cancelled) { setFailed(true); setLoading(false); }
           return;
         }
+        if (!cancelled) setOtherUserId(getOtherUserId(matchData, user.uid, otherDogId));
         const dogSnap = await getDoc(doc(db, 'dogs', otherDogId));
         if (!cancelled) {
           if (dogSnap.exists()) {
@@ -75,12 +99,24 @@ export default function MatchedDogProfileScreen() {
     })();
 
     return () => { cancelled = true; };
-  }, [user, resolvedMatchId]);
+  }, [sessionLoading, user, resolvedMatchId]);
 
-  if (loading) {
+  if (sessionLoading || loading) {
     return (
       <SafeAreaView style={styles.center}>
         <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <Text style={styles.emptyEmoji}>🐾</Text>
+        <Text style={styles.emptyTitle}>Sign in to view this profile</Text>
+        <Pressable style={styles.backLink} onPress={() => router.replace('/welcome')}>
+          <Text style={styles.backLinkText}>Sign in</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -99,14 +135,39 @@ export default function MatchedDogProfileScreen() {
 
   const photos = getRenderablePhotos(profile.photos);
   const vibeCheck = profile.ai?.vibeCheck;
+  const signedInUid = user.uid;
+
+  function handleSafetyMenu() {
+    if (!otherUserId || !profile) return;
+    openReportSheet(
+      { reporterId: signedInUid, targetUserId: otherUserId, source: 'profile', matchId: resolvedMatchId },
+      {
+        name: profile.name,
+        // A blocked match disappears from Matches, so go back there rather
+        // than to a chat (or this page) with someone you've just blocked.
+        onBlocked: () => router.dismissTo('/(tabs)/matches'),
+      },
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back">
           <Text style={styles.backText}>‹</Text>
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{profile.name}&apos;s profile</Text>
+        {otherUserId && (
+          <Pressable
+            style={styles.moreBtn}
+            onPress={handleSafetyMenu}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={`Report or block ${profile.name}`}
+          >
+            <Text style={styles.moreBtnText}>•••</Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -157,7 +218,14 @@ export default function MatchedDogProfileScreen() {
         {vibeCheck && (
           <View style={styles.vibeSection}>
             <VibeTypeCard archetype={vibeCheck.archetype} />
-            {vibeCheck.bio && <Text style={styles.bio}>“{vibeCheck.bio}”</Text>}
+            {vibeCheck.bio && (
+              <View>
+                {/* Says who wrote it: the bio is in the dog's voice, but the
+                    owner didn't type it. Mirrors the web dog page. */}
+                <Text style={styles.aiLabel}>✨ Written by AI from their photos</Text>
+                <Text style={styles.bio}>“{vibeCheck.bio}”</Text>
+              </View>
+            )}
             {vibeCheck.breedGuess && (
               <Text style={styles.muttMeter}>
                 🔍 AI&apos;s read: {vibeCheck.breedGuess.name} · {breedConfidencePhrase(vibeCheck.breedGuess.confidence)}
@@ -212,6 +280,8 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   backText: { fontSize: 28, color: colors.brownLight, marginTop: -2 },
   headerTitle: { flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: colors.brown, marginLeft: 4 },
+  moreBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  moreBtnText: { fontSize: 16, color: colors.brownLight, fontFamily: fonts.bold },
   content: { padding: 18, paddingBottom: 40 },
   hero: {
     width: '100%', aspectRatio: 1, borderRadius: radius.xl, overflow: 'hidden',
@@ -237,6 +307,10 @@ const styles = StyleSheet.create({
   },
   foundingBadgeText: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown },
   vibeSection: { marginTop: 18, gap: 10 },
+  aiLabel: {
+    fontFamily: fonts.bold, fontSize: 10, color: colors.brownLight,
+    textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 2, paddingHorizontal: 2,
+  },
   bio: { fontFamily: fonts.body, fontSize: 14, fontStyle: 'italic', color: colors.brownMid, lineHeight: 20, paddingHorizontal: 2 },
   muttMeter: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, paddingHorizontal: 2 },
   tagSection: { marginTop: 18 },
