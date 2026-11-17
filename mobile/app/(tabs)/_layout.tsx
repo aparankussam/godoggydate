@@ -43,6 +43,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="pack"
+        options={{
+          title: 'Pack Day',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="🌳" label="Pack Day" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="matches"
         options={{
           title: 'Matches',
