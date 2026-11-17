@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -14,11 +15,15 @@ import {
 import { getOtherDogId, isMatchUnread } from './firestoreData';
 import { getFirebase } from './firebase';
 import { isUserChatUnlocked } from '../../shared/matchAccess';
+import type { SavedDogProfile } from '../../shared/profile';
 import { getBlockedUserIds } from './blocks';
 import { getEntitlements } from './entitlements';
 import { getHeroPhoto, getRenderablePhotos } from './photos';
 import { resolveHeroIndex } from './coverPhoto';
+import { formatPlaydateWhen } from './playdates';
 
+// The match doc only ever says 'New message'. Message text is deliberately not
+// copied onto it (privacy), so the match list reads the newest message itself.
 const MATCH_THREAD_PREVIEW = 'New message';
 
 export interface MatchedDog {
@@ -31,6 +36,18 @@ export interface MatchedDog {
    *  hand) so a match row shows the same photo as the profile it opens. */
   heroPhoto: string | null;
   location?: string;
+  /** The whole public dog doc, for the chat's Heads-Up card and starter
+   *  prompts. Null when only the match doc's old denormalised copy exists. */
+  profile?: SavedDogProfile | null;
+}
+
+/** The newest message in a thread, for the match list. */
+export interface LastMessagePreview {
+  senderId: string;
+  text: string;
+  type?: ChatMessage['type'];
+  playdate?: PlaydateDetails;
+  moderated?: boolean;
 }
 
 export interface MatchItem {
@@ -38,6 +55,16 @@ export interface MatchItem {
   dog: MatchedDog;
   lastMessage?: string;
   lastMessageAt?: number;
+  lastMessageFromUid?: string;
+  /** When the match was made. */
+  createdAt?: number;
+  /** Latest activity: the last message, or the match itself when nobody has
+   *  written yet. Sorting by this keeps brand-new matches at the top. */
+  activityAt: number;
+  /** Nobody has sent a message yet. */
+  isNew: boolean;
+  /** Only filled in by subscribeMatches. Null when it couldn't be read. */
+  preview?: LastMessagePreview | null;
   unread?: boolean;
   chatUnlocked?: boolean;
 }
@@ -55,6 +82,18 @@ export interface ChatMessage {
   createdAt: number;
   type?: 'playdate_proposal' | 'playdate_confirmed';
   playdate?: PlaydateDetails;
+  /** Set by the server when the content filter caught this message. Its text
+   *  is replaced with a notice and its type/playdate are deleted; render it
+   *  muted, never as a playdate, and leave it out of every playdate check. */
+  moderated?: boolean;
+}
+
+/** A playdate message that should count: not moderated, and actually carrying a playdate. */
+export function isPlaydateMessage<T extends Pick<ChatMessage, 'type' | 'playdate' | 'moderated'>>(
+  message: T,
+  type: NonNullable<ChatMessage['type']>,
+): message is T & { playdate: PlaydateDetails } {
+  return !message.moderated && message.type === type && Boolean(message.playdate);
 }
 
 export const MAX_MESSAGE_LENGTH = 1000;
@@ -79,6 +118,7 @@ interface FirestoreMatchDoc {
   dogBId?: string;
   userAId?: string;
   userBId?: string;
+  createdAt?: number | { toMillis?: () => number } | null;
   lastMessage?: string | null;
   lastMessageAt?: number | { toMillis?: () => number } | null;
   lastMessageTime?: number | { toMillis?: () => number } | null;
@@ -105,6 +145,15 @@ function getReadFieldForUser(data: FirestoreMatchDoc, userId: string): 'dog1Last
   if (data.userAId === userId) return 'dog1LastReadAt';
   if (data.userBId === userId) return 'dog2LastReadAt';
 
+  return null;
+}
+
+/** The other person's uid on a match doc, or null if this user isn't on it. */
+export function getOtherUserId(data: FirestoreMatchDoc, userId: string): string | null {
+  if (data.dog1UserId === userId) return data.dog2UserId ?? null;
+  if (data.dog2UserId === userId) return data.dog1UserId ?? null;
+  if (data.userAId === userId) return data.userBId ?? null;
+  if (data.userBId === userId) return data.userAId ?? null;
   return null;
 }
 
@@ -141,6 +190,7 @@ async function fetchDogSummary(dogId: string): Promise<MatchedDog | null> {
       photos: getRenderablePhotos(data.photos),
       heroPhoto: getHeroPhoto(data.photos, resolveHeroIndex(data)),
       location: data.location?.trim(),
+      profile: snap.data() as SavedDogProfile,
     };
   } catch (error) {
     console.warn('Could not load dog summary', { dogId, error });
@@ -148,18 +198,15 @@ async function fetchDogSummary(dogId: string): Promise<MatchedDog | null> {
   }
 }
 
-async function normalizeMatchDoc(
+function normalizeMatchDoc(
   id: string,
   data: FirestoreMatchDoc,
   currentUserId: string,
-  blockedIds: Set<string>,
+  fetchedDog: MatchedDog | null,
   hasLifetime: boolean,
-): Promise<MatchItem | null> {
+): MatchItem {
   const nestedDog = data.dog;
   const otherDogId = getOtherDogId(data, currentUserId);
-  if (otherDogId && isSeedUserId(otherDogId)) return null;
-  if (otherDogId && blockedIds.has(otherDogId)) return null;
-  const fetchedDog = otherDogId ? await fetchDogSummary(otherDogId) : null;
   const dog: MatchedDog =
     fetchedDog ??
     (nestedDog && nestedDog.name
@@ -168,7 +215,7 @@ async function normalizeMatchDoc(
         // '_placeholder_' padding token, which must never reach an <Image>.
         (() => {
           const real = getRenderablePhotos(nestedDog.photos);
-          return { ...nestedDog, photos: real, heroPhoto: nestedDog.heroPhoto ?? real[0] ?? null };
+          return { ...nestedDog, photos: real, heroPhoto: nestedDog.heroPhoto ?? real[0] ?? null, profile: null };
         })()
       : {
           id: otherDogId ?? id,
@@ -176,20 +223,34 @@ async function normalizeMatchDoc(
           breed: 'Unknown breed',
           photos: [],
           heroPhoto: null,
+          profile: null,
         });
 
+  const lastMessageAt = toMillis(data.lastMessageAt) ?? toMillis(data.lastMessageTime);
+  const createdAt = toMillis(data.createdAt);
   return {
     id,
     dog,
     lastMessage: data.lastMessage ?? undefined,
-    lastMessageAt: toMillis(data.lastMessageAt) ?? toMillis(data.lastMessageTime),
-    unread: isMatchUnread(
-      data,
-      currentUserId,
-      toMillis(data.lastMessageAt) ?? toMillis(data.lastMessageTime),
-    ),
+    lastMessageAt,
+    lastMessageFromUid: data.lastMessageFromUid ?? undefined,
+    createdAt,
+    activityAt: lastMessageAt ?? createdAt ?? 0,
+    isNew: !data.lastMessage,
+    unread: isMatchUnread(data, currentUserId, lastMessageAt),
     chatUnlocked: isUserChatUnlocked(data, currentUserId) || hasLifetime,
   };
+}
+
+function shouldHideMatch(data: FirestoreMatchDoc, currentUserId: string, blockedIds: Set<string>): boolean {
+  const otherDogId = getOtherDogId(data, currentUserId);
+  if (otherDogId && (isSeedUserId(otherDogId) || blockedIds.has(otherDogId))) return true;
+  const otherUserId = getOtherUserId(data, currentUserId);
+  return Boolean(otherUserId && blockedIds.has(otherUserId));
+}
+
+function byLatestActivity(a: MatchItem, b: MatchItem): number {
+  return b.activityAt - a.activityAt;
 }
 
 export function formatMatchTime(ts: number): string {
@@ -198,6 +259,57 @@ export function formatMatchTime(ts: number): string {
   if (diff < 1000 * 60 * 60) return `${Math.floor(diff / (1000 * 60))}m`;
   if (diff < 1000 * 60 * 60 * 24) return `${Math.floor(diff / (1000 * 60 * 60))}h`;
   return `${Math.floor(diff / (1000 * 60 * 60 * 24))}d`;
+}
+
+/**
+ * The match list's second line: who wrote last, and what. Falls back to
+ * "Kaju sent a message" (what web shows) when the message couldn't be read.
+ */
+export function lastMessageLine(item: MatchItem, selfUid: string): string {
+  const senderId = item.preview?.senderId ?? item.lastMessageFromUid;
+  const who = senderId && senderId === selfUid ? 'You' : item.dog.name;
+  const preview = item.preview;
+  if (!preview) return `${who} sent a message`;
+  if (preview.moderated) return `${who}: Message removed`;
+
+  if (isPlaydateMessage(preview, 'playdate_proposal')) {
+    return `📅 ${who} proposed a playdate for ${formatPlaydateWhen(preview.playdate)}`;
+  }
+  if (isPlaydateMessage(preview, 'playdate_confirmed')) {
+    return `✅ ${who} confirmed the playdate for ${formatPlaydateWhen(preview.playdate)}`;
+  }
+  const text = preview.text.replace(/\s+/g, ' ').trim();
+  return text ? `${who}: ${text}` : `${who} sent a message`;
+}
+
+async function fetchLastMessagePreview(matchId: string): Promise<LastMessagePreview | null> {
+  try {
+    const db = getFirebase().db;
+    const snap = await getDocs(
+      query(collection(db, 'matches', matchId, 'messages'), orderBy('createdAt', 'desc'), limit(1)),
+    );
+    const newest = snap.docs[0];
+    if (!newest) return null;
+    const data = newest.data() as {
+      text?: string;
+      fromUserId?: string;
+      senderId?: string;
+      type?: ChatMessage['type'];
+      playdate?: PlaydateDetails;
+      moderated?: boolean;
+    };
+    return {
+      senderId: data.fromUserId ?? data.senderId ?? '',
+      text: typeof data.text === 'string' ? data.text : '',
+      type: data.type,
+      playdate: data.playdate,
+      moderated: data.moderated === true,
+    };
+  } catch (error) {
+    // e.g. a locked chat: the rules don't let either side read its messages.
+    console.warn('Could not load last message', { matchId, error });
+    return null;
+  }
 }
 
 export async function fetchMatches(userId: string): Promise<MatchItem[]> {
@@ -234,18 +346,182 @@ export async function fetchMatches(userId: string): Promise<MatchItem[]> {
     }
   }
 
-  if (docs.size === 0) return [];
-
+  const visible = [...docs.entries()].filter(([, data]) => !shouldHideMatch(data, userId, blockedIds));
   const normalized = await Promise.all(
-    [...docs.entries()].map(([id, data]) =>
-      normalizeMatchDoc(id, data, userId, blockedIds, entitlements.lifetimeChatUnlocks)),
+    visible.map(async ([id, data]) => {
+      const otherDogId = getOtherDogId(data, userId);
+      const dog = otherDogId ? await fetchDogSummary(otherDogId) : null;
+      return normalizeMatchDoc(id, data, userId, dog, entitlements.lifetimeChatUnlocks);
+    }),
   );
-  return normalized
-    .filter((match): match is MatchItem => Boolean(match))
-    .sort((a, b) => (b.lastMessageAt ?? 0) - (a.lastMessageAt ?? 0));
+  return normalized.sort(byLatestActivity);
 }
 
-export async function fetchMessages(matchId: string): Promise<ChatMessage[]> {
+/**
+ * The match list, live. Listens to both match queries and re-emits whenever a
+ * match is made or a message lands, with each row's newest message attached.
+ * Dog docs and last messages are cached for the life of the subscription, and
+ * a last message is only re-read when that thread's lastMessageTime moves.
+ * Blocks and entitlements are read once per subscription, so subscribe while
+ * the screen is focused to pick up a block made in a chat.
+ *
+ * onError fires only when BOTH queries fail: we then can't tell "no matches"
+ * from "couldn't check", and the screen must not claim the former.
+ */
+export function subscribeMatches(
+  userId: string,
+  onData: (matches: MatchItem[]) => void,
+  onError: (error: Error) => void,
+): () => void {
+  if (!userId) {
+    onData([]);
+    return () => {};
+  }
+
+  const db = getFirebase().db;
+  let cancelled = false;
+  let generation = 0;
+  const results: Array<Map<string, FirestoreMatchDoc> | 'failed' | null> = [null, null];
+  const dogCache = new Map<string, Promise<MatchedDog | null>>();
+  const previewCache = new Map<string, { at: number; preview: Promise<LastMessagePreview | null> }>();
+  const context = Promise.all([getBlockedUserIds(userId), getEntitlements(userId)]);
+
+  const loadDog = (dogId: string) => {
+    let cached = dogCache.get(dogId);
+    if (!cached) {
+      cached = fetchDogSummary(dogId);
+      dogCache.set(dogId, cached);
+    }
+    return cached;
+  };
+
+  const loadPreview = (matchId: string, at: number) => {
+    const cached = previewCache.get(matchId);
+    if (cached && cached.at === at) return cached.preview;
+    const preview = fetchLastMessagePreview(matchId);
+    previewCache.set(matchId, { at, preview });
+    return preview;
+  };
+
+  async function emit() {
+    if (results.some((r) => r === null)) return; // wait until both queries have answered once
+    if (results.every((r) => r === 'failed')) {
+      onError(new Error('Could not load your matches — check your connection and try again.'));
+      return;
+    }
+
+    const run = ++generation;
+    const docs = new Map<string, FirestoreMatchDoc>();
+    for (const r of results) {
+      if (r && r !== 'failed') r.forEach((data, id) => docs.set(id, data));
+    }
+
+    const [blockedIds, entitlements] = await context;
+    const visible = [...docs.entries()].filter(([, data]) => !shouldHideMatch(data, userId, blockedIds));
+    const items = await Promise.all(
+      visible.map(async ([id, data]) => {
+        const otherDogId = getOtherDogId(data, userId);
+        const dog = otherDogId ? await loadDog(otherDogId) : null;
+        const item = normalizeMatchDoc(id, data, userId, dog, entitlements.lifetimeChatUnlocks);
+        if (!item.isNew && item.chatUnlocked && item.lastMessageAt !== undefined) {
+          item.preview = await loadPreview(id, item.lastMessageAt);
+        }
+        return item;
+      }),
+    );
+
+    if (cancelled || run !== generation) return; // a newer snapshot already took over
+    onData(items.sort(byLatestActivity));
+  }
+
+  const listen = (field: 'dog1UserId' | 'dog2UserId', slot: 0 | 1) =>
+    onSnapshot(
+      query(collection(db, 'matches'), where(field, '==', userId)),
+      (snap) => {
+        const map = new Map<string, FirestoreMatchDoc>();
+        snap.docs.forEach((d) => map.set(d.id, d.data() as FirestoreMatchDoc));
+        results[slot] = map;
+        void emit();
+      },
+      (error) => {
+        console.warn(`Matches listener (${field}) failed`, error);
+        results[slot] = 'failed';
+        void emit();
+      },
+    );
+
+  const unsubs = [listen('dog1UserId', 0), listen('dog2UserId', 1)];
+  return () => {
+    cancelled = true;
+    unsubs.forEach((unsub) => unsub());
+  };
+}
+
+/**
+ * Live count for the Matches tab badge, mirroring web/components/
+ * AppLayoutShell.tsx: threads where the other person wrote last and you
+ * haven't read it since, plus new matches nobody has written in yet. Unlike
+ * web, a new match stops counting once you've opened it, so the badge can
+ * always be cleared. Blocked people and demo profiles never count, matching
+ * what the list shows.
+ */
+export function subscribeUnreadCount(userId: string, onCount: (count: number) => void): () => void {
+  if (!userId) {
+    onCount(0);
+    return () => {};
+  }
+
+  const db = getFirebase().db;
+  const matchSets: Array<Map<string, FirestoreMatchDoc>> = [new Map(), new Map()];
+  const blockSets: Array<Set<string>> = [new Set(), new Set()];
+
+  function recompute() {
+    const blocked = new Set([...blockSets[0], ...blockSets[1]]);
+    const all = new Map<string, FirestoreMatchDoc>([...matchSets[0], ...matchSets[1]]);
+    let count = 0;
+    for (const data of all.values()) {
+      if (shouldHideMatch(data, userId, blocked)) continue;
+      const readField = getReadFieldForUser(data, userId);
+      const myReadAt = readField ? toMillis(data[readField]) : undefined;
+      if (!data.lastMessage) {
+        if (myReadAt === undefined) count += 1;
+        continue;
+      }
+      const lastMessageAt = toMillis(data.lastMessageAt) ?? toMillis(data.lastMessageTime);
+      if (isMatchUnread(data, userId, lastMessageAt)) count += 1;
+    }
+    onCount(count);
+  }
+
+  const unsubs = [
+    ...(['dog1UserId', 'dog2UserId'] as const).map((field, slot) =>
+      onSnapshot(
+        query(collection(db, 'matches'), where(field, '==', userId)),
+        (snap) => {
+          const map = new Map<string, FirestoreMatchDoc>();
+          snap.docs.forEach((d) => map.set(d.id, d.data() as FirestoreMatchDoc));
+          matchSets[slot] = map;
+          recompute();
+        },
+        (error) => console.warn('Unread badge listener failed', error),
+      )),
+    ...(['blocked', 'blockedBy'] as const).map((sub, slot) =>
+      onSnapshot(
+        collection(db, 'blocks', userId, sub),
+        (snap) => {
+          blockSets[slot] = new Set(snap.docs.map((d) => d.id));
+          recompute();
+        },
+        // Same as getBlockedUserIds: unreadable blocks just hide nothing.
+        () => {},
+      )),
+  ];
+
+  return () => unsubs.forEach((unsub) => unsub());
+}
+
+/** Newest messages first from the server, returned oldest-first for display. */
+export async function fetchMessages(matchId: string, max = 200): Promise<ChatMessage[]> {
   if (!matchId) return [];
 
   try {
@@ -253,28 +529,26 @@ export async function fetchMessages(matchId: string): Promise<ChatMessage[]> {
     const snap = await getDocs(
       query(
         collection(db, 'matches', matchId, 'messages'),
-        orderBy('createdAt', 'asc'),
-        limit(200),
+        orderBy('createdAt', 'desc'),
+        limit(max),
       ),
     );
 
-    if (!snap.empty) {
-      return snap.docs.map((messageDoc) => {
-        const data = messageDoc.data() as {
-          text?: string;
-          fromUserId?: string;
-          senderId?: string;
-          createdAt?: number | { toMillis?: () => number };
-        };
+    return snap.docs.map((messageDoc) => {
+      const data = messageDoc.data() as {
+        text?: string;
+        fromUserId?: string;
+        senderId?: string;
+        createdAt?: number | { toMillis?: () => number };
+      };
 
-        return {
-          id: messageDoc.id,
-          text: data.text ?? '',
-          senderId: data.fromUserId ?? data.senderId ?? 'other',
-          createdAt: toMillis(data.createdAt) ?? Date.now(),
-        };
-      });
-    }
+      return {
+        id: messageDoc.id,
+        text: data.text ?? '',
+        senderId: data.fromUserId ?? data.senderId ?? 'other',
+        createdAt: toMillis(data.createdAt) ?? Date.now(),
+      };
+    }).reverse();
   } catch (err) {
     console.warn('Could not load Firestore messages', err);
   }
@@ -293,8 +567,12 @@ export async function fetchMatch(matchId: string, currentUserId = ''): Promise<M
     if (docSnap.exists()) {
       const data = docSnap.data() as FirestoreMatchDoc;
       // A single-match fetch never needs the blocked-ids filter — the caller
-      // already has the matchId and is opening this exact conversation.
-      return normalizeMatchDoc(docSnap.id, data, currentUserId, new Set(), entitlements.lifetimeChatUnlocks);
+      // already has the matchId and is opening this exact conversation. Demo
+      // profiles stay hidden, as before.
+      const otherDogId = getOtherDogId(data, currentUserId);
+      if (otherDogId && isSeedUserId(otherDogId)) return null;
+      const dog = otherDogId ? await fetchDogSummary(otherDogId) : null;
+      return normalizeMatchDoc(docSnap.id, data, currentUserId, dog, entitlements.lifetimeChatUnlocks);
     }
   } catch (err) {
     console.warn('Could not load Firestore match', err);
