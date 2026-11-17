@@ -13,9 +13,11 @@
 // region so a reposted screenshot still carries the back-link.
 
 import { forwardRef } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
+import type { CoverFocus } from '../lib/coverPhoto';
+import { CoverImage } from './CoverPhotoEditor';
 
 interface Props {
   dogName: string;
@@ -23,20 +25,24 @@ interface Props {
   earliestUrl?: string;
   /** Latest ("Day N") photo URL. */
   latestUrl?: string;
+  /** Focal point for the earliest crop (the cover's, when it's the cover); centre otherwise. */
+  earliestFocus?: CoverFocus;
+  /** Focal point for the latest crop; centre otherwise. */
+  latestFocus?: CoverFocus;
   /** Whole days since the earliest photo — the honest count shown in the middle. */
   days: number;
   /** Human-readable earliest date, e.g. "Mar 2022" — printed under Day 1. */
   earliestLabel?: string;
 }
 
-function Panel({ url, label, sub }: { url?: string; label: string; sub?: string }) {
+function Panel({ url, focus, label, sub }: { url?: string; focus?: CoverFocus; label: string; sub?: string }) {
   return (
     <View style={styles.panel}>
       <View style={styles.frame}>
         {/* Emoji sits underneath the photo so a remote image that hasn't
             decoded at capture time still shows a meaningful avatar. */}
         <Text style={styles.frameEmoji}>🐶</Text>
-        {url ? <Image source={{ uri: url }} style={[StyleSheet.absoluteFill, styles.framePhoto]} /> : null}
+        {url ? <CoverImage uri={url} focus={focus} style={StyleSheet.absoluteFill} /> : null}
       </View>
       <Text style={styles.panelLabel}>{label}</Text>
       {sub ? <Text style={styles.panelSub}>{sub}</Text> : null}
@@ -45,7 +51,7 @@ function Panel({ url, label, sub }: { url?: string; label: string; sub?: string 
 }
 
 const DiptychCard = forwardRef<View, Props>(function DiptychCard(
-  { dogName, earliestUrl, latestUrl, days, earliestLabel },
+  { dogName, earliestUrl, latestUrl, earliestFocus, latestFocus, days, earliestLabel },
   ref,
 ) {
   const safeDays = Math.max(0, Math.floor(days));
@@ -66,9 +72,9 @@ const DiptychCard = forwardRef<View, Props>(function DiptychCard(
 
       {/* The two real photos, then vs now. */}
       <View style={styles.row}>
-        <Panel url={earliestUrl} label="Day 1" sub={earliestLabel} />
+        <Panel url={earliestUrl} focus={earliestFocus} label="Day 1" sub={earliestLabel} />
         <Text style={styles.arrow}>→</Text>
-        <Panel url={latestUrl} label={`Day ${dayN}`} sub="today" />
+        <Panel url={latestUrl} focus={latestFocus} label={`Day ${dayN}`} sub="today" />
       </View>
 
       {/* The honest count. */}
@@ -140,7 +146,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   frameEmoji: { fontSize: 56, lineHeight: 60 },
-  framePhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
   panelLabel: { fontFamily: fonts.display, fontSize: 20, color: colors.brown, marginTop: 8 },
   panelSub: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 1 },
   arrow: {

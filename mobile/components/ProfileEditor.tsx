@@ -13,6 +13,8 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { uploadDogPhoto } from '../lib/storage';
+import { clampCoverFocus, DEFAULT_COVER_FOCUS } from '../lib/coverPhoto';
+import CoverPhotoEditor from './CoverPhotoEditor';
 import { isProfileComplete, type SavedDogProfile } from '../lib/profile';
 import {
   canUseVibeCheck,
@@ -172,12 +174,19 @@ interface PhotoItem {
   mimeType?: string;
 }
 
+/** A part of the form the editor can open scrolled to. */
+export type ProfileEditorSection = 'safety' | 'birthday';
+
 interface Props {
   userId: string;
   initialProfile?: SavedDogProfile | null;
   saving: boolean;
   submitLabel: string;
   onSubmit: (profile: SavedDogProfile) => Promise<void>;
+  /** Opens the form scrolled to this section (the Today panel's nudges, Life Stage). */
+  focusSection?: ProfileEditorSection;
+  /** Shows a Back link at the top that leaves without saving. */
+  onCancel?: () => void;
 }
 
 export default function ProfileEditor({
@@ -186,6 +195,8 @@ export default function ProfileEditor({
   saving,
   submitLabel,
   onSubmit,
+  focusSection,
+  onCancel,
 }: Props) {
   const hasExistingProfile = Boolean(initialProfile);
   const profileIsComplete = isProfileComplete(initialProfile);
@@ -242,6 +253,26 @@ export default function ProfileEditor({
   );
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
+
+  // Cover photo + crop focal point (0–100), as on web. The pick is held by
+  // photo id, not index, so removing an earlier photo can't silently move it
+  // onto a different one. null = the owner hasn't chosen, so the AI hero pick
+  // stays in charge and nothing is saved for it.
+  const initialCoverId = useMemo(() => {
+    const idx = initialProfile?.coverPhotoIndex;
+    const realCount = (initialProfile?.photos ?? []).filter((url) => url && !url.startsWith('_')).length;
+    return typeof idx === 'number' && idx >= 0 && idx < realCount ? `existing-${idx}` : null;
+  }, [initialProfile]);
+  const [coverId, setCoverId] = useState<string | null>(initialCoverId);
+  const [coverFocusX, setCoverFocusX] = useState(() =>
+    initialCoverId ? clampCoverFocus(initialProfile?.coverFocusX) : DEFAULT_COVER_FOCUS);
+  const [coverFocusY, setCoverFocusY] = useState(() =>
+    initialCoverId ? clampCoverFocus(initialProfile?.coverFocusY) : DEFAULT_COVER_FOCUS);
+  // The page stops scrolling while a finger drags the focal point.
+  const [draggingCover, setDraggingCover] = useState(false);
+
+  const scrollRef = useRef<ScrollView | null>(null);
+  const scrolledToSection = useRef(false);
 
   // Vibe Check — photos in, pre-filled fields out. Mirrors web: it fills the
   // fields below and the owner reviews and saves them as usual. The server
@@ -536,20 +567,34 @@ export default function ProfileEditor({
 
   function removePhoto(id: string) {
     setPhotos((prev: PhotoItem[]) => prev.filter((photo: PhotoItem) => photo.id !== id));
+    // Removing the cover itself resets the pick and the crop, as on web;
+    // removing any other photo leaves the pick on the photo it names.
+    if (id === coverId) {
+      setCoverId(null);
+      setCoverFocusX(DEFAULT_COVER_FOCUS);
+      setCoverFocusY(DEFAULT_COVER_FOCUS);
+    }
   }
 
-  // The URL the owner's cover pick currently points at, captured once from the
-  // profile as loaded. Mobile has no cover picker (the pick is made on web), but
-  // it CAN remove/reorder photos — and it never wrote coverPhotoIndex, so the
-  // stale stored index survived { merge: true } and silently began pointing at a
-  // different photo on every surface that resolves the hero. Re-deriving the
-  // index from this URL at save time keeps the owner's pick attached to the
-  // photo they actually chose, and clears it honestly when that photo is gone.
-  const initialCoverUrl = useMemo(() => {
-    const real = (initialProfile?.photos ?? []).filter((u) => u && !u.startsWith('_'));
-    const idx = initialProfile?.coverPhotoIndex;
-    return typeof idx === 'number' && idx >= 0 && idx < real.length ? real[idx] : null;
-  }, [initialProfile]);
+  // The photo the cover editor shows: the owner's pick, else the AI hero pick
+  // (what the cards lead with until the owner chooses), else the first photo.
+  const coverEditorIndex = (() => {
+    const picked = coverId ? photos.findIndex((photo) => photo.id === coverId) : -1;
+    if (picked >= 0) return picked;
+    const hero = initialProfile?.ai?.vibeCheck?.heroPhotoIndex;
+    const heroIdx = typeof hero === 'number' ? photos.findIndex((photo) => photo.id === `existing-${hero}`) : -1;
+    return heroIdx >= 0 ? heroIdx : 0;
+  })();
+
+  // Scrolls to the section the editor was opened for, once, as soon as that
+  // section has been laid out.
+  function sectionLaidOut(section: ProfileEditorSection, y: number) {
+    if (focusSection !== section || scrolledToSection.current) return;
+    scrolledToSection.current = true;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+    });
+  }
 
   async function handleSubmit() {
     const nextErrors = validate();
@@ -588,15 +633,15 @@ export default function ProfileEditor({
       const safePhotos = uploadedPhotos.slice(0, 6);
       while (safePhotos.length < 3) safePhotos.push('_placeholder_');
 
-      // Re-point the owner's cover pick at the photo it actually names (see
-      // initialCoverUrl). null — not undefined — when that photo is gone, so
-      // the { merge: true } write really clears the stale index instead of
-      // leaving it to select an unrelated photo.
-      const nextCoverIndex = (() => {
-        if (!initialCoverUrl) return null;
-        const i = safePhotos.indexOf(initialCoverUrl);
-        return i >= 0 ? i : null;
-      })();
+      // The cover pick as an index into the photos being saved, which are
+      // uploaded in the same order as `photos`. null — not undefined — when
+      // there's no pick (never chosen, or that photo was removed), so the
+      // { merge: true } write really clears a stale index and crop instead of
+      // leaving them to select an unrelated photo. Same contract as web.
+      const realCount = Math.min(uploadedPhotos.length, 6);
+      const coverIdx = coverId ? photos.findIndex((photo) => photo.id === coverId) : -1;
+      const hasCover = coverIdx >= 0 && coverIdx < realCount;
+      const nextCoverIndex = hasCover ? coverIdx : null;
 
       await onSubmit({
         name: name.trim(),
@@ -632,6 +677,8 @@ export default function ProfileEditor({
         })(),
         photos: safePhotos,
         coverPhotoIndex: nextCoverIndex,
+        coverFocusX: hasCover ? Math.round(coverFocusX) : null,
+        coverFocusY: hasCover ? Math.round(coverFocusY) : null,
         location: locationLabel,
         city: city.trim() || undefined,
         state: usState.trim().toUpperCase() || undefined,
@@ -654,7 +701,25 @@ export default function ProfileEditor({
   return (
     // "handled" so a tap on a breed suggestion (or any chip) lands while the
     // keyboard is up, instead of only dismissing the keyboard.
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      ref={scrollRef}
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      scrollEnabled={!draggingCover}
+    >
+      {onCancel && (
+        <Pressable
+          onPress={onCancel}
+          disabled={saving || uploading}
+          hitSlop={10}
+          style={styles.cancelLink}
+          accessibilityRole="button"
+          accessibilityLabel="Back to profile without saving"
+        >
+          <Text style={styles.cancelText}>← Back</Text>
+        </Pressable>
+      )}
       <Text style={styles.title}>
         {profileIsComplete
           ? 'Edit your dog’s profile'
@@ -714,6 +779,31 @@ export default function ProfileEditor({
           )}
         </View>
         {errors.photos ? <Text style={styles.error}>{errors.photos}</Text> : null}
+
+        {/* Cover photo + reposition — mirrors web's DogProfileForm: the owner
+            picks the card's hero shot and drags the focal point so a centre
+            crop doesn't hide the face. */}
+        {photos.length > 0 && (
+          <View style={styles.coverCard}>
+            <Text style={styles.coverLabel}>
+              🖼 Cover photo <Text style={styles.coverLabelSub}>— what shows on your card</Text>
+            </Text>
+            <CoverPhotoEditor
+              photos={photos.map((photo) => photo.uri)}
+              coverIndex={coverEditorIndex}
+              focusX={coverFocusX}
+              focusY={coverFocusY}
+              onChange={({ coverIndex, focusX, focusY }) => {
+                const picked = photos[coverIndex];
+                if (!picked) return;
+                setCoverId(picked.id);
+                setCoverFocusX(focusX);
+                setCoverFocusY(focusY);
+              }}
+              onDragStateChange={setDraggingCover}
+            />
+          </View>
+        )}
 
         {/* Vibe Check — offered whenever there's any photo, saved or new,
             exactly as web does (DogProfileForm.tsx). */}
@@ -894,7 +984,20 @@ export default function ProfileEditor({
         </View>
       </Field>
 
-      <Field label="Not a good match with">
+      {/* Safety — the only inputs the matching engine's detectUnsafePairings()
+          reads. Grouped under one heading like web's form, which is also where
+          the Today panel's "Open the Safety section" nudge lands. */}
+      <View
+        style={styles.safetyCard}
+        onLayout={(event) => sectionLaidOut('safety', event.nativeEvent.layout.y)}
+      >
+        <Text style={styles.safetyTitle}>Safety</Text>
+        <Text style={styles.helper}>
+          Only what you tell us here can warn another owner before a meetup. Skip anything that
+          doesn’t apply.
+        </Text>
+
+        <Text style={styles.subLabel}>Not a good match with</Text>
         <View style={styles.wrap}>
           {NOT_GOOD_WITH_OPTIONS.map((option) => (
             <ChoiceChip
@@ -907,9 +1010,8 @@ export default function ProfileEditor({
             />
           ))}
         </View>
-      </Field>
 
-      <Field label="Good to know before meeting">
+        <Text style={[styles.subLabel, styles.subLabelSpaced]}>Good to know before meeting</Text>
         <View style={styles.wrap}>
           {BEHAVIOR_FLAG_OPTIONS.map((option) => (
             <ChoiceChip
@@ -922,7 +1024,7 @@ export default function ProfileEditor({
             />
           ))}
         </View>
-      </Field>
+      </View>
 
       <Field label="ZIP code">
         <TextInput
@@ -985,7 +1087,10 @@ export default function ProfileEditor({
 
       {/* Birthday & milestones — powers Life Stage + the birthday/Gotcha Day
           celebration cards. All optional; none gate discovery. */}
-      <View style={styles.vaccinationCard}>
+      <View
+        style={styles.vaccinationCard}
+        onLayout={(event) => sectionLaidOut('birthday', event.nativeEvent.layout.y)}
+      >
         <Text style={styles.label}>🎂 Birthday &amp; milestones</Text>
         <Text style={styles.helper}>
           Optional — unlocks {name.trim() || 'your dog'}&apos;s life stage plus birthday and Gotcha Day celebrations.
@@ -1162,6 +1267,28 @@ const styles = StyleSheet.create({
   },
   section: { marginBottom: 18 },
   field: { marginBottom: 18 },
+  cancelLink: { alignSelf: 'flex-start', paddingVertical: 4, marginBottom: 10 },
+  cancelText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brownLight },
+  coverCard: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: `${colors.cream}80`,
+    borderRadius: radius.lg,
+    padding: 12,
+  },
+  coverLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brownMid, marginBottom: 10 },
+  coverLabelSub: { fontFamily: fonts.body, color: colors.brownLight },
+  safetyCard: {
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    backgroundColor: 'rgba(255,251,235,0.6)',
+    borderRadius: radius.lg,
+    padding: 16,
+    marginBottom: 18,
+  },
+  safetyTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown, marginBottom: 4 },
+  subLabelSpaced: { marginTop: 14 },
   progressWrap: { marginBottom: 20 },
   progressRow: {
     flexDirection: 'row',

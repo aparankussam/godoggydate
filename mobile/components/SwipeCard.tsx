@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import type { DimensionValue, TextStyle, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
@@ -15,9 +15,15 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import type { DiscoverDog } from '../lib/discover';
-import { resolveHeroIndex } from '../lib/coverPhoto';
+import { focusForPhoto, resolveHeroIndex, type CoverFocus } from '../lib/coverPhoto';
 import { getRenderablePhotos } from '../lib/photos';
 import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
+import { CoverImage } from './CoverPhotoEditor';
+
+// The crop for a photo with no owner-set focal point. Same as web's swipe card
+// (object-[center_24%]): a little above centre, where a dog's face usually is
+// in a portrait shot.
+const DEFAULT_CARD_FOCUS: CoverFocus = { x: 50, y: 24 };
 
 // The photo the card should OPEN on — the owner's cover pick (or AI hero),
 // clamped to the real photos so a stale index never lands out of range.
@@ -285,6 +291,9 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     }));
 
     const currentPhoto = photos[photoIndex] ?? null;
+    // The owner's focal point applies only while the card shows their cover,
+    // and only when they actually set one — as on web.
+    const photoFocus = focusForPhoto(dog, photoIndex, heroIndexFor(dog)) ?? DEFAULT_CARD_FOCUS;
     const ageLabel =
       dog.age === 'puppy' ? 'Puppy' : dog.age === 'senior' ? 'Senior' : 'Adult';
     const sexLabel = dog.sex === 'M' ? 'Male' : 'Female';
@@ -299,11 +308,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
         <Animated.View style={[styles.card, cardStyle]}>
           {/* Photo */}
           {currentPhoto ? (
-            <Image
-              source={{ uri: currentPhoto }}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-            />
+            <CoverImage uri={currentPhoto} focus={photoFocus} style={StyleSheet.absoluteFill} />
           ) : (
             <View style={styles.photoFallback}>
               <Text style={styles.photoFallbackEmoji}>🐕</Text>

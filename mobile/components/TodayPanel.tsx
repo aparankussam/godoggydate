@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { colors, fonts, radius } from '../constants/theme';
 import { completeReminder, onReminders } from '../lib/reminders';
 import { isProfileComplete, type SavedDogProfile } from '../lib/profile';
@@ -32,8 +33,12 @@ interface Props {
    *           actually arrived earns space above it.
    */
   variant: 'full' | 'strip';
-  /** Takes the owner to where the profile (and its Safety section) is edited. */
-  onEditProfile: () => void;
+  /**
+   * No longer used: the profile nudges now open the editor themselves, at the
+   * right section (/(tabs)/profile?edit=1&section=safety). Kept optional so
+   * existing callers still compile; safe to drop from them.
+   */
+  onEditProfile?: () => void;
   /** Takes the owner to the full reminders list. */
   onOpenReminders: () => void;
 }
@@ -46,7 +51,13 @@ interface ProfilePrompt {
   body: string;
   cta: string;
   event: string;
+  /** Where the CTA lands: the profile editor, scrolled to a section if set. */
+  href: string;
 }
+
+/** Opens the profile editor; see app/(tabs)/profile.tsx for the params. */
+const EDIT_PROFILE_HREF = '/(tabs)/profile?edit=1';
+const EDIT_SAFETY_HREF = '/(tabs)/profile?edit=1&section=safety';
 
 /**
  * The only two profile gaps worth interrupting the front door for, both read
@@ -69,6 +80,7 @@ function buildProfilePrompt(profile: SavedDogProfile | null): ProfilePrompt | nu
       body: 'Until it is, other dogs can’t see you in their deck at all.',
       cta: 'Finish the profile',
       event: 'today_profile_incomplete_click',
+      href: EDIT_PROFILE_HREF,
     };
   }
 
@@ -80,13 +92,14 @@ function buildProfilePrompt(profile: SavedDogProfile | null): ProfilePrompt | nu
       body: 'Only what you tell us there can warn another owner before a meetup.',
       cta: 'Open the Safety section',
       event: 'today_safety_prompt_click',
+      href: EDIT_SAFETY_HREF,
     };
   }
 
   return null;
 }
 
-export default function TodayPanel({ dogId, profile, variant, onEditProfile, onOpenReminders }: Props) {
+export default function TodayPanel({ dogId, profile, variant, onOpenReminders }: Props) {
   // null = the first snapshot hasn't landed yet (distinct from "no reminders").
   const [reminders, setReminders] = useState<Reminder[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -150,7 +163,7 @@ export default function TodayPanel({ dogId, profile, variant, onEditProfile, onO
 
   function handleProfilePress(prompt: ProfilePrompt) {
     trackEvent(prompt.event, { source: 'today_panel' });
-    onEditProfile();
+    router.push(prompt.href);
   }
 
   function openSafetyGuide() {
