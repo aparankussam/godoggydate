@@ -264,18 +264,42 @@ export function buildDemoViewerDog(overrides: Partial<DogProfile> = {}): DogProf
   } as DogProfile;
 }
 
+// Same radius the mobile deck uses (mobile/lib/discover.ts), so a person sees
+// the same neighbours on either surface.
+export const DEFAULT_DISCOVER_RADIUS_MILES = 50;
+
 // Real matches only. Previously fell back to recycling all 15 (mostly
 // photoless) seed dogs into the live swipeable deck whenever real density
 // ran out — see buildDemoGalleryDogs for where that content now lives
 // instead: a labeled, non-swipeable showcase, never presented as if it
 // could reciprocate a like.
-export async function buildDiscoverFeed(currentUserId: string, baseDog: DogProfile): Promise<DiscoverFeedDog[]> {
+//
+// Local first: when the viewer's dog has coordinates, dogs farther than the
+// radius are left out and the rest are ordered nearest-first. This used to
+// sort by compatibility score alone, so while a city had only a handful of
+// dogs a neighbour could be buried under profiles from another state. Dogs
+// with no coordinates (distance -1) are kept — web-created profiles often have
+// only a city — but go to the end of the deck rather than the front.
+export async function buildDiscoverFeed(
+  currentUserId: string,
+  baseDog: DogProfile,
+  radiusMiles: number = DEFAULT_DISCOVER_RADIUS_MILES,
+): Promise<DiscoverFeedDog[]> {
   const [swipedIds, blockedIds] = await Promise.all([
     getSwipedDogIds(currentUserId),
     getBlockedUserIds(currentUserId),
   ]);
+  const applyRadius =
+    typeof baseDog.lat === 'number' && typeof baseDog.lng === 'number' && radiusMiles > 0;
+  const isKnown = (miles: number) => typeof miles === 'number' && miles >= 0;
+  const rank = (miles: number) => (isKnown(miles) ? miles : Number.MAX_SAFE_INTEGER);
+
   return (await getRealCandidateDogs(currentUserId))
     .filter((dog) => !swipedIds.has(dog.id) && !blockedIds.has(dog.id))
     .map((dog) => toFeedDog(baseDog, dog, false))
-    .sort((a, b) => b.compat.score - a.compat.score || a.distanceMiles - b.distanceMiles);
+    .filter((dog) => !applyRadius || !isKnown(dog.distanceMiles) || dog.distanceMiles <= radiusMiles)
+    .sort(
+      (a, b) =>
+        rank(a.distanceMiles) - rank(b.distanceMiles) || b.compat.score - a.compat.score,
+    );
 }

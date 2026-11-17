@@ -23,6 +23,7 @@ GOOGLE_SITE_VERIFICATION=your-google-token
 | `sign_in_attempt` | Google sign-in started |
 | `sign_in_success` | Google sign-in completed |
 | `sign_in_failure` | Google sign-in failed |
+| `in_app_browser_notice` | Sign-in modal shown inside an app's built-in browser (Facebook, Instagram, etc.), where Google sign-in cannot finish. Params: `app`, `platform` |
 | `profile_saved` | Dog profile saved |
 | `profile_completed` | Dog profile became swipe-ready |
 | `first_swipe` | First swipe in session |
