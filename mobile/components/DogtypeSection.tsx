@@ -9,6 +9,7 @@ import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
+import { webUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import DogtypeCard from './DogtypeCard';
 import { computeDogtype } from '../../shared/dogtype';
@@ -36,10 +37,16 @@ export default function DogtypeSection({ savedProfile }: Props) {
     if (sharing) return;
     setSharing(true);
     trackEvent('dogtype_share_click', { code: dogtype.code });
+    // Same caption and /dogtype/<CODE> link as web's DogtypeSection, so the
+    // person receiving it can look up their own dog's type.
     const result = await captureAndShare(
       cardRef,
       `${dogName.toLowerCase().replace(/\s+/g, '-')}-dogtype.png`,
-      `Share ${dogName}'s Dogtype`,
+      `${dogName} is ${dogtype.name}`,
+      {
+        caption: `${dogName} is ${dogtype.name} ${dogtype.emoji} on GoDoggyDate. What's your dog's Dogtype?`,
+        url: webUrl(`/dogtype/${dogtype.code}`),
+      },
     );
     if (result === 'shared') trackEvent('dogtype_shared', { code: dogtype.code, method: 'native_share' });
     if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');

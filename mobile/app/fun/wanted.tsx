@@ -18,10 +18,25 @@ import { computeWanted } from '../../../shared/wanted';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 
 export default function WantedScreen() {
-  const { profile } = useSession();
+  const { user, profile } = useSession();
   const dogName = profile?.name?.trim() || 'Your dog';
   const heroPhoto = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
-  const poster = computeWanted(profile ?? undefined);
+  // Seeded with the owner's uid, exactly as web/components/WantedPosterWeb.tsx
+  // does. Without the id, computeWanted fell back to the name, so the same dog
+  // got a different outlaw alias on iPhone than on the website.
+  const poster = profile
+    ? computeWanted({
+        id: user?.uid,
+        name: profile.name,
+        breed: profile.breed,
+        size: profile.size,
+        energyLevel: profile.energyLevel,
+        playStyles: profile.playStyles,
+        behaviorFlags: profile.behaviorFlags,
+        notGoodWith: profile.notGoodWith,
+        temperament: profile.temperament,
+      })
+    : null;
 
   const [photoUri, setPhotoUri] = useState<string | undefined>(heroPhoto ?? undefined);
   const [sharing, setSharing] = useState(false);

@@ -1,8 +1,6 @@
 import { ActivityIndicator, Alert, Image, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import * as Sharing from 'expo-sharing';
-import { captureRef } from 'react-native-view-shot';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import ProfileEditor from '../../components/ProfileEditor';
 import { resolveHeroIndex, setCoverPhoto } from '../../lib/coverPhoto';
@@ -23,18 +21,23 @@ import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
 import LetterSection from '../../components/LetterSection';
 import ProUpsellCard from '../../components/ProUpsellCard';
+import { captureAndShare } from '../../lib/shareCard';
+import { dogPageUrl, webUrl } from '../../lib/webLinks';
 import type { Reminder } from '../../../shared/types';
 import { foundingBadgeLabel } from '../../../shared/founding';
 
-function openLegalLink(path: string) {
-  const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
-  Linking.openURL(`${base}${path}`).catch(() => {
+function openWebLink(url: string) {
+  Linking.openURL(url).catch(() => {
     Alert.alert('Could not open link', 'Please try again in a moment.');
   });
 }
 
+function openLegalLink(path: string) {
+  openWebLink(webUrl(path));
+}
+
 export default function ProfileTab() {
-  const { user, profile, profileComplete, saveProfile, signOutUser, loading: sessionLoading } = useSession();
+  const { user, profile, profileComplete, saveProfile, refreshProfile, signOutUser, loading: sessionLoading } = useSession();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -155,30 +158,34 @@ export default function ProfileTab() {
   }, [user, bestFriendMatchId]);
 
   async function handleShareCard() {
-    if (!cardRef.current || sharingCard) return;
+    if (!cardRef.current || sharingCard || !user || !profile) return;
     setSharingCard(true);
     trackEvent('trading_card_share_click');
-    try {
-      const uri = await captureRef(cardRef, { format: 'png', quality: 1 });
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png' });
-        trackEvent('trading_card_shared', { method: 'native_share' });
-      } else {
-        Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
-      }
-    } catch (error) {
-      console.warn('Failed to share trading card', error);
-      Alert.alert('Could not share card', 'Please try again in a moment.');
-    } finally {
-      setSharingCard(false);
-    }
+    // Same caption as web's trading-card share, with the dog's public page so
+    // the person receiving it has something to tap.
+    const dogName = profile.name?.trim() || 'my dog';
+    const pronoun = profile.sex === 'F' ? 'her' : profile.sex === 'M' ? 'his' : 'their';
+    const result = await captureAndShare(
+      cardRef,
+      `${dogName.toLowerCase().replace(/\s+/g, '-')}-godoggydate-card.png`,
+      `${dogName} on GoDoggyDate`,
+      {
+        caption: `That's ${dogName} on GoDoggyDate — see ${pronoun} page:`,
+        url: dogPageUrl(profile.name ?? '', user.uid),
+      },
+    );
+    if (result === 'shared') trackEvent('trading_card_shared', { method: 'native_share' });
+    if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
+    if (result === 'error') Alert.alert('Could not share card', 'Please try again in a moment.');
+    setSharingCard(false);
   }
 
   async function handleDeleteAccount() {
+    // Same wording as web (web/app/app/profile/page.tsx). The Terms allow
+    // refunds within 14 days, so this must not say purchases aren't refunded.
     Alert.alert(
       'Delete your account permanently?',
-      'This removes your dog’s profile, all matches, messages, and swipe history. Chat unlock purchases are not refunded. This cannot be undone.',
+      'This removes your dog’s profile, all matches, messages, and swipe history. Past purchases aren’t refunded automatically: email godoggydate@gobotsai.com first if you’re within the 14-day refund window. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -240,6 +247,10 @@ export default function ProfileTab() {
               setSaving(true);
               await saveProfile(nextProfile);
               setEditing(false);
+              // saveProfile keeps only what the form wrote. Re-read the dog doc
+              // so server-written fields — including a Vibe Check run from the
+              // editor, saved to dogs/{uid}.ai — show without a restart.
+              refreshProfile().catch(() => {});
             } catch (error) {
               const message = error instanceof Error ? error.message : 'We could not save your dog profile. Please try again.';
               Alert.alert('Save failed', message);
@@ -416,8 +427,8 @@ export default function ProfileTab() {
             <DogtypeSection savedProfile={profile} />
             <CompatExplorer savedProfile={profile} userId={user.uid} />
             <LifeStageCard savedProfile={profile} onEditProfile={() => setEditing(true)} />
-            <MilestonesCard savedProfile={profile} />
-            <LetterSection savedProfile={profile} />
+            <MilestonesCard savedProfile={profile} userId={user.uid} />
+            <LetterSection savedProfile={profile} userId={user.uid} />
 
             {/* One entry to all the playful, shareable cards & games — they live
                 in the Playroom so the profile stays about the dog's life (mirrors
@@ -475,6 +486,15 @@ export default function ProfileTab() {
               <Text style={styles.secondaryText}>
                 {sharingCard ? 'Rendering…' : '📤 Share this card'}
               </Text>
+            </Pressable>
+            {/* Mirrors web's "View <name>'s public page →" link under the card. */}
+            <Pressable
+              style={styles.publicPageLink}
+              accessibilityRole="link"
+              accessibilityLabel={`View ${profile.name}'s public page`}
+              onPress={() => openWebLink(dogPageUrl(profile.name ?? '', user.uid))}
+            >
+              <Text style={styles.publicPageText}>View {profile.name}&apos;s public page →</Text>
             </Pressable>
           </View>
         )}
@@ -784,6 +804,15 @@ const styles = StyleSheet.create({
   },
   tradingCardWrap: {
     alignItems: 'center',
+  },
+  publicPageLink: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  publicPageText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.brownLight,
   },
   deleteButton: {
     alignItems: 'center',
