@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { loadAllTime, unlockedStickers, nextSticker, type Sticker } from '../lib/boops';
+import { onProgressChange } from '../lib/progressSync';
 
 interface Props {
   /** The owner's uid — the per-dog localStorage key for the boop count. */
@@ -24,7 +25,8 @@ export default function EarnedStickers({ dogId }: Props) {
     const read = () => setAllTime(loadAllTime(dogId));
     read();
     // Re-read when the tab regains focus (they may have booped on the toy and
-    // come back) and on cross-tab storage writes.
+    // come back), on cross-tab storage writes, and when boops synced from the
+    // iPhone app land.
     const onFocus = () => read();
     const onStorage = (e: StorageEvent) => {
       if (!e.key || e.key === `godoggydate.boops.${dogId}`) read();
@@ -32,10 +34,12 @@ export default function EarnedStickers({ dogId }: Props) {
     window.addEventListener('focus', onFocus);
     window.addEventListener('storage', onStorage);
     document.addEventListener('visibilitychange', onFocus);
+    const offProgress = onProgressChange(read);
     return () => {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('storage', onStorage);
       document.removeEventListener('visibilitychange', onFocus);
+      offProgress();
     };
   }, [dogId]);
 

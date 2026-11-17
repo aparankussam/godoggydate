@@ -28,6 +28,7 @@ import {
   recordTermsAcceptance as writeTermsAcceptance,
   rememberTermsAcceptedOnDevice,
 } from './account';
+import { startProgressSync, stopProgressSync } from './progressSync';
 
 /** What the router needs to know to decide where a signed-in person belongs. */
 export interface SessionSnapshot {
@@ -175,6 +176,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       setUser(nextUser);
       setAnalyticsUser(nextUser?.uid ?? null);
+      // Boops, invite keys, passport stamps, Barkle and the Human Review wait
+      // follow the account (guests included) between the app and the website.
+      if (nextUser) startProgressSync(nextUser.uid);
+      else stopProgressSync();
       if (!nextUser) {
         setProfile(null);
         setHouseholdDogs([]);

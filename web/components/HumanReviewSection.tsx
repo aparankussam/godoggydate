@@ -9,7 +9,8 @@ import { formatUsDate, formatUsMonthYear } from '../../shared/dates';
 // enforces the hard per-uid volume cap + anti-burst lock; on the client we cache
 // the last review locally (per uid) and gate a fresh one to once every ~90 days,
 // re-showing the saved review in between with a note on when the next is due.
-// The owner can always re-share the card they already have.
+// The owner can always re-share the card they already have. The cached review
+// syncs with the iPhone app (lib/progressSync), so the wait is per account.
 //
 // Self-contained: reads only the owner's own profile + a locally-cached result.
 
@@ -19,6 +20,7 @@ import { requestHumanReview, type HumanReview } from '../lib/humanReview';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
+import { loadHumanReview, onProgressChange, saveHumanReview } from '../lib/progressSync';
 import HumanReviewCard from './HumanReviewCard';
 
 interface Props {
@@ -37,30 +39,13 @@ interface CachedReview {
   generatedAtMs: number;
 }
 
-function cacheKey(uid: string): string {
-  return `gdd:humanReview:${uid}`;
-}
-
-function loadCached(uid: string): CachedReview | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(cacheKey(uid));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CachedReview;
-    if (!parsed?.review || typeof parsed.generatedAtMs !== 'number') return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+// Local-first (SSR-safe, never throws); saving also syncs the review and its date.
+function loadCached(uid: string): { review: HumanReview; generatedAtMs: number } | null {
+  return loadHumanReview(uid);
 }
 
 function saveCached(uid: string, value: CachedReview): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(cacheKey(uid), JSON.stringify(value));
-  } catch {
-    /* private mode / quota — cadence just falls back to server caps */
-  }
+  saveHumanReview(uid, value);
 }
 
 function formatToday(): string {
@@ -92,10 +77,11 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
   const dogName = savedProfile.name?.trim() || 'Your dog';
 
   // Hydrate any cached review after mount (SSR-safe — never touches
-  // localStorage during render).
+  // localStorage during render), and again when one synced from the app lands.
   useEffect(() => {
-    const cached = loadCached(userId);
-    if (cached) {
+    const hydrate = () => {
+      const cached = loadCached(userId);
+      if (!cached) return;
       setReview(cached.review);
       // Re-derive rather than trusting the cached STRING: the label was
       // formatted at generate time, so a cache written before the US-format
@@ -103,7 +89,9 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
       // inside the shared keepsake PNG.
       setDateLabel(formatUsDate(new Date(cached.generatedAtMs)));
       setGeneratedAtMs(cached.generatedAtMs);
-    }
+    };
+    hydrate();
+    return onProgressChange(hydrate);
   }, [userId]);
 
   const now = Date.now();

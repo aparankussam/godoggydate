@@ -1,9 +1,11 @@
 // mobile/app/fun/barkle.tsx
 // BARKLE — Wordle for dog breeds, ported to a standalone RN screen. A mystery
 // breed a day, six tries, a fresh clue after every miss. Public and delight-
-// first: no auth, no profile, no AI, no network — every bit of logic lives in
+// first: no profile, no AI, never waits on the network — every bit of logic lives in
 // shared/barkle.ts (the SAME module the web game uses), and the day's progress
-// persists in AsyncStorage so a return trip keeps your guesses.
+// persists in AsyncStorage so a return trip keeps your guesses. Signed in (guests
+// too), lib/progressSync also syncs the day's game with the account, so a puzzle
+// started on the website carries on here (and vice versa).
 //
 // The viral loop is the SPOILER-FREE result: an emoji-grid image (brand baked
 // in via BarkleResultCard) shared through captureAndShare, plus a text share of
@@ -25,10 +27,10 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
 import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
+import { loadBarkleGuesses, onProgressChange, saveBarkleGuesses } from '../../lib/progressSync';
 import BarkleResultCard from '../../components/BarkleResultCard';
 import {
   BREED_NAMES,
@@ -45,13 +47,6 @@ import {
 } from '../../../shared/barkle';
 
 type Status = 'playing' | 'won' | 'lost';
-
-const STORAGE_KEY = 'godoggydate.barkle.v1';
-
-interface SavedState {
-  puzzleNumber: number;
-  guessNames: string[]; // canonical breed names, in the order played
-}
 
 function statusFrom(results: GuessResult[]): Status {
   if (results.some((r) => r.correct)) return 'won';
@@ -85,31 +80,32 @@ export default function BarkleScreen() {
   const cardRef = useRef<View>(null);
   const clueAnim = useRef(new Animated.Value(1)).current;
 
-  // Resolve today's puzzle and rehydrate any saved progress for the same day.
+  // Resolve today's puzzle and rehydrate any saved progress for the same day,
+  // and again when a game synced from the website lands.
   useEffect(() => {
     const today = getDailyBreed();
     setPuzzle(today);
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const parsed = JSON.parse(raw) as Partial<SavedState>;
-        if (
-          typeof parsed?.puzzleNumber === 'number' &&
-          parsed.puzzleNumber === today.puzzleNumber &&
-          Array.isArray(parsed.guessNames)
-        ) {
-          const replay = parsed.guessNames
-            .filter((n): n is string => typeof n === 'string')
-            .map((name) => evaluateGuess(name, today.breed))
-            .filter((r) => r.matched); // drop anything no longer recognised
-          if (replay.length) setResults(replay);
-        }
-      } catch {
-        // Corrupt or unavailable storage — just start the day fresh.
-      }
-    })();
+    let alive = true;
+    const rehydrate = async () => {
+      const names = await loadBarkleGuesses(today.puzzleNumber, today.breed.name);
+      const replay = names
+        .map((name) => evaluateGuess(name, today.breed))
+        .filter((r) => r.matched); // drop anything no longer recognised
+      if (!alive || !replay.length) return;
+      // A read that raced a guess just made here is behind the screen: keep the screen.
+      setResults((cur) =>
+        replay.length < cur.length && replay.every((r, i) => r.matched?.name === cur[i].matched?.name)
+          ? cur
+          : replay,
+      );
+    };
+    void rehydrate();
+    const off = onProgressChange(() => void rehydrate());
     trackEvent('barkle_open', {});
+    return () => {
+      alive = false;
+      off();
+    };
   }, []);
 
   const status = useMemo(() => statusFrom(results), [results]);
@@ -169,14 +165,12 @@ export default function BarkleScreen() {
       setError('');
       Keyboard.dismiss();
 
-      // Persist progress for the day (fire-and-forget).
-      const payload: SavedState = {
-        puzzleNumber: puzzle.puzzleNumber,
-        guessNames: next
-          .map((r) => r.matched?.name)
-          .filter((n): n is string => typeof n === 'string'),
-      };
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => {});
+      // Persist progress for the day (fire-and-forget; never throws).
+      void saveBarkleGuesses(
+        puzzle.puzzleNumber,
+        next.map((r) => r.matched?.name).filter((n): n is string => typeof n === 'string'),
+        statusFrom(next) === 'won',
+      );
 
       // A fresh clue slides in after a miss; a solid thunk on the result.
       clueAnim.setValue(0);

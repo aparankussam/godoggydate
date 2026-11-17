@@ -5,13 +5,15 @@
 //   • reach a Snoot Boop milestone (derived live from the boop count), or
 //   • invite a friend (the shared card IS the invite).
 //
-// Mirrors the boops pattern exactly: localStorage only, no backend, per-device,
-// SSR-safe. Honest by construction — a key is always a real thing the owner did
-// (booped N times, or shared an invite), never fabricated. Keyed by the same
-// dogId (the owner's uid) the boop counter uses, so boops earned in Snoot Boop
-// count here too.
+// Mirrors the boops pattern exactly: localStorage first, SSR-safe, and synced
+// across devices by lib/progressSync (invited codes merge as a union). Honest by
+// construction — a key is always a real thing the owner did (booped N times, or
+// shared an invite), never fabricated. Keyed by the same dogId (the owner's uid)
+// the boop counter uses, so boops earned in Snoot Boop count here too.
 
 import { loadAllTime, BOOP_MILESTONES } from './boops';
+import { progressKeys } from '../../shared/progress';
+import { markProgressDirty } from './progressSync';
 
 export interface UnlockState {
   /** Distinct match-type codes the owner has invited for. One key each — a set,
@@ -19,7 +21,7 @@ export interface UnlockState {
   invitedCodes: string[];
 }
 
-const KEY = (dogId: string) => `godoggydate.revealUnlocks.${dogId}`;
+const KEY = progressKeys.unlocks;
 
 function hasStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -47,6 +49,7 @@ function save(dogId: string, state: UnlockState): void {
   } catch {
     /* private mode / quota — the ledger degrades to nothing, never throws */
   }
+  markProgressDirty(dogId);
 }
 
 /** Keys earned from Snoot Boop: one per milestone the all-time count has reached. */
