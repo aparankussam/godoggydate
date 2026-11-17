@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,51 +11,61 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { colors, fonts, radius } from '../../constants/theme';
-import { fetchMatches, formatMatchTime, type MatchItem } from '../../lib/matches';
+import {
+  formatMatchTime,
+  lastMessageLine,
+  subscribeMatches,
+  type MatchItem,
+} from '../../lib/matches';
 import { useSession } from '../../lib/session';
+
+function previewLine(match: MatchItem, selfUid: string): string {
+  if (!match.chatUnlocked) return 'Open chat to send the first hello';
+  if (match.isNew) return 'New match! Say hello 👋';
+  return lastMessageLine(match, selfUid);
+}
 
 export default function MatchesTab() {
   const { user, loading: sessionLoading } = useSession();
-  const [matches, setMatches] = useState<MatchItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const uid = user?.uid;
+  // null until the first load answers, so a refocus keeps showing the list
+  // instead of flashing a spinner.
+  const [matches, setMatches] = useState<MatchItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
+  // Another account's list must never show while this one loads.
+  useEffect(() => {
+    setMatches(null);
+    setError(null);
+  }, [uid]);
+
+  // Live while the tab is focused: a new match or message moves its row to
+  // the top without leaving the tab. Re-subscribing on each focus also picks
+  // up a block made inside a chat.
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      if (!user) {
-        if (active) {
-          setMatches([]);
-          setError(null);
-          setLoading(false);
-        }
-        return () => {
-          active = false;
-        };
+      if (!uid) {
+        setMatches([]);
+        setError(null);
+        return undefined;
       }
 
-      setLoading(true);
-      setError(null);
-      fetchMatches(user.uid)
-        .then((nextMatches) => {
-          if (active) setMatches(nextMatches);
-        })
-        .catch((err) => {
+      return subscribeMatches(
+        uid,
+        (next) => {
+          setMatches(next);
+          setError(null);
+        },
+        (err) => {
           // A failed load must not render as "No matches yet" — that tells
           // the user their dog has no matches when the truth is the app
           // couldn't check, and the user has no way to tell the difference.
           console.warn('Failed to load matches:', err);
-          if (active) setError(err instanceof Error ? err.message : 'Could not load your matches.');
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-
-      return () => {
-        active = false;
-      };
-    }, [user, retryToken]),
+          setError(err.message || 'Could not load your matches.');
+        },
+      );
+    }, [uid, retryToken]),
   );
 
   // Check session resolution BEFORE the sign-in gate. On a cold launch,
@@ -82,7 +92,7 @@ export default function MatchesTab() {
     );
   }
 
-  if (loading) {
+  if (matches === null && !error) {
     return (
       <SafeAreaView style={styles.center}>
         <ActivityIndicator color={colors.primary} />
@@ -90,13 +100,15 @@ export default function MatchesTab() {
     );
   }
 
+  const list = matches ?? [];
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Matches</Text>
         <Text style={styles.subtitle}>
-          {matches.length > 0
-            ? `${matches.length} pup${matches.length !== 1 ? 's' : ''} want to meet`
+          {list.length > 0
+            ? `${list.length} pup${list.length !== 1 ? 's' : ''} want to meet`
             : 'Keep swiping to get matches'}
         </Text>
       </View>
@@ -108,12 +120,15 @@ export default function MatchesTab() {
           <Text style={styles.emptyBody}>{error}</Text>
           <Pressable
             style={styles.retryBtn}
-            onPress={() => setRetryToken((t) => t + 1)}
+            onPress={() => {
+              setError(null);
+              setRetryToken((t) => t + 1);
+            }}
           >
             <Text style={styles.retryBtnText}>Retry</Text>
           </Pressable>
         </View>
-      ) : matches.length === 0 ? (
+      ) : list.length === 0 ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyEmoji}>💛</Text>
           <Text style={styles.emptyTitle}>No matches yet</Text>
@@ -123,59 +138,74 @@ export default function MatchesTab() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
-          {matches.map((match) => (
-            <View key={match.id} style={styles.row}>
-              {/* Avatar — its own pressable, to the dog's profile. Previously
-                  the whole row (avatar included) went straight to chat, with
-                  no way to see a matched dog's profile again. */}
-              <Pressable
-                style={styles.avatarWrap}
-                onPress={() => router.push({ pathname: '/dog/[matchId]', params: { matchId: match.id } })}
-              >
-                {/* heroPhoto, not photos[0] — this thumbnail is the tap target
-                    for the dog's profile, which opens on the owner's cover
-                    pick, so showing photo 0 here made the two disagree. */}
-                {match.dog.heroPhoto ? (
-                  <Image source={{ uri: match.dog.heroPhoto }} style={styles.avatar} />
-                ) : (
-                  <View style={[styles.avatar, styles.avatarFallback]}>
-                    <Text style={styles.avatarEmoji}>🐕</Text>
-                  </View>
-                )}
-                {match.unread && <View style={styles.unreadDot} />}
-              </Pressable>
+          {list.map((match) => {
+            const breed = match.dog.breed && match.dog.breed !== 'Unknown breed' ? match.dog.breed : null;
+            return (
+              <View key={match.id} style={styles.row}>
+                {/* Avatar — its own pressable, to the dog's profile. Previously
+                    the whole row (avatar included) went straight to chat, with
+                    no way to see a matched dog's profile again. */}
+                <Pressable
+                  style={styles.avatarWrap}
+                  onPress={() => router.push({ pathname: '/dog/[matchId]', params: { matchId: match.id } })}
+                  accessibilityLabel={`View ${match.dog.name}'s profile`}
+                >
+                  {/* heroPhoto, not photos[0] — this thumbnail is the tap target
+                      for the dog's profile, which opens on the owner's cover
+                      pick, so showing photo 0 here made the two disagree. */}
+                  {match.dog.heroPhoto ? (
+                    <Image source={{ uri: match.dog.heroPhoto }} style={styles.avatar} />
+                  ) : (
+                    <View style={[styles.avatar, styles.avatarFallback]}>
+                      <Text style={styles.avatarEmoji}>🐕</Text>
+                    </View>
+                  )}
+                  {match.unread && <View style={styles.unreadDot} />}
+                </Pressable>
 
-              {/* Text — its own pressable, to the chat thread. */}
-              <Pressable
-                style={({ pressed }) => [styles.rowBody, pressed && styles.rowPressed]}
-                onPress={() =>
-                  router.push({
-                    pathname: '/chat/[matchId]',
-                    params: { matchId: match.id, name: match.dog.name },
-                  })
-                }
-              >
-                <View style={styles.rowTop}>
-                  <Text style={[styles.dogName, match.unread && styles.dogNameBold]} numberOfLines={1}>
-                    {match.dog.name}
-                  </Text>
-                  {match.lastMessageAt && (
-                    <Text style={styles.timeLabel}>
-                      {formatMatchTime(match.lastMessageAt)}
+                {/* Text — its own pressable, to the chat thread. */}
+                <Pressable
+                  style={({ pressed }) => [styles.rowBody, pressed && styles.rowPressed]}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/chat/[matchId]',
+                      params: { matchId: match.id, name: match.dog.name },
+                    })
+                  }
+                >
+                  <View style={styles.rowTop}>
+                    <Text style={[styles.dogName, match.unread && styles.dogNameBold]} numberOfLines={1}>
+                      {match.dog.name}
+                    </Text>
+                    {match.isNew && (
+                      <View style={styles.newPill}>
+                        <Text style={styles.newPillText}>New match</Text>
+                      </View>
+                    )}
+                    <View style={styles.rowTopSpacer} />
+                    {match.activityAt > 0 && (
+                      <Text style={styles.timeLabel}>{formatMatchTime(match.activityAt)}</Text>
+                    )}
+                  </View>
+                  {breed && (
+                    <Text style={styles.breed} numberOfLines={1}>
+                      {breed}
                     </Text>
                   )}
-                </View>
-                <Text
-                  style={[styles.lastMessage, match.unread && styles.lastMessageBold]}
-                  numberOfLines={1}
-                >
-                  {match.chatUnlocked
-                    ? (match.lastMessage ?? 'Say hello! 👋')
-                    : 'Open chat to send the first hello'}
-                </Text>
-              </Pressable>
-            </View>
-          ))}
+                  <Text
+                    style={[
+                      styles.lastMessage,
+                      match.isNew && match.chatUnlocked && styles.lastMessageNew,
+                      match.unread && styles.lastMessageBold,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {previewLine(match, user.uid)}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -245,26 +275,48 @@ const styles = StyleSheet.create({
   rowTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 3,
+    marginBottom: 1,
   },
+  rowTopSpacer: { flex: 1 },
   dogName: {
     fontFamily: fonts.semibold,
     fontSize: 16,
     color: colors.brown,
-    flex: 1,
+    flexShrink: 1,
   },
   dogNameBold: { fontFamily: fonts.bold },
+  newPill: {
+    marginLeft: 8,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(232,99,58,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  newPillText: {
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    color: colors.primary,
+  },
   timeLabel: {
     fontFamily: fonts.body,
     fontSize: 12,
     color: colors.brownLight,
     marginLeft: 8,
   },
+  breed: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.brownLight,
+    marginBottom: 2,
+  },
   lastMessage: {
     fontFamily: fonts.body,
     fontSize: 14,
     color: colors.brownLight,
+  },
+  lastMessageNew: {
+    fontFamily: fonts.semibold,
+    color: colors.primary,
   },
   lastMessageBold: {
     fontFamily: fonts.semibold,
