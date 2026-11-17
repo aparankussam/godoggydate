@@ -1,15 +1,16 @@
 import { Alert, Linking, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, fonts, radius, shadow } from '../constants/theme';
-import { useSession } from '../lib/session';
+import { homeRouteFor, routeAfterSignIn, useSession } from '../lib/session';
+import { wasTermsAcceptedOnDevice } from '../lib/account';
+import { webUrl } from '../lib/webLinks';
 import { signInWithGoogleNative } from '../lib/googleAuth';
 import { isAppleSignInAvailable, signInWithAppleNative } from '../lib/appleAuth';
 
 function openLegalLink(path: string) {
-  const base = (process.env.EXPO_PUBLIC_WEB_URL?.trim().replace(/\/$/, '')) || 'https://godoggydate.com';
-  Linking.openURL(`${base}${path}`).catch(() => {
+  Linking.openURL(webUrl(path)).catch(() => {
     Alert.alert('Could not open link', 'Please try again in a moment.');
   });
 }
@@ -18,9 +19,13 @@ export default function WelcomeScreen() {
   const {
     loading,
     profileComplete,
+    householdOnly,
+    termsAccepted,
     signInGuest,
     signInWithGoogleIdToken,
     signInWithAppleCredential,
+    recordTermsAcceptance,
+    refreshSession,
     user,
   } = useSession();
   const hasRestoredGuestSession = Boolean(user?.isAnonymous);
@@ -30,18 +35,34 @@ export default function WelcomeScreen() {
   );
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
+  // Mirrors web's AuthModal: nothing signs in until this is ticked.
+  const [agreed, setAgreed] = useState(false);
+  const [showAgreeHint, setShowAgreeHint] = useState(false);
+
+  // Someone who already accepted isn't asked again: a restored session whose
+  // account records the current Terms, or a device that accepted them before
+  // a sign-out, starts with the box ticked.
+  useEffect(() => {
+    if (user && termsAccepted) setAgreed(true);
+  }, [termsAccepted, user]);
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) return;
-    if (profileComplete) {
-      router.replace('/(tabs)/discover');
-      return;
-    }
-    if (!user.isAnonymous) {
-      router.replace('/onboarding');
-    }
-  }, [loading, profileComplete, user]);
+    let active = true;
+    wasTermsAcceptedOnDevice().then((accepted) => {
+      if (active && accepted) setAgreed(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // A restored session that belongs somewhere else. Skipped while a sign-in
+  // started here is in flight: that handler routes when it's done.
+  useEffect(() => {
+    if (loading || !user || authBusy) return;
+    const route = homeRouteFor({ user, profileComplete, householdOnly });
+    if (route !== '/welcome') router.replace(route as Href);
+  }, [authBusy, householdOnly, loading, profileComplete, user]);
 
   useEffect(() => {
     let active = true;
@@ -53,7 +74,35 @@ export default function WelcomeScreen() {
     };
   }, []);
 
+  function requireAgreement(): boolean {
+    if (agreed) return true;
+    setShowAgreeHint(true);
+    return false;
+  }
+
+  function toggleAgreed() {
+    setAgreed((value) => !value);
+    setShowAgreeHint(false);
+  }
+
+  /**
+   * After any sign-in: save the 18+ / Terms acceptance (as web does), then
+   * route on the freshly loaded account. Falls back to the root screen, which
+   * routes once the session has loaded, if that read fails.
+   */
+  async function finishSignIn() {
+    await recordTermsAcceptance();
+    let route = '/';
+    try {
+      route = routeAfterSignIn(await refreshSession());
+    } catch (error) {
+      console.warn('[Welcome] could not load the account after sign-in', error);
+    }
+    router.replace(route as Href);
+  }
+
   async function handleGooglePress() {
+    if (!requireAgreement()) return;
     if (!googleConfigured) {
       Alert.alert(
         'Google sign-in not configured',
@@ -63,33 +112,57 @@ export default function WelcomeScreen() {
     }
     if (authBusy) return;
     setAuthBusy(true);
+    let signedIn = false;
     try {
       const result = await signInWithGoogleNative();
       if (result.status !== 'success' || !result.idToken) return;
       await signInWithGoogleIdToken(result.idToken);
-      router.replace('/(tabs)/discover');
+      signedIn = true;
+      await finishSignIn();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'We could not sign you in with Google.';
       Alert.alert('Google sign-in failed', message);
     } finally {
-      setAuthBusy(false);
+      // Stay busy after a successful sign-in; this screen is being replaced.
+      if (!signedIn) setAuthBusy(false);
     }
   }
 
   async function handleApplePress() {
+    if (!requireAgreement()) return;
     if (authBusy) return;
     setAuthBusy(true);
+    let signedIn = false;
     try {
       const result = await signInWithAppleNative();
       if (result.status !== 'success' || !result.identityToken || !result.rawNonce) return;
       await signInWithAppleCredential(result.identityToken, result.rawNonce);
-      router.replace('/(tabs)/discover');
+      signedIn = true;
+      await finishSignIn();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'We could not sign you in with Apple.';
       Alert.alert('Apple sign-in failed', message);
     } finally {
+      if (!signedIn) setAuthBusy(false);
+    }
+  }
+
+  async function handleGuestPress() {
+    if (!requireAgreement()) return;
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      if (!user) {
+        await signInGuest();
+      }
+      await finishSignIn();
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'We could not start your mobile session. Please try again.';
+      Alert.alert('Sign-in failed', message);
       setAuthBusy(false);
     }
   }
@@ -105,45 +178,66 @@ export default function WelcomeScreen() {
             then find playmates who actually fit. The home for your dog&apos;s whole life.
           </Text>
 
+          <View style={styles.agreeRow}>
+            <Pressable
+              onPress={toggleAgreed}
+              hitSlop={10}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreed }}
+              accessibilityLabel="I'm 18 or older and agree to the Terms and Privacy Policy"
+              style={[
+                styles.checkbox,
+                agreed && styles.checkboxChecked,
+                showAgreeHint && !agreed && styles.checkboxAlert,
+              ]}
+            >
+              {agreed && <Text style={styles.checkboxMark}>✓</Text>}
+            </Pressable>
+            <Text style={styles.agreeText} onPress={toggleAgreed}>
+              I&apos;m 18 or older and agree to the{' '}
+              <Text style={styles.agreeLink} accessibilityRole="link" onPress={() => openLegalLink('/terms')}>
+                Terms
+              </Text>
+              {' '}and{' '}
+              <Text style={styles.agreeLink} accessibilityRole="link" onPress={() => openLegalLink('/privacy')}>
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </View>
+          {showAgreeHint && !agreed && (
+            <Text style={styles.agreeHint} accessibilityLiveRegion="polite">
+              Tick the box above to continue.
+            </Text>
+          )}
+
           <View style={styles.ctaGroup}>
             <Pressable
-              style={[styles.secondaryButton, (!googleConfigured || authBusy) && styles.buttonDisabled]}
+              style={[styles.secondaryButton, (!googleConfigured || authBusy || !agreed) && styles.buttonDisabled]}
               onPress={handleGooglePress}
               disabled={!googleConfigured || authBusy}
+              accessibilityState={{ disabled: !googleConfigured || authBusy || !agreed }}
             >
               <Text style={styles.secondaryText}>Sign in with Google</Text>
             </Pressable>
 
             {appleAvailable && Platform.OS === 'ios' && (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                cornerRadius={radius.full}
-                style={styles.appleButton}
-                onPress={handleApplePress}
-              />
+              <View style={(!agreed || authBusy) && styles.buttonDisabled}>
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={radius.full}
+                  style={styles.appleButton}
+                  onPress={handleApplePress}
+                />
+              </View>
             )}
 
             <Pressable
-              style={[styles.primaryButton, authBusy && styles.buttonDisabled]}
+              style={[styles.primaryButton, (authBusy || !agreed) && styles.buttonDisabled]}
               disabled={authBusy}
-              onPress={async () => {
-                if (authBusy) return;
-                setAuthBusy(true);
-                try {
-                  if (!user) {
-                    await signInGuest();
-                  }
-                  router.replace('/onboarding');
-                } catch (error) {
-                  const message = error instanceof Error
-                    ? error.message
-                    : 'We could not start your mobile session. Please try again.';
-                  Alert.alert('Sign-in failed', message);
-                } finally {
-                  setAuthBusy(false);
-                }
-              }}
+              onPress={handleGuestPress}
+              accessibilityState={{ disabled: authBusy || !agreed }}
             >
               <Text style={styles.primaryText}>
                 {hasRestoredGuestSession ? 'Resume as Guest' : 'Continue as Guest'}
@@ -155,13 +249,6 @@ export default function WelcomeScreen() {
             {hasRestoredGuestSession
               ? 'A guest session was restored on this device. You can resume setup or switch to Google or Apple sign-in.'
               : 'Sign in with Apple or Google to save your matches across devices, or continue as a guest to start exploring.'}
-          </Text>
-
-          <Text style={styles.legalText}>
-            By continuing you agree to our{' '}
-            <Text style={styles.legalLink} onPress={() => openLegalLink('/terms')}>Terms</Text>
-            {' '}and{' '}
-            <Text style={styles.legalLink} onPress={() => openLegalLink('/privacy')}>Privacy Policy</Text>.
           </Text>
         </View>
 
@@ -289,17 +376,53 @@ const styles = StyleSheet.create({
     marginTop: 14,
     textAlign: 'left',
   },
-  legalText: {
-    fontFamily: fonts.body,
-    color: colors.brownLight,
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 10,
-    textAlign: 'left',
+  agreeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 14,
   },
-  legalLink: {
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxAlert: {
+    borderColor: '#DC2626',
+  },
+  checkboxMark: {
+    color: colors.white,
+    fontSize: 14,
+    fontFamily: fonts.bold,
+  },
+  agreeText: {
+    flex: 1,
+    fontFamily: fonts.body,
+    color: colors.brownMid,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  agreeLink: {
+    fontFamily: fonts.semibold,
+    color: colors.primary,
     textDecorationLine: 'underline',
-    color: colors.brownLight,
+  },
+  agreeHint: {
+    fontFamily: fonts.semibold,
+    color: '#DC2626',
+    fontSize: 12,
+    marginTop: -6,
+    marginBottom: 12,
   },
   previewCard: {
     backgroundColor: colors.brown,
