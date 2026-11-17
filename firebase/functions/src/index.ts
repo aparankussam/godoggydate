@@ -9,6 +9,7 @@ import {
   checkMessageContent,
   dogProfileContentFixes,
   isSafeDocId,
+  moderationNoticeFor,
 } from './moderation';
 
 admin.initializeApp();
@@ -1178,6 +1179,11 @@ export const onMessageCreatedNotify = functions
 // in this write are checked, and the cleared values pass, so the trigger fired
 // by our own update finds nothing to do. Server-only writes (trust score,
 // founding number, Vibe Check) change no text field and return before any read.
+//
+// The owner is told through users/{uid}/private/moderationNotice
+// ({ fields, reason, at }; see moderationNoticeFor), which both apps show and
+// delete on dismiss. It's owner-only: the dog doc is readable by every
+// signed-in user, so the notice can't go there.
 export const onDogProfileWriteModerate = functions
   .runWith({ secrets: [opsAlertWebhookUrl] })
   .firestore.document('dogs/{uid}')
@@ -1190,11 +1196,14 @@ export const onDogProfileWriteModerate = functions
     // Re-check against the current doc inside a transaction, so an owner who
     // has already re-saved clean text (or edited a list since) keeps it.
     const ref = change.after.ref;
+    const noticeRef = db.doc(`users/${uid}/private/moderationNotice`);
     const applied = await db.runTransaction(async (tx) => {
       const fresh = await tx.get(ref);
       if (!fresh.exists) return null;
       const fixes = dogProfileContentFixes(before, fresh.data() ?? {});
       if (fixes.problems.length === 0) return null;
+      // A notice the owner hasn't dismissed yet is merged, not replaced.
+      const pending = await tx.get(noticeRef);
       tx.update(ref, fixes.updates);
       const logRef = db.collection('moderationLog').doc();
       tx.set(logRef, {
@@ -1204,6 +1213,10 @@ export const onDogProfileWriteModerate = functions
         original: fixes.original,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      tx.set(noticeRef, {
+        ...moderationNoticeFor(fixes.problems, pending.exists ? pending.data() : undefined),
+        at: admin.firestore.FieldValue.serverTimestamp(),
+      });
       return { fixes, logPath: logRef.path };
     });
     if (!applied) return;
@@ -1211,7 +1224,7 @@ export const onDogProfileWriteModerate = functions
     const summary = applied.fixes.problems.map((p) => `${p.field} (${p.reason})`).join(', ');
     await sendOpsAlert(
       `GoDoggyDate content filter cleared dog profile text: dog ${uid}, ${summary}. ` +
-      `Original in ${applied.logPath}. Check whether the owner needs action.`,
+      `Original in ${applied.logPath}. The owner was told (${noticeRef.path}). Check whether they need further action.`,
     );
   });
 
@@ -1277,10 +1290,12 @@ export const onReportCreated = functions
       }
     }
     let eventFound = false;
+    let eventCancelled = false;
     if (eventId) {
       try {
         const eventSnap = await db.doc(`packDays/${eventId}`).get();
         eventFound = eventSnap.exists;
+        eventCancelled = eventSnap.data()?.status === 'cancelled';
         evidence.packDay = eventSnap.exists ? packDayEvidence(eventSnap.data() ?? {}) : null;
       } catch (error) {
         console.error('onReportCreated: Pack Day snapshot failed', { reportId, eventId, error });
@@ -1302,13 +1317,20 @@ export const onReportCreated = functions
     }
 
     const where = eventId
-      ? `Pack Day ${eventId}${eventFound ? '' : ' (event not found)'}`
+      ? `Pack Day ${eventId}${eventFound ? (eventCancelled ? ' (already cancelled)' : '') : ' (event not found)'}`
       : `match ${matchId ?? 'none'}`;
+    // Only for an event that exists, so the id is a server-made packDays id
+    // and safe to paste into a shell. The script does a dry run unless
+    // --confirm is added. See PRODUCTION-LAUNCH-CHECKS.md.
+    const takeDown = eventId && eventFound && !eventCancelled
+      ? ` To take the event down: node scripts/admin-remove-packday.cjs ${eventId} ` +
+        '--reason "Broke the Pack Day rules" (dry run; add --confirm to apply).'
+      : '';
     await sendOpsAlert(
       `GoDoggyDate report (${report.reason ?? 'no reason'}, source ${report.source ?? 'not given'}): ` +
       `reporter ${report.reporterId}, target ${report.targetUserId}, ` +
       `${where}, report ${reportId}, ` +
-      `evidence ${evidenceSaved ? 'saved' : 'NOT saved'}. Review within 24 hours.`,
+      `evidence ${evidenceSaved ? 'saved' : 'NOT saved'}. Review within 24 hours.${takeDown}`,
     );
   });
 
@@ -1847,4 +1869,5 @@ const packDay = makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay })
 export const createPackDay = packDay.createPackDay;
 export const rsvpPackDay = packDay.rsvpPackDay;
 export const cancelPackDay = packDay.cancelPackDay;
+export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;

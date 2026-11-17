@@ -121,6 +121,50 @@ export function dogProfileContentFixes(
   return fixes;
 }
 
+// ── Owner notice ───────────────────────────────────────────────────────────────
+// users/{uid}/private/moderationNotice tells the owner which profile text the
+// server cleared, so a blank field isn't a mystery. Owner-only (private/), not
+// on the dog doc, which every signed-in user can read. The apps show it and
+// delete it when dismissed.
+//
+// `fields` uses the keys the editors show: the dog field names, except that
+// city and state are one "location" input in both apps.
+
+const NOTICE_FIELD_KEY: Record<string, string> = { city: 'location', state: 'location' };
+
+/** Every key that can appear in moderationNotice.fields. */
+export const MODERATION_NOTICE_FIELDS: readonly string[] = [
+  ...new Set([...DOG_TEXT_FIELDS, ...DOG_TEXT_LIST_FIELDS, 'prompts'].map((f) => NOTICE_FIELD_KEY[f] ?? f)),
+];
+
+// One reason per notice. When fields failed for different reasons, name the
+// most serious.
+const REASONS_MOST_SERIOUS_FIRST: readonly ContentFilterReason[] = ['threat', 'slur', 'sexual'];
+
+export interface ModerationNotice {
+  fields: string[];
+  reason: ContentFilterReason;
+}
+
+/**
+ * The notice to write for `problems`, merged with the one already waiting (if
+ * the owner hasn't dismissed it yet): the field lists are combined. `existing`
+ * is owner-writable, so only known keys and reasons are carried over.
+ */
+export function moderationNoticeFor(
+  problems: DogContentProblem[],
+  existing?: Record<string, unknown>,
+): ModerationNotice {
+  const previous = Array.isArray(existing?.fields) ? existing.fields : [];
+  const fields = [...new Set([
+    ...previous.filter((f): f is string => typeof f === 'string' && MODERATION_NOTICE_FIELDS.includes(f)),
+    ...problems.map((p) => NOTICE_FIELD_KEY[p.field] ?? p.field),
+  ])];
+  const reasons: unknown[] = [...problems.map((p) => p.reason), existing?.reason];
+  const reason = REASONS_MOST_SERIOUS_FIRST.find((r) => reasons.includes(r)) ?? 'slur';
+  return { fields, reason };
+}
+
 function dropFailing(
   items: unknown[],
   check: (item: unknown) => { ok: true } | { ok: false; reason: ContentFilterReason },

@@ -44,10 +44,57 @@ Founding ladder (#1–50 free, #51–150 at $39, then closed):
 
 Pack Day (group playdates):
 
-- Deploys with the functions (`createPackDay`, `rsvpPackDay`, `cancelPackDay`, `sendPackDayReminders`) and `firestore.rules` (`packDays/` is read-only for clients). Deploy functions and rules before the website: the new Pack Day tab reads `packDays/` and fails until the rules are live.
+- Deploys with the functions (`createPackDay`, `rsvpPackDay`, `cancelPackDay`, `onPackDayCancelled`, `sendPackDayReminders`) and `firestore.rules` (`packDays/` is read-only for clients). Deploy functions and rules before the website: the new Pack Day tab reads `packDays/` and fails until the rules are live.
+- Cancellation pushes come from `onPackDayCancelled`, which fires when an event's status changes to `cancelled`, whoever changed it. `cancelPackDay` only changes the status. Deploy the two together: the new `cancelPackDay` without the trigger cancels without telling anyone.
 - `sendPackDayReminders` runs on Cloud Scheduler (every 30 minutes), like the other scheduled functions.
 - The ⭐ Official badge is set by hand: host the event as yourself, then set `official: true` on its `packDays/{id}` document in the Firebase console. Clients cannot set it.
-- Smoke test with two accounts: host one, RSVP from the second, check the host's push, open `/pack/{id}` signed out, cancel, and confirm the attendee's push.
+- Smoke test with two accounts: host one, RSVP from the second, check the host's push, open `/pack/{id}` signed out, cancel, and confirm the attendee gets exactly one push ("… was cancelled by the host.").
+
+Removing a Pack Day (moderators):
+
+- The ops alert for a Pack Day report ends with the command to run. Run it as a dry run first. It prints the event and what it would change, and changes nothing:
+
+  ```
+  GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json \
+    node scripts/admin-remove-packday.cjs <eventId> --reason "Broke the Pack Day rules"
+  ```
+
+  Then run it again with `--confirm` added. The event id is also the last part of an `/app/pack/<eventId>` link.
+- It cancels the event the same way the host's Cancel button does. It also sets `removedByModerator: true` and `removedReason`, and copies the event into `moderationLog/packday_<eventId>`.
+- `onPackDayCancelled` then pushes to:
+  - everyone signed up: "<title> was removed by GoDoggyDate."
+  - the host: the event was removed because it broke the community rules.
+
+  Nothing is pushed for an event that's already over. Deploy the functions before using the script. The push goes out only at the moment of cancellation, so events removed before the deploy are never announced.
+- `removedReason` is stored on the event, which every signed-in member can read. Write it for them, not as an internal note.
+- Both apps show "This Pack Day was cancelled." They don't say who cancelled, so a removal doesn't blame the host.
+- The title, place and note stay readable at the event's link, including the public `/pack/<eventId>` page, marked cancelled. If the text itself is the problem, delete `packDays/<eventId>` in the Firebase console after running the script. The pushes still go out, and the moderation log keeps a copy.
+- Removing an event doesn't stop the host from creating another. If the host is the problem, act on the account too (`scripts/admin-delete-user.cjs`).
+
+Content filter (chat messages, dog profiles, Pack Day text):
+
+- Both apps refuse slurs, sexual solicitation and threats before saving, and the server checks every write again: `onMessageCreatedNotify` for chat, `onDogProfileWriteModerate` for dog profiles, and `createPackDay` for Pack Day text. What was refused is kept in `moderationLog/` (Admin-only), and the ops alert carries ids, never the text.
+- When the server clears dog profile text, it also writes `users/{uid}/private/moderationNotice`, which only the owner can read: `{ fields, reason, at }`.
+  - `fields` lists what was cleared, by editor field: `name`, `breed`, `location` (city and state), `bio`, `healthNotes`, `prompts`, `temperament`, and the other chip lists.
+  - `reason` is `slur`, `sexual` or `threat`. It names the most serious when fields failed for different reasons.
+  - A second clear before the owner dismisses the notice adds its fields to the same notice.
+- What the owner sees: the cleared field is blank, or the item is gone from the list or prompts. The next time they open the app, web or iPhone, a notice names the fields that were removed and why, and asks them to rewrite them. Dismissing it deletes the notice. Until the app versions that read it ship, the owner sees only the blank field.
+- Check after deploy, on a test account: in the Firestore console, put a blocked word in that dog's `name`. The console skips the apps' check, but the server check still runs. Confirm that:
+  - the name is cleared;
+  - the notice appears in the app and goes away when dismissed;
+  - the ops alert arrives.
+
+Deploying these functions (from the repo root, with the `OPS_ALERT_WEBHOOK_URL` secret already set):
+
+```
+firebase deploy --only functions --project godoggydate
+```
+
+That deploys every function, including the earlier content filter work that hasn't gone out yet. To deploy only the ones that the moderator removal and the profile notice touch:
+
+```
+firebase deploy --only functions:cancelPackDay,functions:onPackDayCancelled,functions:onReportCreated,functions:onDogProfileWriteModerate --project godoggydate
+```
 
 Manual checks still required:
 
