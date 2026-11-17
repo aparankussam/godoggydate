@@ -66,7 +66,7 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
 
         {typeof profile.foundingPackNumber === 'number' && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>#{profile.foundingPackNumber} · 1 of {FOUNDING_PACK_SIZE}</Text>
+            <Text style={styles.badgeText}>Founding #{profile.foundingPackNumber} of {FOUNDING_PACK_SIZE}</Text>
           </View>
         )}
 

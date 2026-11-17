@@ -20,6 +20,7 @@ import { getRenderablePhotos } from '../../lib/photos';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import { colors, fonts, radius } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
+import { foundingBadgeLabel } from '../../../shared/founding';
 
 // Mirrors mobile/components/SwipeCard.tsx's heroIndexFor — the photo this
 // screen should open on: the owner's cover pick (or AI hero), clamped to the
@@ -149,7 +150,7 @@ export default function MatchedDogProfileScreen() {
         </Text>
         {typeof profile.foundingPackNumber === 'number' && (
           <View style={styles.foundingBadge}>
-            <Text style={styles.foundingBadgeText}>🏅 Founding Pack #{profile.foundingPackNumber}</Text>
+            <Text style={styles.foundingBadgeText}>{foundingBadgeLabel(profile.foundingPackNumber)}</Text>
           </View>
         )}
 

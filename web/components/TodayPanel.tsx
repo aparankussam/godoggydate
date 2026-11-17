@@ -23,6 +23,7 @@ import { isProfileComplete } from '../lib/auth';
 import type { SavedDogProfile } from '../lib/auth';
 import { trackEvent } from '../lib/analytics';
 import type { Reminder } from '../../shared/types';
+import { foundingBadgeLabel } from '../../shared/founding';
 
 interface Props {
   dogId: string;
@@ -292,14 +293,14 @@ export default function TodayPanel({ dogId, savedProfile, variant, onEditProfile
           </div>
         )}
 
-        {/* Server-assigned by the onDogProfileCreated trigger — a real number
-            on a real document, or no row at all. */}
+        {/* Server-assigned (a free spot when the profile was created, or a $39
+            purchase) — a real number on a real document, or no row at all. */}
         {typeof savedProfile?.foundingPackNumber === 'number' && (
           <p className="px-4 py-2.5 text-xs text-brown-light">
             <span className="font-bold text-brown">
-              🏅 Founding Pack #{savedProfile.foundingPackNumber}
+              {foundingBadgeLabel(savedProfile.foundingPackNumber)}
             </span>
-            {dogName ? ` · assigned when ${dogName}’s profile was created` : ''}
+            {dogName ? ` · ${dogName}’s number for good` : ''}
           </p>
         )}
 

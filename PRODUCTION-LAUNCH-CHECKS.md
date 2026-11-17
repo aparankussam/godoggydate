@@ -33,11 +33,14 @@ Safety and payment alerts (required before deploying functions):
 - Set `AI_GLOBAL_DAILY_LIMIT` on Vercel if the 2,000 AI calls/day default doesn't fit.
 - Disable Email/Password and Anonymous sign-in in Firebase Auth. The website doesn't use them, and mobile guest mode must be reworked before it ships.
 
-Founding Member cap (first 100):
+Founding ladder (#1–50 free, #51–150 at $39, then closed):
 
-- The site and Terms say Founding Member is limited to the first 100 members (`FOUNDING_MEMBER_LIMIT` in `shared/pro.ts`). The real cap is in Stripe: on the Payment Link, turn on **Options → Limit the number of payments** and set it to 100. Don't deploy the copy without it.
+- One numbered run of 150 Founding Members, set in `shared/founding.ts` and mirrored by `FOUNDING_FREE_CAP` / `FOUNDING_TOTAL_CAP` in `firebase/functions/src/index.ts`. The first 50 dogs with a profile get a number and the lifetime entitlement free (`onDogProfileCreated`). Numbers #51–150 are handed out by the Stripe webhook as each $39 payment lands. Every member shows the same "⭐ Founding Member #N" badge.
+- The $39 offer (homepage, profile, chat) only appears once `counters/foundingPack` reaches 50, and disappears at 150.
+- Keep the Stripe cap: on the Payment Link, **Options → Limit the number of payments** set to 100. The webhook also stops numbering at #150, and alerts the ops channel if a payment arrives after that, from someone who is already a member, or while free spots are still open. Each of those needs a manual refund decision.
+- A refund or dispute ends a paid membership and retires its number (the counter never goes down). Free members are never touched by refunds.
+- Rollout order: delete test accounts (`scripts/admin-delete-user.cjs`), deploy functions, then run `node scripts/founding-ladder-backfill.cjs` (dry run) and again with `--confirm`. It grants the free entitlement to existing #1–50 holders and removes free numbers above 50 that the old rules handed out.
 - The Payment Link is the only way to buy Founding Member. `/api/stripe/checkout` refuses `tier: "founding"` because a session created there would not count against the Stripe limit. Remove `STRIPE_FOUNDING_MEMBER_PRICE_ID` from Vercel; nothing reads it now.
-- Not the same as the free Founding Pack (first 500 dogs with a profile get a numbered spot).
 
 Pack Day (group playdates):
 

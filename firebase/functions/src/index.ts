@@ -17,6 +17,16 @@ const opsAlertWebhookUrl = defineSecret('OPS_ALERT_WEBHOOK_URL');
 // grant the entitlement ($39.00).
 const FOUNDING_MEMBER_MIN_CENTS = 3900;
 
+// The founding ladder (mirrors shared/founding.ts, which this package can't
+// import): #1–50 are free and handed out by onDogProfileCreated, #51–150 are
+// numbered by the Stripe webhook as each $39 payment lands, and then founding
+// closes. Both draw from the one counters/foundingPack counter, which only
+// counts up, so a number is never handed out twice (a refunded number stays
+// retired). Change these together with shared/founding.ts and the payment
+// limit on the Stripe Payment Link (FOUNDING_TOTAL_CAP - FOUNDING_FREE_CAP).
+const FOUNDING_FREE_CAP = 50;
+const FOUNDING_TOTAL_CAP = 150;
+
 type MatchData = FirebaseFirestore.DocumentData & {
   dog1UserId?: string;
   dog2UserId?: string;
@@ -237,6 +247,152 @@ async function writeProEntitlementFromSubscription(uid: string, sub: Stripe.Subs
   }, { merge: true });
 }
 
+// ── Founding Member purchases ──────────────────────────────────────────────────
+// A $39 purchase grants the lifetime entitlement and the next founding number.
+// Entitlement, counter, dog badge and payment record are written in ONE
+// transaction, so a webhook retry either finds everything done or nothing done.
+
+type PaidFoundingOutcome =
+  | 'granted'            // new paid member with a number
+  | 'granted_unnumbered' // paid after #150 was taken: member, but no number left
+  | 'already_member'     // already a Founding Member: nothing changed, refund by hand
+  | 'replayed';          // this checkout session was already processed
+
+interface PaidFoundingResult {
+  outcome: PaidFoundingOutcome;
+  foundingNumber: number | null;
+  /** True when the number came out of the free range (#1–50): they paid while
+   *  free spots were still open. */
+  boughtDuringFreeSpots: boolean;
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+async function grantPaidFoundingMember(
+  uid: string,
+  session: Stripe.Checkout.Session,
+  paymentIntentId: string,
+): Promise<PaidFoundingResult> {
+  const entitlementRef = db.doc(`users/${uid}/private/entitlements`);
+  const dogRef = db.doc(`dogs/${uid}`);
+  const counterRef = db.doc('counters/foundingPack');
+  const paymentRef = paymentIntentId ? db.doc(`payments/${paymentIntentId}`) : null;
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  return db.runTransaction(async (tx) => {
+    const [entSnap, dogSnap, counterSnap] = await Promise.all([
+      tx.get(entitlementRef),
+      tx.get(dogRef),
+      tx.get(counterRef),
+    ]);
+    const ent: FirebaseFirestore.DocumentData = entSnap.data() ?? {};
+    const existingNumber = asNumber(ent.foundingNumber);
+
+    if (ent.checkoutSessionId === session.id) {
+      return { outcome: 'replayed', foundingNumber: existingNumber, boughtDuringFreeSpots: false };
+    }
+
+    // Record the payment so charge.refunded / dispute events can find it
+    // (they look up payments/{paymentIntentId}).
+    const paymentRecord = {
+      type: 'founding_member',
+      userId: uid,
+      checkoutSessionId: session.id,
+      status: 'succeeded',
+      amount: session.amount_total ?? null,
+      currency: session.currency ?? null,
+      updatedAt: now,
+    };
+
+    // Already a Founding Member (a free spot or an earlier purchase). Their
+    // membership stays exactly as it is, and `duplicate` makes sure refunding
+    // this second payment can't take it away.
+    if (ent.lifetimeChatUnlocks === true) {
+      if (paymentRef) tx.set(paymentRef, { ...paymentRecord, duplicate: true }, { merge: true });
+      return { outcome: 'already_member', foundingNumber: existingNumber, boughtDuringFreeSpots: false };
+    }
+
+    // A dog numbered before the ladder existed keeps the number it shows.
+    // Otherwise take the next number, unless all 150 are gone.
+    const dogNumber = dogSnap.exists ? asNumber(dogSnap.data()?.foundingPackNumber) : null;
+    const count = asNumber(counterSnap.data()?.count) ?? 0;
+    let foundingNumber: number | null = dogNumber;
+    let boughtDuringFreeSpots = false;
+    if (foundingNumber === null && count < FOUNDING_TOTAL_CAP) {
+      foundingNumber = count + 1;
+      boughtDuringFreeSpots = count < FOUNDING_FREE_CAP;
+      tx.set(counterRef, { count: foundingNumber }, { merge: true });
+      // No dog profile yet: onDogProfileCreated copies the number across when
+      // they make one. Writing here would create a half-empty dog doc.
+      if (dogSnap.exists) tx.set(dogRef, { foundingPackNumber: foundingNumber }, { merge: true });
+    }
+
+    tx.set(entitlementRef, {
+      lifetimeChatUnlocks: true,
+      source: 'founding_member',
+      foundingNumber,
+      checkoutSessionId: session.id,
+      paymentIntentId: paymentIntentId || null,
+      amountTotal: session.amount_total ?? null,
+      currency: session.currency ?? null,
+      grantedAt: now,
+      // Buying again after a refund: clear the old revocation.
+      revokedAt: admin.firestore.FieldValue.delete(),
+      revokedReason: admin.firestore.FieldValue.delete(),
+    }, { merge: true });
+    if (paymentRef) tx.set(paymentRef, { ...paymentRecord, foundingNumber }, { merge: true });
+
+    return {
+      outcome: foundingNumber === null ? 'granted_unnumbered' : 'granted',
+      foundingNumber,
+      boughtDuringFreeSpots,
+    };
+  });
+}
+
+// A full refund or a dispute of a $39 purchase ends that paid membership and
+// retires its number (the counter never goes back down). A free member, or a
+// refund of a second purchase, never loses anything.
+async function revokePaidFoundingMember(
+  uid: string,
+  paymentIntentId: string,
+  reason: 'refunded' | 'disputed',
+  duplicatePurchase: boolean,
+): Promise<void> {
+  const entitlementRef = db.doc(`users/${uid}/private/entitlements`);
+  const dogRef = db.doc(`dogs/${uid}`);
+  const paymentRef = db.doc(`payments/${paymentIntentId}`);
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  await db.runTransaction(async (tx) => {
+    const [entSnap, dogSnap] = await Promise.all([tx.get(entitlementRef), tx.get(dogRef)]);
+    const ent: FirebaseFirestore.DocumentData = entSnap.data() ?? {};
+
+    tx.set(paymentRef, { status: reason, updatedAt: now }, { merge: true });
+
+    if (duplicatePurchase || ent.foundingFree === true) return;
+    // A refund of an older payment must not end a membership a newer one bought.
+    if (typeof ent.paymentIntentId === 'string' && ent.paymentIntentId !== paymentIntentId) return;
+
+    const foundingNumber = asNumber(ent.foundingNumber);
+    tx.set(entitlementRef, {
+      lifetimeChatUnlocks: false,
+      foundingNumber: admin.firestore.FieldValue.delete(),
+      revokedAt: now,
+      revokedReason: reason,
+    }, { merge: true });
+    if (
+      foundingNumber !== null &&
+      dogSnap.exists &&
+      asNumber(dogSnap.data()?.foundingPackNumber) === foundingNumber
+    ) {
+      tx.update(dogRef, { foundingPackNumber: admin.firestore.FieldValue.delete() });
+    }
+  });
+}
+
 // ── Stripe Webhook ─────────────────────────────────────────────────────────────
 
 export const stripeWebhook = functions
@@ -354,19 +510,16 @@ export const stripeWebhook = functions
         if (paymentIntentId && revokesAccess) {
           const paymentSnap = await db.doc(`payments/${paymentIntentId}`).get();
           if (paymentSnap.exists) {
-            const paymentData = paymentSnap.data() as StoredPaymentDoc & { type?: string };
+            const paymentData = paymentSnap.data() as StoredPaymentDoc & { type?: string; duplicate?: boolean };
 
-            // Founding Member refund/dispute → revoke the lifetime entitlement.
+            // Founding Member refund/dispute → end that paid membership.
             if (paymentData.type === 'founding_member' && paymentData.userId) {
-              await db.doc(`users/${paymentData.userId}/private/entitlements`).set({
-                lifetimeChatUnlocks: false,
-                revokedAt: admin.firestore.FieldValue.serverTimestamp(),
-                revokedReason: event.type === 'charge.refunded' ? 'refunded' : 'disputed',
-              }, { merge: true });
-              await db.doc(`payments/${paymentIntentId}`).set({
-                status: event.type === 'charge.refunded' ? 'refunded' : 'disputed',
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-              }, { merge: true });
+              await revokePaidFoundingMember(
+                paymentData.userId,
+                paymentIntentId,
+                event.type === 'charge.refunded' ? 'refunded' : 'disputed',
+                paymentData.duplicate === true,
+              );
             }
 
             if (paymentData.matchId && paymentData.userId && paymentData.unlockField) {
@@ -441,28 +594,24 @@ export const stripeWebhook = functions
           typeof session.payment_intent === 'string' ? session.payment_intent : '';
 
         if (uid && paidEnough) {
-          await db.doc(`users/${uid}/private/entitlements`).set({
-            lifetimeChatUnlocks: true,
-            source: 'founding_member',
-            checkoutSessionId: session.id,
-            paymentIntentId: paymentIntentId || null,
-            amountTotal: session.amount_total ?? null,
-            currency: session.currency ?? null,
-            grantedAt: admin.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
-
-          // Record the payment so charge.refunded / dispute events can find
-          // and revoke this entitlement (they look up payments/{paymentIntentId}).
-          if (paymentIntentId) {
-            await db.doc(`payments/${paymentIntentId}`).set({
-              type: 'founding_member',
-              userId: uid,
-              checkoutSessionId: session.id,
-              status: 'succeeded',
-              amount: session.amount_total ?? null,
-              currency: session.currency ?? null,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
+          const result = await grantPaidFoundingMember(uid, session, paymentIntentId);
+          // The buyer has a Stripe receipt either way, so anything other than a
+          // clean grant goes to a human.
+          if (result.outcome === 'already_member') {
+            await sendOpsAlert(
+              `Founding Member bought by someone who already is one: session ${session.id}. ` +
+              'Their membership is unchanged. Refund this payment by hand.',
+            );
+          } else if (result.outcome === 'granted_unnumbered') {
+            await sendOpsAlert(
+              `Founding Member sold after all ${FOUNDING_TOTAL_CAP} numbers were taken: session ${session.id}. ` +
+              'They have the membership but no number. Refund it by hand and turn off the payment link.',
+            );
+          } else if (result.outcome === 'granted' && result.boughtDuringFreeSpots) {
+            await sendOpsAlert(
+              `Founding Member #${result.foundingNumber} was bought while free spots were still open: ` +
+              `session ${session.id}. Refund it by hand if you want; a refund ends the membership and retires the number.`,
+            );
           }
         }
 
@@ -1317,37 +1466,50 @@ export const sendCelebrationNotifications = functions
     console.log(`Sent ${sent} celebration notifications`);
   });
 
-// ── Founding Pack numbering ─────────────────────────────────────────────────
-// Assigns each new dog a permanent, sequential Founding Pack number
-// (Dog #137 of the Founding Pack) — real, numbered scarcity for the
-// soft-launch pricing story. Runs once, on true first creation of a
-// dogs/{uid} doc (Firestore's onCreate only fires the first time a
-// document at that path is created). Atomic via a transaction against a
-// single counters/foundingPack doc so concurrent signups never collide.
+// ── Founding ladder: free spots #1–50 ───────────────────────────────────────
+// The first FOUNDING_FREE_CAP dogs with a profile become Founding Members for
+// free: a permanent number on the dog doc (the public "⭐ Founding Member #N"
+// badge) plus the same lifetime entitlement a $39 buyer gets, marked
+// foundingFree so the refund logic never touches it. After #50 this hands out
+// nothing; numbers #51–150 come only from the Stripe webhook.
 //
-// The public copy promises the pack "stops at 500 for good", so this HARD-CAPS
-// at 500: dog #501+ simply gets no foundingPackNumber (the badge/CTA render off
-// its presence), keeping the scarcity claim literally true in code rather than
-// aspirational.
-const FOUNDING_PACK_CAP = 500;
-
+// Runs once, on true first creation of a dogs/{uid} doc (Firestore's onCreate
+// only fires the first time a document at that path is created). Counter,
+// badge and entitlement are written in one transaction, so concurrent signups
+// never collide and a retry never double-counts.
 export const onDogProfileCreated = functions.firestore
   .document('dogs/{uid}')
-  .onCreate(async (snap) => {
+  .onCreate(async (snap, context) => {
+    const uid = context.params.uid as string;
     const counterRef = db.doc('counters/foundingPack');
+    const entitlementRef = db.doc(`users/${uid}/private/entitlements`);
 
-    const number = await db.runTransaction(async (transaction) => {
-      const counterSnap = await transaction.get(counterRef);
-      const current = (counterSnap.data()?.count as number | undefined) ?? 0;
-      if (current >= FOUNDING_PACK_CAP) return null; // pack is full — no number
+    await db.runTransaction(async (tx) => {
+      const [counterSnap, entSnap] = await Promise.all([tx.get(counterRef), tx.get(entitlementRef)]);
+      const ent: FirebaseFirestore.DocumentData = entSnap.data() ?? {};
+
+      // Bought founding before making a profile: the webhook numbered the
+      // purchase but had no dog doc to put the badge on yet.
+      const boughtNumber = asNumber(ent.foundingNumber);
+      if (ent.lifetimeChatUnlocks === true && boughtNumber !== null) {
+        tx.set(snap.ref, { foundingPackNumber: boughtNumber }, { merge: true });
+        return;
+      }
+
+      const current = asNumber(counterSnap.data()?.count) ?? 0;
+      if (current >= FOUNDING_FREE_CAP) return; // free spots are gone: founding is $39 now
       const next = current + 1;
-      transaction.set(counterRef, { count: next }, { merge: true });
-      return next;
+      tx.set(counterRef, { count: next }, { merge: true });
+      tx.set(snap.ref, { foundingPackNumber: next }, { merge: true });
+      tx.set(entitlementRef, {
+        lifetimeChatUnlocks: true,
+        foundingFree: true,
+        foundingNumber: next,
+        // Someone who bought before the ladder existed keeps their purchase as the source.
+        source: ent.lifetimeChatUnlocks === true ? (ent.source ?? 'founding_member') : 'founding_free',
+        freeGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
     });
-
-    if (number !== null) {
-      await snap.ref.set({ foundingPackNumber: number }, { merge: true });
-    }
   });
 
 // ── Household ────────────────────────────────────────────────────────────────

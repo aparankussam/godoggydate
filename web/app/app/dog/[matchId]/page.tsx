@@ -19,6 +19,7 @@ import { getRenderablePhotos, resolveHeroIndex } from '../../../../lib/photos';
 import { breedConfidencePhrase } from '../../../../lib/vibeCheck';
 import VibeTypeCard from '../../../../components/VibeTypeCard';
 import ReportProfileMenu from '../../../../components/ReportProfileMenu';
+import { foundingBadgeLabel } from '../../../../../shared/founding';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -195,7 +196,7 @@ export default function MatchedDogProfilePage() {
           </p>
           {typeof profile.foundingPackNumber === 'number' && (
             <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-gold/15 border border-gold/40 px-3 py-1.5 text-xs font-bold text-brown">
-              🏅 Founding Pack #{profile.foundingPackNumber}
+              {foundingBadgeLabel(profile.foundingPackNumber)}
             </span>
           )}
         </div>

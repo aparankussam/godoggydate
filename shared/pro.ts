@@ -16,6 +16,7 @@
 // gate is a server read, never the browser's word.
 
 import { formatPrice } from './utils/stripe';
+import { FOUNDING_PAID_SPOTS } from './founding';
 
 // Impulse-priced monthly, with an annual plan that pulls users onto the far
 // stickier yearly commitment (pet-subscription annual churn runs ~6-9%/yr vs
@@ -60,9 +61,9 @@ export interface ProEntitlement {
 }
 
 export interface Entitlements {
-  /** Founding Member ($39 one-time) — grants every chat forever AND, now,
-   *  lifetime Pro (see isProActive). Existing early buyers are grandfathered
-   *  into Pro rather than re-paywalled. */
+  /** Founding Member: one of the first 50 dogs (free) or a $39 buyer (#51–150).
+   *  Grants every chat forever AND lifetime Pro (see isProActive). Existing
+   *  early buyers are grandfathered into Pro rather than re-paywalled. */
   lifetimeChatUnlocks: boolean;
   pro?: ProEntitlement | null;
 }
@@ -100,14 +101,12 @@ export function isProActive(
 }
 
 /**
- * How many Founding Member ($39, one-time) purchases are ever sold. The hard
- * cap lives in Stripe (Payment Link → "Limit the number of payments"); this
- * constant only drives the wording, so change both together.
- *
- * Not the same as FOUNDING_PACK_SIZE, the free numbered spots for the first
- * dogs with a profile.
+ * How many Founding Member ($39, one-time) purchases are ever sold: the paid
+ * part of the founding ladder (#51–150, see shared/founding.ts). Stripe enforces
+ * it with the Payment Link's "Limit the number of payments" setting, and the
+ * webhook stops numbering at #150. Change those together with this.
  */
-export const FOUNDING_MEMBER_LIMIT = 100;
+export const FOUNDING_MEMBER_LIMIT = FOUNDING_PAID_SPOTS;
 
 export type ProSource = 'founding' | 'subscription' | null;
 

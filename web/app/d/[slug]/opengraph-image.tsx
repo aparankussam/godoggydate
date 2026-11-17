@@ -88,7 +88,7 @@ export default async function OpengraphImage({ params }: { params: { slug: strin
                 fontWeight: 700,
               }}
             >
-              Founding Pack #{profile.foundingPackNumber}
+              Founding Member #{profile.foundingPackNumber}
             </div>
           )}
           <div style={{ display: 'flex', fontSize: 72, fontWeight: 700, color: '#fff', lineHeight: 1.05 }}>
