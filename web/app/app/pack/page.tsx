@@ -14,6 +14,7 @@ import { getBlockedUserIds } from '../../../lib/blocks';
 import { trackEvent } from '../../../lib/analytics';
 import PackDayCard from '../../../components/PackDayCard';
 import type { PackDay } from '../../../../shared/packDay';
+import SignInGate from '../../../components/SignInGate';
 
 export default function PackDaysPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -74,11 +75,7 @@ export default function PackDaysPage() {
 
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">🌳</span>
-        <p className="font-display text-2xl text-brown">Sign in to find a Pack Day</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate emoji="🌳" title="Sign in to find a Pack Day" />
     );
   }
 

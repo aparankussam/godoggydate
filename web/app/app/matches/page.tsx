@@ -22,6 +22,7 @@ import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
+import SignInGate from '../../../components/SignInGate';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -235,13 +236,7 @@ export default function MatchesPage() {
   // ── Not signed in ───────────────────────────────────────────────────────────
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">💛</span>
-        <p className="font-display text-2xl text-brown">Sign in to see your matches</p>
-        <Link href="/app" className="btn-primary px-8 py-3">
-          Go to Discover
-        </Link>
-      </div>
+      <SignInGate emoji="💛" title="Sign in to see your matches" />
     );
   }
 

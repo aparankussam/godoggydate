@@ -20,6 +20,7 @@ import { breedConfidencePhrase } from '../../../../lib/vibeCheck';
 import VibeTypeCard from '../../../../components/VibeTypeCard';
 import ReportProfileMenu from '../../../../components/ReportProfileMenu';
 import { foundingBadgeLabel } from '../../../../../shared/founding';
+import SignInGate from '../../../../components/SignInGate';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -100,10 +101,7 @@ export default function MatchedDogProfilePage() {
 
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <p className="font-display text-2xl text-brown">Sign in to view this profile</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate title="Sign in to view this profile" />
     );
   }
 

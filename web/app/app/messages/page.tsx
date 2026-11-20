@@ -19,6 +19,7 @@ import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
+import SignInGate from '../../../components/SignInGate';
 
 interface ConversationItem {
   matchId:      string;
@@ -241,11 +242,7 @@ export default function MessagesPage() {
 
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">💬</span>
-        <p className="font-display text-2xl text-brown">Sign in to see messages</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate emoji="💬" title="Sign in to see messages" />
     );
   }
 

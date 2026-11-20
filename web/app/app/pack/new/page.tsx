@@ -19,6 +19,7 @@ import {
 } from '../../../../../shared/packDay';
 import type { PackDayFormat } from '../../../../../shared/packDay';
 import { checkContentFields, CONTENT_FILTER_MESSAGE } from '../../../../../shared/contentFilter';
+import SignInGate from '../../../../components/SignInGate';
 
 const CAPACITIES = Array.from(
   { length: PACK_DAY_LIMITS.maxCapacity - PACK_DAY_LIMITS.minCapacity + 1 },
@@ -138,13 +139,15 @@ export default function NewPackDayPage() {
     );
   }
 
-  if (!authUser || !isProfileComplete(profile)) {
+  if (!authUser) {
+    return <SignInGate emoji="🐶" title="Sign in to host a Pack Day" />;
+  }
+
+  if (!isProfileComplete(profile)) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
         <span className="text-6xl">🐶</span>
-        <p className="font-display text-2xl text-brown">
-          {authUser ? 'Add your dog first' : 'Sign in to host a Pack Day'}
-        </p>
+        <p className="font-display text-2xl text-brown">Add your dog first</p>
         <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
       </div>
     );

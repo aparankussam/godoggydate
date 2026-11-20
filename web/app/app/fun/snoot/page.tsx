@@ -17,6 +17,7 @@ import { shareOrDownloadCard } from '../../../../lib/shareCard';
 import { feedback } from '../../../../lib/feedback';
 import { trackEvent } from '../../../../lib/analytics';
 import { onProgressChange } from '../../../../lib/progressSync';
+import SignInGate from '../../../../components/SignInGate';
 import {
   loadBoops,
   saveBoopsDebounced,
@@ -214,11 +215,7 @@ export default function SnootPage() {
   }
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">🐽</span>
-        <p className="font-display text-2xl text-brown">Sign in to boop your dog&apos;s snoot</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate emoji="🐽" title="Sign in to boop your dog&apos;s snoot" />
     );
   }
 

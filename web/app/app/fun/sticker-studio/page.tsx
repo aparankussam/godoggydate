@@ -19,6 +19,7 @@ import { feedback } from '../../../../lib/feedback';
 import { trackEvent } from '../../../../lib/analytics';
 import { loadAllTime, loadBoops, unlockedStickers, nextSticker, STICKERS, type Sticker } from '../../../../lib/boops';
 import { onProgressChange } from '../../../../lib/progressSync';
+import SignInGate from '../../../../components/SignInGate';
 
 const CANVAS = 320;
 const STICKER = 56;
@@ -173,11 +174,7 @@ export default function StickerStudioPage() {
   }
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">🎨</span>
-        <p className="font-display text-2xl text-brown">Sign in to decorate your dog</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate emoji="🎨" title="Sign in to decorate your dog" />
     );
   }
 
