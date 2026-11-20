@@ -90,6 +90,15 @@ export default function SwipeStack({
     setShowBreakdown(false);
   }, [selectedDog?.firestoreId, selectedDog?.id]);
 
+  // Escape closes the details sheet.
+  const sheetOpen = selectedDog !== null;
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedDog(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [sheetOpen]);
+
   const advance = useCallback(() => {
     setIndex((i) => {
       const next = i + 1;
@@ -240,6 +249,9 @@ export default function SwipeStack({
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
           onClick={() => setSelectedDog(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selectedDog.name} details`}
         >
           <div
             className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-cream shadow-2xl sm:max-h-[88vh] sm:rounded-3xl"
@@ -343,9 +355,11 @@ export default function SwipeStack({
                   { label: 'Fit score', value: selectedDog.compat.score > 0 ? `${selectedDog.compat.score}` : '—' },
                   {
                     label: 'Distance',
+                    // Unknown is "Unknown" — the city has its own Neighbourhood tile
+                    // below, and printing it under "Distance" read as a distance.
                     value: selectedDog.distanceMiles >= 0
                       ? `${selectedDog.distanceMiles.toFixed(1)} mi`
-                      : (selectedDog.location ?? 'Not shared'),
+                      : 'Unknown',
                   },
                   { label: 'Energy', value: `${selectedDog.energyLevel}%` },
                   // `false` is an explicit "no" from the owner, not an absence of
