@@ -155,3 +155,44 @@ stripe listen --forward-to https://us-central1-godoggydate.cloudfunctions.net/st
 ```
 
 If you test on a physical device instead of iOS Simulator, replace `localhost` in `mobile/.env` with your Mac's LAN IP for the web API base URL and restart Metro + the native app.
+
+## 7. Run the website against the Firebase emulators (no real accounts or data)
+
+Useful for testing sign-in-gated pages, profile saves, chat, Pack Day and the Cloud
+Functions without touching the real `godoggydate` project or Stripe.
+
+1. Start the emulators from the repo root (needs Java and `firebase-tools`):
+
+   ```bash
+   (cd firebase/functions && npm ci && npm run build)
+   STRIPE_SECRET_KEY=sk_test_x STRIPE_WEBHOOK_SECRET=whsec_x OPS_ALERT_WEBHOOK_URL=http://127.0.0.1:9/sink \
+     firebase emulators:start --only auth,firestore,storage,functions --project demo-godoggydate
+   ```
+
+   This loads the real `firestore.rules`, `storage.rules` and every callable and
+   Firestore-triggered function. Scheduled functions (reminders, celebrations,
+   Pack Day reminders) are not run by the emulator.
+
+2. Create `web/.env.local` (gitignored). The `demo-` project id is required; the
+   emulator hook in `web/shared/utils/firebase.ts` refuses to turn on without it,
+   so a real deployment can never be pointed at an emulator:
+
+   ```bash
+   NEXT_PUBLIC_FIREBASE_API_KEY=demo-api-key
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=localhost
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-godoggydate
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=demo-godoggydate.appspot.com
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=000000000000
+   NEXT_PUBLIC_FIREBASE_APP_ID=1:000000000000:web:demo
+   NEXT_PUBLIC_FIREBASE_EMULATOR_HOST=127.0.0.1
+   FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
+   FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+   FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199
+   GCLOUD_PROJECT=demo-godoggydate
+   ```
+
+3. `cd web && npm run dev`, then sign in with Google (the Auth emulator shows a fake
+   account picker). Photos, profiles and matches land in the emulators only.
+
+Things that do not work this way: AI features (no Gemini key), payments (no Stripe
+keys), push notifications, and social-card images when the emoji CDN is blocked.
