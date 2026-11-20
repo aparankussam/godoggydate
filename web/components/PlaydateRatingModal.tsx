@@ -16,14 +16,20 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
   const [stars, setStars] = useState(0);
   const [wouldMeetAgain, setWouldMeetAgain] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const canSubmit = stars > 0 && wouldMeetAgain !== null && !submitting;
 
   async function handleSubmit() {
     if (!canSubmit) return;
     setSubmitting(true);
+    setError(null);
     try {
       await onSubmit(stars, wouldMeetAgain!);
+    } catch {
+      // Offline, or a rating for this match is already on file. Previously the
+      // rejection went unhandled and the modal just sat there.
+      setError('We couldn’t save your rating. Check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -77,6 +83,7 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
           </div>
         </div>
 
+        {error && <p role="alert" className="mt-4 text-center text-xs font-semibold text-red-600">{error}</p>}
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}

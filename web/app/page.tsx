@@ -265,6 +265,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-brown-light">
+            <Link href="/dogtype" className="py-2 hover:text-primary transition-colors">The 16 Dogtypes</Link>
             <Link href="/playdate-safety" className="py-2 hover:text-primary transition-colors">Play or Fight?</Link>
             <Link href="/dog-playdates" className="py-2 hover:text-primary transition-colors">Dog Playdates</Link>
             <Link href="/dog-socialization-tips" className="py-2 hover:text-primary transition-colors">Socialization Tips</Link>

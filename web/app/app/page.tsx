@@ -739,7 +739,7 @@ export default function AppPage() {
           {!authLoading && !feedLoading && !authUser && (
             <div className="flex flex-1 flex-col items-center justify-center py-16 gap-4 text-center px-4">
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">See who&apos;s nearby</p>
+              <h1 className="font-display text-2xl text-brown">See who&apos;s nearby</h1>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
                 Sign up to see real dogs near you and start matching.
               </p>

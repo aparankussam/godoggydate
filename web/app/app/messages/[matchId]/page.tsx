@@ -391,7 +391,7 @@ export default function ChatPage() {
     });
 
     return unsub;
-  }, [matchId, accessDenied, canChat]);
+  }, [matchId, accessDenied, canChat, authUser?.uid]);
 
   useEffect(() => {
     if (!matchId || authLoading || loadingProfile || accessDenied) return;

@@ -35,7 +35,7 @@ export default function PlaydateMemoryCard({ dogName, dogBreed, photos, stars, i
   return (
     <div
       ref={innerRef}
-      className="relative w-[340px] aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
+      className="relative w-[340px] max-w-full aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
       style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #E8633A 100%)' }}
     >
       <div className="absolute top-5 left-5 z-10 rounded-full bg-black/25 backdrop-blur-sm px-3 py-1.5">

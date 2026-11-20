@@ -1,5 +1,5 @@
 'use client';
-import { formatUsMonthYear } from '../../shared/dates';
+import { MIN_BIRTH_YEAR, formatUsMonthYear } from '../../shared/dates';
 // web/components/DiptychSection.tsx
 // Profile-page surface for the DAY 1 vs DAY N diptych — the National Dog Day
 // hook. The owner picks their EARLIEST photo and their LATEST photo from their
@@ -75,8 +75,12 @@ export default function DiptychSection({ savedProfile }: Props) {
     // drops a day. earliestDate is a local-midnight Date from the date input.
     const a = Date.UTC(earliestDate.getFullYear(), earliestDate.getMonth(), earliestDate.getDate());
     const b = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    // future date — refuse rather than show a negative count
-    days = b < a ? null : Math.round((b - a) / 86_400_000);
+    // future date — refuse rather than show a negative count; and a year
+    // before 1990 is a typo, not a "Day 46,345" (the picker lets 0001 through).
+    days =
+      b < a || earliestDate.getFullYear() < MIN_BIRTH_YEAR
+        ? null
+        : Math.round((b - a) / 86_400_000);
   }
 
   const earliestUrl = photos[Math.min(earliestIdx, photos.length - 1)];
@@ -182,13 +186,16 @@ export default function DiptychSection({ savedProfile }: Props) {
           id="diptych-earliest-date"
           type="date"
           value={dateValue}
+          min={`${MIN_BIRTH_YEAR}-01-01`}
           max={maxDate}
           onChange={(e) => setDateValue(e.target.value)}
           className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-        {dateValue && days === null && (
+        {dateValue && days === null && earliestDate && (
           <p className="mt-1.5 text-xs text-primary">
-            That date is in the future — pick the day your earliest photo was actually taken.
+            {earliestDate.getFullYear() < MIN_BIRTH_YEAR
+              ? `That date is before ${MIN_BIRTH_YEAR} — pick the day your earliest photo was actually taken.`
+              : 'That date is in the future — pick the day your earliest photo was actually taken.'}
           </p>
         )}
       </div>

@@ -111,7 +111,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
         <button
           type="button"
           onClick={() => setShowAdd((v) => !v)}
-          className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+          className="-my-3 -mr-2 px-2 py-3 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
         >
           {showAdd ? 'Cancel' : '+ Add'}
         </button>

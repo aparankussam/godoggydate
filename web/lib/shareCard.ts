@@ -14,6 +14,14 @@ export async function exportCardImage(node: HTMLElement): Promise<Blob> {
       for (let p = el.parentElement; p; p = p.parentElement) {
         if (p.style.transform) p.style.transform = 'none';
       }
+      // html2canvas draws the text inside an ellipsis box (Tailwind `truncate`
+      // = overflow-hidden + text-overflow) too low, so the bottom of the name
+      // and the line under it were sliced off the Handoff Card's PNG. The
+      // card's own rounded overflow-hidden root still bounds a very long name.
+      el.querySelectorAll<HTMLElement>('.truncate').forEach((node) => {
+        node.style.overflow = 'visible';
+        node.style.textOverflow = 'clip';
+      });
     },
   });
   return new Promise<Blob>((resolve, reject) => {

@@ -146,6 +146,7 @@ export default async function PublicDogPage({ params }: PageProps) {
         🐾 GoDoggyDate
       </Link>
 
+      <h1 className="sr-only">{profile.name} on GoDoggyDate</h1>
       <ScaleToFit width={360}>
         <DogTradingCard profile={profile} />
       </ScaleToFit>

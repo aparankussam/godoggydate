@@ -18,6 +18,7 @@ import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
+import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
 
 interface ConversationItem {
   matchId:      string;
@@ -223,6 +224,12 @@ export default function MessagesPage() {
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [authUser]);
+
+  // New matches and incoming messages appear (and light their unread dot) live.
+  useLiveMatchRefresh(authUser?.uid, () => {
+    if (!authUser) return;
+    fetchConversations(authUser.uid).then(setConvos).catch(() => { /* keep the current list */ });
+  });
 
   if (authLoading) {
     return (

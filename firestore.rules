@@ -49,6 +49,18 @@ service cloud.firestore {
           && (chatFreeLaunchMode() || matchData.chatFreeZone != false || matchData.chatUnlocked == true || hasLifetimeUnlocks());
     }
 
+    // A playdate card on a message: only the three fields both apps write, each a
+    // short string. `text` is capped at 1000 but this map used to be unbounded, so a
+    // modified client could post a card with a megabyte "place" that every
+    // participant's chat then had to render.
+    function validPlaydate(p) {
+      return p is map
+          && p.keys().hasOnly(['date', 'time', 'place'])
+          && p.get('date', '') is string && p.get('date', '').size() <= 200
+          && p.get('time', '') is string && p.get('time', '').size() <= 200
+          && p.get('place', '') is string && p.get('place', '').size() <= 200;
+    }
+
     // Symmetric, so it never needs to know which side the caller is on.
     function isBlockedEitherWay(uidA, uidB) {
       return exists(/databases/$(database)/documents/blocks/$(uidA)/blocked/$(uidB))
@@ -263,6 +275,10 @@ service cloud.firestore {
                          ])
                       && request.resource.data.text is string
                       && request.resource.data.text.size() <= 1000
+                      && (!('type' in request.resource.data)
+                          || request.resource.data.type in ['playdate_proposal', 'playdate_confirmed'])
+                      && (!('playdate' in request.resource.data)
+                          || validPlaydate(request.resource.data.playdate))
                       // System banners are styled as coming from the app itself.
                       && request.resource.data.get('isSystem', false) == false
                       && !isBlockedEitherWay(

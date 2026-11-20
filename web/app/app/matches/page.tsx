@@ -21,6 +21,7 @@ import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
+import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -214,6 +215,13 @@ export default function MatchesPage() {
     if (!authUser) return;
     loadMatches(authUser.uid, setMatches, setError, setLoading);
   }, [authUser]);
+
+  // A match made (or a message sent) while this page is open shows up without a
+  // reload. Silent: no skeleton, and a failed refresh keeps what's on screen.
+  useLiveMatchRefresh(authUser?.uid, () => {
+    if (!authUser) return;
+    fetchMatchesForUser(authUser.uid).then(setMatches).catch(() => { /* keep the current list */ });
+  });
 
   // ── Auth loading ────────────────────────────────────────────────────────────
   if (authLoading) {

@@ -830,8 +830,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-5">
-        <div ref={photosRef} tabIndex={-1}>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">
+        <div ref={photosRef} tabIndex={-1} role="group" aria-labelledby="dog-photos-label">
+          <label id="dog-photos-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
             Photos <span className="font-normal text-brown-light">({MIN_PHOTOS} required, up to {MAX_PHOTOS})</span>
           </label>
           {photos.length > 0 && (
@@ -847,10 +847,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                   <button
                     type="button"
                     onClick={() => removePhoto(photo.id)}
-                    className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-sm text-white"
-                    aria-label="Remove photo"
+                    className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-sm text-white"
+                    aria-label={`Remove photo ${index + 1}`}
                   >
-                    ×
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55">×</span>
                   </button>
                 </div>
               ))}
@@ -941,12 +941,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">Dog&apos;s name</label>
+          <label htmlFor="dog-name" className="mb-1.5 block text-sm font-semibold text-brown-mid">Dog&apos;s name</label>
           <input
+            id="dog-name"
             ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={PROFILE_TEXT_LIMITS.name}
+            autoCapitalize="words"
             placeholder="e.g. Kaju"
             className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
           />
@@ -954,13 +956,15 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">Breed</label>
+          <label htmlFor="dog-breed" className="mb-1.5 block text-sm font-semibold text-brown-mid">Breed</label>
           <input
+            id="dog-breed"
             ref={breedRef}
             list="breed-list"
             value={breed}
             onChange={(e) => setBreed(e.target.value)}
             maxLength={PROFILE_TEXT_LIMITS.breed}
+            autoCapitalize="words"
             placeholder="e.g. Golden Retriever, Dachshund Mix"
             className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
           />
@@ -975,13 +979,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div ref={ageRef} tabIndex={-1}>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">Age</label>
-          <div className="flex gap-2">
+          <label id="dog-age-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Age</label>
+          <div className="flex gap-2" role="group" aria-labelledby="dog-age-label">
             {AGE_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => setAge(option.value)}
+                aria-pressed={age === option.value}
                 className={`chip flex flex-1 flex-col items-center gap-0 py-2 text-xs ${age === option.value ? 'chip-active' : ''}`}
               >
                 <span className="font-semibold">{option.label}</span>
@@ -993,8 +998,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div ref={sexRef} tabIndex={-1}>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">Sex</label>
-          <div className="flex gap-3">
+          <label id="dog-sex-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Sex</label>
+          <div className="flex gap-3" role="radiogroup" aria-labelledby="dog-sex-label">
             {([
               { value: 'M', label: 'Male' },
               { value: 'F', label: 'Female' },
@@ -1023,14 +1028,15 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div ref={sizeRef} tabIndex={-1}>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">Size</label>
-          <div className="flex gap-2">
+          <label id="dog-size-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Size</label>
+          <div className="flex gap-2" role="group" aria-labelledby="dog-size-label">
             {SIZES.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => setSize(option.value)}
-                className={`chip flex-1 justify-center text-xs ${size === option.value ? 'chip-active' : ''}`}
+                aria-pressed={size === option.value}
+                className={`chip min-h-[40px] flex-1 justify-center text-xs ${size === option.value ? 'chip-active' : ''}`}
               >
                 {option.label}
               </button>
@@ -1040,10 +1046,11 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">
+          <label htmlFor="dog-energy" className="mb-1.5 block text-sm font-semibold text-brown-mid">
             Energy level <span className="font-bold text-primary">{energyLevel}%</span>
           </label>
           <input
+            id="dog-energy"
             ref={energyRef}
             type="range"
             min={10}
@@ -1051,7 +1058,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             step={5}
             value={energyLevel}
             onChange={(e) => setEnergyLevel(Number(e.target.value))}
-            className="w-full accent-primary"
+            className="h-10 w-full accent-primary"
           />
           <div className="mt-1 flex justify-between text-xs text-brown-light">
             <span>Chill 🧘</span>
@@ -1061,16 +1068,17 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">
+          <label id="dog-temperament-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
             Temperament <span className="font-normal text-brown-light">(pick any)</span>
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-temperament-label">
             {TEMPERAMENT_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => toggleTag(option, temperament, setTemperament)}
-                className={`chip text-xs ${temperament.includes(option) ? 'chip-active' : ''}`}
+                aria-pressed={temperament.includes(option)}
+                className={`chip min-h-[40px] text-xs ${temperament.includes(option) ? 'chip-active' : ''}`}
               >
                 {option}
               </button>
@@ -1080,16 +1088,17 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">
+          <label id="dog-playstyle-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
             Play style <span className="font-normal text-brown-light">(pick any)</span>
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-playstyle-label">
             {PLAY_STYLE_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => toggleTag(option, playStyles, setPlayStyles)}
-                className={`chip text-xs ${playStyles.includes(option) ? 'chip-active' : ''}`}
+                aria-pressed={playStyles.includes(option)}
+                className={`chip min-h-[40px] text-xs ${playStyles.includes(option) ? 'chip-active' : ''}`}
               >
                 {option}
               </button>
@@ -1108,32 +1117,34 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             doesn&apos;t apply.
           </p>
 
-          <label className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label id="dog-notgoodwith-label" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
             Not a good match with
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-notgoodwith-label">
             {NOT_GOOD_WITH_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => toggleTag(option, notGoodWith, setNotGoodWith)}
-                className={`chip text-xs ${notGoodWith.includes(option) ? 'chip-active' : ''}`}
+                aria-pressed={notGoodWith.includes(option)}
+                className={`chip min-h-[40px] text-xs ${notGoodWith.includes(option) ? 'chip-active' : ''}`}
               >
                 {option}
               </button>
             ))}
           </div>
 
-          <label className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label id="dog-behavior-label" className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
             Good to know before meeting
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-behavior-label">
             {BEHAVIOR_FLAG_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => toggleTag(option, behaviorFlags, setBehaviorFlags)}
-                className={`chip text-xs ${behaviorFlags.includes(option) ? 'chip-active' : ''}`}
+                aria-pressed={behaviorFlags.includes(option)}
+                className={`chip min-h-[40px] text-xs ${behaviorFlags.includes(option) ? 'chip-active' : ''}`}
               >
                 {option}
               </button>
@@ -1142,10 +1153,11 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">Location</label>
-          <div className="flex flex-col gap-2">
+          <label id="dog-location-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Location</label>
+          <div className="flex flex-col gap-2" role="group" aria-labelledby="dog-location-label">
             <input
               ref={zipRef}
+              aria-label="ZIP code"
               value={zip}
               onChange={(e) => setZip(e.target.value)}
               maxLength={PROFILE_TEXT_LIMITS.zip}
@@ -1162,9 +1174,11 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             <div className="flex gap-2">
               <input
               ref={locationRef}
+              aria-label="City or neighborhood"
               value={city}
               onChange={(e) => setCity(e.target.value)}
               maxLength={PROFILE_TEXT_LIMITS.city}
+              autoCapitalize="words"
               placeholder="City or neighborhood"
               className="min-w-0 flex-1 rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
             />
@@ -1187,10 +1201,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div ref={promptsRef} tabIndex={-1}>
-          <label className="mb-1.5 block text-sm font-semibold text-brown-mid">
+          <label id="dog-about-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
             About your dog <span className="font-normal text-brown-light">(optional)</span>
           </label>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3" role="group" aria-labelledby="dog-about-label">
             {prompts.map((prompt, i) => {
               // Only marked after a save attempt, like the other fields.
               const refused = !!errors.prompts && !!contentFilterError(prompt.answer);
@@ -1198,6 +1212,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 <div key={prompt.prompt}>
                   <p className="mb-1 text-xs text-brown-light">{prompt.prompt}</p>
                   <input
+                    aria-label={prompt.prompt}
                     value={prompt.answer}
                     onChange={(e) => setPromptAnswer(i, e.target.value)}
                     maxLength={PROFILE_TEXT_LIMITS.promptAnswer}
@@ -1255,10 +1270,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           </p>
           {errors.rabiesExpiry && <p className="mt-1 text-xs text-red-500">{errors.rabiesExpiry}</p>}
 
-          <label className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label id="dog-vaccinated-label" className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
             No certificate handy?
           </label>
-          <div className="flex gap-3">
+          <div className="flex gap-3" role="group" aria-labelledby="dog-vaccinated-label">
             {([true, false] as const).map((value) => (
               <button
                 key={String(value)}
