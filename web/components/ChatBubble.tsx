@@ -8,9 +8,11 @@ interface Props {
   isSystem?: boolean;
   /** Display timestamp e.g. "2:34 PM" */
   time?: string;
+  /** Written locally, not yet acknowledged by the server (e.g. sent offline). */
+  pending?: boolean;
 }
 
-export default function ChatBubble({ text, fromMe, isSystem, time }: Props) {
+export default function ChatBubble({ text, fromMe, isSystem, time, pending }: Props) {
   if (isSystem) {
     return (
       <div className="self-center max-w-[90%] text-center">
@@ -32,7 +34,9 @@ export default function ChatBubble({ text, fromMe, isSystem, time }: Props) {
       >
         {text}
       </div>
-      {time && (
+      {pending ? (
+        <span className="text-[10px] italic text-brown-light px-1" role="status">Sending…</span>
+      ) : time && (
         <span className="text-[10px] text-brown-light px-1">{time}</span>
       )}
     </div>

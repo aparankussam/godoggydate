@@ -61,6 +61,8 @@ interface Message {
   // Set by the server's content filter (onMessageCreatedNotify), which also
   // replaces the text with a neutral notice and drops any playdate card.
   moderated?: boolean;
+  // Still only on this device: not yet acknowledged by the server.
+  pending?: boolean;
 }
 
 function playdateKey(p?: PlaydateDetails): string {
@@ -187,6 +189,8 @@ export default function ChatPage() {
   // Synchronous send guard. `sending` is state, so two taps/Enters landing in the
   // same tick can both read it as false before the re-render; a ref can't.
   const sendingRef = useRef(false);
+  // Id of the newest incoming message already stamped as read.
+  const lastMarkedReadRef = useRef<string | null>(null);
   // Which read-timestamp slot on the match doc is THIS user's, resolved once the
   // match loads — used to mark the thread read so the unread badge clears.
   const myReadFieldRef = useRef<'dog1LastReadAt' | 'dog2LastReadAt' | null>(null);
@@ -346,7 +350,9 @@ export default function ChatPage() {
     const msgsRef = collection(db, 'matches', matchId, 'messages');
     const q = query(msgsRef, orderBy('createdAt', 'asc'));
 
-    const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snap) => {
+    // includeMetadataChanges so a message sent offline flips from "Sending…" to
+    // its time when the server acknowledges it (that's a metadata-only change).
+    const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
       const msgs: Message[] = snap.docs.map((d) => {
         // serverTimestamps:'estimate' gives a just-sent (pending) message an
         // estimated createdAt instead of null — null sorts first under 'asc',
@@ -361,6 +367,7 @@ export default function ChatPage() {
           type:       data.type,
           playdate:   data.playdate,
           moderated:  data.moderated === true,
+          pending:    d.metadata.hasPendingWrites,
         };
       });
       setMessages(msgs);
@@ -369,8 +376,13 @@ export default function ChatPage() {
       // the bottom-nav unread badge clears on READ (not only when you reply).
       const last = msgs[msgs.length - 1];
       const field = myReadFieldRef.current;
-      if (last && field && last.fromUserId && last.fromUserId !== authUser?.uid) {
-        void updateDoc(doc(db, 'matches', matchId), { [field]: serverTimestamp() }).catch(() => {});
+      // Once per newest message: with metadata changes on, this callback also
+      // fires for cache→server transitions, which must not re-stamp the read time.
+      if (last && field && last.fromUserId && last.fromUserId !== authUser?.uid && lastMarkedReadRef.current !== last.id) {
+        lastMarkedReadRef.current = last.id;
+        void updateDoc(doc(db, 'matches', matchId), { [field]: serverTimestamp() }).catch(() => {
+          lastMarkedReadRef.current = null; // try again on the next snapshot
+        });
       }
     });
 
@@ -954,6 +966,7 @@ export default function ChatPage() {
               fromMe={msg.fromUserId === authUser.uid}
               isSystem={msg.isSystem}
               time={msg.isSystem ? undefined : formatTime(msg.createdAt)}
+              pending={msg.pending && msg.fromUserId === authUser.uid}
             />
           );
         })}
