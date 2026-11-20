@@ -191,36 +191,43 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
       throw new HttpsError('failed-precondition', "Add your city to your dog's profile so neighbors can find the event.");
     }
 
-    const hosted = await db.collection('packDays').where('hostUid', '==', uid).get();
-    const open = hosted.docs.filter((d) => d.data().status === 'open' && (d.data().startsAtMs as number) > now);
-    if (open.length >= MAX_OPEN_PER_HOST) {
-      throw new HttpsError('resource-exhausted', `You can have ${MAX_OPEN_PER_HOST} upcoming Pack Days at a time. Cancel one or wait until it's over.`);
-    }
-
     const founding = await isFounding(uid);
     const ref = db.collection('packDays').doc();
-    await ref.set({
-      hostUid: uid,
-      hostDogName,
-      title: input.title,
-      format: input.format,
-      startsAtMs: input.startsAtMs,
-      durationMinutes: input.durationMinutes,
-      localDate: input.localDate,
-      localTime: input.localTime,
-      placeName: input.placeName,
-      city,
-      state,
-      note: input.note,
-      capacity: input.capacity,
-      // The host's own dog takes a spot.
-      attendeeUids: [uid],
-      foundingUids: founding ? [uid] : [],
-      status: 'open',
-      // Founder-hosted flag: only ever set by hand through the Admin SDK.
-      official: false,
-      reminderSent: false,
-      createdAtMs: now,
+
+    // The limit check and the write share one transaction. As two separate steps,
+    // two simultaneous calls from the same host (two tabs, a double tap) could
+    // both see "1 open" and both create, ending up over the limit. Reading the
+    // host's events inside the transaction makes the second one wait and retry.
+    await db.runTransaction(async (tx) => {
+      const hosted = await tx.get(db.collection('packDays').where('hostUid', '==', uid));
+      const open = hosted.docs.filter((d) => d.data().status === 'open' && (d.data().startsAtMs as number) > now);
+      if (open.length >= MAX_OPEN_PER_HOST) {
+        throw new HttpsError('resource-exhausted', `You can have ${MAX_OPEN_PER_HOST} upcoming Pack Days at a time. Cancel one or wait until it's over.`);
+      }
+
+      tx.set(ref, {
+        hostUid: uid,
+        hostDogName,
+        title: input.title,
+        format: input.format,
+        startsAtMs: input.startsAtMs,
+        durationMinutes: input.durationMinutes,
+        localDate: input.localDate,
+        localTime: input.localTime,
+        placeName: input.placeName,
+        city,
+        state,
+        note: input.note,
+        capacity: input.capacity,
+        // The host's own dog takes a spot.
+        attendeeUids: [uid],
+        foundingUids: founding ? [uid] : [],
+        status: 'open',
+        // Founder-hosted flag: only ever set by hand through the Admin SDK.
+        official: false,
+        reminderSent: false,
+        createdAtMs: now,
+      });
     });
 
     return { eventId: ref.id };
