@@ -7,6 +7,7 @@ import {
   playdateDateBounds,
   playdateDraftProblem,
   formatPlaydateWhen,
+  formatMessageTime,
   MAX_PLAYDATE_PLACE_LENGTH,
 } from './playdates.ts';
 
@@ -79,4 +80,16 @@ test('formatPlaydateWhen reads like a person wrote it, and leaves old free text 
   assert.equal(formatPlaydateWhen({ date: '2027-01-02', time: '' }, NOW), 'Sat, Jan 2, 2027');
   assert.equal(formatPlaydateWhen({ date: 'Sat, July 12', time: '10:00 AM' }, NOW), 'Sat, July 12 at 10:00 AM');
   assert.equal(formatPlaydateWhen({ date: 'Sat, July 12' }, NOW), 'Sat, July 12');
+});
+
+test('formatMessageTime says when, not just the clock time', () => {
+  const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).getTime();
+  const now = at(2026, 11, 19, 15, 30).valueOf();
+  assert.equal(formatMessageTime(at(2026, 11, 19, 9, 5), now), '9:05 AM');
+  assert.equal(formatMessageTime(at(2026, 11, 19, 23, 59), now), '11:59 PM'); // later today (clock skew) is still "today"
+  assert.equal(formatMessageTime(at(2026, 11, 18, 23, 59), now), 'Yesterday 11:59 PM');
+  assert.equal(formatMessageTime(at(2026, 11, 16, 8, 0), now), 'Mon 8:00 AM');
+  assert.equal(formatMessageTime(at(2026, 11, 12, 8, 0), now), 'Nov 12, 8:00 AM');
+  assert.equal(formatMessageTime(at(2025, 11, 12, 8, 0), now), 'Nov 12, 2025');
+  assert.equal(formatMessageTime(Number.NaN, now), '');
 });

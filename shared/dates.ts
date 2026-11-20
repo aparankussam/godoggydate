@@ -379,6 +379,24 @@ function startOfLocalDay(ms: number): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
+/** How far a reminder's due date may sit from today. A booster really can be a
+ *  few months overdue, but "45,979 days overdue" (a typed 0001) is nobody's
+ *  reminder, and Firestore refuses a Timestamp past year 9999. */
+export const REMINDER_MAX_YEARS_BACK = 5;
+export const REMINDER_MAX_YEARS_AHEAD = 30;
+
+/** Why a reminder due date (unix ms) can't be saved, as the message to show, or null. */
+export function reminderDueDateProblem(dueDate: number, now: number = Date.now()): string | null {
+  if (!Number.isFinite(dueDate)) return 'Pick a valid date';
+  const today = new Date(now);
+  const earliest = new Date(today.getFullYear() - REMINDER_MAX_YEARS_BACK, 0, 1).getTime();
+  const latest = new Date(today.getFullYear() + REMINDER_MAX_YEARS_AHEAD + 1, 0, 1).getTime();
+  if (dueDate < earliest || dueDate >= latest) {
+    return `Pick a date between ${today.getFullYear() - REMINDER_MAX_YEARS_BACK} and ${today.getFullYear() + REMINDER_MAX_YEARS_AHEAD}`;
+  }
+  return null;
+}
+
 /** Whole local calendar days from today to the due date. 0 = today, -1 = yesterday. */
 export function calendarDaysUntil(dueDate: number, now: number = Date.now()): number {
   // `|| 0` normalises -0 (Math.round of a small negative) to 0, so callers can

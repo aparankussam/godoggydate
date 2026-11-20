@@ -36,6 +36,7 @@ import { checkContent, CONTENT_FILTER_MESSAGE } from '../../../../../shared/cont
 import { parseLocalIsoDate } from '../../../../../shared/profile';
 import {
   MAX_PLAYDATE_PLACE_LENGTH,
+  formatMessageTime,
   formatPlaydateWhen,
   playdateDateBounds,
   playdateDraftProblem,
@@ -131,8 +132,7 @@ function buildSmartPromptsFromProfile(profile: {
 
 function formatTime(createdAt: { seconds: number } | null): string {
   if (!createdAt) return '';
-  const d = new Date(createdAt.seconds * 1000);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatMessageTime(createdAt.seconds * 1000);
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -335,7 +335,11 @@ export default function ChatPage() {
       // own error state instead so it never gets mistaken for either "access
       // denied" or "payment required".
       console.error('Failed to subscribe to match:', error);
-      setLoadError(true);
+      // The rules answer permission-denied both for someone else's match and for
+      // an id that doesn't exist (they can't tell the two apart). That's not a
+      // connection problem, and "Retry" can never fix it.
+      if ((error as { code?: string }).code === 'permission-denied') setAccessDenied(true);
+      else setLoadError(true);
       setLoadingProfile(false);
     });
 

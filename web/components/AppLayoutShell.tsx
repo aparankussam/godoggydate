@@ -92,7 +92,15 @@ export default function AppLayoutShell({ children }: Props) {
     const { db } = getFirebase();
     const col = collection(db, 'matches');
 
+    // Everyone hidden from this user (blocked by them, or blocking them). The
+    // Matches/Messages lists drop those threads, so the badge must too — it kept
+    // counting an unread message from someone you'd just blocked, with nothing
+    // in the list to open or clear it.
+    const hidden = new Set<string>();
+    const blockedBy = new Map<string, Set<string>>();
+
     const allMatches = new Map<string, {
+      otherUserId:        string | null;
       lastMessage:        string | null;
       lastMessageFromUid: string | null;
       lastMessageAt:      number | null; // ms
@@ -108,6 +116,7 @@ export default function AppLayoutShell({ children }: Props) {
       const isDog1 = data.dog1UserId === uid;
       const myRead = isDog1 ? data.dog1LastReadAt : data.dog2LastReadAt;
       return {
+        otherUserId:        ((isDog1 ? data.dog2UserId : data.dog1UserId) as string | undefined) ?? null,
         lastMessage:        (data.lastMessage as string | null) ?? null,
         lastMessageFromUid: (data.lastMessageFromUid as string | null) ?? null,
         lastMessageAt:      toMs(data.lastMessageTime),
@@ -119,6 +128,7 @@ export default function AppLayoutShell({ children }: Props) {
       let newMatches  = 0;
       let newMessages = 0;
       for (const m of allMatches.values()) {
+        if (m.otherUserId && hidden.has(m.otherUserId)) continue;
         if (!m.lastMessage) {
           newMatches++;
         } else if (m.lastMessageFromUid && m.lastMessageFromUid !== uid) {
@@ -149,7 +159,23 @@ export default function AppLayoutShell({ children }: Props) {
       },
     );
 
-    return () => { unsubA(); unsubB(); };
+    // blocks/{uid}/blocked and blocks/{uid}/blockedBy are owner-readable. A
+    // failed listener just leaves that half empty (the badge then over-counts).
+    const watchBlocks = (sub: 'blocked' | 'blockedBy') =>
+      onSnapshot(
+        collection(db, 'blocks', uid, sub),
+        (snap) => {
+          blockedBy.set(sub, new Set(snap.docs.map((d) => d.id)));
+          hidden.clear();
+          for (const ids of blockedBy.values()) ids.forEach((id) => hidden.add(id));
+          recompute();
+        },
+        () => { /* leave as is */ },
+      );
+    const unsubBlocked = watchBlocks('blocked');
+    const unsubBlockedBy = watchBlocks('blockedBy');
+
+    return () => { unsubA(); unsubB(); unsubBlocked(); unsubBlockedBy(); };
   }, [authUser]);
 
   // hasOwnDog is the pre-existing condition, untouched. The household clause

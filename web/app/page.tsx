@@ -257,7 +257,7 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="font-display text-lg text-brown-light">🐾 GoDoggyDate</span>
           <div className="text-center sm:text-left">
-            <p className="text-sm text-brown-light">
+            <p className="text-sm text-brown-light" suppressHydrationWarning>
               © {new Date().getFullYear()} GoDoggyDate. Made with ❤️ for dogs everywhere.
             </p>
             <p className="mt-1 text-xs text-brown-light/90">

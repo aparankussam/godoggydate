@@ -334,13 +334,13 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                     </span>
                   </div>
                 )}
-                <p className="font-display text-[2.55rem] leading-[0.94] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)]">
+                <p className="font-display text-[2.55rem] leading-[0.94] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)] [overflow-wrap:anywhere]">
                   {dog.name}
                 </p>
                 <p className="mt-1.5 text-[1.02rem] font-semibold tracking-[0.01em] text-white/95 truncate drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
                   {dog.breed}
                 </p>
-                <p className="mt-1 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
+                <p className="mt-1 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)] [overflow-wrap:anywhere]">
                   {distanceLabel}
                 </p>
                 {/* compat.microcopy — the engine's own one-line verdict,

@@ -20,6 +20,7 @@ import {
   adoptionDateProblem,
   rabiesExpiryProblem,
   maskedCaretPosition,
+  reminderDueDateProblem,
 } from './dates.ts';
 
 // ── parsing ──────────────────────────────────────────────────────────────────
@@ -386,4 +387,19 @@ test('maskedCaretPosition keeps the caret among the digits when the mask rewrite
   assert.equal(maskedCaretPosition('016/2021', 2, '01/6/2021'), 2);
   // Caret at the very start.
   assert.equal(maskedCaretPosition('x06/2021', 0, '06/2021'), 0);
+});
+
+test('reminderDueDateProblem keeps due dates in a believable window', () => {
+  const now = new Date(2026, 10, 20, 15, 0).getTime();
+  const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 12).getTime();
+  assert.equal(reminderDueDateProblem(at(2026, 11, 20), now), null); // today
+  assert.equal(reminderDueDateProblem(at(2026, 11, 19), now), null); // a day overdue
+  assert.equal(reminderDueDateProblem(at(2021, 1, 1), now), null); // 5 years back, the floor
+  assert.equal(reminderDueDateProblem(at(2056, 12, 31), now), null); // 30 years out, the ceiling
+  assert.match(reminderDueDateProblem(at(2020, 12, 31), now) ?? '', /between 2021 and 2056/);
+  assert.match(reminderDueDateProblem(at(2057, 1, 1), now) ?? '', /between 2021 and 2056/);
+  assert.match(reminderDueDateProblem(at(1899, 12, 31), now) ?? '', /between 2021 and 2056/);
+  assert.match(reminderDueDateProblem(new Date('0001-01-01T12:00:00').getTime(), now) ?? '', /between/);
+  assert.match(reminderDueDateProblem(new Date('9999-12-31T12:00:00').getTime(), now) ?? '', /between/);
+  assert.equal(reminderDueDateProblem(Number.NaN, now), 'Pick a valid date');
 });

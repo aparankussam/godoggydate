@@ -834,8 +834,12 @@ export default function ProfilePage() {
             Member CTA at the bottom permanently unreachable whenever this
             column's own content — card + reminders + household + CTA — ran
             taller than the screen, since a sticky element with no shorter
-            sibling to scroll past never gets the chance to un-stick. */}
-        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+            sibling to scroll past never gets the chance to un-stick.
+            Children must not shrink (shrink-0): in a height-capped flex
+            column the overflow-hidden cards (Reminders, Household) have a
+            min-height of 0 and were squashed to nothing, so neither could be
+            seen or used on desktop. */}
+        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:[&>*]:shrink-0">
 
         {/* Trading card share */}
         {savedProfile && complete && (

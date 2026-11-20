@@ -187,11 +187,11 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           )}
         </div>
         <div className="space-y-1">
-          <p className="font-display text-3xl text-white">{dog.name}</p>
+          <p className="font-display text-3xl text-white [overflow-wrap:anywhere]">{dog.name}</p>
           {/* "wants to sniff you out" asserted intent from a swipe. The only
               underlying datum is a decision doc with action:'like'. */}
           <p className="text-white/90 text-lg font-semibold">You both said WOOF.</p>
-          <p className="text-white/70 text-sm">
+          <p className="text-white/70 text-sm [overflow-wrap:anywhere]">
             {dog.breed} · {distanceSummary}
           </p>
           {/* The verdict gets its own line in its tier colour — it's a
@@ -253,12 +253,12 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           {/* A rabies date the owner typed is quoted (and an expired one flagged),
               exactly as on the swipe card — the line used to read only the
               boolean, so an expired certificate came back as "marked them vaccinated". */}
-          {vaccination.tone === 'dated' || vaccination.tone === 'expired'
-            ? `${vaccination.tone === 'expired' ? '⚠ ' : ''}${dog.name} — ${vaccination.label}`
-            : dog.vaccinated === true
-              ? `${dog.name}'s owner marked them vaccinated`
-              : dog.vaccinated === false
-                ? `${dog.name}'s owner marked them NOT currently vaccinated`
+          {dog.vaccinated === false
+            ? `${dog.name}'s owner marked them NOT currently vaccinated`
+            : vaccination.tone === 'dated' || vaccination.tone === 'expired'
+              ? `${vaccination.tone === 'expired' ? '⚠ ' : ''}${dog.name} — ${vaccination.label}`
+              : dog.vaccinated === true
+                ? `${dog.name}'s owner marked them vaccinated`
                 : `Vaccination: not stated`}
         </p>
 

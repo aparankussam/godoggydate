@@ -76,6 +76,19 @@ const DEFAULT_PROMPTS = [
 const MAX_PHOTOS = 6;
 const MIN_PHOTOS = 3;
 
+// accept="image/*" only filters the picker's list — drag-and-drop and some
+// mobile pickers hand over anything — so check again. SVG is excluded: it is
+// scriptable and the canvas re-encode in lib/storage.ts can't decode it. A
+// missing type (some browsers for HEIC) falls back to the extension.
+function photoRejection(file: File): string | null {
+  if (file.size === 0) return `${file.name} is empty.`;
+  const type = (file.type || '').toLowerCase();
+  const isImage = type
+    ? type.startsWith('image/') && !type.includes('svg')
+    : /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp)$/i.test(file.name);
+  return isImage ? null : `${file.name} isn’t a photo.`;
+}
+
 const US_STATES: { abbr: string; name: string }[] = [
   { abbr: 'AL', name: 'Alabama' }, { abbr: 'AK', name: 'Alaska' },
   { abbr: 'AZ', name: 'Arizona' }, { abbr: 'AR', name: 'Arkansas' },
@@ -235,6 +248,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>(EMPTY_ERRORS);
   const [uploading, setUploading] = useState(false);
+  // Why a picked file was skipped, and why a save attempt failed — neither
+  // used to say anything, so a bad photo just vanished or "Save" did nothing.
+  const [photoNotice, setPhotoNotice] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   // Vibe Check — photos in, a finished profile out. Additive to the manual
   // form rather than replacing it: on success it pre-fills the fields below
@@ -380,8 +397,23 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   }
 
   function handlePhotoFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []).slice(0, MAX_PHOTOS - photos.length);
-    if (files.length === 0) return;
+    const picked = Array.from(e.target.files ?? []);
+    const notices: string[] = [];
+    const usable = picked.filter((file) => {
+      const reason = photoRejection(file);
+      if (reason) notices.push(reason);
+      return !reason;
+    });
+    const room = Math.max(0, MAX_PHOTOS - photos.length);
+    if (usable.length > room) {
+      notices.push(`Only ${MAX_PHOTOS} photos fit — ${usable.length - room} skipped.`);
+    }
+    setPhotoNotice(notices.join(' '));
+    const files = usable.slice(0, room);
+    if (files.length === 0) {
+      e.target.value = '';
+      return;
+    }
 
     const nextPhotos = files.map((file, index) => {
       const preview = URL.createObjectURL(file);
@@ -402,6 +434,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   }
 
   function removePhoto(photoId: string) {
+    setPhotoNotice('');
     // Compute the removed index from current state BEFORE the setPhotos updater
     // (which can run twice under StrictMode) so the cover setters below fire
     // exactly once.
@@ -673,6 +706,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       return;
     }
 
+    setSubmitError('');
     setUploading(true);
     try {
       const uid = getFirebase().auth.currentUser?.uid;
@@ -754,6 +788,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           .map((prompt) => ({ ...prompt, answer: prompt.answer.trim() }))
           .filter((prompt) => prompt.answer),
       });
+    } catch (err) {
+      // A photo that can't be read or uploaded. This had no catch, so the
+      // button just went back to "Save" and nothing said why.
+      setSubmitError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'We couldn’t upload your photos. Check your connection and try again.',
+      );
     } finally {
       setUploading(false);
     }
@@ -858,6 +900,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
             Choose images from your device. The first photo becomes the main card image.
           </p>
+          {photoNotice && <p role="status" className="mt-1 text-xs text-amber-700">{photoNotice}</p>}
           {errors.photos && <p className="mt-1 text-xs text-red-500">{errors.photos}</p>}
 
           {/* Was gated on `photos.some(p => p.file)` — i.e. only ever offered
@@ -1317,6 +1360,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               {!zip.trim() && !(city.trim() && usState.trim()) && <li>• ZIP code or city + state</li>}
             </ul>
           </div>
+        )}
+
+        {submitError && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {submitError} If it keeps failing, remove that photo and pick another.
+          </p>
         )}
 
         <button

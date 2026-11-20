@@ -281,7 +281,7 @@ export default function PackDayDetailPage() {
         {/* ── Who's going ───────────────────────────────────────────────── */}
         <section>
           <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-brown-light">
-            {event.attendeeUids.length} of {event.capacity} dogs going{left === 0 ? ' · Full' : ''}
+            {event.attendeeUids.length} of {event.capacity} dogs going{left === 0 && !cancelled && !over ? ' · Full' : ''}
           </h2>
           <ul className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-3">
             {visibleAttendees.map((a) => (

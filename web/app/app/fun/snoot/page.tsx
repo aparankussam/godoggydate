@@ -229,6 +229,9 @@ export default function SnootPage() {
   const outOfZoomies = energy <= 0;
   const stickerCount = unlockedStickers(state.allTime).length;
   const remaining = next ? next.count - state.allTime : 0;
+  // The 1s heartbeat re-renders this, so a tab left open past midnight reads 0
+  // for the new day straight away instead of yesterday's count until the next tap.
+  const todayCount = state.todayDate === localDateStr(Date.now()) ? state.todayCount : 0;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -288,7 +291,7 @@ export default function SnootPage() {
             type="button"
             onClick={boop}
             disabled={!ready}
-            aria-label={`Boop ${dogName}'s snoot. ${state.allTime} boops so far.`}
+            aria-label={`Boop ${dogName}'s snoot. ${state.allTime} boop${state.allTime === 1 ? '' : 's'} so far.`}
             className="relative rounded-full overflow-hidden bg-white border-4 border-white shadow-[0_10px_30px_rgba(45,26,14,0.18)] active:cursor-pointer select-none touch-manipulation disabled:opacity-60"
             style={{ width: 240, height: 240, WebkitTapHighlightColor: 'transparent' }}
           >
@@ -319,7 +322,7 @@ export default function SnootPage() {
         {/* Counters */}
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <p className="font-display text-4xl text-brown leading-none">{state.todayCount.toLocaleString()}</p>
+            <p className="font-display text-4xl text-brown leading-none">{todayCount.toLocaleString()}</p>
             <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">today</p>
           </div>
           <div className="w-px h-10 bg-border" />
@@ -410,7 +413,10 @@ export default function SnootPage() {
           ) : (
             <span style={{ fontSize: 96 }}>🐽</span>
           )}
-          <div style={{ fontSize: 68, color: '#ffffff', marginTop: 12, lineHeight: 1 }}>{state.allTime.toLocaleString()}</div>
+          {/* html2canvas draws this large number lower than the DOM lays it out (seen
+              with fallback serif fonts), over the label under it. The margin below
+              keeps them apart in the exported PNG. */}
+          <div style={{ fontSize: 68, color: '#ffffff', marginTop: 6, marginBottom: 16, lineHeight: '76px', height: 76 }}>{state.allTime.toLocaleString()}</div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 700 }}>
             boops and counting
           </div>

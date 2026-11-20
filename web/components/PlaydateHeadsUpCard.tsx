@@ -99,8 +99,11 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
       </button>
 
       {open && (
-        <div className="mt-3 space-y-3">
-          <p className="text-xs font-semibold text-brown-light">{whenWhere}</p>
+        // Capped and scrollable: opened on a phone with a few declared flags it
+        // used to take the whole screen — the thread collapsed to a sliver and the
+        // message box was pushed off the bottom.
+        <div className="mt-3 max-h-[35dvh] space-y-3 overflow-y-auto">
+          <p className="text-xs font-semibold text-brown-light [overflow-wrap:anywhere]">{whenWhere}</p>
 
           {/* What crosses between these two specific dogs. */}
           {crossings.length > 0 && (

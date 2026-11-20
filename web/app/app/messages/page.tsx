@@ -339,7 +339,7 @@ export default function MessagesPage() {
                       {c.isNew
                         ? (c.chatUnlocked
                             ? 'New match! Say hello 👋'
-                            : 'Send the first hello from the mobile app')
+                            : 'Unlock chat to say hello')
                         : conversationHint(c, authUser.uid, name)}
                     </p>
                   </div>

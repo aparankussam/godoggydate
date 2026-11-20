@@ -10,6 +10,7 @@
 
 import type { Metadata } from 'next';
 import ExcuseClient from './ExcuseClient';
+import { defaultSocialImages } from '../../lib/site';
 
 export const dynamic = 'force-static';
 
@@ -20,8 +21,8 @@ export function generateMetadata(): Metadata {
   return {
     title,
     description,
-    openGraph: { title, description, type: 'website' },
-    twitter: { card: 'summary_large_image', title, description },
+    openGraph: { title, description, type: 'website', images: defaultSocialImages },
+    twitter: { card: 'summary_large_image', title, description, images: defaultSocialImages },
     alternates: { canonical: '/excuse' },
   };
 }

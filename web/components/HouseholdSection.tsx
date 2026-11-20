@@ -7,7 +7,7 @@
 // active humans per dog, and it turns "I'll cancel this" into a
 // conversation. Free, no payment gating.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createHouseholdInvite, removeHouseholdMember } from '../lib/household';
 
 interface Props {
@@ -24,6 +24,18 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
   const [error, setError] = useState<string | null>(null);
   const [busyUid, setBusyUid] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // An invite is single-use: once someone joins, the code on screen is dead.
+  // Leaving it up (with a "Copied!" button) also hid "+ Invite someone", so
+  // the owner couldn't ask the next person until they reloaded.
+  const memberCount = useRef(memberIds.length);
+  useEffect(() => {
+    if (memberIds.length > memberCount.current) {
+      setInvite(null);
+      setCopied(false);
+    }
+    memberCount.current = memberIds.length;
+  }, [memberIds.length]);
 
   async function handleInvite() {
     setInviting(true);

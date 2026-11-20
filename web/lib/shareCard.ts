@@ -8,6 +8,13 @@ export async function exportCardImage(node: HTMLElement): Promise<Blob> {
     backgroundColor: null,
     scale: 2, // crisp on retina + when re-shared to social
     useCORS: true,
+    // ScaleToFit shrinks cards on narrow screens with a CSS transform on an
+    // ancestor; capture the card at its real size, not the shrunken one.
+    onclone: (_doc, el) => {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (p.style.transform) p.style.transform = 'none';
+      }
+    },
   });
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {

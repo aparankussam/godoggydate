@@ -268,7 +268,7 @@ export default function SwipeStack({
 
               <div className="pr-24">
                 <p className="font-display text-[2rem] leading-tight text-brown break-words">{selectedDog.name}</p>
-                <p className="mt-1 text-sm text-brown-light">
+                <p className="mt-1 text-sm text-brown-light [overflow-wrap:anywhere]">
                   {[selectedDog.breed, selectedDog.age, selectedDog.sex, selectedDog.size].filter(Boolean).join(' · ')}
                 </p>
               </div>
@@ -323,7 +323,7 @@ export default function SwipeStack({
               {selectedDog.ai?.vibeCheck && (
                 <div className="mt-4 rounded-2xl border border-gold/30 bg-gold/5 px-4 py-3">
                   {selectedDog.ai.vibeCheck.bio && (
-                    <p className="text-sm italic leading-relaxed text-brown-mid">
+                    <p className="text-sm italic leading-relaxed text-brown-mid [overflow-wrap:anywhere]">
                       &ldquo;{selectedDog.ai.vibeCheck.bio}&rdquo;
                     </p>
                   )}
@@ -439,7 +439,7 @@ export default function SwipeStack({
               {selectedDog.location && (
                 <div className="mt-3 rounded-2xl border border-border bg-white px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Neighbourhood</p>
-                  <p className="mt-1 text-sm text-brown">{selectedDog.location}</p>
+                  <p className="mt-1 text-sm text-brown [overflow-wrap:anywhere]">{selectedDog.location}</p>
                 </div>
               )}
 
@@ -477,7 +477,7 @@ export default function SwipeStack({
                   {selectedDog.prompts?.filter((prompt) => prompt.answer?.trim()).map((prompt) => (
                     <div key={prompt.prompt} className="rounded-2xl border border-border bg-white px-4 py-3">
                       <p className="text-xs font-bold uppercase tracking-[0.08em] text-brown-light">{prompt.prompt}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-brown">{prompt.answer}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-brown [overflow-wrap:anywhere]">{prompt.answer}</p>
                     </div>
                   ))}
                 </div>

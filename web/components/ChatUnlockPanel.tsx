@@ -44,7 +44,14 @@ async function fetchClientSecret(matchId: string): Promise<string> {
 
   const data = (await res.json().catch(() => ({}))) as { clientSecret?: string; error?: string };
   if (!res.ok || !data.clientSecret) {
-    throw new Error(data.error || 'Unable to start checkout. Please try again.');
+    // A 5xx carries the payment provider's own wording ("An error occurred with
+    // our connection to Stripe. Request was retried 2 times.") — not something to
+    // put in front of a dog owner. 4xx messages are ours and are meant to be read.
+    throw new Error(
+      res.status >= 500
+        ? 'We couldn’t start checkout just now. Please try again in a moment.'
+        : data.error || 'Unable to start checkout. Please try again.',
+    );
   }
   return data.clientSecret;
 }
@@ -126,6 +133,7 @@ export default function ChatUnlockPanel({ matchId, dogName, onCheckAgain }: Chat
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +154,7 @@ export default function ChatUnlockPanel({ matchId, dogName, onCheckAgain }: Chat
     return () => {
       cancelled = true;
     };
-  }, [matchId]);
+  }, [matchId, attempt]);
 
   if (!isStripeConfigured()) {
     return (
@@ -161,7 +169,17 @@ export default function ChatUnlockPanel({ matchId, dogName, onCheckAgain }: Chat
   }
 
   if (error) {
-    return <p className="text-xs text-red-600">{error}</p>;
+    return (
+      <div className="text-center">
+        <p role="alert" className="text-xs text-red-600">{error}</p>
+        <button
+          onClick={() => setAttempt((n) => n + 1)}
+          className="mt-2 text-xs font-semibold text-primary underline underline-offset-2"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   if (!clientSecret) return null;

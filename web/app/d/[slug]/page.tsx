@@ -18,6 +18,7 @@ import { getAdminDb } from '../../../lib/firebaseAdmin';
 import { parseDogSlugToUid, toDogSlug } from '../../../lib/dogSlug';
 import { getRenderablePhotos, resolveHeroIndex } from '../../../lib/photos';
 import DogTradingCard from '../../../components/DogTradingCard';
+import ScaleToFit from '../../../components/ScaleToFit';
 import type { SavedDogProfile } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -145,10 +146,12 @@ export default async function PublicDogPage({ params }: PageProps) {
         🐾 GoDoggyDate
       </Link>
 
-      <DogTradingCard profile={profile} />
+      <ScaleToFit width={360}>
+        <DogTradingCard profile={profile} />
+      </ScaleToFit>
 
       {photos.length > 1 && (
-        <div className="flex gap-2 max-w-[360px] overflow-x-auto">
+        <div className="flex gap-2 w-full max-w-[360px] overflow-x-auto">
           {stripPhotos.map((url, i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img

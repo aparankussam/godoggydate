@@ -30,8 +30,8 @@ export default function BarklePage() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-display text-2xl text-brown">🐾 GoDoggyDate</Link>
-          <Link href="/app" className="btn-secondary text-sm">Open the app</Link>
+          <Link href="/" className="font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
+          <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Open the app</Link>
         </div>
       </nav>
 

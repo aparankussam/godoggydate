@@ -37,6 +37,7 @@ import {
   saveBarkleGuesses,
 } from '../lib/progressSync';
 import BarkleResultCard from './BarkleResultCard';
+import ScaleToFit from './ScaleToFit';
 
 type Status = 'playing' | 'won' | 'lost';
 
@@ -434,12 +435,14 @@ export default function BarkleGame() {
           {/* The spoiler-free shareable card (brand + link baked in). The reveal
               above is on-screen only and never shared. */}
           <div className="mt-5 flex flex-col items-center">
-            <BarkleResultCard
-              ref={cardRef}
-              puzzleNumber={puzzle.puzzleNumber}
-              results={results}
-              won={status === 'won'}
-            />
+            <ScaleToFit width={320}>
+              <BarkleResultCard
+                ref={cardRef}
+                puzzleNumber={puzzle.puzzleNumber}
+                results={results}
+                won={status === 'won'}
+              />
+            </ScaleToFit>
             <p className="mt-2 text-xs text-brown-light">Spoiler-free: the image never shows the breed.</p>
           </div>
 

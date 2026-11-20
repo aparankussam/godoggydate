@@ -268,7 +268,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           type="button"
           onClick={() => setRedirectError('')}
           aria-label="Dismiss"
-          className="-mr-1 text-lg leading-none text-white/80 hover:text-white"
+          className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center text-lg leading-none text-white/80 hover:text-white"
         >
           ×
         </button>
@@ -410,7 +410,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               {chromeIntentUrl && (
                 <a
                   href={chromeIntentUrl}
-                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-white"
+                  className="inline-flex min-h-[40px] items-center rounded-full bg-primary px-4 text-xs font-bold text-white"
                 >
                   Open in Chrome
                 </a>
@@ -418,7 +418,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               <button
                 type="button"
                 onClick={copyPageLink}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-brown"
+                className="inline-flex min-h-[40px] items-center rounded-full border border-border px-4 text-xs font-bold text-brown"
               >
                 {linkCopied ? 'Link copied ✓' : 'Copy link'}
               </button>
@@ -443,13 +443,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
 
         {agreed && (
         <div className="w-full mt-1 flex flex-col items-center gap-3">
-          <div ref={googleButtonRef} className="min-h-[44px] w-full flex justify-center" />
+          <div ref={googleButtonRef} className={`w-full flex justify-center ${oneTapReady ? 'min-h-[44px]' : ''}`} />
 
           {oneTapReady ? (
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className="text-sm font-semibold text-brown-light underline decoration-border underline-offset-4 transition-colors hover:text-brown"
+              className="min-h-[40px] text-sm font-semibold text-brown-light underline decoration-border underline-offset-4 transition-colors hover:text-brown"
             >
               Trouble signing in? Use the Google popup instead.
             </button>

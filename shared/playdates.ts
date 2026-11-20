@@ -119,3 +119,27 @@ export function formatPlaydateWhen(
   const time = minutes !== null ? formatPlaydateClock(minutes) : rawTime;
   return time ? `${dayLabel} at ${time}` : dayLabel;
 }
+
+const startOfDay = (ms: number) => {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Under a chat message: '3:42 PM' today, 'Yesterday 3:42 PM', 'Mon 3:42 PM'
+ * within the week, 'Nov 10, 3:42 PM' this year, 'Nov 10, 2025' before that.
+ * Same wording as the iPhone app. The thread used to show a bare clock time on
+ * every message, so a reply from last week looked like it came a minute ago.
+ */
+export function formatMessageTime(ms: number, now: number = Date.now()): string {
+  if (!Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  const clock = formatPlaydateClock(d.getHours() * 60 + d.getMinutes());
+  const days = Math.round((startOfDay(now).getTime() - startOfDay(ms).getTime()) / DAY_MS);
+  if (days <= 0) return clock;
+  if (days === 1) return `Yesterday ${clock}`;
+  if (days < 7) return `${WEEKDAYS_SHORT[d.getDay()]} ${clock}`;
+  const monthDay = `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+  return d.getFullYear() === new Date(now).getFullYear() ? `${monthDay}, ${clock}` : `${monthDay}, ${d.getFullYear()}`;
+}

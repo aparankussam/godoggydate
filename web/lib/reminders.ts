@@ -81,7 +81,9 @@ export interface CreateReminderInput {
 export async function createReminder(dogId: string, input: CreateReminderInput): Promise<void> {
   const { db } = getFirebase();
   await addDoc(collection(db, 'dogs', dogId, 'reminders'), {
-    label: input.label.trim().slice(0, 80),
+    // By code point, not UTF-16 unit: slice(0, 80) can cut an emoji in half and
+    // store a lone surrogate, which shows as "?" in the list.
+    label: Array.from(input.label.trim()).slice(0, 80).join(''),
     type: input.type,
     dueDate: Timestamp.fromMillis(input.dueDate),
     ...(input.recurrenceDays ? { recurrenceDays: input.recurrenceDays } : {}),

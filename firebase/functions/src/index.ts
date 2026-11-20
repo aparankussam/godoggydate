@@ -1808,7 +1808,9 @@ export const acceptHouseholdInvite = functions.https.onCall(async (data, context
     if (currentMembers.includes(uid) || invite.dogId === uid) {
       // Already a member (or the owner themself) — treat as a harmless no-op
       // rather than erroring, since a re-tapped invite link is easy to hit.
-      transaction.update(inviteRef, { used: true, usedBy: uid });
+      // The invite is NOT consumed: an owner opening their own link to check
+      // it works would otherwise burn the code, and the person they actually
+      // sent it to would be told "That invite has already been used."
       return invite.dogId;
     }
     if (currentMembers.length + 1 >= HOUSEHOLD_MAX_MEMBERS) {
