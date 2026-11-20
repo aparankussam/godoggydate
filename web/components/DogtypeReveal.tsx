@@ -65,6 +65,8 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
   const [sharing, setSharing] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const cardRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
 
   const axes = dogtype.axes;
   const trimmedName = dogName?.trim() ?? '';
@@ -123,6 +125,15 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
     };
   }, [axes.length]);
 
+  // Keyboard and screen-reader users start inside the dialog rather than on the
+  // page behind it, and land on "See my Dogtype" once the buttons appear.
+  useEffect(() => {
+    rootRef.current?.focus();
+  }, []);
+  useEffect(() => {
+    if (showButton) doneRef.current?.focus();
+  }, [showButton]);
+
   // Always dismissible (Escape) even before the button appears, and lock
   // background scroll while the full-screen overlay is up.
   useEffect(() => {
@@ -141,7 +152,7 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex flex-col items-center justify-center px-6 text-center text-white select-none"
+      className="fixed inset-0 z-[120] flex flex-col items-center justify-center px-6 text-center text-white select-none focus:outline-none"
       style={{
         background: gradientFor(dogtype.code),
         animation: reduced
@@ -151,6 +162,8 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
       role="dialog"
       aria-modal="true"
       aria-label={`Your Dogtype is ${dogtype.name}`}
+      ref={rootRef}
+      tabIndex={-1}
     >
       {/* Scoped keyframes — self-contained so the component needs no globals.css
           edit. All are opacity/transform only, so they're cheap and GPU-friendly. */}
@@ -251,6 +264,7 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
         <button
           type="button"
           onClick={onDone}
+          ref={doneRef}
           className="rounded-full border border-white/60 px-8 py-2.5 font-bold text-white transition-all hover:bg-white/10 active:scale-95"
           tabIndex={showButton ? 0 : -1}
         >

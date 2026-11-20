@@ -529,9 +529,9 @@ export default function AppPage() {
 
       {/* ── Profile setup overlay ────────────────────────────────────────── */}
       {showProfileForm && authUser && (
-        <div className="absolute inset-0 z-30 bg-cream overflow-y-auto pb-20">
+        <div className="absolute inset-0 z-30 bg-cream overflow-y-auto pt-14 pb-20">
           {profileSaveError && (
-            <div className="sticky top-0 z-40 mx-auto w-full max-w-md px-4 pt-4">
+            <div className="sticky top-14 z-40 mx-auto w-full max-w-md px-4 pt-4">
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
                 {profileSaveError}
               </div>

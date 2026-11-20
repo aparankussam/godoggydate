@@ -178,7 +178,9 @@ function countComplete(p: {
   city: string;
 }): number {
   let n = 0;
-  if (p.photos > 0) n++;
+  // Needs MIN_PHOTOS, like isProfileComplete — one photo used to tick this off
+  // and show 100% / 9 of 9 on a profile that still couldn't swipe.
+  if (p.photos >= MIN_PHOTOS) n++;
   if (p.name.trim()) n++;
   if (p.breed.trim()) n++;
   if (p.age) n++;

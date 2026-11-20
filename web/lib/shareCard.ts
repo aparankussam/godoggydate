@@ -2,6 +2,8 @@
 // web/lib/shareCard.ts
 // Renders a DogTradingCard DOM node to a PNG and shares/downloads it.
 
+import { safeCardFileName } from '../../shared/fileName';
+
 export async function exportCardImage(node: HTMLElement): Promise<Blob> {
   const html2canvas = (await import('html2canvas')).default;
   const canvas = await html2canvas(node, {
@@ -50,9 +52,10 @@ export interface ShareCardOptions {
 
 export async function shareOrDownloadCard(
   node: HTMLElement,
-  fileName: string,
+  rawFileName: string,
   options: ShareCardOptions = {},
 ): Promise<'shared' | 'downloaded'> {
+  const fileName = safeCardFileName(rawFileName);
   const blob = await exportCardImage(node);
   const file = new File([blob], fileName, { type: 'image/png' });
   const { publicUrl, dogName } = options;

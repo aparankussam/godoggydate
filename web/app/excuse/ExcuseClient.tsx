@@ -63,7 +63,7 @@ export default function ExcuseClient() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
+          <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
           <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Open the app</Link>
         </div>
       </nav>
@@ -134,7 +134,7 @@ export default function ExcuseClient() {
                       type="button"
                       onClick={() => setReasonId(r.id)}
                       className={
-                        'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition ' +
+                        'flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ' +
                         (active
                           ? 'border-primary bg-primary/10 text-brown font-bold'
                           : 'border-border bg-cream text-brown-mid hover:border-primary/50')
