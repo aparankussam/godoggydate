@@ -167,6 +167,8 @@ export default function RemindersSection({ dogId, reminders }: Props) {
               onChangeText={setCustomLabel}
               placeholder="e.g. Refill anxiety meds"
               placeholderTextColor={colors.brownLight}
+              maxLength={60}
+              returnKeyType="done"
               style={styles.input}
             />
           )}

@@ -89,21 +89,54 @@ export default function BarkleGame() {
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  // The puzzle on screen, readable from listeners that outlive a render (and
+  // that must follow the day rolling over, not the one resolved at mount).
+  const puzzleRef = useRef<DailyPuzzle | null>(null);
 
   // Resolve today's puzzle and rehydrate any saved progress — client-only. A
   // sign-in, or a game synced from the app, re-reads it.
   useEffect(() => {
     const today = getDailyBreed();
+    puzzleRef.current = today;
     setPuzzle(today);
     setResults(loadResults(today));
     setMounted(true);
-    const offProgress = onProgressChange(() => setResults(loadResults(today)));
+    const offProgress = onProgressChange(() => {
+      if (puzzleRef.current) setResults(loadResults(puzzleRef.current));
+    });
     ensureProgressSyncFromAuth();
     return () => {
       offProgress();
       if (copyTimer.current) clearTimeout(copyTimer.current);
     };
   }, []);
+
+  // A tab left open across UTC midnight must move on to the new day's puzzle:
+  // otherwise it keeps offering (and saving guesses against) yesterday's, and
+  // the countdown sits at 00:00:00. A timer covers the open tab; the
+  // visibility/focus checks cover timers that were throttled or slept through.
+  const puzzleNumber = puzzle?.puzzleNumber;
+  useEffect(() => {
+    if (puzzleNumber === undefined) return;
+    const rollOver = () => {
+      const today = getDailyBreed();
+      if (today.puzzleNumber === puzzleNumber) return;
+      puzzleRef.current = today;
+      setPuzzle(today);
+      setResults(loadResults(today));
+      setInput('');
+      setError('');
+    };
+    const timer = setTimeout(rollOver, msUntilNextPuzzle() + 500);
+    const onVisible = () => { if (document.visibilityState === 'visible') rollOver(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', rollOver);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', rollOver);
+    };
+  }, [puzzleNumber]);
 
   const status = useMemo(() => statusFrom(results), [results]);
   const finished = status !== 'playing';

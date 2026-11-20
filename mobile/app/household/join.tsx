@@ -52,7 +52,11 @@ export default function HouseholdJoinScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <Text style={styles.emoji}>🐾</Text>
         <Text style={styles.title}>Join a household</Text>
         <Text style={styles.body}>

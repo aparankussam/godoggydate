@@ -7,22 +7,25 @@ import type { SavedDogProfile } from '../lib/auth';
 import { isProfileComplete } from '../lib/auth';
 import { getVaccinationStatus } from '../../shared/profile';
 import {
+  adoptionDateProblem,
+  birthDateProblem,
   birthFieldsFromPartial,
   formatUsPartial,
-  isBirthYearInRange,
   maskUsDateInput,
+  maskedCaretPosition,
   parseUsDateInput,
   partialFromAdoptionDate,
   partialFromBirthFields,
   partialFromIsoDate,
+  rabiesExpiryProblem,
   toAdoptionDateIso,
   toIsoDate,
-  MIN_BIRTH_YEAR,
 } from '../../shared/dates';
 import { uploadDogPhoto } from '../lib/storage';
 import { getFirebase } from '../shared/utils/firebase';
 import { BREEDS } from '../../shared/types/breeds';
 import { checkContent, CONTENT_FILTER_MESSAGE } from '../../shared/contentFilter';
+import { PROFILE_TEXT_LIMITS } from '../../shared/profileInput';
 import CoverPhotoEditor from './CoverPhotoEditor';
 
 const SIZES: { value: 'S' | 'M' | 'L' | 'XL'; label: string }[] = [
@@ -141,6 +144,12 @@ interface ValidationErrors {
 // saved profile again and clears anything that slips past. Empty is fine.
 function contentFilterError(value: string): string {
   return value.trim() && !checkContent(value).ok ? CONTENT_FILTER_MESSAGE : '';
+}
+
+// "481041234" is a ZIP+4 typed without its hyphen; accept it as 48104-1234.
+function normalizeZipInput(raw: string): string {
+  const trimmed = raw.trim();
+  return /^\d{9}$/.test(trimmed) ? `${trimmed.slice(0, 5)}-${trimmed.slice(5)}` : trimmed;
 }
 
 function countComplete(p: {
@@ -309,6 +318,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     if (savedCity || savedState) {
       setCity(savedCity);
       setUsState(savedState);
+    } else if (/^\d{5}(-\d{4})?$/.test(locStr.trim())) {
+      // A ZIP-only profile stores the ZIP as its `location`. Reading that back
+      // as a city put the private ZIP in the City box, and the next save
+      // published it as the public city on the dog doc.
+      setCity('');
+      setUsState('');
     } else {
       const lastComma = locStr.lastIndexOf(',');
       if (lastComma !== -1) {
@@ -335,6 +350,26 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       url,
     })));
   }, [initialProfile]);
+
+  // Mask a date box as the owner types AND keep the caret where they were
+  // editing. Setting a different value than the DOM holds sends the caret to
+  // the end, so a mid-string edit (backspace over a slash, insert a digit) used
+  // to jump away and garble the next keystroke.
+  function handleDateInput(e: React.ChangeEvent<HTMLInputElement>, set: (v: string) => void) {
+    const el = e.target;
+    const raw = el.value;
+    const caret = el.selectionStart ?? raw.length;
+    const masked = maskUsDateInput(raw);
+    set(masked);
+    if (masked !== raw && caret < raw.length) {
+      const pos = maskedCaretPosition(raw, caret, masked);
+      // A microtask, not rAF: it runs after React has committed (or restored)
+      // the controlled value but before the next keystroke can be handled.
+      queueMicrotask(() => {
+        try { el.setSelectionRange(pos, pos); } catch { /* input went away */ }
+      });
+    }
+  }
 
   function toggleTag(tag: string, list: string[], setList: (v: string[]) => void) {
     setList(list.includes(tag) ? list.filter((x) => x !== tag) : [...list, tag]);
@@ -478,7 +513,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       sex: !sex ? 'Required' : '',
       size: !size ? 'Required' : '',
       energy: Number.isFinite(energyLevel) ? '' : 'Required',
-      zip: hasZip && !/^\d{5}(-\d{4})?$/.test(zip.trim()) ? "That ZIP doesn't smell right" : '',
+      zip: hasZip && !/^\d{5}(-\d{4})?$/.test(normalizeZipInput(zip)) ? "That ZIP doesn't smell right" : '',
       // The city is saved even when a ZIP is given, so it's always checked.
       city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : contentFilterError(city),
       state: !hasZip && hasCity && !hasState ? 'Select a state' : '',
@@ -496,16 +531,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       rabiesExpiry: (() => {
         if (!rabiesExpiry.trim()) return '';
         const parsed = parseUsDateInput(rabiesExpiry);
-        return parsed.ok && toIsoDate(parsed.value) ? '' : 'Use MM/DD/YYYY, like 04/18/2027';
+        if (!parsed.ok || !toIsoDate(parsed.value)) return 'Use MM/DD/YYYY, like 04/18/2027';
+        return rabiesExpiryProblem(parsed.value) ?? '';
       })(),
       birthDate: (() => {
         if (!birthDate.trim()) return '';
         const parsed = parseUsDateInput(birthDate);
         if (!parsed.ok) return 'Use MM/DD/YYYY — or just 06/2021, or 2021';
-        if (!isBirthYearInRange(parsed.value.year)) {
-          return `Year must be between ${MIN_BIRTH_YEAR} and ${new Date().getFullYear()}`;
-        }
-        return '';
+        return birthDateProblem(parsed.value) ?? '';
       })(),
       adoptionDate: (() => {
         if (!adoptionDateInput.trim()) return '';
@@ -514,7 +547,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         // Year-only has no stored form for Gotcha Day — say so rather than
         // inventing a January date and firing a wrong celebration push.
         if (!toAdoptionDateIso(parsed.value)) return 'Add at least the month, like 06/2021';
-        return '';
+        return adoptionDateProblem(parsed.value) ?? '';
       })(),
     };
   }
@@ -593,7 +626,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     });
   })();
 
-  const zipStr = zip.trim();
+  const zipStr = normalizeZipInput(zip);
   const cityStr = city.trim();
   const stateStr = usState.trim();
   const locationStr = zipStr
@@ -717,7 +750,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           const parsed = parseUsDateInput(adoptionDateInput);
           return parsed.ok ? toAdoptionDateIso(parsed.value) : null;
         })(),
-        prompts: prompts.filter((prompt) => prompt.answer.trim()),
+        prompts: prompts
+          .map((prompt) => ({ ...prompt, answer: prompt.answer.trim() }))
+          .filter((prompt) => prompt.answer),
       });
     } finally {
       setUploading(false);
@@ -868,6 +903,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            maxLength={PROFILE_TEXT_LIMITS.name}
             placeholder="e.g. Kaju"
             className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
           />
@@ -881,6 +917,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             list="breed-list"
             value={breed}
             onChange={(e) => setBreed(e.target.value)}
+            maxLength={PROFILE_TEXT_LIMITS.breed}
             placeholder="e.g. Golden Retriever, Dachshund Mix"
             className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
           />
@@ -1068,6 +1105,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               ref={zipRef}
               value={zip}
               onChange={(e) => setZip(e.target.value)}
+              maxLength={PROFILE_TEXT_LIMITS.zip}
               inputMode="numeric"
               placeholder="ZIP code"
               className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
@@ -1083,6 +1121,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               ref={locationRef}
               value={city}
               onChange={(e) => setCity(e.target.value)}
+              maxLength={PROFILE_TEXT_LIMITS.city}
               placeholder="City or neighborhood"
               className="min-w-0 flex-1 rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
             />
@@ -1118,6 +1157,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                   <input
                     value={prompt.answer}
                     onChange={(e) => setPromptAnswer(i, e.target.value)}
+                    maxLength={PROFILE_TEXT_LIMITS.promptAnswer}
                     placeholder="Your answer…"
                     aria-invalid={refused}
                     className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
@@ -1160,7 +1200,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             placeholder="MM/DD/YYYY"
             maxLength={10}
             value={rabiesExpiry}
-            onChange={(e) => setRabiesExpiry(maskUsDateInput(e.target.value))}
+            onChange={(e) => handleDateInput(e, setRabiesExpiry)}
             aria-invalid={!!errors.rabiesExpiry}
             className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
               errors.rabiesExpiry ? 'border-red-400' : 'border-border'
@@ -1229,7 +1269,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             placeholder="MM/DD/YYYY"
             maxLength={10}
             value={birthDate}
-            onChange={(e) => setBirthDate(maskUsDateInput(e.target.value))}
+            onChange={(e) => handleDateInput(e, setBirthDate)}
             aria-invalid={!!errors.birthDate}
             className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
               errors.birthDate ? 'border-red-400' : 'border-border'
@@ -1248,7 +1288,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             placeholder="MM/DD/YYYY"
             maxLength={10}
             value={adoptionDateInput}
-            onChange={(e) => setAdoptionDateInput(maskUsDateInput(e.target.value))}
+            onChange={(e) => handleDateInput(e, setAdoptionDateInput)}
             aria-invalid={!!errors.adoptionDate}
             className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
               errors.adoptionDate ? 'border-red-400' : 'border-border'

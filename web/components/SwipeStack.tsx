@@ -1,10 +1,12 @@
 'use client';
 import { formatUsMonthYear } from '../../shared/dates';
+import { getVaccinationStatus } from '../../shared/profile';
 // web/components/SwipeStack.tsx
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import SwipeCard, { type SwipeCardHandle } from './SwipeCard';
 import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
+import ReportProfileMenu from './ReportProfileMenu';
 import { breedConfidencePhrase } from '../lib/vibeCheck';
 import { trackEvent, trackOncePerSession } from '../lib/analytics';
 import { recordSwipe } from '../lib/matching';
@@ -22,6 +24,7 @@ interface FeedDog {
   energyLevel: number;
   photos?: string[];
   vaccinated?: boolean | null;
+  rabiesExpiry?: string;
   temperament?: string[];
   playStyles?: string[];
   location?: string;
@@ -66,11 +69,21 @@ export default function SwipeStack({
     return formatUsMonthYear(new Date(timestamp));
   }
 
+  // A refreshed deck (window focus, "Check again") keeps the card you're on, and
+  // the details sheet if it's open, as long as that dog is still in the feed.
+  // It used to jump back to the first card and close the sheet every time.
+  const prevDeckRef = useRef({ dogs, index });
   useEffect(() => {
-    setIndex(0);
-    setSelectedDog(null);
-    setSelectedPhotoIndex(0);
+    const keyOf = (d?: FeedDog) => (d ? (d.firestoreId ?? d.id) : null);
+    const prev = prevDeckRef.current;
+    const topKey = keyOf(prev.dogs[prev.index]);
+    const keptAt = topKey ? dogs.findIndex((d) => keyOf(d) === topKey) : -1;
+    setIndex(keptAt >= 0 ? keptAt : 0);
+    setSelectedDog((cur) => (cur && dogs.some((d) => keyOf(d) === keyOf(cur)) ? cur : null));
   }, [dogs]);
+  useEffect(() => {
+    prevDeckRef.current = { dogs, index };
+  });
 
   useEffect(() => {
     setSelectedPhotoIndex(0);
@@ -207,6 +220,15 @@ export default function SwipeStack({
     triggerButtonAction('right');
   };
 
+  // Blocking from the details sheet: close it and pass the card, as the card's
+  // own Report menu does.
+  const blockedFromDetails = () => {
+    const dog = selectedDog;
+    setSelectedDog(null);
+    if (!dog || (dog.firestoreId ?? dog.id) !== (activeDog.firestoreId ?? activeDog.id)) return;
+    topCardRef.current?.triggerSwipe('left');
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {swipeError && (
@@ -233,8 +255,19 @@ export default function SwipeStack({
                 ×
               </button>
 
-              <div className="pr-8">
-                <p className="font-display text-[2rem] leading-tight text-brown">{selectedDog.name}</p>
+              {/* The card's Report button sits behind this sheet, so the sheet
+                  needs its own: reading someone's full profile is exactly when
+                  you'd want to report or block it. Blocking passes the card. */}
+              {!isGuest && selectedDog.ownerId && (
+                <ReportProfileMenu
+                  targetUserId={selectedDog.ownerId}
+                  className="absolute right-14 top-3.5 z-20"
+                  onBlocked={blockedFromDetails}
+                />
+              )}
+
+              <div className="pr-24">
+                <p className="font-display text-[2rem] leading-tight text-brown break-words">{selectedDog.name}</p>
                 <p className="mt-1 text-sm text-brown-light">
                   {[selectedDog.breed, selectedDog.age, selectedDog.sex, selectedDog.size].filter(Boolean).join(' · ')}
                 </p>
@@ -318,14 +351,20 @@ export default function SwipeStack({
                   // `false` is an explicit "no" from the owner, not an absence of
                   // information — collapsing it into "Unknown" hid the one health
                   // answer that flips the pairing's quality tier.
-                  {
-                    label: 'Vaccinated',
-                    value: selectedDog.vaccinated === true
-                      ? 'Marked yes'
-                      : selectedDog.vaccinated === false
-                        ? 'Marked no ⚠'
-                        : 'Not stated',
-                  },
+                  // Same grading as the card's pill (getVaccinationStatus): a dated
+                  // certificate is quoted, and an EXPIRED one says so. This tile
+                  // used to read only the boolean, so a dog whose card said
+                  // "Rabies: expired 04/18/2024" showed "Vaccinated: Marked yes" here.
+                  (() => {
+                    const status = getVaccinationStatus(selectedDog);
+                    return {
+                      label: 'Vaccinated',
+                      value:
+                        status.tone === 'expired' || status.tone === 'unvaccinated'
+                          ? `⚠ ${status.label}`
+                          : status.label,
+                    };
+                  })(),
                 ].map((item) => (
                   <div key={item.label} className="rounded-2xl border border-border bg-white px-3 py-3">
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">{item.label}</p>
@@ -458,8 +497,13 @@ export default function SwipeStack({
       )}
 
       <div
-        className="relative mx-auto w-full max-w-[38rem] flex-1"
-        style={{ height: 'min(62vh, 36rem)', minHeight: '26rem' }}
+        className="relative mx-auto w-full max-w-[38rem] shrink-0"
+        // 26rem as before, but shrinking on a short phone screen (iPhone Safari is
+        // ~664px tall): the fixed 26rem floor pushed the Pass/WOOF buttons under
+        // the bottom tab bar so they had to be scrolled into view. (This was
+        // `flex-1` + height + minHeight, where flex-basis beat height and the
+        // minHeight alone decided the size.)
+        style={{ height: 'clamp(20rem, calc(100dvh - 20rem), 26rem)' }}
       >
         {/* Peek card — next dog faintly behind the active card */}
         {peekDog && (

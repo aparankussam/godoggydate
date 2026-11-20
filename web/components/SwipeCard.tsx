@@ -294,7 +294,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
           {/* Photo dot indicators — shown only when 2+ photos */}
           {photos.length > 1 && isTop && (
-            <div className="absolute top-4 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+            <div className="absolute top-12 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
               {photos.map((_, i) => (
                 <div
                   key={i}
@@ -489,7 +489,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                 e.stopPropagation();
                 onOpenDetails();
               }}
-              className="absolute right-4 bottom-4 rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white"
+              className="absolute right-4 bottom-4 rounded-full bg-white/80 px-3.5 py-2.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white"
               aria-label={`View details for ${dog.name}`}
             >
               Details

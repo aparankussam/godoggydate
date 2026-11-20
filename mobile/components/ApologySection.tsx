@@ -90,6 +90,7 @@ export default function ApologySection({ savedProfile }: Props) {
         placeholder="Ate an entire couch cushion. Again."
         placeholderTextColor={colors.brownLight}
         multiline
+        maxLength={CRIME_MAX_LEN}
         style={styles.input}
       />
       <View style={styles.inputMeta}>

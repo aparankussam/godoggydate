@@ -85,6 +85,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
   const [redirectError, setRedirectError] = useState('');
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
   // Finish an Apple sign-in that fell back to a full-page redirect. The 18+
   // box was ticked before leaving (the button only exists once it is), so
@@ -111,6 +114,53 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         );
       });
   }, []);
+
+  // Dialog behaviour for keyboard and screen-reader users: move focus into the
+  // modal on open, close on Escape, lock the page behind it, and put focus back
+  // on whatever opened it when it closes. Tab is trapped in the modal's own
+  // onKeyDown below.
+  useEffect(() => {
+    if (!isOpen) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCloseRef.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      opener?.focus?.();
+    };
+  }, [isOpen]);
+
+  function trapTab(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Tab') return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select, textarea, iframe, [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    if (focusable.length === 0) {
+      e.preventDefault();
+      dialog.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === dialog)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -315,22 +365,29 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-cream w-full max-w-sm rounded-3xl px-8 py-8 flex flex-col items-center gap-4 shadow-2xl animate-fade-in-up"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        tabIndex={-1}
+        onKeyDown={trapTab}
+        className="bg-cream w-full max-w-sm max-h-full overflow-y-auto rounded-3xl px-8 py-8 flex flex-col items-center gap-4 shadow-2xl animate-fade-in-up focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
         <button
+          type="button"
           onClick={onClose}
           aria-label="Close"
-          className="self-end text-brown-light hover:text-brown text-2xl leading-none -mr-2 -mt-1"
+          className="self-end flex h-10 w-10 items-center justify-center text-brown-light hover:text-brown text-2xl leading-none -mr-4 -mt-3"
         >
-          ×
+          <span aria-hidden="true">×</span>
         </button>
 
         <span className="text-5xl -mt-2">🐾</span>
 
         <div className="text-center">
-          <h2 className="font-display text-2xl text-brown mb-1">GoDoggyDate</h2>
+          <h2 id="auth-modal-title" className="font-display text-2xl text-brown mb-1">GoDoggyDate</h2>
           <p className="text-brown-light text-sm leading-relaxed">
             Find safe, compatible playmates<br />for your dog nearby.
           </p>
@@ -433,7 +490,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         )}
 
         {(error || redirectError) && (
-          <p className="text-xs text-red-500 -mt-1">{error || redirectError}</p>
+          <p role="alert" className="text-xs text-red-700 -mt-1">{error || redirectError}</p>
         )}
 
         <p className="text-xs text-brown-light">Free to join · No subscription needed</p>

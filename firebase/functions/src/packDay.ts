@@ -11,6 +11,7 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { checkContent, CONTENT_FILTER_MESSAGE } from './contentFilter';
 
 const MIN_CAPACITY = 4;
@@ -126,6 +127,12 @@ export function validatePackDayInput(data: unknown, nowMs: number): ValidatedPac
   // start time to within a day (timezones), or the listing would show one time
   // while reminders fire at another.
   const localMidnightUtc = Date.UTC(Number(dateMatch[1]), Number(dateMatch[2]) - 1, Number(dateMatch[3]));
+  // Date.UTC rolls "2026-11-31" over to Dec 1, which would pass the day-level
+  // check below and then render as "11/31". Only real calendar days are stored.
+  const rolled = new Date(localMidnightUtc);
+  if (rolled.getUTCMonth() !== Number(dateMatch[2]) - 1 || rolled.getUTCDate() !== Number(dateMatch[3])) {
+    throw new HttpsError('invalid-argument', 'Pick a date and time.');
+  }
   if (Math.abs(localMidnightUtc - startsAtMs) > 36 * 60 * 60 * 1000) {
     throw new HttpsError('invalid-argument', 'Pick a date and time.');
   }
@@ -237,8 +244,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
           throw new HttpsError('failed-precondition', "You're hosting this one. Cancel it instead of leaving.");
         }
         tx.update(ref, {
-          attendeeUids: admin.firestore.FieldValue.arrayRemove(uid),
-          foundingUids: admin.firestore.FieldValue.arrayRemove(uid),
+          attendeeUids: FieldValue.arrayRemove(uid),
+          foundingUids: FieldValue.arrayRemove(uid),
         });
       });
       return { joined: false };
@@ -281,8 +288,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
         throw new HttpsError('resource-exhausted', 'This Pack Day is full.');
       }
       tx.update(ref, {
-        attendeeUids: admin.firestore.FieldValue.arrayUnion(uid),
-        ...(founding ? { foundingUids: admin.firestore.FieldValue.arrayUnion(uid) } : {}),
+        attendeeUids: FieldValue.arrayUnion(uid),
+        ...(founding ? { foundingUids: FieldValue.arrayUnion(uid) } : {}),
       });
       return { alreadyJoined: false, title: event.title as string, hostUid };
     });
@@ -431,8 +438,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
     const joined = await db.collection('packDays').where('attendeeUids', 'array-contains', uid).get();
     for (const doc of joined.docs) {
       await doc.ref.update({
-        attendeeUids: admin.firestore.FieldValue.arrayRemove(uid),
-        foundingUids: admin.firestore.FieldValue.arrayRemove(uid),
+        attendeeUids: FieldValue.arrayRemove(uid),
+        foundingUids: FieldValue.arrayRemove(uid),
       });
     }
   }

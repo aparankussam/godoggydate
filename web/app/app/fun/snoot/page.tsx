@@ -16,6 +16,7 @@ import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../../../../lib/ph
 import { shareOrDownloadCard } from '../../../../lib/shareCard';
 import { feedback } from '../../../../lib/feedback';
 import { trackEvent } from '../../../../lib/analytics';
+import { onProgressChange } from '../../../../lib/progressSync';
 import {
   loadBoops,
   saveBoopsDebounced,
@@ -92,10 +93,22 @@ export default function SnootPage() {
     // Flush pending boops when the page is hidden/closed — catches the mobile
     // swipe-away case where an unmount cleanup may not run.
     const onHide = () => flushBoops();
+    const onVisibility = () => { if (document.hidden) flushBoops(); };
     window.addEventListener('pagehide', onHide);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) flushBoops(); });
+    document.addEventListener('visibilitychange', onVisibility);
+    // A sync can land after this screen has loaded (a fresh browser, or boops
+    // made on another device): show what's stored now, not the count read at
+    // mount. Flush first so taps still waiting on the debounce aren't dropped.
+    const offProgress = onProgressChange(() => {
+      flushBoops();
+      const stored = loadBoops(dogId);
+      stateRef.current = stored;
+      setState(stored);
+    });
     return () => {
       window.removeEventListener('pagehide', onHide);
+      document.removeEventListener('visibilitychange', onVisibility);
+      offProgress();
       flushBoops();
     };
   }, [dogId]);
@@ -132,6 +145,10 @@ export default function SnootPage() {
       energy: curEnergy - 1,
       energyAtMs: now,
     };
+    // Update the ref now, not on the next render: several taps landing before
+    // React re-renders (an auto-clicker, a burst of multi-touch events) would
+    // otherwise each start from the same count and add only one boop in total.
+    stateRef.current = next;
     setState(next);
     saveBoopsDebounced(dogId, next);
 
@@ -235,7 +252,7 @@ export default function SnootPage() {
       `}</style>
 
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
-        <Link href="/app/fun" className="text-sm font-bold text-primary hover:opacity-80">‹ Playroom</Link>
+        <Link href="/app/fun" className="text-sm font-bold text-primary hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
         <span className="font-display text-xl text-brown">🐽 Snoot Boop</span>
         <span className="w-16" />
       </header>

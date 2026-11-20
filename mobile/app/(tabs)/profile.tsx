@@ -399,7 +399,16 @@ export default function ProfileTab() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        // This page holds text boxes (reminders, quiz name, photo date, ...).
+        // "handled" lets a button tap land while the keyboard is up instead of
+        // only dismissing it (so "Add reminder" isn't a double tap); the insets
+        // keep the focused box above the keyboard on iOS.
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <Text style={styles.title}>Profile</Text>
         <Text style={styles.subtitle}>
           {profileComplete ? 'Your profile is ready — start discovering nearby pups.' : "Complete your dog's profile to start discovering nearby pups."}

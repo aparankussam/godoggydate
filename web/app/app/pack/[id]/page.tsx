@@ -148,6 +148,7 @@ export default function PackDayDetailPage() {
     const url = packDayUrl(event.id);
     const text = `${event.title}: ${formatPackDayWhen(event)} at ${event.placeName}. Bring your dog!`;
     trackEvent('packday_share', { eventId });
+    setError(null);
     try {
       if (typeof navigator.share === 'function') {
         await navigator.share({ title: event.title, text, url });
@@ -155,8 +156,13 @@ export default function PackDayDetailPage() {
       }
       await navigator.clipboard.writeText(url);
       setMessage('Link copied. Send it to a neighbor!');
-    } catch {
+    } catch (err) {
       // A dismissed share sheet rejects; that's not an error worth showing.
+      if (err instanceof Error && err.name === 'AbortError') return;
+      // No share sheet and no clipboard (in-app browsers, insecure origins):
+      // show the link so they can still copy it by hand.
+      setMessage(null);
+      setError(`We couldn't copy the link. Copy it from here: ${url}`);
     }
   }
 
@@ -224,7 +230,7 @@ export default function PackDayDetailPage() {
     <div className="min-h-screen bg-cream">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/app/pack" aria-label="Back to Pack Days" className="text-xl text-brown">←</Link>
+          <Link href="/app/pack" aria-label="Back to Pack Days" className="text-xl text-brown -m-2.5 p-2.5">←</Link>
           <span className="font-display text-xl text-brown truncate">Pack Day</span>
         </div>
         {/* eventId lets onReportCreated snapshot this event as evidence. */}
@@ -249,23 +255,23 @@ export default function PackDayDetailPage() {
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
               {event.official ? '⭐ Official · ' : ''}{format.emoji} {format.label}
             </p>
-            <h1 className="mt-1 font-display text-2xl text-brown leading-tight">{event.title}</h1>
+            <h1 className="mt-1 font-display text-2xl text-brown leading-tight break-words">{event.title}</h1>
           </div>
           <div className="px-5 py-4 space-y-3 text-sm">
             <p className="font-semibold text-brown">📅 {formatPackDayWhen(event)} · {event.durationMinutes} min</p>
-            <p className="text-brown">
+            <p className="text-brown break-words">
               📍 <span className="font-semibold">{event.placeName}</span>, {event.city}
               <a
                 href={mapsSearchUrl(event)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-2 text-primary font-semibold underline"
+                className="ml-1 px-1.5 py-3 text-primary font-semibold underline"
               >
                 Map
               </a>
             </p>
             <p className="text-brown-mid">{format.blurb}</p>
-            {event.note && <p className="text-brown">&ldquo;{event.note}&rdquo;</p>}
+            {event.note && <p className="text-brown break-words">&ldquo;{event.note}&rdquo;</p>}
             <p className="text-xs text-brown-light">
               Hosted by {event.hostDogName || 'a neighbor'}&apos;s human
             </p>
@@ -315,7 +321,7 @@ export default function PackDayDetailPage() {
                 <ul className="space-y-1.5 text-sm text-brown-mid list-disc pl-5">
                   {PACK_DAY_RULES.map((rule) => <li key={rule}>{rule}</li>)}
                 </ul>
-                <label className="flex items-start gap-2 text-sm text-brown cursor-pointer">
+                <label className="flex items-start gap-2 py-2.5 text-sm text-brown cursor-pointer">
                   <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-1" />
                   <span>I&apos;ll follow these rules.</span>
                 </label>

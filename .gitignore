@@ -17,3 +17,6 @@ mobile/ios/**/*.xcuserdata
 stabilize
 .vercel
 .env*
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log

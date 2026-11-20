@@ -9,6 +9,7 @@
 //   unreadMessages — matches where last msg was from the OTHER user
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   collection, query, where, onSnapshot,
 } from 'firebase/firestore';
@@ -26,6 +27,12 @@ interface Props {
 }
 
 export default function AppLayoutShell({ children }: Props) {
+  const pathname = usePathname();
+  // An open chat thread owns the whole phone screen, like the native app's chat
+  // (which sits outside the tab bar). Leaving the bottom bar up put it on top of
+  // the composer and made the page 5rem taller than the screen, so the document
+  // scrolled and the thread's header (back / report / block) slid out of view.
+  const inChatThread = /^\/app\/messages\/[^/]+/.test(pathname ?? '');
   const [authUser, setAuthUser]             = useState<User | null>(null);
   const [savedProfile, setSavedProfile]     = useState<SavedDogProfile | null>(null);
   const [ready, setReady]                   = useState(false);
@@ -157,7 +164,7 @@ export default function AppLayoutShell({ children }: Props) {
     <>
       {/* Offsets for whichever nav form is showing: bottom padding for the
           mobile tab bar, left padding for the desktop sidebar rail. */}
-      <div className={showNav ? 'pb-20 lg:pb-0 lg:pl-64' : undefined}>
+      <div className={showNav ? (inChatThread ? 'lg:pl-64' : 'pb-20 lg:pb-0 lg:pl-64') : undefined}>
         {children}
       </div>
       {showNav && (
@@ -165,6 +172,7 @@ export default function AppLayoutShell({ children }: Props) {
           unreadMessages={unreadMessages}
           unreadMatches={unreadMatches}
           householdOnly={householdOnly}
+          hideBottomBar={inChatThread}
         />
       )}
     </>

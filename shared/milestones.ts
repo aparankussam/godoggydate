@@ -12,7 +12,6 @@
 // Day may likewise be exact ('YYYY-MM-DD') or month-only ('YYYY-MM'); the
 // GoDoggyDate anniversary is a real timestamp, so it always fires on the day.
 
-
 export type MilestoneKind = 'birthday' | 'gotcha' | 'godoggy_anniversary';
 
 export interface Milestone {
@@ -109,6 +108,20 @@ function birthdayMilestone(input: MilestoneInput, now: Date): Milestone | null {
   if (!validMonth(input.birthMonth)) return null;
   const name = input.name?.trim() || 'Your dog';
   const monthIdx = input.birthMonth - 1;
+
+  // A birth that hasn't happened yet (older builds let 12/25 be typed in
+  // November) is not a birthday: counting down to it read "It's Rex's
+  // birthday! · in 35 days". Say nothing until the date is real.
+  if (typeof input.birthYear === 'number') {
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const day = validDay(input.birthDay) ? input.birthDay : null;
+    const future =
+      input.birthYear !== y ? input.birthYear > y
+      : input.birthMonth !== m ? input.birthMonth > m
+      : day !== null && day > now.getDate();
+    if (future) return null;
+  }
 
   // Subtitles stay time-neutral (no "today"/"this month") because the same
   // string is shown on both the active card and the "Coming up · in N days"

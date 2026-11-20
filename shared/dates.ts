@@ -67,7 +67,11 @@ const two = (n: number) => String(n).padStart(2, '0');
  * show an error instead of silently writing null over a good stored date.
  */
 export function parseUsDateInput(raw: string | null | undefined): ParseResult {
-  const text = (raw ?? '').trim();
+  // A trailing slash is just a separator the owner hasn't followed yet — and a
+  // trailing space (which the mask turns into one) is easy to leave behind on a
+  // phone keyboard. "2021 " / "06/2021/" are the date they obviously meant, not
+  // an error.
+  const text = (raw ?? '').trim().replace(/\/+$/, '');
   if (!text) return { ok: false, reason: 'empty' };
 
   const parts = text.split('/').map((p) => p.trim());
@@ -210,6 +214,92 @@ export function birthFieldsFromPartial(
 /** True when a birth year is outside the range shared/lifeStage.ts accepts. */
 export function isBirthYearInRange(year: number, now: Date = new Date()): boolean {
   return Number.isInteger(year) && year >= MIN_BIRTH_YEAR && year <= now.getFullYear();
+}
+
+/**
+ * True when a (possibly partial) date lies after today. A year-only date is in
+ * the future only if the YEAR is; a month+year only if that MONTH hasn't begun;
+ * a full date only if the DAY hasn't arrived. So 11/2026 is fine on 11/20/2026
+ * (the month is under way) but 12/2026 is not.
+ */
+export function isPartialDateInFuture(partial: PartialDate, now: Date = new Date()): boolean {
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  if (partial.year !== y) return partial.year > y;
+  if (partial.month === null) return false;
+  if (partial.month !== m) return partial.month > m;
+  if (partial.day === null) return false;
+  return partial.day > d;
+}
+
+/**
+ * Why a typed birthday can't be saved, as the message to show, or null if it
+ * can. Two separate failures: the year is outside what Life Stage understands
+ * (before 1990), and the date simply hasn't happened yet — a dog can't have been
+ * born after today, and a "birthday" of 12/25 typed in November would otherwise
+ * count down to a first birthday that is really a birth.
+ */
+export function birthDateProblem(partial: PartialDate, now: Date = new Date()): string | null {
+  if (!isBirthYearInRange(partial.year, now)) {
+    return `Year must be between ${MIN_BIRTH_YEAR} and ${now.getFullYear()}`;
+  }
+  if (isPartialDateInFuture(partial, now)) return "That date hasn't happened yet";
+  return null;
+}
+
+/**
+ * Same idea for Gotcha Day ("the day they came home"): not before 1990, and not
+ * in the future. A future Gotcha Day was silently accepted and then did nothing
+ * (milestones needs a full year to pass).
+ */
+export function adoptionDateProblem(partial: PartialDate, now: Date = new Date()): string | null {
+  if (!isBirthYearInRange(partial.year, now)) {
+    return `Year must be between ${MIN_BIRTH_YEAR} and ${now.getFullYear()}`;
+  }
+  if (isPartialDateInFuture(partial, now)) return "Gotcha Day can't be in the future";
+  return null;
+}
+
+/** How far ahead a rabies expiry may sit. Rabies certificates run 1–3 years; a
+ *  typo like 2207 for 2027 would otherwise print "valid through 04/18/2207" on
+ *  the public profile for ever. */
+export const MAX_RABIES_YEARS_AHEAD = 10;
+
+/** Why a typed rabies expiry can't be saved, or null. A PAST expiry is valid —
+ *  "expired" is exactly what this field exists to show — but not an absurd one. */
+export function rabiesExpiryProblem(partial: PartialDate, now: Date = new Date()): string | null {
+  const maxYear = now.getFullYear() + MAX_RABIES_YEARS_AHEAD;
+  if (!Number.isInteger(partial.year) || partial.year < MIN_BIRTH_YEAR || partial.year > maxYear) {
+    return `Year must be between ${MIN_BIRTH_YEAR} and ${maxYear}`;
+  }
+  return null;
+}
+
+/**
+ * Where to put the caret after the mask rewrote what the owner just typed.
+ *
+ * A controlled <input> whose value is changed under it sends the caret to the
+ * END, so editing mid-string (insert a digit, backspace over a slash) used to
+ * fling the caret away and turn the next keystroke into garbage. Typing at the
+ * end is unchanged. Elsewhere the caret keeps its place among the DIGITS: the
+ * same number of digits sit to its left as before, and a separator the owner
+ * just typed is stepped over.
+ */
+export function maskedCaretPosition(raw: string, caret: number, masked: string): number {
+  if (caret >= raw.length) return masked.length;
+  const before = raw.slice(0, caret);
+  const digits = (before.match(/\d/g) ?? []).length;
+  let pos = 0;
+  let seen = 0;
+  while (pos < masked.length && seen < digits) {
+    if (/\d/.test(masked[pos])) seen += 1;
+    pos += 1;
+  }
+  // The owner's last keystroke was a separator ("06/" with more after it), so
+  // the caret belongs after that slash, not before it.
+  if (before.length > 0 && !/\d/.test(before[before.length - 1]) && masked[pos] === '/') pos += 1;
+  return pos;
 }
 
 // ── Gotcha Day bridge (one polymorphic string ⇄ one input box) ────────────────

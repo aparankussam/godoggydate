@@ -15,6 +15,11 @@ import {
   toIsoDate,
   partialFromIsoDate,
   maskUsDateInput,
+  isPartialDateInFuture,
+  birthDateProblem,
+  adoptionDateProblem,
+  rabiesExpiryProblem,
+  maskedCaretPosition,
 } from './dates.ts';
 
 // ── parsing ──────────────────────────────────────────────────────────────────
@@ -296,4 +301,89 @@ test('maskUsDateInput leaves the two PARTIAL shapes typeable', () => {
   for (const step of ['0', '06', '06/', '06/2', '06/20', '06/202', '06/2021']) {
     assert.equal(maskUsDateInput(step), step, `keystroke "${step}" must pass through`);
   }
+});
+
+// ── trailing separators, future dates, absurd years, caret ───────────────────
+
+test('parseUsDateInput ignores a trailing slash (a trailing space is masked into one)', () => {
+  // "2021 " and "06/2021 " are what a phone keyboard leaves behind; they were
+  // rejected with "Use MM/DD/YYYY" even though the date is plainly typed.
+  assert.deepEqual(parseUsDateInput('2021/'), { ok: true, value: { year: 2021, month: null, day: null } });
+  assert.deepEqual(parseUsDateInput('06/2021/'), { ok: true, value: { year: 2021, month: 6, day: null } });
+  assert.deepEqual(parseUsDateInput('06/14/2021/'), { ok: true, value: { year: 2021, month: 6, day: 14 } });
+  assert.equal(maskUsDateInput('2021 '), '2021/');
+  assert.deepEqual(parseUsDateInput(maskUsDateInput('2021 ')), { ok: true, value: { year: 2021, month: null, day: null } });
+  // Still unrecognised when what precedes the slash isn't a date.
+  assert.deepEqual(parseUsDateInput('06/14/'), { ok: false, reason: 'unrecognized' });
+  assert.deepEqual(parseUsDateInput('/'), { ok: false, reason: 'empty' });
+});
+
+test('isPartialDateInFuture judges each shape against today', () => {
+  const now = new Date(2026, 10, 20); // 20 Nov 2026
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 11, day: 20 }, now), false); // today
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 11, day: 21 }, now), true); // tomorrow
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 12, day: 25 }, now), true); // later this year
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 12, day: null }, now), true);
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 11, day: null }, now), false); // month under way
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 10, day: 31 }, now), false);
+  assert.equal(isPartialDateInFuture({ year: 2026, month: null, day: null }, now), false);
+  assert.equal(isPartialDateInFuture({ year: 2027, month: null, day: null }, now), true);
+  assert.equal(isPartialDateInFuture({ year: 2025, month: 12, day: 31 }, now), false);
+});
+
+test('birthDateProblem rejects pre-1990 and not-yet-happened birthdays only', () => {
+  const now = new Date(2026, 10, 20);
+  assert.equal(birthDateProblem({ year: 2021, month: 6, day: 14 }, now), null);
+  assert.equal(birthDateProblem({ year: 2026, month: 11, day: 20 }, now), null); // born today
+  assert.equal(birthDateProblem({ year: 2026, month: 11, day: null }, now), null);
+  assert.equal(birthDateProblem({ year: 2026, month: null, day: null }, now), null);
+  assert.equal(birthDateProblem({ year: 1990, month: 1, day: 1 }, now), null);
+  assert.match(birthDateProblem({ year: 1989, month: 12, day: 31 }, now) ?? '', /between 1990 and 2026/);
+  assert.match(birthDateProblem({ year: 2027, month: null, day: null }, now) ?? '', /between 1990 and 2026/);
+  // The year is fine but the date is later this year.
+  assert.match(birthDateProblem({ year: 2026, month: 11, day: 21 }, now) ?? '', /hasn't happened yet/);
+  assert.match(birthDateProblem({ year: 2026, month: 12, day: 25 }, now) ?? '', /hasn't happened yet/);
+  assert.match(birthDateProblem({ year: 2026, month: 12, day: null }, now) ?? '', /hasn't happened yet/);
+});
+
+test('adoptionDateProblem rejects pre-1990 and future Gotcha Days', () => {
+  const now = new Date(2026, 10, 20);
+  assert.equal(adoptionDateProblem({ year: 2023, month: 9, day: 14 }, now), null);
+  assert.equal(adoptionDateProblem({ year: 2023, month: 9, day: null }, now), null);
+  assert.equal(adoptionDateProblem({ year: 2026, month: 11, day: 20 }, now), null); // came home today
+  assert.match(adoptionDateProblem({ year: 1899, month: 1, day: 1 }, now) ?? '', /between 1990 and 2026/);
+  assert.match(adoptionDateProblem({ year: 2026, month: 12, day: 25 }, now) ?? '', /can't be in the future/);
+  assert.match(adoptionDateProblem({ year: 2026, month: 12, day: null }, now) ?? '', /can't be in the future/);
+  assert.match(adoptionDateProblem({ year: 2027, month: 1, day: null }, now) ?? '', /between 1990 and 2026/);
+});
+
+test('rabiesExpiryProblem allows a past expiry but not an absurd year', () => {
+  const now = new Date(2026, 10, 20);
+  assert.equal(rabiesExpiryProblem({ year: 2020, month: 4, day: 18 }, now), null); // expired is valid
+  assert.equal(rabiesExpiryProblem({ year: 2026, month: 11, day: 19 }, now), null);
+  assert.equal(rabiesExpiryProblem({ year: 2029, month: 4, day: 18 }, now), null);
+  assert.equal(rabiesExpiryProblem({ year: 2036, month: 12, day: 31 }, now), null);
+  assert.match(rabiesExpiryProblem({ year: 2037, month: 1, day: 1 }, now) ?? '', /between 1990 and 2036/);
+  assert.match(rabiesExpiryProblem({ year: 2207, month: 4, day: 18 }, now) ?? '', /between 1990 and 2036/);
+  assert.match(rabiesExpiryProblem({ year: 1000, month: 1, day: 1 }, now) ?? '', /between 1990 and 2036/);
+  assert.match(rabiesExpiryProblem({ year: 9999, month: 1, day: 1 }, now) ?? '', /between 1990 and 2036/);
+});
+
+test('maskedCaretPosition keeps the caret among the digits when the mask rewrites the value', () => {
+  // Typing at the end: always the end.
+  assert.equal(maskedCaretPosition('06/14', 5, '06/14'), 5);
+  assert.equal(maskedCaretPosition('0614', 4, '06/14'), 5);
+  // Backspace over the slash of 06/4/2021: raw "064/2021", caret 2 -> the mask
+  // puts the slash back and the caret stays after the "6".
+  assert.equal(maskUsDateInput('064/2021'), '06/4/2021');
+  assert.equal(maskedCaretPosition('064/2021', 2, '06/4/2021'), 2);
+  // Insert "/" into 06/2021 after the 06: raw "06//2021" caret 3 collapses to
+  // "06/2021" and the caret sits after the slash, ready for "14".
+  assert.equal(maskUsDateInput('06//2021'), '06/2021');
+  assert.equal(maskedCaretPosition('06//2021', 3, '06/2021'), 3);
+  // Insert a digit mid-month: "1" typed after "0" of 06/2021 -> raw "016/2021".
+  assert.equal(maskUsDateInput('016/2021'), '01/6/2021');
+  assert.equal(maskedCaretPosition('016/2021', 2, '01/6/2021'), 2);
+  // Caret at the very start.
+  assert.equal(maskedCaretPosition('x06/2021', 0, '06/2021'), 0);
 });

@@ -86,6 +86,13 @@ export default function NewPackDayPage() {
       setError('Pick a date and time.');
       return;
     }
+    // A wall-clock time that a daylight-saving jump skips (2:30 AM the night the
+    // clocks go forward) silently becomes an hour later in JS, so the event
+    // would be saved as "2:30 AM" but start at 3:30. Catch it before saving.
+    if (`${pad(startsAt.getHours())}:${pad(startsAt.getMinutes())}` !== time.slice(0, 5)) {
+      setError("That time doesn't exist on that date because the clocks change. Pick another start time.");
+      return;
+    }
     if (startsAt.getTime() < Date.now() + PACK_DAY_LIMITS.minLeadMinutes * 60_000) {
       setError('Start time must be at least an hour from now, so people have notice.');
       return;
@@ -150,7 +157,7 @@ export default function NewPackDayPage() {
   return (
     <div className="min-h-screen bg-cream">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center gap-3">
-        <Link href="/app/pack" aria-label="Back to Pack Days" className="text-xl text-brown">←</Link>
+        <Link href="/app/pack" aria-label="Back to Pack Days" className="text-xl text-brown -m-2.5 p-2.5">←</Link>
         <span className="font-display text-xl text-brown">Host a Pack Day</span>
       </header>
 
@@ -285,7 +292,7 @@ export default function NewPackDayPage() {
           <ul className="mt-2 space-y-1.5 text-sm text-brown-mid list-disc pl-5">
             {PACK_DAY_RULES.map((rule) => <li key={rule}>{rule}</li>)}
           </ul>
-          <label className="mt-3 flex items-start gap-2 text-sm text-brown cursor-pointer">
+          <label className="mt-1 flex items-start gap-2 py-2.5 text-sm text-brown cursor-pointer">
             <input
               type="checkbox"
               checked={accepted}

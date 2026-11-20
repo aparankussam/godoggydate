@@ -87,7 +87,10 @@ export default function MatchedDogProfilePage() {
     return () => { cancelled = true; };
   }, [authUser, matchId]);
 
-  if (authLoading || loading) {
+  // `loading` only ever flips off inside the authed fetch above, so for a
+  // signed-out visitor it stays true — gate on it only once there's a user,
+  // or the sign-in prompt below is unreachable and the page spins forever.
+  if (authLoading || (authUser && loading)) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
         <span className="text-4xl animate-spin">🐾</span>

@@ -30,6 +30,7 @@ import Link from 'next/link';
 import type { SavedDogProfile } from '../../shared/profile';
 import { toFullProfile } from '../../shared/profile';
 import { detectUnsafePairings } from '../../shared/utils/matchingEngine';
+import { formatPlaydateWhen } from '../../shared/playdates';
 
 interface Props {
   dogName: string;
@@ -75,7 +76,7 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
 
   const itemCount = crossings.length + declaredCount(otherProfile) + (unvaccinated ? 1 : 0);
 
-  const whenWhere = `${playdate.date}${playdate.time ? ` at ${playdate.time}` : ''} · ${playdate.place}`;
+  const whenWhere = `${formatPlaydateWhen(playdate)} · ${playdate.place}`;
 
   return (
     <div className="shrink-0 border-t border-border bg-white px-4 py-3 w-full lg:max-w-3xl lg:mx-auto">

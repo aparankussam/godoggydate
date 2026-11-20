@@ -154,10 +154,18 @@ function getLocallySwipedDemoIds(): Set<string> {
   }
 }
 
+// Throws if the dogs can't be read. This used to swallow the error and return
+// [], which the caller can't tell apart from "nobody nearby" — so a dropped
+// connection on a window-focus refresh replaced the deck with "The
+// neighborhood's still quiet".
 async function getRealCandidateDogs(currentUserId: string): Promise<DogProfile[]> {
-  try {
+  {
     const { db } = getFirebase();
     const dogsSnap = await getDocs(collection(db, 'dogs'));
+    // Offline, getDocs doesn't reject: it resolves with whatever the in-memory
+    // cache holds for this query — usually nothing. Treat "answered from cache
+    // only" as a failed read.
+    if (dogsSnap.metadata.fromCache) throw new Error('Could not reach the server to list dogs');
     return dogsSnap.docs
       .map((docSnap) => {
         const saved = docSnap.data() as SavedDogProfile;
@@ -183,8 +191,6 @@ async function getRealCandidateDogs(currentUserId: string): Promise<DogProfile[]
         return isProfileComplete(saved);
       })
       .map(({ id, saved }) => toFullProfile(saved, id));
-  } catch {
-    return [];
   }
 }
 

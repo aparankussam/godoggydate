@@ -24,19 +24,22 @@ import {
 } from '../lib/vibeCheck';
 import { getVaccinationStatus } from '../../shared/profile';
 import { BREEDS } from '../../shared/types/breeds';
+import { PROFILE_TEXT_LIMITS, isUsStateCode, normalizeStateInput } from '../../shared/profileInput';
+import { DATE_KEYBOARD, ZIP_KEYBOARD } from '../lib/keyboards';
 import { checkContent, checkContentFields, CONTENT_FILTER_MESSAGE } from '../../shared/contentFilter';
 import {
+  adoptionDateProblem,
+  birthDateProblem,
   birthFieldsFromPartial,
   formatUsPartial,
-  isBirthYearInRange,
   maskUsDateInput,
   parseUsDateInput,
   partialFromAdoptionDate,
   partialFromBirthFields,
   partialFromIsoDate,
+  rabiesExpiryProblem,
   toAdoptionDateIso,
   toIsoDate,
-  MIN_BIRTH_YEAR,
 } from '../../shared/dates';
 
 const AGE_OPTIONS = [
@@ -457,6 +460,9 @@ export default function ProfileEditor({
       // what this field is for.
       if (!parsed.ok || !toIsoDate(parsed.value)) {
         next.rabiesExpiry = 'Use MM/DD/YYYY, like 04/18/2027';
+      } else {
+        const problem = rabiesExpiryProblem(parsed.value);
+        if (problem) next.rabiesExpiry = problem;
       }
     }
 
@@ -464,8 +470,9 @@ export default function ProfileEditor({
       const parsed = parseUsDateInput(birthDate);
       if (!parsed.ok) {
         next.birthDate = 'Use MM/DD/YYYY — or just 06/2021, or 2021';
-      } else if (!isBirthYearInRange(parsed.value.year)) {
-        next.birthDate = `Year must be between ${MIN_BIRTH_YEAR} and ${new Date().getFullYear()}`;
+      } else {
+        const problem = birthDateProblem(parsed.value);
+        if (problem) next.birthDate = problem;
       }
     }
 
@@ -477,6 +484,9 @@ export default function ProfileEditor({
         // Year-only has no stored form for Gotcha Day, so say so rather than
         // inventing a January date and firing a wrong celebration.
         next.adoptionDate = 'Add at least the month, like 06/2021';
+      } else {
+        const problem = adoptionDateProblem(parsed.value);
+        if (problem) next.adoptionDate = problem;
       }
     }
 
@@ -490,7 +500,12 @@ export default function ProfileEditor({
     } else {
       if (!trimmedCity) next.city = 'Enter a city or use ZIP';
       if (!trimmedState) next.state = 'Enter a 2-letter state';
-      else if (!/^[A-Z]{2}$/.test(trimmedState)) next.state = 'Use 2 letters, like MI';
+      else if (!isUsStateCode(trimmedState)) next.state = 'Use a 2-letter state code, like MI';
+    }
+    // The state box is saved even when a ZIP is given, so a typed value must be
+    // a real state either way (web's <select> can't hold anything else).
+    if (trimmedZip && trimmedState && !isUsStateCode(trimmedState)) {
+      next.state = 'Use a 2-letter state code, like MI';
     }
 
     return next;
@@ -706,6 +721,10 @@ export default function ProfileEditor({
       style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      // iOS: pad the scroll content by the keyboard's height and scroll the
+      // focused input into view, so the lower fields and the Save button are
+      // never stuck behind the keyboard. (No effect on Android.)
+      automaticallyAdjustKeyboardInsets
       scrollEnabled={!draggingCover}
     >
       {onCancel && (
@@ -853,6 +872,11 @@ export default function ProfileEditor({
           placeholderTextColor={colors.brownLight}
           value={name}
           onChangeText={setName}
+          maxLength={PROFILE_TEXT_LIMITS.name}
+          autoCapitalize="words"
+          autoComplete="off"
+          returnKeyType="next"
+          onSubmitEditing={() => breedRef.current?.focus()}
         />
       </Field>
 
@@ -867,6 +891,9 @@ export default function ProfileEditor({
           onFocus={() => setBreedFocused(true)}
           onBlur={() => setBreedFocused(false)}
           autoCorrect={false}
+          autoCapitalize="words"
+          maxLength={PROFILE_TEXT_LIMITS.breed}
+          returnKeyType="done"
         />
         {breedFocused && breedSuggestions.length > 0 && (
           <View style={[styles.wrap, styles.suggestions]}>
@@ -1034,7 +1061,14 @@ export default function ProfileEditor({
           placeholderTextColor={colors.brownLight}
           value={zip}
           onChangeText={setZip}
-          keyboardType="numbers-and-punctuation"
+          // numbers-and-punctuation is iOS-only (Android would show the full
+          // letter keyboard); ZIP+4 needs a hyphen, so Android gets 'numeric'.
+          keyboardType={ZIP_KEYBOARD}
+          maxLength={PROFILE_TEXT_LIMITS.zip}
+          autoCorrect={false}
+          autoComplete="postal-code"
+          textContentType="postalCode"
+          returnKeyType="done"
         />
         {errors.zip ? <Text style={styles.error}>{errors.zip}</Text> : null}
       </Field>
@@ -1049,6 +1083,12 @@ export default function ProfileEditor({
           placeholderTextColor={colors.brownLight}
           value={city}
           onChangeText={setCity}
+          maxLength={PROFILE_TEXT_LIMITS.city}
+          autoCapitalize="words"
+          autoComplete="postal-address-locality"
+          textContentType="addressCity"
+          returnKeyType="next"
+          onSubmitEditing={() => stateRef.current?.focus()}
         />
       </Field>
 
@@ -1059,9 +1099,14 @@ export default function ProfileEditor({
           placeholder="MI"
           placeholderTextColor={colors.brownLight}
           value={usState}
-          onChangeText={(value: string) => setUsState(value.toUpperCase())}
+          // Letters only: digits, spaces and emoji are dropped as they arrive.
+          onChangeText={(value: string) => setUsState(normalizeStateInput(value))}
           autoCapitalize="characters"
+          autoCorrect={false}
+          autoComplete="postal-address-region"
+          textContentType="addressState"
           maxLength={2}
+          returnKeyType="done"
         />
       </Field>
 
@@ -1078,6 +1123,7 @@ export default function ProfileEditor({
               placeholderTextColor={colors.brownLight}
               value={item.answer}
               onChangeText={(text) => setPromptAnswer(index, text)}
+              maxLength={PROFILE_TEXT_LIMITS.promptAnswer}
               accessibilityLabel={item.prompt}
             />
           </View>
@@ -1102,10 +1148,11 @@ export default function ProfileEditor({
           placeholder="MM/DD/YYYY"
           placeholderTextColor={colors.brownLight}
           value={birthDate}
-          // number-pad + an explicit mask, NOT numbers-and-punctuation: that
-          // keyboard is iOS-only and falls back to the full keyboard on Android.
+          // DATE_KEYBOARD: digits-and-punctuation on iOS, a plain digit pad on
+          // Android (numbers-and-punctuation is iOS-only and would fall back to
+          // the full letter keyboard there). The mask adds the slashes itself.
           onChangeText={(t) => setBirthDate(maskUsDateInput(t))}
-          keyboardType="numbers-and-punctuation"
+          keyboardType={DATE_KEYBOARD}
           autoCapitalize="none"
           maxLength={10}
         />
@@ -1118,7 +1165,7 @@ export default function ProfileEditor({
           placeholderTextColor={colors.brownLight}
           value={adoptionDate}
           onChangeText={(t) => setAdoptionDate(maskUsDateInput(t))}
-          keyboardType="numbers-and-punctuation"
+          keyboardType={DATE_KEYBOARD}
           autoCapitalize="none"
           maxLength={10}
         />
@@ -1149,7 +1196,7 @@ export default function ProfileEditor({
           placeholderTextColor={colors.brownLight}
           value={rabiesExpiry}
           onChangeText={(t) => setRabiesExpiry(maskUsDateInput(t))}
-          keyboardType="numbers-and-punctuation"
+          keyboardType={DATE_KEYBOARD}
           autoCapitalize="none"
           maxLength={10}
         />

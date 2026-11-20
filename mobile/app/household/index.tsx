@@ -116,6 +116,7 @@ export default function HouseholdScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
         }

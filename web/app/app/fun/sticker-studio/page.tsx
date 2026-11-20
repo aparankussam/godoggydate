@@ -17,7 +17,8 @@ import { getHeroPhoto, getRenderablePhotos, resolveHeroIndex, getHeroFocus } fro
 import { shareOrDownloadCard } from '../../../../lib/shareCard';
 import { feedback } from '../../../../lib/feedback';
 import { trackEvent } from '../../../../lib/analytics';
-import { loadBoops, unlockedStickers, nextSticker, STICKERS, type Sticker } from '../../../../lib/boops';
+import { loadAllTime, loadBoops, unlockedStickers, nextSticker, STICKERS, type Sticker } from '../../../../lib/boops';
+import { onProgressChange } from '../../../../lib/progressSync';
 
 const CANVAS = 320;
 const STICKER = 56;
@@ -68,7 +69,10 @@ export default function StickerStudioPage() {
       .catch(() => { if (active) setProfile(null); });
     setAllTime(loadBoops(authUser.uid).allTime);
     trackEvent('sticker_studio_open', {});
-    return () => { active = false; };
+    // Boops synced from another device land after mount; unlock what they earned.
+    const uid = authUser.uid;
+    const offProgress = onProgressChange(() => setAllTime(loadAllTime(uid)));
+    return () => { active = false; offProgress(); };
   }, [authUser]);
 
   // Default the canvas photo to the hero once the profile resolves (unless the
@@ -180,7 +184,7 @@ export default function StickerStudioPage() {
   return (
     <div className="min-h-screen bg-cream">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
-        <Link href="/app/fun" className="text-sm font-bold text-primary hover:opacity-80">‹ Playroom</Link>
+        <Link href="/app/fun" className="text-sm font-bold text-primary hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
         <span className="font-display text-xl text-brown">🎨 Sticker Studio</span>
         <span className="w-16" />
       </header>
