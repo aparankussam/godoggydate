@@ -327,28 +327,100 @@ export function reminderDueLabel(
 
 // ── Input masking ────────────────────────────────────────────────────────────
 
+// A segment is "complete" when no further digit can belong to it, so the next
+// digit starts the next segment. These decide where a slash goes when the owner
+// types digits only.
+//
+// The hard part is the two SHORTER shapes the boxes advertise: "2021" (year
+// only) and "06/2021" (month + year). A mask that blindly rebuilt MM/DD/YY from
+// digits turned "062021" into "06/20/21" and "2021" into "20/21", which broke
+// both. So the rules below only split where the digits themselves settle it,
+// and otherwise wait for more.
+
+/** A year in this app starts 19 or 20, so those two digits can't be a month. */
+const isYearPrefix = (two: string) => two === '19' || two === '20';
+
+/** Month segment: '3'–'9' can only be a one-digit month, '00'–'12' a two-digit
+ *  one. '1' and '2' stay open (they may start 10–12 or 19xx/20xx), and '13'+
+ *  is a year being typed, not a month. */
+function monthIsComplete(seg: string): boolean {
+  if (seg.length === 1) return seg >= '3';
+  if (seg.length === 2) return Number(seg) <= 12;
+  return false;
+}
+
+/** Middle segment: '4'–'9' can only be a one-digit day, and any other two
+ *  digits are a day (even an impossible 32, which stays visible in the box and
+ *  is dropped on save, same as when typed with slashes) — except '19' and '20',
+ *  which are just as likely the start of a year ("06/2021"), so those wait for
+ *  more digits. */
+function dayIsComplete(seg: string): boolean {
+  if (seg.length === 1) return seg >= '4';
+  if (seg.length === 2) return !isYearPrefix(seg);
+  return false;
+}
+
 /**
- * Sanitise what the owner is typing in a US date box: keep digits and the
- * slashes THEY type, cap each segment, and otherwise leave the value alone.
+ * Shape what the owner is typing in a US date box into MM/DD/YYYY.
  *
- * It deliberately does NOT auto-insert slashes. Auto-insertion has to guess how
- * many parts the value will end up with, and that guess makes the two SHORTER
- * shapes these boxes explicitly advertise impossible to type: rebuilding from
- * digits alone turns "062021" (June 2021) into "06/20/21" and "2021" into
- * "20/21", both of which then fail to parse. A month-only Gotcha Day and a
- * year-only birthday are the whole point of accepting partial dates, so the
- * mask must never stand between the owner and them.
+ * - Slashes they type are kept. Dashes, dots and spaces count as slashes, and a
+ *   complete 'YYYY-MM-DD' is turned around into MM/DD/YYYY.
+ * - Typing DIGITS ONLY works too, which matters because a phone's numeric
+ *   keypad has no "/" key: "06142021" becomes "06/14/2021", "062021" becomes
+ *   "06/2021", and "2021" stays "2021". Typed this way, months 1–2 and days 1–3
+ *   need their leading zero ("01", "03"): a bare 1, 2 or 3 could be the start
+ *   of a two-digit number or a year. Months 3–9 and days 4–9 don't.
+ * - A slash is only added when the NEXT digit arrives, never at the end, so
+ *   backspacing over one always works.
+ * - Each segment is capped (month 2, day 2, year 4), and the value is stable:
+ *   masking an already-masked value changes nothing.
  *
- * Segment caps: month 2, middle 4 (it is either a 1–2 digit day or a 4-digit
- * year), year 4. With no slash yet the single segment allows 4, since it may be
- * a bare "YYYY" rather than a month being typed.
+ * The one visible wobble: a day of 19 or 20 typed digits-only shows as
+ * "06/2020" until the fifth digit shows it was a day, then re-splits to
+ * "06/20/202". Typing the slash yourself avoids it.
  */
 export function maskUsDateInput(raw: string): string {
-  const cleaned = (raw ?? '').replace(/[^\d/]/g, '').replace(/\/{2,}/g, '/');
-  const parts = cleaned.split('/').slice(0, 3);
-  if (parts.length === 1) return parts[0].slice(0, 4);
-  parts[0] = parts[0].slice(0, 2);
-  parts[1] = parts[1].slice(0, 4);
-  if (parts.length === 3) parts[2] = parts[2].slice(0, 4);
-  return parts.join('/');
+  const text = raw ?? '';
+
+  // 'YYYY-MM-DD' (pasted from a form or spreadsheet). Only once complete, so
+  // nobody typing it digit by digit is flipped halfway through.
+  const iso = /^\s*(\d{4})[-./\s](\d{2})[-./\s](\d{2})\s*$/.exec(text);
+  if (iso) return `${iso[2]}/${iso[3]}/${iso[1]}`;
+
+  const cleaned = text
+    .replace(/[-.\s]+/g, '/')
+    .replace(/[^\d/]/g, '')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\//, '');
+
+  const segs: string[] = [''];
+  for (const ch of cleaned) {
+    const i = segs.length - 1;
+    const cur = segs[i];
+
+    if (ch === '/') {
+      if (cur !== '' && segs.length < 3) segs.push('');
+      continue;
+    }
+
+    if (i === 0) {
+      // Month, or a bare year.
+      if (monthIsComplete(cur)) segs.push(ch);
+      else if (cur.length < 4) segs[0] = cur + ch;
+    } else if (i === 1) {
+      // Day, or the year of "MM/YYYY".
+      if (dayIsComplete(cur)) {
+        segs.push(ch);
+      } else if (cur.length < 4) {
+        segs[1] = cur + ch;
+      } else {
+        // A fifth digit: those four were a day plus the start of a year.
+        segs[1] = cur.slice(0, 2);
+        segs.push((cur.slice(2) + ch).slice(0, 4));
+      }
+    } else if (cur.length < 4) {
+      segs[2] = cur + ch;
+    }
+  }
+  return segs.join('/');
 }

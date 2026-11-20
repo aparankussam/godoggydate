@@ -181,13 +181,104 @@ test('maskUsDateInput keeps the slashes the owner types and caps each segment', 
   // Idempotent.
   assert.equal(maskUsDateInput(maskUsDateInput('06/14/2021')), '06/14/2021');
   // Junk stripped, repeated slashes collapsed, extra parts dropped.
-  assert.equal(maskUsDateInput('06-14-2021'), '06142021'.slice(0, 4));
   assert.equal(maskUsDateInput('06//14'), '06/14');
+  assert.equal(maskUsDateInput('/06'), '06');
   assert.equal(maskUsDateInput('06/14/2021/9'), '06/14/2021');
+  assert.equal(maskUsDateInput('ab06/14/2021'), '06/14/2021');
   // Segment caps.
-  assert.equal(maskUsDateInput('061/14/2021'), '06/14/2021');
   assert.equal(maskUsDateInput('06/14/20219'), '06/14/2021');
+  assert.equal(maskUsDateInput('20219'), '2021');
   assert.equal(maskUsDateInput(''), '');
+});
+
+// Type like a controlled <input maxLength={10}>: each key is appended to what
+// the box currently shows, then masked.
+function typeInto(keys: string): string {
+  let shown = '';
+  for (const key of keys) {
+    const next = shown + key;
+    if (next.length > 10) continue;
+    shown = maskUsDateInput(next);
+  }
+  return shown;
+}
+
+test('maskUsDateInput: digits-only typing gets its slashes (a phone numeric keypad has no "/")', () => {
+  // This is the reported bug: the box stuck at "0614" because nothing but a
+  // typed slash could continue it.
+  assert.equal(typeInto('06142021'), '06/14/2021');
+  assert.equal(typeInto('01012020'), '01/01/2020');
+  assert.equal(typeInto('12312025'), '12/31/2025');
+  assert.equal(typeInto('02292024'), '02/29/2024');
+  // Months 3–9 and days 4–9 need no leading zero; months 1–2 and days 1–3 do.
+  assert.equal(typeInto('6142021'), '6/14/2021');
+  assert.equal(typeInto('06142021'), '06/14/2021');
+  assert.equal(typeInto('6/4/2021'), '6/4/2021');
+  assert.equal(typeInto('0642021'), '06/4/2021');
+  // Days 19 and 20 look like the start of a year until the fifth digit.
+  assert.equal(typeInto('06202021'), '06/20/2021');
+  assert.equal(typeInto('06192019'), '06/19/2019');
+  assert.equal(typeInto('05202027'), '05/20/2027');
+  // Every full date it produces parses to what was typed.
+  assert.deepEqual(parseUsDateInput(typeInto('06142021')), { ok: true, value: { year: 2021, month: 6, day: 14 } });
+  assert.deepEqual(parseUsDateInput(typeInto('06202021')), { ok: true, value: { year: 2021, month: 6, day: 20 } });
+});
+
+test('maskUsDateInput: the two PARTIAL shapes still work digits-only', () => {
+  // The case that ruled out naive auto-slashing: these must NOT be rebuilt as
+  // "06/20/21" and "20/21".
+  assert.equal(typeInto('062021'), '06/2021');
+  assert.equal(typeInto('62021'), '6/2021');
+  assert.equal(typeInto('2021'), '2021');
+  assert.equal(typeInto('1999'), '1999');
+  assert.deepEqual(parseUsDateInput(typeInto('062021')), { ok: true, value: { year: 2021, month: 6, day: null } });
+  assert.deepEqual(parseUsDateInput(typeInto('2021')), { ok: true, value: { year: 2021, month: null, day: null } });
+  // Each keystroke on the way shows what a person expects.
+  const shown: string[] = [];
+  let v = '';
+  for (const key of '06142021') shown.push((v = maskUsDateInput(v + key)));
+  assert.deepEqual(shown, ['0', '06', '06/1', '06/14', '06/14/2', '06/14/20', '06/14/202', '06/14/2021']);
+});
+
+test('maskUsDateInput: dashes, dots and spaces stand in for slashes, and ISO is turned around', () => {
+  assert.equal(typeInto('06-14-2021'), '06/14/2021');
+  assert.equal(typeInto('06.14.2021'), '06/14/2021');
+  assert.equal(typeInto('06 14 2021'), '06/14/2021');
+  // Pasted 'YYYY-MM-DD' used to collapse silently to the year ("2021").
+  assert.equal(maskUsDateInput('2021-06-14'), '06/14/2021');
+  assert.equal(maskUsDateInput(' 2021-06-14 '), '06/14/2021');
+  assert.equal(typeInto('2021-06-14'), '06/14/2021');
+  // Not flipped halfway through typing it.
+  assert.equal(maskUsDateInput('2021-06-1'), '2021/06/1');
+});
+
+test('maskUsDateInput: an impossible day stays visible instead of being reshuffled', () => {
+  // "03322022" must not become "03/3/2202" (March 3, year 2202). It shows the
+  // 32, and parseUsDateInput then keeps just March 2022, same as typing 03/32/2022.
+  assert.equal(typeInto('03322022'), '03/32/2022');
+  assert.deepEqual(parseUsDateInput('03/32/2022'), { ok: true, value: { year: 2022, month: 3, day: null } });
+  // A month that isn't one is left for the save-time error, not dropped.
+  assert.equal(typeInto('13/2021'), '13/2021');
+  assert.deepEqual(parseUsDateInput('13/2021'), { ok: false, reason: 'impossible' });
+});
+
+test('maskUsDateInput is stable: re-masking never changes a value, and backspace never sticks', () => {
+  // Exhaustive over every string of up to 5 characters from a digit/slash
+  // alphabet that covers each segment rule.
+  const alphabet = ['0', '1', '2', '3', '4', '9', '/'];
+  const walk = (s: string, depth: number) => {
+    const out = maskUsDateInput(s);
+    assert.equal(maskUsDateInput(out), out, `re-masking ${JSON.stringify(s)} → ${JSON.stringify(out)}`);
+    // Deleting the last character of what's shown must give back exactly that
+    // shorter string, otherwise an auto-inserted slash would trap the cursor.
+    for (let k = 0; k < out.length; k++) {
+      const shorter = out.slice(0, k);
+      assert.equal(maskUsDateInput(shorter), shorter, `backspace from ${JSON.stringify(out)} to ${JSON.stringify(shorter)}`);
+    }
+    if (depth === 0) return;
+    for (const c of alphabet) walk(s + c, depth - 1);
+  };
+  walk('', 5);
 });
 
 test('maskUsDateInput leaves the two PARTIAL shapes typeable', () => {
