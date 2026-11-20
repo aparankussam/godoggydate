@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -33,6 +33,12 @@ jobs:
       - name: Test launch config helpers
         run: npm run test:launch-config
 
+      # Pure-logic tests shared by web, iPhone and the functions (dates, content
+      # filter, founding ladder, Pack Day, progress, ...). These were never run in
+      # CI, so a regression in the date boxes or the filter went unnoticed.
+      - name: Test shared modules
+        run: node --experimental-strip-types --no-warnings --test shared/*.test.ts
+
       - name: Audit runtime config
         run: npm run audit:runtime-config
 
@@ -44,7 +50,10 @@ jobs:
         working-directory: web
 
       - name: Build web
-        run: npm run build
+        # next/font downloads Google Fonts at build time; that request fails now
+        # and then ("Cannot read properties of null") and has turned main red with
+        # no code change. One retry absorbs it; a real build error fails twice.
+        run: npm run build || (echo "Build failed; retrying once in case Google Fonts was unreachable" && sleep 15 && npm run build)
         working-directory: web
         env:
           NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
@@ -71,6 +80,10 @@ jobs:
 
       - name: Install mobile deps
         run: npm ci
+        working-directory: mobile
+
+      - name: Test mobile helpers
+        run: node --experimental-strip-types --no-warnings --test lib/*.test.ts
         working-directory: mobile
 
       - name: Lint mobile
