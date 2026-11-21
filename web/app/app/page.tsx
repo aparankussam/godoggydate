@@ -7,6 +7,7 @@
 // Matches, messages, and profile each live in their own /app/* sub-routes.
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   signOutUser,
@@ -24,13 +25,24 @@ import SwipeStack from '../../components/SwipeStack';
 import AuthModal from '../../components/AuthModal';
 import MatchModal from '../../components/MatchModal';
 import SkeletonCard from '../../components/SkeletonCard';
-import { trackEvent } from '../../lib/analytics';
+import { trackEvent, trackFirstTime } from '../../lib/analytics';
 import {
-  buildDiscoverFeed,
+  loadDiscoverDeck,
   buildDemoGalleryDogs,
+  discoverCacheAgeMs,
+  resetDiscoverCache,
   DEFAULT_DISCOVER_RADIUS_MILES,
+  DISCOVER_CACHE_TTL_MS,
+  DISCOVER_RADIUS_OPTIONS,
+  type DiscoverDeck,
   type DiscoverFeedDog,
 } from '../../lib/discover';
+import { computeDogtype, type Dogtype } from '../../../shared/dogtype';
+import DogtypeReveal from '../../components/DogtypeReveal';
+import { getHeroFocus, getHeroPhoto, resolveHeroIndex } from '../../lib/photos';
+import { absoluteUrl } from '../../lib/site';
+import { enablePushNotifications, isPushConfigured } from '../../lib/push';
+import { joinLocalWaitlist, leaveLocalWaitlist, readWaitlistMemo } from '../../lib/waitlist';
 import DemoGalleryGrid from '../../components/DemoGalleryGrid';
 import { requestApproxLocation } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
@@ -45,29 +57,30 @@ type FeedDog = DiscoverFeedDog;
 
 // Every dog in the deck lands in exactly one bucket, so the line can only ever
 // under-describe the deck — never claim a proximity it didn't measure.
-interface DensityCounts {
-  withinFive: number;
-  withinRadius: number;
-  beyondRadius: number;
-  unknownDistance: number;
-}
-
-function formatDensityLine(counts: DensityCounts, radiusMiles: number): string {
+function describeDensity(deck: DiscoverDeck | null, dogs: FeedDog[]): string {
+  if (!deck) return '';
+  const near = dogs.filter((d) => d.locality === 'near');
+  const withinFive = near.filter((d) => d.distanceMiles <= 5).length;
   const parts: string[] = [];
-  if (counts.withinFive > 0) parts.push(`${counts.withinFive} within 5 mi`);
-  if (counts.withinRadius > counts.withinFive) {
-    parts.push(`${counts.withinRadius} within ${radiusMiles} mi`);
-  }
-  if (counts.beyondRadius > 0) parts.push(`${counts.beyondRadius} farther out`);
-  // A dog with no shared coordinates isn't "nearby" — we don't know where it
-  // is. It used to be folded into the within-50-mi count, which told people
-  // there were dogs in their radius that the app had never located.
-  if (counts.unknownDistance > 0) {
-    parts.push(`${counts.unknownDistance} at an unknown distance`);
-  }
-  if (parts.length === 0) return `We’ll keep looking within ${radiusMiles} mi`;
+  if (withinFive > 0) parts.push(`${withinFive} within 5 mi`);
+  if (deck.radiusMiles && near.length > withinFive) parts.push(`${near.length} within ${deck.radiusMiles} mi`);
+  // A dog we can't measure isn't "nearby": say the only thing we know, the place.
+  const sameCity = dogs.filter((d) => d.locality === 'city').length;
+  const sameState = dogs.filter((d) => d.locality === 'state').length;
+  if (sameCity > 0) parts.push(`${sameCity} in ${deck.viewerCity ?? 'your city'}`);
+  if (sameState > 0) parts.push(`${sameState} elsewhere in ${deck.viewerState ?? 'your state'}`);
   return parts.join(' · ');
 }
+
+/** "within 50 mi" / "in MT": where "near you" was actually measured. Never "nearby" on less. */
+function describeRange(deck: DiscoverDeck | null): string {
+  if (!deck) return 'near you';
+  if (deck.scope === 'radius' && deck.radiusMiles) return `within ${deck.radiusMiles} mi`;
+  if (deck.viewerState) return `in ${deck.viewerState}`;
+  return 'near you';
+}
+
+const RADIUS_KEY = 'gdd.discover.radius';
 
 export default function AppPage() {
   const router = useRouter();
@@ -92,7 +105,20 @@ export default function AppPage() {
   // so instead of claiming the neighborhood is quiet.
   const [feedError,        setFeedError]        = useState(false);
   const [activeFeed,       setActiveFeed]       = useState<FeedDog[]>([]);
+  // The deck's counts (how many dogs are in range, how many already seen, ...). Null
+  // until the FIRST query finishes: until then the page shows the skeleton, never a
+  // density line or an empty state computed from nothing.
+  const [deck,             setDeck]             = useState<DiscoverDeck | null>(null);
   const [lastCheckedAt,    setLastCheckedAt]    = useState<number | null>(null);
+  const [radiusMiles,      setRadiusMiles]      = useState<number>(DEFAULT_DISCOVER_RADIUS_MILES);
+  const [locationNote,     setLocationNote]     = useState<string | null>(null);
+  const [locationBusy,     setLocationBusy]     = useState(false);
+  // First-time onboarding payoff: the Dogtype reveal right after the first save.
+  const [reveal,           setReveal]           = useState<{ dogtype: Dogtype; name: string; photo?: string; focus?: string } | null>(null);
+  // Local waitlist ("tell me when neighbors join")
+  const [waitlist,         setWaitlist]         = useState<{ city: string; position: number } | null>(null);
+  const [waitlistBusy,     setWaitlistBusy]     = useState(false);
+  const [waitlistNote,     setWaitlistNote]     = useState<string | null>(null);
   const [profileSavedToast, setProfileSavedToast] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
   const [showDemoGallery,  setShowDemoGallery]  = useState(false);
@@ -104,6 +130,18 @@ export default function AppPage() {
   const backgroundRefreshRef = useRef(false);
   const activeFeedRef = useRef<FeedDog[]>([]);
   activeFeedRef.current = activeFeed;
+  // Has a deck been built yet? After that, rebuilds are quiet (no skeleton).
+  const deckBuiltRef = useRef(false);
+  const radiusRef = useRef(radiusMiles);
+  radiusRef.current = radiusMiles;
+
+  // The radius is a per-person convenience, remembered in this browser only.
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem(RADIUS_KEY));
+      if ((DISCOVER_RADIUS_OPTIONS as readonly number[]).includes(saved)) setRadiusMiles(saved);
+    } catch { /* storage blocked: the default stays */ }
+  }, []);
 
   // ── Auth observer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -118,6 +156,10 @@ export default function AppPage() {
         setMatchedDog(null);
         setActiveMatchId(null);
         setFeedDepleted(false);
+        setDeck(null);
+        setActiveFeed([]);
+        deckBuiltRef.current = false;
+        resetDiscoverCache();
         setAuthLoading(false);
         return;
       }
@@ -149,6 +191,7 @@ export default function AppPage() {
     setProfileSaveError(null);
     setProfileSaving(true);
     try {
+      const isFirstSave = !savedProfile;
       await saveUserDogProfile(authUser.uid, safeProfile);
       // Merge over the existing profile — the form payload carries none of the
       // server-only fields (ai/Vibe Check, lat/lng, trustScore, foundingPackNumber,
@@ -170,8 +213,19 @@ export default function AppPage() {
           context: savedProfile ? 'discover_edit' : 'discover_onboarding',
         });
       }
-      setProfileSavedToast(true);
-      setTimeout(() => setProfileSavedToast(false), 3000);
+      // The promised payoff: the first time a profile is saved complete, show the
+      // Dogtype reveal (share-first) before anything else. Later edits don't repeat it.
+      const dogtype = isFirstSave && completed ? computeDogtype(merged) : null;
+      if (dogtype) {
+        setReveal({
+          dogtype,
+          name: merged.name,
+          photo: getHeroPhoto(merged.photos, resolveHeroIndex(merged)) ?? undefined,
+          focus: getHeroFocus(merged),
+        });
+      } else {
+        flashSavedToast();
+      }
       // A new member who arrived from a shared Pack Day goes back to it now
       // that they have a dog to RSVP with.
       const pendingPackDay = completed ? takePendingPackDay() : null;
@@ -181,6 +235,14 @@ export default function AppPage() {
     } finally {
       setProfileSaving(false);
     }
+  }
+
+  // At the bottom of the screen, not the top: at the top it sat right over the
+  // "Other dogs can't see you yet" notice for the three seconds a person was most
+  // likely to be reading it.
+  function flashSavedToast() {
+    setProfileSavedToast(true);
+    setTimeout(() => setProfileSavedToast(false), 4000);
   }
 
   // Deliberately does NOT clear feedDepleted up front. Clearing it swapped the
@@ -195,33 +257,58 @@ export default function AppPage() {
   // the window), no replacing the deck when nothing changed, and no wiping it
   // when the query fails — a dropped connection used to turn the deck into
   // "The neighborhood's still quiet".
+  //
+  // Reads are bounded (see lib/discover.ts): the dogs are queried by state and
+  // reused for DISCOVER_CACHE_TTL_MS, so rebuilding the deck here costs no reads
+  // unless that window has passed or the person explicitly asks (`force`).
   async function refreshDiscoverFeed(
     nextAuthUser: User,
     nextUserDog: DogProfile,
-    { background = false }: { background?: boolean } = {},
+    { background = false, force = false }: { background?: boolean; force?: boolean } = {},
   ) {
     if (background) {
       if (backgroundRefreshRef.current) return; // visibilitychange + focus fire together
       backgroundRefreshRef.current = true;
-    } else {
+    } else if (!deckBuiltRef.current || force) {
+      // Only the first build, or a person pressing "Check again", shows progress.
+      // Every later rebuild (radius change, a saved profile, coordinates arriving)
+      // happens quietly under the card they're looking at.
       setFeedLoading(true);
     }
 
     try {
-      const feed = await buildDiscoverFeed(nextAuthUser.uid, nextUserDog);
+      // A press of "Check again" inside a minute of the last real read reuses it: the
+      // dog list can't have changed meaningfully, and hammering the button must not
+      // become hammering the database.
+      const reallyForce = force && discoverCacheAgeMs() > 60 * 1000;
+      const nextDeck = await loadDiscoverDeck(nextAuthUser.uid, nextUserDog, {
+        radiusMiles: radiusRef.current,
+        city: savedProfile?.city,
+        state: savedProfile?.state,
+        force: reallyForce,
+      });
+      const feed = nextDeck.dogs;
       const current = activeFeedRef.current;
       const unchanged =
         feed.length === current.length && feed.every((dog, i) => dog.id === current[i].id);
       if (!(background && unchanged)) setActiveFeed(feed);
+      setDeck(nextDeck);
+      deckBuiltRef.current = true;
       setFeedDepleted(feed.length === 0);
       setFeedError(false);
       // Only a completed query counts as a check — a failed one must not be
       // able to render a timestamp claiming we looked.
-      setLastCheckedAt(Date.now());
+      setLastCheckedAt(nextDeck.fetchedAt);
     } catch {
-      if (!background) {
+      if (!background && !deckBuiltRef.current) {
         setActiveFeed([]);
         setFeedDepleted(true);
+        setFeedError(true);
+        // The first query failed: say so instead of showing a skeleton forever.
+        setDeck(null);
+        deckBuiltRef.current = true;
+      } else if (!background) {
+        // A later explicit check failed: keep the deck, say so.
         setFeedError(true);
       }
     } finally {
@@ -263,39 +350,40 @@ export default function AppPage() {
   }, [authUser, savedProfile]);
 
   // ── Feed ──────────────────────────────────────────────────────────────────
+  // Builds the deck on mount and whenever the profile or the radius changes. The dog
+  // list itself comes from a 10-minute cache (lib/discover.ts), so this is cheap
+  // after the first build, and every rebuild after it is quiet: it never swaps the
+  // deck for a skeleton.
   useEffect(() => {
     if (!authUser || !userDog || !isProfileComplete(savedProfile ?? userDog)) return;
 
-    let cancelled = false;
     refreshDiscoverFeed(authUser, userDog)
       .catch(() => { /* handled inside refreshDiscoverFeed */ });
+  // refreshDiscoverFeed is re-created every render; the inputs that matter are listed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, userDog, savedProfile, radiusMiles]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [authUser, userDog, savedProfile]);
-
+  // Coming back to the tab or window re-checks only once the 10-minute window has
+  // passed. Inside it, focus and visibility do nothing at all: no query, no state
+  // change, so the card you were on (and an open details sheet) stay exactly as they are.
   useEffect(() => {
     if (!authUser || !userDog || !isProfileComplete(savedProfile ?? userDog)) return;
 
-    function handleVisibilityRefresh() {
+    function handleReturn() {
       if (document.visibilityState !== 'visible') return;
-      refreshDiscoverFeed(authUser, userDog, { background: true })
+      if (discoverCacheAgeMs() < DISCOVER_CACHE_TTL_MS) return;
+      refreshDiscoverFeed(authUser as User, userDog as DogProfile, { background: true })
         .catch(() => { /* handled inside refreshDiscoverFeed */ });
     }
 
-    function handleWindowFocus() {
-      refreshDiscoverFeed(authUser, userDog, { background: true })
-        .catch(() => { /* handled inside refreshDiscoverFeed */ });
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityRefresh);
-    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleReturn);
+    window.addEventListener('focus', handleReturn);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
-      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleReturn);
+      window.removeEventListener('focus', handleReturn);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, userDog, savedProfile]);
 
   // ── Guest mode (no auth) ──────────────────────────────────────────────────
@@ -350,6 +438,11 @@ export default function AppPage() {
       is_demo: fresh.isDemo,
       compatibility_score: fresh.compat.score,
     });
+    // Once per account: the activation funnel counts the first match ever.
+    trackFirstTime(authUser?.uid, 'first_match', 'first_match', {
+      match_id: matchId,
+      compatibility_score: fresh.compat.score,
+    });
     // A pairing the engine flagged as a safety mismatch shouldn't get a 🎉
     // retention toast three seconds after the (deliberately sober) match modal.
     if (!hasHadFirstMatch && fresh.compat.quality !== 'blocked') {
@@ -391,47 +484,135 @@ export default function AppPage() {
     }
   }
 
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
+
+  // The share text names the dog and the city (both already public on the card) and
+  // links to the quiz with ?ref=invite. Nothing about the sender's account goes in the
+  // link: no uid, no profile id.
   function handleInviteFriend() {
     trackEvent('invite_friend_clicked', {
       source: feedDepleted ? 'empty_state' : 'discover',
     });
-    const shareUrl = 'https://godoggydate.com';
-    const message = 'My dog needs friends and honestly so do I.';
+    const shareUrl = absoluteUrl('/quiz?ref=invite');
+    const who = dogName || 'My dog';
+    const city = savedProfile?.city?.trim();
+    const message = city
+      ? `${who} is looking for dog friends in ${city}. What's your dog's Dogtype? Take the quiz 🐾`
+      : `${who} is looking for dog friends. What's your dog's Dogtype? Take the quiz 🐾`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({
         title: 'GoDoggyDate',
         text: message,
         url: shareUrl,
-      }).catch(() => { /* user cancelled */ });
+      }).then(() => trackEvent('invite_shared', { method: 'share', source: feedDepleted ? 'empty_state' : 'discover' }))
+        .catch(() => { /* user cancelled */ });
       return;
     }
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(`${message} ${shareUrl}`).catch(() => { /* ignore */ });
+      navigator.clipboard.writeText(`${message} ${shareUrl}`)
+        .then(() => {
+          trackEvent('invite_shared', { method: 'copy', source: feedDepleted ? 'empty_state' : 'discover' });
+          setInviteNote('Invite copied. Paste it into a text or a post.');
+          setTimeout(() => setInviteNote(null), 4000);
+        })
+        .catch(() => { /* ignore */ });
       return;
     }
+    trackEvent('invite_shared', { method: 'email', source: feedDepleted ? 'empty_state' : 'discover' });
     window.location.href = `mailto:?subject=${encodeURIComponent('Join me on GoDoggyDate')}&body=${encodeURIComponent(`${message}\n\n${shareUrl}`)}`;
   }
 
+  // Distances need coordinates on both sides. Ask for them on purpose (a button), not
+  // only once per session in the background: someone who dismissed the prompt can
+  // still choose to share an approximate location later.
+  async function handleUseLocation() {
+    if (!authUser || !savedProfile || locationBusy) return;
+    setLocationBusy(true);
+    setLocationNote(null);
+    const result = await requestApproxLocation();
+    if (result.status === 'granted' && result.coords) {
+      const next: SavedDogProfile = { ...savedProfile, lat: result.coords.lat, lng: result.coords.lng };
+      try {
+        await saveUserDogProfile(authUser.uid, next);
+        setSavedProfile(next);
+        setUserDog(toFullProfile(next, authUser.uid));
+      } catch {
+        setLocationNote('We couldn’t save your location. Try again.');
+      }
+    } else {
+      setLocationNote(
+        result.status === 'denied'
+          ? 'Location is blocked for this site. Allow it in your browser settings to see distances; until then we match by city.'
+          : 'This browser couldn’t work out where you are. We’ll keep matching by city.',
+      );
+    }
+    setLocationBusy(false);
+  }
+
+  function changeRadius(miles: number) {
+    setRadiusMiles(miles);
+    try { window.localStorage.setItem(RADIUS_KEY, String(miles)); } catch { /* per-person convenience only */ }
+    trackEvent('discover_radius_changed', { miles });
+  }
+
+  // "Tell me when neighbors join": record the waitlist entry server-side, then offer
+  // to turn on notifications (the one push is useless without them).
+  useEffect(() => {
+    if (!authUser) return;
+    const memo = readWaitlistMemo(authUser.uid);
+    setWaitlist(memo ? { city: memo.city, position: memo.position } : null);
+  }, [authUser]);
+
+  async function handleJoinWaitlist() {
+    if (!authUser || waitlistBusy) return;
+    setWaitlistBusy(true);
+    setWaitlistNote(null);
+    try {
+      const result = await joinLocalWaitlist(authUser.uid);
+      setWaitlist({ city: result.city, position: result.position });
+      trackEvent('waitlist_joined', { position: result.position, already: result.alreadyJoined });
+      let pushNote: string;
+      if (!isPushConfigured() || typeof Notification === 'undefined') {
+        pushNote = 'Notifications aren’t available in this browser, so check back here.';
+      } else if (Notification.permission === 'denied') {
+        pushNote = 'Notifications are blocked for this site, so check back here. You can allow them in your browser settings.';
+      } else {
+        const enabled = await enablePushNotifications(authUser.uid).catch(() => false);
+        pushNote = enabled
+          ? 'We’ll send one notification when a neighbor joins.'
+          : 'Notifications are off, so check back here.';
+      }
+      setWaitlistNote(pushNote);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      setWaitlistNote(
+        /city and state/i.test(message)
+          ? 'Add a city and state to your dog’s profile first, so we know where to look.'
+          : 'We couldn’t add you just now. Check your connection and try again.',
+      );
+    } finally {
+      setWaitlistBusy(false);
+    }
+  }
+
+  async function handleLeaveWaitlist() {
+    if (waitlistBusy) return;
+    setWaitlistBusy(true);
+    try {
+      await leaveLocalWaitlist();
+      setWaitlist(null);
+      setWaitlistNote(null);
+    } catch {
+      setWaitlistNote('We couldn’t take you off the list just now. Try again.');
+    } finally {
+      setWaitlistBusy(false);
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
-  // distanceMiles uses -1 as a sentinel for "no coordinates on one side, so
-  // distance is unknown" (see milesBetween in lib/discover.ts). -1 is still a
-  // number and is still <= 5, so an unknown distance was being counted as
-  // "within 5 miles" — telling a user there were dogs a few blocks away when
-  // the app had no idea where those dogs were.
-  const hasKnownDistance = (miles: number) => typeof miles === 'number' && miles >= 0;
   const visibleDogs = activeFeed;
-  const locatedDogs = visibleDogs.filter((dog) => hasKnownDistance(dog.distanceMiles));
-  const densityCounts: DensityCounts = {
-    withinFive: locatedDogs.filter((dog) => dog.distanceMiles <= 5).length,
-    withinRadius: locatedDogs.filter(
-      (dog) => dog.distanceMiles <= DEFAULT_DISCOVER_RADIUS_MILES,
-    ).length,
-    beyondRadius: locatedDogs.filter(
-      (dog) => dog.distanceMiles > DEFAULT_DISCOVER_RADIUS_MILES,
-    ).length,
-    unknownDistance: visibleDogs.length - locatedDogs.length,
-  };
-  const densityLine = formatDensityLine(densityCounts, DEFAULT_DISCOVER_RADIUS_MILES);
+  const densityLine = describeDensity(deck, visibleDogs);
+  const rangeText = describeRange(deck);
   const lastCheckedLabel =
     lastCheckedAt === null
       ? null
@@ -439,6 +620,48 @@ export default function AppPage() {
           hour: 'numeric',
           minute: '2-digit',
         });
+
+  // The empty deck says which kind of empty it is: nobody here yet, or everybody
+  // here already swiped. "The neighborhood's still quiet" used to cover both, which
+  // told a person who had just seen every dog that none existed.
+  const inRange = deck?.inRangeCount ?? 0;
+  let emptyHeadline: string;
+  let emptyBody: string;
+  if (feedError) {
+    emptyHeadline = 'We couldn’t check for dogs';
+    emptyBody = 'Check your connection and try again.';
+  } else if (deck?.scope === 'none') {
+    emptyHeadline = 'Where should we look?';
+    emptyBody =
+      'We can only find neighbors once we know roughly where you are. Add a city and state to your profile, or share your approximate location.';
+  } else if (inRange > 0) {
+    emptyHeadline = `You’ve seen all ${inRange} ${inRange === 1 ? 'dog' : 'dogs'} ${rangeText}`;
+    emptyBody = 'That’s everyone on GoDoggyDate here so far. New dogs show up as they join.';
+  } else {
+    emptyHeadline = `No dogs ${rangeText} yet`;
+    emptyBody = `${dogName || 'Your dog'} might be the first${deck?.viewerCity ? ` in ${deck.viewerCity}` : ''}. Here’s what you can do while the neighborhood fills up.`;
+  }
+  const canWiden = deck?.scope === 'radius' && (deck.beyondRadiusCount ?? 0) > 0 && radiusMiles < 100;
+  const showWhileYouWait = !feedError && deck?.scope !== 'none';
+
+  // Radius control: only meaningful when distances can be measured.
+  const radiusControl =
+    deck?.scope === 'radius' ? (
+      <div role="group" aria-label="Search radius" className="flex flex-wrap items-center justify-center gap-1.5">
+        <span className="text-xs font-semibold text-brown-light">Radius</span>
+        {DISCOVER_RADIUS_OPTIONS.map((miles) => (
+          <button
+            key={miles}
+            type="button"
+            onClick={() => changeRadius(miles)}
+            aria-pressed={radiusMiles === miles}
+            className={`chip min-h-[40px] px-3 text-xs ${radiusMiles === miles ? 'chip-active' : ''}`}
+          >
+            {miles} mi
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   return (
     <div className="min-h-screen w-full bg-cream flex flex-col relative overflow-x-hidden">
@@ -448,6 +671,20 @@ export default function AppPage() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
       />
+
+      {/* ── First-time payoff: the Dogtype reveal, right after the first save ── */}
+      {reveal && (
+        <DogtypeReveal
+          dogtype={reveal.dogtype}
+          dogName={reveal.name}
+          photoUrl={reveal.photo}
+          photoFocus={reveal.focus}
+          onDone={() => {
+            setReveal(null);
+            flashSavedToast();
+          }}
+        />
+      )}
 
       {/* ── Match celebration (fixed full-screen overlay) ────────────────── */}
       {matchedDog && activeMatchId && (
@@ -487,6 +724,23 @@ export default function AppPage() {
         )}
       </header>
 
+      {/* ── Profile saved confirmation ───────────────────────────────────────
+          In the page flow under the header (not a floating toast): a floating one
+          sat over the "Other dogs can't see you yet" notice at the top for the
+          seconds it was most likely being read, and at the bottom it covered the
+          Pass / WOOF buttons on a phone. */}
+      {profileSavedToast && (
+        <div
+          role="status"
+          className="mx-4 mt-2 flex items-center gap-2 rounded-2xl bg-green-600 px-4 py-2.5 text-white shadow-sm"
+        >
+          <span className="text-lg">✓</span>
+          <p className="text-sm font-semibold">Profile saved.{' '}
+            {deck && !feedDepleted ? 'Swipe right to like, left to pass.' : ''}
+          </p>
+        </div>
+      )}
+
       {/* ── Guest sign-in nudge — non-blocking inline banner ────────────── */}
       {!authLoading && !authUser && (
         <div className="mx-4 mt-2 rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 flex items-center justify-between gap-3">
@@ -506,21 +760,26 @@ export default function AppPage() {
           Profile is complete from the owner's view (e.g. ZIP entered) but
           lacks any public-readable location anchor (city/state or coords),
           so other dogs can't discover them. Surfaced once the profile form
-          is closed. */}
+          is closed, and it stays until it's fixed: the "saved" confirmation is a
+          separate strip above it, so it can't cover this. */}
       {!authLoading &&
         authUser &&
         savedProfile &&
         profileIsComplete &&
         !showProfileForm &&
+        !reveal &&
         !isPubliclyDiscoverable(savedProfile) && (
-        <div className="mx-4 mt-2 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3">
+        <div
+          role="status"
+          className={`mx-4 mt-2 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3 ${profileSavedToast ? 'ring-2 ring-amber-400' : ''}`}
+        >
           <p className="text-xs text-amber-900 flex-1 leading-snug">
-            Other dogs can&apos;t see you yet. Add a city or allow location to be
-            discoverable.
+            <span className="font-bold">Other dogs can&apos;t see {dogName || 'your dog'} yet.</span>{' '}
+            A ZIP alone stays private. Add a city and state, or allow location, to be discoverable.
           </p>
           <button
             onClick={() => setShowProfileForm(true)}
-            className="shrink-0 text-xs font-bold text-amber-900 underline underline-offset-2"
+            className="shrink-0 min-h-[40px] text-xs font-bold text-amber-900 underline underline-offset-2"
           >
             Edit profile
           </button>
@@ -557,22 +816,15 @@ export default function AppPage() {
         </div>
       )}
 
-      {/* ── Profile saved toast ──────────────────────────────────────────── */}
-      {profileSavedToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white rounded-2xl px-5 py-3 flex items-center gap-2 shadow-xl">
-          <span className="text-lg">✓</span>
-          <p className="text-sm font-semibold">Profile saved. Swipe right to like, left to pass.</p>
-        </div>
-      )}
-
       {/* ── Discover content ─────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="flex h-full w-full flex-col px-1 sm:px-2 pt-2 pb-0">
 
-          {/* Skeleton while auth + profile resolve. Suppressed once we already
-              know the feed is empty — that state re-queries in place instead of
-              replacing itself with a loading card. */}
-          {(authLoading || (authUser && profileIsComplete && feedLoading && !feedDepleted)) && (
+          {/* Skeleton until auth, the profile AND the first deck query have all
+              resolved: nothing is computed from an empty deck before that, so no
+              density line or empty state can flash up first. Later rebuilds are
+              quiet and never come back here. */}
+          {(authLoading || (authUser && profileIsComplete && deck === null && !feedError)) && (
             <div className="relative flex-1 min-h-[82vh]">
               <SkeletonCard />
             </div>
@@ -598,14 +850,14 @@ export default function AppPage() {
             </div>
           )}
 
-          {/* Feed depleted — no real dogs nearby right now. Used to silently
+          {/* Feed depleted — no real dogs in range right now. Used to silently
               recycle all 15 (mostly photoless) seed dogs back into the
               swipeable deck here; that taught the "Check Again" button to
               produce the exact same fake results every time. Now honest:
               real feed stays empty, and the demo gallery is opt-in and
               clearly labeled instead of auto-injected. */}
           {!authLoading && authUser && profileIsComplete && feedDepleted && (
-            <div className="flex flex-1 flex-col items-center justify-center py-16 gap-4 text-center px-4">
+            <div className="flex flex-1 flex-col items-center py-10 gap-4 text-center px-4">
               {/* Today — reminders, profile gaps, the things that are true for
                   THIS dog right now. Renders null when there's nothing real to
                   say, so an idle account still falls through to the empty
@@ -618,14 +870,120 @@ export default function AppPage() {
               />
 
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">
-                {feedError ? 'We couldn’t check for dogs' : 'The neighborhood’s still quiet'}
-              </p>
-              <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                {feedError
-                  ? 'Check your connection and try again.'
-                  : 'We haven’t found other pups near you yet — we check again every time you open Discover, so keep an eye out.'}
-              </p>
+              <p data-testid="empty-headline" className="font-display text-2xl text-brown">{emptyHeadline}</p>
+              <p data-testid="empty-body" className="text-brown-light text-sm max-w-xs leading-relaxed">{emptyBody}</p>
+
+              {deck?.scope === 'none' && (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowProfileForm(true)}
+                    className="btn-primary px-8 py-3"
+                  >
+                    Add city &amp; state
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locationBusy}
+                    onClick={handleUseLocation}
+                    className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:opacity-60"
+                  >
+                    {locationBusy ? 'Checking…' : 'Use my location'}
+                  </button>
+                </div>
+              )}
+
+              {radiusControl}
+              {canWiden && (
+                <p className="max-w-xs text-xs text-brown-light">
+                  {deck?.beyondRadiusCount} more {deck?.beyondRadiusCount === 1 ? 'dog is' : 'dogs are'} farther than {radiusMiles} mi. Try a wider radius.
+                </p>
+              )}
+
+              {/* Distances need coordinates on both sides. Without them we match by
+                  city/state and say so; this lets the person share their approximate
+                  location on purpose. */}
+              {deck && deck.scope !== 'radius' && deck.scope !== 'none' && (
+                <div className="max-w-xs">
+                  <p className="text-xs text-brown-light leading-relaxed">
+                    We&apos;re matching by {deck.scope === 'city' ? 'city' : 'state'} because we don&apos;t have your approximate location.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={locationBusy}
+                    onClick={handleUseLocation}
+                    className="mt-1 min-h-[40px] text-xs font-bold text-primary underline underline-offset-2 disabled:opacity-60"
+                  >
+                    {locationBusy ? 'Checking…' : 'Share my approximate location'}
+                  </button>
+                </div>
+              )}
+              {locationNote && <p role="status" className="max-w-xs text-xs text-amber-800">{locationNote}</p>}
+
+              {/* Cold start: a short list of things to do now, and a way to be
+                  told when someone nearby joins. */}
+              {showWhileYouWait && (
+                <div className="w-full max-w-sm rounded-2xl border border-border bg-white px-4 py-4 text-left" role="region" aria-labelledby="while-you-wait">
+                  <p id="while-you-wait" className="font-display text-lg text-brown">While you wait</p>
+                  <ul className="mt-2 divide-y divide-border/70 text-sm">
+                    {[
+                      { href: '/app/profile', emoji: '🧬', text: `See ${dogName || 'your dog'}’s Dogtype` },
+                      { href: '/app/fun', emoji: '🔥', text: `Get ${dogName || 'your dog'} roasted (affectionately)` },
+                      { href: '/barkle', emoji: '🟩', text: 'Play today’s Barkle breed puzzle' },
+                      { href: '/app/profile', emoji: '🎂', text: `Add ${dogName || 'your dog'}’s birthday or Gotcha Day` },
+                      { href: '/app/pack/new', emoji: '🐕', text: `Host the first Pack Day${savedProfile?.city ? ` in ${savedProfile.city}` : ''}` },
+                    ].map((item) => (
+                      <li key={item.text}>
+                        <Link
+                          href={item.href}
+                          onClick={() => trackEvent('while_you_wait_click', { target: item.href })}
+                          className="flex min-h-[44px] items-center gap-3 py-1.5 text-brown hover:text-primary"
+                        >
+                          <span aria-hidden="true">{item.emoji}</span>
+                          <span className="flex-1">{item.text}</span>
+                          <span aria-hidden="true" className="text-brown-light">›</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/app/fun" className="mt-1 inline-block min-h-[40px] py-2 text-xs font-bold text-primary underline underline-offset-2">
+                    More in the Playroom
+                  </Link>
+                </div>
+              )}
+
+              {showWhileYouWait && (
+                <div className="w-full max-w-sm">
+                  {waitlist ? (
+                    <div data-testid="waitlist-joined" className="rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-900">
+                      <p className="font-semibold">
+                        You’re #{waitlist.position} on the list for {waitlist.city}.
+                      </p>
+                      {waitlistNote && <p className="mt-0.5 text-xs">{waitlistNote}</p>}
+                      <button
+                        type="button"
+                        disabled={waitlistBusy}
+                        onClick={handleLeaveWaitlist}
+                        className="mt-1 min-h-[40px] text-xs font-bold underline underline-offset-2 disabled:opacity-60"
+                      >
+                        Leave the list
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={waitlistBusy}
+                        onClick={handleJoinWaitlist}
+                        className="btn-primary w-full px-8 py-3 disabled:opacity-60"
+                      >
+                        {waitlistBusy ? 'Adding you…' : 'Tell me when neighbors join'}
+                      </button>
+                      {waitlistNote && <p role="status" className="mt-2 text-xs text-amber-800">{waitlistNote}</p>}
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Recruit Card — the actual growth lever here is a stranger
                   seeing this dog's card and wanting one for their own, not a
@@ -651,17 +1009,16 @@ export default function AppPage() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-3">
-                {/* Genuine re-query: buildDiscoverFeed re-reads the dogs
-                    collection every call (no cached candidate list). The
-                    button used to be indistinguishable from a no-op, so it now
-                    reports when the last query actually completed — the only
-                    honest answer when nothing changed. */}
+                {/* Genuine re-query, but bounded: a press inside a minute of the
+                    last real read reuses it (lib/discover.ts), so this can't be
+                    turned into hammering the database. The button reports when
+                    the last query actually completed. */}
                 <button
                   type="button"
                   disabled={feedLoading}
                   onClick={() => {
                     if (authUser && userDog) {
-                      refreshDiscoverFeed(authUser, userDog)
+                      refreshDiscoverFeed(authUser, userDog, { force: true })
                         .catch(() => { /* handled inside refreshDiscoverFeed */ });
                     }
                   }}
@@ -674,9 +1031,10 @@ export default function AppPage() {
                   onClick={handleInviteFriend}
                   className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
                 >
-                  Invite dog parents nearby
+                  Invite dog parents{savedProfile?.city ? ` in ${savedProfile.city}` : ''}
                 </button>
               </div>
+              {inviteNote && <p role="status" className="text-xs text-green-800">{inviteNote}</p>}
               {lastCheckedLabel && (
                 <p className="text-[11px] text-brown-light/80">
                   Last checked {lastCheckedLabel}
@@ -701,7 +1059,7 @@ export default function AppPage() {
           )}
 
           {/* Swipe feed — authenticated */}
-          {!authLoading && !feedLoading && authUser && profileIsComplete && !feedDepleted && (
+          {!authLoading && authUser && profileIsComplete && deck !== null && !feedDepleted && (
             <>
               {/* Same panel, one line: above a live deck only something already
                   due (overdue or today) earns space — swiping is the job here,
@@ -713,11 +1071,30 @@ export default function AppPage() {
                 onEditProfile={() => setShowProfileForm(true)}
               />
               <div className="mx-auto w-full max-w-sm mb-2 px-2 text-center">
-                <p className="text-xs font-medium text-brown-light">
-                  {densityLine}
-                </p>
+                {densityLine && (
+                  <p data-testid="density-line" className="text-xs font-medium text-brown-light">
+                    {densityLine}
+                  </p>
+                )}
+                {deck?.scope === 'radius' && (
+                  <div className="mt-1.5">{radiusControl}</div>
+                )}
+                {deck && deck.scope !== 'radius' && deck.scope !== 'none' && (
+                  <p className="mt-1 text-[11px] text-brown-light/80">
+                    Matching by {deck.scope === 'city' ? 'city' : 'state'}: distances need your approximate location.{' '}
+                    <button
+                      type="button"
+                      disabled={locationBusy}
+                      onClick={handleUseLocation}
+                      className="min-h-[40px] font-bold text-primary underline underline-offset-2 disabled:opacity-60"
+                    >
+                      {locationBusy ? 'Checking…' : 'Share it'}
+                    </button>
+                  </p>
+                )}
+                {locationNote && <p role="status" className="mt-1 text-[11px] text-amber-800">{locationNote}</p>}
                 <p className="mt-1 text-[11px] text-brown-light/80">
-                  Swipe to discover nearby dogs and open a match when you&apos;re ready to say hello.
+                  Swipe to see dogs. It&apos;s a match when you both say WOOF.
                 </p>
               </div>
               <SwipeStack

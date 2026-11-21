@@ -13,6 +13,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { checkContent, CONTENT_FILTER_MESSAGE } from './contentFilter';
+import { isStartTimeAllowed, START_WINDOW_MESSAGE } from './packDayWindow';
 
 const MIN_CAPACITY = 4;
 const MAX_CAPACITY = 12;
@@ -69,7 +70,7 @@ function cleanText(value: unknown, label: string, max: number, required: boolean
   if (required && !text) throw new HttpsError('invalid-argument', `${label} is required.`);
   if (text.length > max) throw new HttpsError('invalid-argument', `${label} must be ${max} characters or fewer.`);
   if (CONTACT_PATTERN.test(text)) {
-    throw new HttpsError('invalid-argument', `Leave links and contact details out of the ${label.toLowerCase()}. Members message each other in the app.`);
+    throw new HttpsError('invalid-argument', `Leave links and contact details out of the ${label.toLowerCase()}. Matched members can message each other in the app.`);
   }
   // Slurs, sexual solicitation and threats (Apple guideline 1.2). The apps
   // check first; this catches a client that skipped it.
@@ -122,6 +123,11 @@ export function validatePackDayInput(data: unknown, nowMs: number): ValidatedPac
   const dateMatch = typeof localDate === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate) : null;
   if (!dateMatch || typeof localTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(localTime)) {
     throw new HttpsError('invalid-argument', 'Pick a date and time.');
+  }
+  // 6:00 AM to 9:45 PM, the same window the iPhone form offers. The host's wall
+  // clock is what people read ("Sat 11/21 · 9:00 AM"), so that is what is held to it.
+  if (!isStartTimeAllowed(localTime)) {
+    throw new HttpsError('invalid-argument', START_WINDOW_MESSAGE);
   }
   // The wall-clock date is for display only, but it must agree with the real
   // start time to within a day (timezones), or the listing would show one time

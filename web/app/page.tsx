@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AuthModal from '../components/AuthModal';
 import FoundingPackSection from '../components/FoundingPackSection';
+import CopyrightYear from '../components/CopyrightYear';
 import { trackEvent } from '../lib/analytics';
 import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
@@ -68,7 +69,7 @@ export default function HomePage() {
     { emoji: '🎉', title: 'The Playroom', desc: 'Playful, shareable cards built from your dog\'s real profile — a roast, a letter in their voice, a Wanted poster, and more. Openly AI-written, never faked.' },
     { emoji: '⏳', title: 'Life in Dog Years', desc: 'See the life stage they\'re actually in — honest cohort averages, never a countdown.' },
     { emoji: '🎂', title: 'Every milestone', desc: 'Birthdays, Gotcha Day, and your anniversary together — remembered and celebrated on the day.' },
-    { emoji: '🛡️', title: 'Playmates who fit', desc: 'When you want company, match with compatible dogs nearby — with the flags owners declare surfaced up front.' },
+    { emoji: '🛡️', title: 'Playmates who fit', desc: 'When you want company, match with compatible dogs nearby — with the flags owners declare surfaced up front. Or join a Pack Day: an open group playdate at a public place, hosted by a member.' },
     { emoji: '⭐', title: 'Founding Members', desc: 'Get in early. Only 150 dogs ever get a permanent, numbered Founding Member spot.' },
   ];
 
@@ -76,7 +77,7 @@ export default function HomePage() {
     { n: '01', title: "Create your dog's profile", desc: 'A few photos and their personality — that\'s all it takes to unlock everything else.' },
     { n: '02', title: 'Meet their Dogtype', desc: 'Get your dog\'s 16-type identity card, their life stage, and a Playroom full of cards to share — instantly, solo.' },
     { n: '03', title: 'Share it', desc: 'The Dogtype card is made to post. Every share is how another owner (and their dog) finds the app.' },
-    { n: '04', title: 'Find playmates who fit', desc: 'When you\'re ready for company, match with compatible dogs nearby and plan a real meetup.' },
+    { n: '04', title: 'Find playmates who fit', desc: 'When you\'re ready for company, match with compatible dogs nearby and plan a real meetup — or join a Pack Day, an open group playdate at a public place.' },
   ];
 
   const ctaLabel = !authChecked
@@ -123,31 +124,64 @@ export default function HomePage() {
       </nav>
 
       {/* Hero */}
-      <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-[rgba(232,99,58,0.1)] border border-[rgba(232,99,58,0.2)] rounded-full px-4 py-2 mb-6">
-          <span className="text-sm font-semibold text-primary">🧬 Meet your dog&apos;s Dogtype</span>
+      <section className="max-w-5xl mx-auto px-6 pt-6 pb-12 text-center md:pt-14 md:pb-16">
+        {/* A real dog above the fold, so a first-time visitor sees what this is
+            about before reading a word. Cropped to Kaju's face on phones. */}
+        <div className="mx-auto mb-5 w-full max-w-md overflow-hidden rounded-3xl border border-border shadow-md">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/kaju-hero-sm.jpg"
+            alt="Kaju, a red mini dachshund, standing on a rock in a creek"
+            width={800}
+            height={467}
+            fetchPriority="high"
+            decoding="async"
+            className="h-32 w-full object-cover object-[50%_26%] sm:h-52"
+          />
         </div>
-        <h1 className="font-display text-5xl md:text-7xl text-brown leading-tight mb-6">
-          Your dog&apos;s<br />
-          <span className="text-primary">whole life</span>, in one place
+        <div className="inline-flex items-center gap-2 bg-[rgba(232,99,58,0.1)] border border-[rgba(232,99,58,0.2)] rounded-full px-4 py-1.5 mb-4 md:mb-6">
+          <span className="text-sm font-semibold text-primary">🐕 The local dog playdate app</span>
+        </div>
+        <h1 className="font-display text-4xl md:text-7xl text-brown leading-tight mb-4 md:mb-6">
+          Your dog&apos;s <span className="text-primary">whole life</span>,<br className="hidden md:block" />{' '}
+          in one place
         </h1>
-        <p className="text-xl text-brown-light max-w-2xl mx-auto mb-10 leading-relaxed">
-          Discover their Dogtype, watch them grow through every life stage, celebrate the real
-          milestones — and find the playmates who actually fit. Free to start. No dog park required.
+        <p className="text-base md:text-xl text-brown-light max-w-2xl mx-auto mb-6 md:mb-10 leading-relaxed">
+          Meet compatible dogs near you for safer playdates — and keep your dog&apos;s Dogtype, life
+          stage and milestones in one place. Free to start. No dog park required.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={() => handleCTA('hero_primary')}
-            className="btn-primary text-lg px-8 py-4"
-          >
-            {signedIn ? 'Open App →' : "Find your dog's Dogtype"}
-          </button>
-          <Link href="/quiz" className="btn-secondary text-lg px-8 py-4">
-            🐶 Take the 90-second quiz
-          </Link>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+          {signedIn ? (
+            <button
+              onClick={() => handleCTA('hero_primary')}
+              className="btn-primary text-lg px-8 py-3.5 md:py-4"
+            >
+              Open App →
+            </button>
+          ) : (
+            <Link
+              href="/quiz?ref=hero"
+              onClick={() => trackEvent('cta_click', { source: 'hero_quiz', signed_in: false })}
+              className="btn-primary text-center text-lg px-8 py-3.5 md:py-4"
+            >
+              🐶 Find your dog&apos;s Dogtype
+            </Link>
+          )}
+          {signedIn ? (
+            <Link href="/quiz?ref=hero" className="btn-secondary text-center text-lg px-8 py-3.5 md:py-4">
+              🐶 Take the 90-second quiz
+            </Link>
+          ) : (
+            <button
+              onClick={() => handleCTA('hero_create_profile')}
+              className="btn-secondary text-lg px-8 py-3.5 md:py-4"
+            >
+              Create your dog&apos;s profile
+            </button>
+          )}
         </div>
         <p className="mt-3 text-sm text-brown-light">
-          No signup needed — <Link href="/quiz" className="font-semibold text-primary underline underline-offset-2">Dogtype quiz</Link> · <Link href="/excuse" className="font-semibold text-primary underline underline-offset-2">Dog Excuse Note</Link> · <Link href="/barkle" className="font-semibold text-primary underline underline-offset-2">Barkle (daily breed puzzle)</Link>.
+          The Dogtype quiz takes 90 seconds, no signup. Also free without an account: <Link href="/excuse" className="font-semibold text-primary underline underline-offset-2">Dog Excuse Note</Link> · <Link href="/barkle" className="font-semibold text-primary underline underline-offset-2">Barkle (daily breed puzzle)</Link>.
         </p>
         <p className="mt-4 text-sm font-semibold text-primary">You get their whole life. They get you for all of theirs. 🐾</p>
         <p className="mt-2 text-sm text-brown-light">
@@ -162,7 +196,7 @@ export default function HomePage() {
           <div className="card rounded-4xl overflow-hidden relative">
             <div className="h-56 bg-cream-dark overflow-hidden relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/images/kaju-profile.jpg" alt="Kaju" className="w-full h-full object-cover" loading="eager" decoding="async" width={1024} height={1536} />
+              <img src="/images/kaju-profile.jpg" alt="Kaju" className="w-full h-full object-cover object-[50%_32%]" loading="lazy" decoding="async" width={640} height={960} />
               <span className="absolute top-2 left-2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brown-mid">Sample card</span>
             </div>
             <div className="p-5">
@@ -175,7 +209,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
-                {['✅ Vaccinated', '⚡ 70% energy', '🎾 Fetch'].map((t) => (
+                {['📋 Owner marked: vaccinated', '⚡ 70% energy', '🎾 Fetch'].map((t) => (
                   <span key={t} className="chip text-xs">{t}</span>
                 ))}
               </div>
@@ -220,10 +254,11 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {steps.map((s) => (
             <div key={s.n} className="flex gap-5">
-              <span className="font-display text-5xl text-[rgba(232,99,58,0.2)] leading-none shrink-0">
+              {/* Fixed-width numeral column so every step's text starts at the same x. */}
+              <span className="w-16 shrink-0 font-display text-5xl text-[rgba(232,99,58,0.2)] leading-none tabular-nums">
                 {s.n}
               </span>
-              <div>
+              <div className="min-w-0">
                 <h3 className="font-display text-xl text-brown mb-2">{s.title}</h3>
                 <p className="text-brown-light leading-relaxed">{s.desc}</p>
               </div>
@@ -257,11 +292,11 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="font-display text-lg text-brown-light">🐾 GoDoggyDate</span>
           <div className="text-center sm:text-left">
-            <p className="text-sm text-brown-light" suppressHydrationWarning>
-              © {new Date().getFullYear()} GoDoggyDate. Made with ❤️ for dogs everywhere.
+            <p className="text-sm text-brown-light">
+              © <CopyrightYear /> GoDoggyDate. Made with ❤️ for dogs everywhere.
             </p>
             <p className="mt-1 text-xs text-brown-light/90">
-              A GoBotsAI product · <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">gobotsai.com</a>
+              GoDoggyDate is operated by GoBots LLC · <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">gobotsai.com</a>
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-brown-light">
@@ -269,6 +304,7 @@ export default function HomePage() {
             <Link href="/playdate-safety" className="py-2.5 hover:text-primary transition-colors">Play or Fight?</Link>
             <Link href="/dog-playdates" className="py-2.5 hover:text-primary transition-colors">Dog Playdates</Link>
             <Link href="/dog-socialization-tips" className="py-2.5 hover:text-primary transition-colors">Socialization Tips</Link>
+            <Link href="/support" className="py-2.5 hover:text-primary transition-colors">Support</Link>
             <Link href="/privacy" className="py-2.5 hover:text-primary transition-colors">Privacy</Link>
             <Link href="/terms" className="py-2.5 hover:text-primary transition-colors">Terms</Link>
           </div>

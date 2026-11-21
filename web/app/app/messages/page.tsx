@@ -16,7 +16,7 @@ import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getPrimaryRenderablePhoto } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
-import { getBlockedUserIds } from '../../../lib/blocks';
+import { BLOCKS_CHANGED_EVENT, getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
 import SignInGate from '../../../components/SignInGate';
@@ -152,12 +152,16 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
   });
 
   const results = await Promise.all(
-    visibleDocs.map(async (m): Promise<ConversationItem> => {
+    visibleDocs.map(async (m): Promise<(ConversationItem & { gone: boolean }) | null> => {
       const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
       let otherProfile: SavedDogProfile | null = null;
+      // Only a read that SUCCEEDED and found nothing means they have left; a read
+      // that failed (offline) keeps the row, as 'Mystery Dog'.
+      let gone = false;
       try {
         const snap = await getDoc(doc(db, 'dogs', otherUserId));
         if (snap.exists()) otherProfile = snap.data() as SavedDogProfile;
+        else gone = true;
       } catch { /* offline */ }
       return {
         matchId: m.matchId,
@@ -169,11 +173,14 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
         chatUnlocked: m.chatUnlocked,
         isNew: !m.lastMessage,
         unread: m.unread,
+        gone,
       };
     }),
   );
 
-  return results;
+  // A match whose other dog parent has left (their profile is gone) is a dead
+  // thread: it can't be opened to anything, so it isn't listed.
+  return results.filter((r): r is ConversationItem & { gone: boolean } => r !== null && !r.gone);
 }
 
 function loadConversations(
@@ -232,6 +239,18 @@ export default function MessagesPage() {
     fetchConversations(authUser.uid).then(setConvos).catch(() => { /* keep the current list */ });
   });
 
+  // Someone blocked or unblocked (here, or from the toast's Undo): the list
+  // follows without a reload.
+  useEffect(() => {
+    if (!authUser) return;
+    const uid = authUser.uid;
+    function refresh() {
+      fetchConversations(uid).then(setConvos).catch(() => { /* keep the current list */ });
+    }
+    window.addEventListener(BLOCKS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(BLOCKS_CHANGED_EVENT, refresh);
+  }, [authUser]);
+
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
@@ -283,12 +302,12 @@ export default function MessagesPage() {
             <span className="text-6xl">💬</span>
             <p className="font-display text-2xl text-brown">No messages yet</p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Your matches will appear here once you connect with another dog.
+              When you and another dog parent both like each other&apos;s dogs, the conversation starts here.
             </p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Start swiping to connect with other dogs, then open a match to send the first hello.
+              Check Discover for dogs nearby. New neighbors join over time, so it&apos;s worth looking again.
             </p>
-            <Link href="/app" className="btn-primary px-8 py-3">Start Swiping</Link>
+            <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
           </div>
         )}
 

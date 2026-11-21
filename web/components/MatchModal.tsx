@@ -17,6 +17,8 @@ import { getPrimaryRenderablePhoto } from '../lib/photos';
 import { getVaccinationStatus } from '../../shared/profile';
 import { getChatUnlockPitch } from '../shared/utils/stripe';
 import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
+import { LimitList } from './OwnerLimits';
+import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 
 const MATCH_HEADLINES = ["It's a Match!", 'MUTUAL WOOF'];
 
@@ -26,6 +28,7 @@ interface MatchDog {
   breed: string;
   photos?: string[];
   distanceMiles?: number;
+  locality?: 'near' | 'city' | 'state';
   location?: string;
   vaccinated?: boolean | null;
   rabiesExpiry?: string;
@@ -46,17 +49,24 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
   const photo = getPrimaryRenderablePhoto(dog.photos);
   const isBlocked = dog.compat.quality === 'blocked';
   const topReasons = dog.compat.reasons.slice(0, 3);
-  const warnings = dog.compat.warnings;
+  // Everything the owners declared (tripped or not), once each. See OwnerLimits.
+  const limitCount = dog.compat.limits ? dog.compat.limits.items.length : dog.compat.warnings.length;
   const qualityStyle = QUALITY_STYLES[dog.compat.quality];
   const vaccination = getVaccinationStatus(dog);
 
   // milesBetween() returns -1 when either dog has no coords. Asserting "Nearby"
   // for a dog whose location we don't know is the same overclaim the engine
-  // used to make by scoring that -1 as maximum proximity.
-  const distanceSummary =
-    typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0
-      ? `${dog.distanceMiles.toFixed(1)} mi apart`
-      : dog.location ?? 'Location not shared';
+  // used to make by scoring that -1 as maximum proximity. Without a measured
+  // distance, say what we do know: the place, and that it is the same city/state.
+  const knownDistance = formatDistanceMiles(dog.distanceMiles);
+  const place = dog.location && dog.location !== 'Location not shared' ? dog.location : '';
+  const distanceSummary = knownDistance
+    ? `${knownDistance} apart`
+    : dog.locality === 'city'
+      ? `${place || 'Your city'}${place ? ' · same city' : ''}`
+      : dog.locality === 'state'
+        ? `${place || 'Your state'}${place ? ' · same state' : ''}`
+        : place || 'Location not shared';
 
   // The blocked branch never randomizes — a safety message that reads
   // differently on each mount can't be reported or reproduced.
@@ -218,22 +228,14 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">
           {isBlocked
             ? 'Why this pairing needs care'
-            : warnings.length > 0
+            : limitCount > 0
               ? 'What lines up, and what to watch'
               : 'What lines up'}
         </p>
 
-        {/* When there's something to be careful about, it goes FIRST. */}
-        {warnings.length > 0 && (
-          <div className="mt-3 max-h-40 overflow-y-auto rounded-2xl border border-amber-300/60 bg-amber-950/55 px-3 py-3">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-white">
-              Before you meet
-            </p>
-            {warnings.map((warning) => (
-              <p key={warning} className="mt-1 text-sm leading-relaxed text-white">{warning}</p>
-            ))}
-          </div>
-        )}
+        {/* When there's something to be careful about, it goes FIRST: the limits
+            both owners declared, owner-named, tripped ones marked. */}
+        <LimitList compat={dog.compat} tone="dark" heading="Before you meet" />
 
         {topReasons.length > 0 && (
           <div className="mt-4 space-y-2.5">
@@ -266,7 +268,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
             smaller, dimmer type is a disclaimer, not a disclosure. */}
         <p className="mt-4 border-t border-white/15 pt-3 text-sm leading-relaxed text-white/90">
           Everything here comes from what each owner typed in. GoDoggyDate doesn&apos;t
-          verify breed, vaccination, or temperament.
+          verify breed, vaccination, temperament, or the limits owners list.
         </p>
 
         <button

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 import { FOUNDING_FREE_SPOTS, FOUNDING_PAID_SPOTS, FOUNDING_TOTAL } from '../../../shared/founding';
+import SiteFooter from '../../components/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'Terms of Service | GoDoggyDate',
@@ -20,10 +21,36 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-cream px-6 py-10">
+    <main className="min-h-screen bg-cream">
+      <div className="px-6 py-10">
       <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Terms</p>
         <h1 className="mt-3 font-display text-4xl text-brown">Terms of Service</h1>
+        <p className="mt-2 text-xs text-brown-light">Last updated: November 2026</p>
+
+        {/* A short summary for people who won't read the legal text. It restates
+            the Terms below and changes nothing in them; if the two ever differ,
+            the full Terms are what apply. */}
+        <section
+          id="in-plain-english"
+          aria-labelledby="plain-english-title"
+          className="mt-6 scroll-mt-6 rounded-2xl border border-border bg-cream-dark/30 px-5 py-4"
+        >
+          <h2 id="plain-english-title" className="font-display text-xl text-brown">In plain English</h2>
+          <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-6 text-brown-mid">
+            <li>You need to be 18 or older to use GoDoggyDate.</li>
+            <li>Profiles are written by their owners. We don&apos;t verify anyone&apos;s identity, or a dog&apos;s vaccines, temperament, breed or health.</li>
+            <li>Meeting another dog in person carries real risk. You decide whether a meetup is safe for you and your dog, and you take that risk on yourself. We don&apos;t organize, supervise or guarantee any meetup.</li>
+            <li>Keep your dog under control, and we suggest a public, populated place for a first meeting.</li>
+            <li>Be respectful. Harassment, spam, unsafe behavior or misrepresenting your dog can get you removed.</li>
+            <li>GoDoggyDate is free during early access. Founding Member is a limited, numbered status, and a paid one is refundable within 14 days.</li>
+            <li>Our liability is limited, and Michigan law applies. The details are below.</li>
+          </ul>
+          <p className="mt-2 text-xs text-brown-light">
+            This summary is only a guide. The full Terms below are what apply.
+          </p>
+        </section>
+
         <div className="mt-6 space-y-4 text-sm leading-7 text-brown-light">
           <p>GoDoggyDate is operated by GoBots LLC, a Michigan limited liability company (&quot;GoBots&quot;), as an early-access service for discovering compatible dog playdates.</p>
 
@@ -54,6 +81,8 @@ export default function TermsPage() {
           <p>Questions about these terms can be directed to the GoDoggyDate team at <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-primary underline underline-offset-2">godoggydate@gobotsai.com</a> or through <a href="https://gobotsai.com" className="font-semibold text-primary underline underline-offset-2">gobotsai.com</a>.</p>
         </div>
       </div>
+      </div>
+      <SiteFooter />
     </main>
   );
 }

@@ -72,6 +72,7 @@ function isRateLimited(ip: string): boolean {
 
 interface AnalyticsBody {
   clientId?: string;
+  sessionId?: string;
   userId?: string;
   events?: Array<{ name?: string; params?: Record<string, unknown> }>;
 }
@@ -87,6 +88,25 @@ function sanitizeParams(params: Record<string, unknown> = {}): Record<string, st
       typeof value === 'string' ? value.slice(0, MAX_STRING) : typeof value === 'boolean' ? String(value) : value,
     ]);
   return Object.fromEntries(entries) as Record<string, string | number>;
+}
+
+const SESSION_ID_RE = /^\d{6,12}$/;
+const SESSION_FALLBACK_WINDOW_S = 30 * 60;
+
+/**
+ * GA4's Measurement Protocol drops events without a session_id, so every relayed
+ * event carries one. Prefer the app's own (a unix-seconds string from its
+ * session logic). Builds that predate that send none, so fall back to a 30-minute
+ * time bucket: sessions are scoped per client_id, so two devices sharing a value
+ * never merge, and a device's events within the same half hour stay one session.
+ */
+function pickSessionId(...candidates: unknown[]): string {
+  for (const candidate of candidates) {
+    const value = typeof candidate === 'number' ? String(candidate) : candidate;
+    if (typeof value === 'string' && SESSION_ID_RE.test(value)) return value;
+  }
+  const nowS = Math.floor(Date.now() / 1000);
+  return String(nowS - (nowS % SESSION_FALLBACK_WINDOW_S));
 }
 
 export async function POST(request: Request) {
@@ -123,7 +143,18 @@ export async function POST(request: Request) {
   const events = (body?.events ?? [])
     .filter((e) => typeof e.name === 'string' && /^[a-zA-Z][a-zA-Z0-9_]*$/.test(e.name) && e.name.length <= MAX_EVENT_NAME)
     .slice(0, 5)
-    .map((e) => ({ name: e.name as string, params: sanitizeParams(e.params) }));
+    .map((e) => {
+      const params = sanitizeParams(e.params);
+      const engagement = Number(params.engagement_time_msec);
+      return {
+        name: e.name as string,
+        params: {
+          ...params,
+          session_id: pickSessionId(params.session_id, body?.sessionId),
+          engagement_time_msec: Number.isFinite(engagement) && engagement > 0 ? Math.min(engagement, 600_000) : 100,
+        },
+      };
+    });
 
   if (events.length === 0) {
     return NextResponse.json({ error: 'no valid events' }, { status: 400 });

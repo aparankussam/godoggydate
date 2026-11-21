@@ -13,7 +13,7 @@ import { requestLetter, pickLetterMilestone, type Letter, type LetterKind } from
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
-import { toDogSlug } from '../lib/dogSlug';
+import { publicDogUrl } from '../lib/dogSlug';
 import LetterCard from './LetterCard';
 
 interface Props {
@@ -68,7 +68,7 @@ export default function LetterSection({ savedProfile, userId }: Props) {
     trackEvent('letter_share_click', { kind: letter.kind });
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://godoggydate.com';
-      const publicUrl = `${origin}/d/${toDogSlug(dogName, userId)}`;
+      const publicUrl = publicDogUrl(origin, dogName, userId, savedProfile.publicPage);
       const result = await shareOrDownloadCard(
         cardRef.current,
         `${dogName.toLowerCase().replace(/\s+/g, '-')}-${letter.kind}-letter.png`,

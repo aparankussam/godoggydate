@@ -1,10 +1,10 @@
 // web/lib/discover.ts
 // Feed helpers for real-user discovery with demo-profile fallback.
 
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
 import { SEED_DOGS, SEED_DISTANCES } from '../../shared/data/seedDogs';
-import { calculateCompatibility } from '../../shared/utils/matchingEngine';
+import { calculateCompatibility, cautionCountOf } from '../../shared/utils/matchingEngine';
 import { isProfileComplete, toFullProfile } from './auth';
 import { getBlockedUserIds } from './blocks';
 import type { SavedDogProfile } from './auth';
@@ -43,8 +43,27 @@ export interface DiscoverFeedDog {
    *  placeholder. */
   ai?: DogProfile['ai'];
   distanceMiles: number;
+  /** How we know this dog is close: a measured distance within the radius, the
+   *  same city, or only the same state. A dog is never shown as "nearby" on less. */
+  locality: 'near' | 'city' | 'state';
   compat: CompatibilityResult;
   isDemo: boolean;
+}
+
+// ── Labels shared by the card, the details sheet and the match modal ───────────
+const SIZE_LABELS: Record<string, string> = { S: 'Small', M: 'Medium', L: 'Large', XL: 'XL' };
+const SEX_LABELS: Record<string, string> = { M: 'Male', F: 'Female' };
+const AGE_LABELS: Record<string, string> = { puppy: 'Puppy', adult: 'Adult', senior: 'Senior' };
+
+/** "M" is Medium, never Male: size and sex are separate words on every surface. */
+export function sizeLabel(size: string | undefined | null): string {
+  return (size && SIZE_LABELS[size]) || size || '';
+}
+export function sexLabel(sex: string | undefined | null): string {
+  return (sex && SEX_LABELS[sex]) || '';
+}
+export function ageLabel(age: string | undefined | null): string {
+  return (age && AGE_LABELS[age]) || age || '';
 }
 
 function isSeedUserId(id: string): boolean {
@@ -72,7 +91,12 @@ function milesBetween(a: DogProfile, b: DogProfile): number {
   ).toFixed(1);
 }
 
-function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean): DiscoverFeedDog {
+function toFeedDog(
+  baseDog: DogProfile,
+  candidate: DogProfile,
+  isDemo: boolean,
+  locality: DiscoverFeedDog['locality'] = 'near',
+): DiscoverFeedDog {
   const distanceMiles = isDemo
     ? SEED_DISTANCES[candidate.name] ?? 1.2
     : milesBetween(baseDog, candidate);
@@ -85,7 +109,7 @@ function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean):
     candidate.location?.trim() ||
     (candidateWithAddress.city?.trim() && candidateWithAddress.state?.trim()
       ? `${candidateWithAddress.city.trim()}, ${candidateWithAddress.state.trim().toUpperCase()}`
-      : candidateWithAddress.zip?.trim() || 'Local match');
+      : 'Location not shared');
 
   return {
     id: candidate.id,
@@ -116,18 +140,73 @@ function toFeedDog(baseDog: DogProfile, candidate: DogProfile, isDemo: boolean):
     // decide whether you like a dog, and only appeared after a mutual match.
     ai: candidate.ai,
     distanceMiles,
+    locality,
     compat: calculateCompatibility(baseDog, candidate, distanceMiles),
     isDemo,
   };
 }
 
-async function getSwipedDogIds(uid: string): Promise<Set<string>> {
+// ── Reads are bounded and cached ────────────────────────────────────────────────
+// This used to read the WHOLE `dogs` collection (and the person's whole swipe
+// history) on every mount, window focus, tab-visible and return to Discover. At 570
+// dogs that is 1.9 MB a time, at 2,000 dogs 4.7 MB; a thousand daily users would
+// cost real money in reads for a deck that changes a few times a day. Now:
+//   - dogs are queried by the viewer's state (limit STATE_QUERY_LIMIT), plus a latitude band
+//     when the viewer has coordinates, so a neighbour across a state line is still found
+//     (the band is a coarse box, the exact radius is applied after);
+//   - the result is reused for DISCOVER_CACHE_TTL_MS, whatever the tab does;
+//   - swipes made in this session are remembered locally instead of re-read.
+export const DISCOVER_CACHE_TTL_MS = 10 * 60 * 1000;
+const STATE_QUERY_LIMIT = 300;
+const BAND_QUERY_LIMIT = 60;
+// The widest radius the control offers, so changing it never needs another read.
+const BAND_MILES = 100;
+const MILES_PER_DEGREE_LAT = 69;
+
+type Candidate = DogProfile & { city?: string; state?: string };
+
+interface CandidateCache {
+  key: string;
+  at: number;
+  dogs: Candidate[];
+}
+let candidateCache: CandidateCache | null = null;
+let candidateInflight: { key: string; promise: Promise<CandidateCache> } | null = null;
+
+interface SwipedCache { uid: string; at: number; ids: Set<string> }
+let swipedCache: SwipedCache | null = null;
+
+/** Milliseconds since the candidate dogs were last read from the server (Infinity if never). */
+export function discoverCacheAgeMs(): number {
+  return candidateCache ? Date.now() - candidateCache.at : Infinity;
+}
+
+/** Forget everything cached (sign-out, or a person asking for a fresh look). */
+export function resetDiscoverCache(): void {
+  candidateCache = null;
+  candidateInflight = null;
+  swipedCache = null;
+}
+
+/** A swipe made in this session: keeps the dog out of the deck without re-reading history. */
+export function rememberSwipe(uid: string, dogId: string): void {
+  if (swipedCache && swipedCache.uid === uid) swipedCache.ids.add(dogId);
+}
+
+async function getSwipedDogIds(uid: string, force: boolean): Promise<Set<string>> {
+  if (!force && swipedCache && swipedCache.uid === uid && Date.now() - swipedCache.at < DISCOVER_CACHE_TTL_MS) {
+    return swipedCache.ids;
+  }
   try {
     const { db } = getFirebase();
     const swipeSnap = await getDocs(collection(db, 'swipes', uid, 'decisions'));
-    return new Set(swipeSnap.docs.map((docSnap) => docSnap.id));
+    const ids = new Set(swipeSnap.docs.map((docSnap) => docSnap.id));
+    // Anything swiped while this read was in flight is already in the old cache.
+    if (swipedCache && swipedCache.uid === uid) swipedCache.ids.forEach((id) => ids.add(id));
+    swipedCache = { uid, at: Date.now(), ids };
+    return ids;
   } catch {
-    return new Set();
+    return swipedCache && swipedCache.uid === uid ? swipedCache.ids : new Set();
   }
 }
 
@@ -154,43 +233,105 @@ function getLocallySwipedDemoIds(): Set<string> {
   }
 }
 
+interface ViewerPlace {
+  city?: string;
+  state?: string;
+  lat?: number;
+  lng?: number;
+}
+
+function normPlace(value: string | undefined | null): string {
+  return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** City/state out of a "City, ST" display location, for callers that only hold a DogProfile. */
+function placeFromLocation(location: string | undefined): { city?: string; state?: string } {
+  const text = (location ?? '').trim();
+  const comma = text.lastIndexOf(',');
+  if (comma < 1) return {};
+  const state = text.slice(comma + 1).trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(state) ? { city: text.slice(0, comma).trim(), state } : {};
+}
+
+function toCandidate(id: string, data: SavedDogProfile): Candidate | null {
+  if (id.startsWith('UID_')) return null;
+  if (isSeedUserId(id)) return null;
+  const normalized: SavedDogProfile = {
+    ...data,
+    playStyles: Array.isArray(data.playStyles) ? data.playStyles : [],
+    photos: Array.isArray(data.photos) ? data.photos : [],
+    temperament: Array.isArray(data.temperament) ? data.temperament : [],
+  };
+  // Strict completeness only. The previous looser fallback
+  // (name + size + energyLevel) admitted photoless profiles, which
+  // looked broken in the deck. Mobile already required strict
+  // isProfileComplete, so this aligns the two surfaces.
+  // Note: isProfileComplete now treats lat/lng as a valid location,
+  // so ZIP-only profiles that have granted geolocation still pass.
+  if (!isProfileComplete(normalized)) return null;
+  return {
+    ...toFullProfile(normalized, id),
+    city: normalized.city?.trim() || undefined,
+    state: normalized.state?.trim().toUpperCase() || undefined,
+  };
+}
+
 // Throws if the dogs can't be read. This used to swallow the error and return
 // [], which the caller can't tell apart from "nobody nearby" — so a dropped
 // connection on a window-focus refresh replaced the deck with "The
 // neighborhood's still quiet".
-async function getRealCandidateDogs(currentUserId: string): Promise<DogProfile[]> {
-  {
-    const { db } = getFirebase();
-    const dogsSnap = await getDocs(collection(db, 'dogs'));
-    // Offline, getDocs doesn't reject: it resolves with whatever the in-memory
-    // cache holds for this query — usually nothing. Treat "answered from cache
-    // only" as a failed read.
-    if (dogsSnap.metadata.fromCache) throw new Error('Could not reach the server to list dogs');
-    return dogsSnap.docs
-      .map((docSnap) => {
-        const saved = docSnap.data() as SavedDogProfile;
-        const normalized: SavedDogProfile = {
-          ...saved,
-          playStyles: Array.isArray(saved.playStyles) ? saved.playStyles : [],
-          photos: Array.isArray(saved.photos) ? saved.photos : [],
-          temperament: Array.isArray(saved.temperament) ? saved.temperament : [],
-        };
-        return { id: docSnap.id, saved: normalized };
-      })
-      .filter(({ id, saved }) => {
-        if (id === currentUserId) return false;
-        if (id.startsWith('UID_')) return false;
-        if (isSeedUserId(id)) return false;
+async function readCandidateDogs(currentUserId: string, viewer: ViewerPlace): Promise<Candidate[]> {
+  const { db } = getFirebase();
+  const dogsRef = collection(db, 'dogs');
+  const queries = [];
+  if (viewer.state) {
+    queries.push(query(dogsRef, where('state', '==', viewer.state), limit(STATE_QUERY_LIMIT)));
+  }
+  if (typeof viewer.lat === 'number' && typeof viewer.lng === 'number') {
+    const dLat = BAND_MILES / MILES_PER_DEGREE_LAT;
+    queries.push(
+      query(dogsRef, where('lat', '>=', viewer.lat - dLat), where('lat', '<=', viewer.lat + dLat), limit(BAND_QUERY_LIMIT)),
+    );
+  }
+  // No state and no coordinates: nothing we can honestly call "near", so nothing to read.
+  if (queries.length === 0) return [];
 
-        // Strict completeness only. The previous looser fallback
-        // (name + size + energyLevel) admitted photoless profiles, which
-        // looked broken in the deck. Mobile already required strict
-        // isProfileComplete, so this aligns the two surfaces.
-        // Note: isProfileComplete now treats lat/lng as a valid location,
-        // so ZIP-only profiles that have granted geolocation still pass.
-        return isProfileComplete(saved);
-      })
-      .map(({ id, saved }) => toFullProfile(saved, id));
+  const snaps = await Promise.all(queries.map((q) => getDocs(q)));
+  // Offline, getDocs doesn't reject: it resolves with whatever the in-memory
+  // cache holds for this query — usually nothing. Treat "answered from cache
+  // only" as a failed read.
+  if (snaps.some((snap) => snap.metadata.fromCache)) throw new Error('Could not reach the server to list dogs');
+
+  const byId = new Map<string, Candidate>();
+  for (const snap of snaps) {
+    for (const docSnap of snap.docs) {
+      if (docSnap.id === currentUserId || byId.has(docSnap.id)) continue;
+      const candidate = toCandidate(docSnap.id, docSnap.data() as SavedDogProfile);
+      if (candidate) byId.set(docSnap.id, candidate);
+    }
+  }
+  return [...byId.values()];
+}
+
+async function getCandidateDogs(currentUserId: string, viewer: ViewerPlace, force: boolean): Promise<CandidateCache> {
+  // lat is bucketed to the band so a re-saved, slightly different coordinate reuses the cache.
+  const latKey = typeof viewer.lat === 'number' ? Math.round(viewer.lat) : 'x';
+  const key = `${currentUserId}|${viewer.state ?? ''}|${latKey}`;
+  if (!force && candidateCache && candidateCache.key === key && Date.now() - candidateCache.at < DISCOVER_CACHE_TTL_MS) {
+    return candidateCache;
+  }
+  if (candidateInflight && candidateInflight.key === key) return candidateInflight.promise;
+
+  const promise = readCandidateDogs(currentUserId, viewer).then((dogs) => {
+    const fresh = { key, at: Date.now(), dogs };
+    candidateCache = fresh;
+    return fresh;
+  });
+  candidateInflight = { key, promise };
+  try {
+    return await promise;
+  } finally {
+    if (candidateInflight && candidateInflight.promise === promise) candidateInflight = null;
   }
 }
 
@@ -273,6 +414,38 @@ export function buildDemoViewerDog(overrides: Partial<DogProfile> = {}): DogProf
 // Same radius the mobile deck uses (mobile/lib/discover.ts), so a person sees
 // the same neighbours on either surface.
 export const DEFAULT_DISCOVER_RADIUS_MILES = 50;
+export const DISCOVER_RADIUS_OPTIONS = [10, 25, 50, 100] as const;
+
+export interface DiscoverDeckOptions {
+  radiusMiles?: number;
+  /** The viewer's city/state. Falls back to parsing "City, ST" from baseDog.location. */
+  city?: string;
+  state?: string;
+  /** Skip the 10-minute cache (an explicit "Check again"). */
+  force?: boolean;
+}
+
+export interface DiscoverDeck {
+  /** Unseen, unblocked dogs in range, conflicts last, otherwise nearest first. */
+  dogs: DiscoverFeedDog[];
+  /** What "near" means for this viewer: measured distance, their city (and state), their state, or unknown. */
+  scope: 'radius' | 'city' | 'state' | 'none';
+  radiusMiles: number | null;
+  viewerCity?: string;
+  viewerState?: string;
+  /** Dogs in range before removing the ones already swiped: "you've seen all N". */
+  inRangeCount: number;
+  /** Of those, the ones the person already swiped. */
+  seenCount: number;
+  /** Dogs with a measured distance beyond the radius (a wider radius would show them). */
+  beyondRadiusCount: number;
+  /** Real dogs found for the viewer's state/area at all (any distance). */
+  candidateCount: number;
+  /** When the dog list was read from the server. */
+  fetchedAt: number;
+}
+
+const LOCALITY_ORDER: Record<DiscoverFeedDog['locality'], number> = { near: 0, city: 1, state: 2 };
 
 // Real matches only. Previously fell back to recycling all 15 (mostly
 // photoless) seed dogs into the live swipeable deck whenever real density
@@ -280,32 +453,89 @@ export const DEFAULT_DISCOVER_RADIUS_MILES = 50;
 // instead: a labeled, non-swipeable showcase, never presented as if it
 // could reciprocate a like.
 //
-// Local first: when the viewer's dog has coordinates, dogs farther than the
-// radius are left out and the rest are ordered nearest-first. This used to
-// sort by compatibility score alone, so while a city had only a handful of
-// dogs a neighbour could be buried under profiles from another state. Dogs
-// with no coordinates (distance -1) are kept — web-created profiles often have
-// only a city — but go to the end of the deck rather than the front.
+// Local first, and honest about what "local" is known to mean:
+//   1. a measured distance within the radius (both dogs have coordinates);
+//   2. otherwise the same city, then the same state, said as such on the card.
+// A dog that shares neither the city/state nor a measured distance is NOT shown —
+// with location permission denied, a Missoula dog used to be offered an
+// Albuquerque dog "at an unknown distance" as a match.
+// Declared limits (D3: warn first, rank lower, never hide): dogs whose limits clash
+// with the viewer's dog, or that clash with the viewer's own limits, sink to the end of
+// the deck; nobody is removed, and nearest-first stays the base order.
+export async function loadDiscoverDeck(
+  currentUserId: string,
+  baseDog: DogProfile,
+  opts: DiscoverDeckOptions = {},
+): Promise<DiscoverDeck> {
+  const radiusMiles = opts.radiusMiles ?? DEFAULT_DISCOVER_RADIUS_MILES;
+  const fromLocation = placeFromLocation(baseDog.location);
+  const viewerCity = (opts.city ?? fromLocation.city)?.trim() || undefined;
+  const viewerState = (opts.state ?? fromLocation.state)?.trim().toUpperCase() || undefined;
+  const hasCoords = typeof baseDog.lat === 'number' && typeof baseDog.lng === 'number';
+  const force = Boolean(opts.force);
+
+  const [candidates, swipedIds, blockedIds] = await Promise.all([
+    getCandidateDogs(
+      currentUserId,
+      { city: viewerCity, state: viewerState, lat: hasCoords ? baseDog.lat : undefined, lng: hasCoords ? baseDog.lng : undefined },
+      force,
+    ),
+    getSwipedDogIds(currentUserId, force),
+    getBlockedUserIds(currentUserId),
+  ]);
+
+  const isKnown = (miles: number) => typeof miles === 'number' && miles >= 0;
+  let beyondRadiusCount = 0;
+  let seenCount = 0;
+  const inRange: DiscoverFeedDog[] = [];
+
+  for (const dog of candidates.dogs) {
+    if (blockedIds.has(dog.id)) continue;
+    const miles = milesBetween(baseDog, dog);
+    let locality: DiscoverFeedDog['locality'] | null = null;
+    if (isKnown(miles)) {
+      if (miles <= radiusMiles) locality = 'near';
+      else beyondRadiusCount += 1;
+    } else if (viewerState && normPlace(dog.state) === normPlace(viewerState)) {
+      locality = viewerCity && normPlace(dog.city) === normPlace(viewerCity) ? 'city' : 'state';
+    }
+    if (!locality) continue;
+    if (swipedIds.has(dog.id)) {
+      seenCount += 1;
+      continue;
+    }
+    inRange.push(toFeedDog(baseDog, dog, false, locality));
+  }
+
+  const rank = (miles: number) => (isKnown(miles) ? miles : Number.MAX_SAFE_INTEGER);
+  const conflicts = (dog: DiscoverFeedDog) => (cautionCountOf(dog.compat) > 0 ? 1 : 0);
+  inRange.sort(
+    (a, b) =>
+      conflicts(a) - conflicts(b) ||
+      LOCALITY_ORDER[a.locality] - LOCALITY_ORDER[b.locality] ||
+      rank(a.distanceMiles) - rank(b.distanceMiles) ||
+      b.compat.score - a.compat.score,
+  );
+
+  return {
+    dogs: inRange,
+    scope: hasCoords ? 'radius' : viewerState ? (viewerCity ? 'city' : 'state') : 'none',
+    radiusMiles: hasCoords ? radiusMiles : null,
+    viewerCity,
+    viewerState,
+    inRangeCount: inRange.length + seenCount,
+    seenCount,
+    beyondRadiusCount,
+    candidateCount: candidates.dogs.length,
+    fetchedAt: candidates.at,
+  };
+}
+
+/** The deck's dogs only (kept for callers that don't need the counts). */
 export async function buildDiscoverFeed(
   currentUserId: string,
   baseDog: DogProfile,
   radiusMiles: number = DEFAULT_DISCOVER_RADIUS_MILES,
 ): Promise<DiscoverFeedDog[]> {
-  const [swipedIds, blockedIds] = await Promise.all([
-    getSwipedDogIds(currentUserId),
-    getBlockedUserIds(currentUserId),
-  ]);
-  const applyRadius =
-    typeof baseDog.lat === 'number' && typeof baseDog.lng === 'number' && radiusMiles > 0;
-  const isKnown = (miles: number) => typeof miles === 'number' && miles >= 0;
-  const rank = (miles: number) => (isKnown(miles) ? miles : Number.MAX_SAFE_INTEGER);
-
-  return (await getRealCandidateDogs(currentUserId))
-    .filter((dog) => !swipedIds.has(dog.id) && !blockedIds.has(dog.id))
-    .map((dog) => toFeedDog(baseDog, dog, false))
-    .filter((dog) => !applyRadius || !isKnown(dog.distanceMiles) || dog.distanceMiles <= radiusMiles)
-    .sort(
-      (a, b) =>
-        rank(a.distanceMiles) - rank(b.distanceMiles) || b.compat.score - a.compat.score,
-    );
+  return (await loadDiscoverDeck(currentUserId, baseDog, { radiusMiles })).dogs;
 }

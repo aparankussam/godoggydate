@@ -4,7 +4,15 @@
 // the whole document, so it carries its own <html>/<body> and plain inline
 // styling (the layout's fonts and stylesheet may be what failed).
 
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+import { useEffect } from 'react';
+import { reportClientError } from '../lib/errorReporting';
+
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    console.error('global error', error);
+    reportClientError(error, 'global-boundary', { digest: error.digest });
+  }, [error]);
+
   return (
     <html lang="en">
       <body

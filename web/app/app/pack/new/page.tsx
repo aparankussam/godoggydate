@@ -16,10 +16,16 @@ import {
   PACK_DAY_FORMAT_KEYS,
   PACK_DAY_LIMITS,
   PACK_DAY_RULES,
+  packDayStartTimeProblem,
+  packDayStartTimes,
 } from '../../../../../shared/packDay';
 import type { PackDayFormat } from '../../../../../shared/packDay';
 import { checkContentFields, CONTENT_FILTER_MESSAGE } from '../../../../../shared/contentFilter';
 import SignInGate from '../../../../components/SignInGate';
+
+// 6:00 AM to 9:45 PM in 15-minute steps: the hours public parks are open, and the
+// same chips the iPhone form offers. createPackDay enforces the same window.
+const START_TIMES = packDayStartTimes();
 
 const CAPACITIES = Array.from(
   { length: PACK_DAY_LIMITS.maxCapacity - PACK_DAY_LIMITS.minCapacity + 1 },
@@ -85,6 +91,11 @@ export default function NewPackDayPage() {
     const startsAt = new Date(`${date}T${time}`);
     if (!date || !time || Number.isNaN(startsAt.getTime())) {
       setError('Pick a date and time.');
+      return;
+    }
+    const timeProblem = packDayStartTimeProblem(time);
+    if (timeProblem) {
+      setError(timeProblem);
       return;
     }
     // A wall-clock time that a daylight-saving jump skips (2:30 AM the night the
@@ -223,14 +234,15 @@ export default function NewPackDayPage() {
           </div>
           <div>
             <label htmlFor="pd-time" className={labelClass}>Start time</label>
-            <input
+            <select
               id="pd-time"
-              type="time"
               className={inputClass}
               value={time}
               onChange={(e) => setTime(e.target.value)}
               required
-            />
+            >
+              {START_TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
           </div>
           <div>
             <label htmlFor="pd-duration" className={labelClass}>How long</label>
@@ -257,6 +269,10 @@ export default function NewPackDayPage() {
             </select>
           </div>
         </div>
+
+        <p className="-mt-2 text-xs text-brown-light">
+          Start times run 6:00 AM to 9:45 PM, when public parks are open.
+        </p>
 
         <div>
           <label htmlFor="pd-place" className={labelClass}>Where</label>
@@ -286,7 +302,7 @@ export default function NewPackDayPage() {
             placeholder="Where to park, which gate, bring water…"
           />
           <p className="mt-1 text-xs text-brown-light">
-            No links or phone numbers. Members message each other in the app.
+            No links or phone numbers. Members who match after you meet can message each other in the app.
           </p>
         </div>
 

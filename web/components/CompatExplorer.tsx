@@ -33,7 +33,7 @@ import { onProgressChange } from '../lib/progressSync';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
-import { toDogSlug } from '../lib/dogSlug';
+import { publicDogUrl } from '../lib/dogSlug';
 import DogtypeCompatCard from './DogtypeCompatCard';
 
 interface Props {
@@ -179,7 +179,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
     trackEvent(SHARE_EVENTS[kind].click, { a: dogtype.code, b: other.code, vibe: compat.vibe });
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://godoggydate.com';
-      const publicUrl = `${origin}/d/${toDogSlug(dogName, userId)}`;
+      const publicUrl = publicDogUrl(origin, dogName, userId, savedProfile.publicPage);
       const result = await shareOrDownloadCard(
         node,
         `${dogName.toLowerCase().replace(/\s+/g, '-')}-${kind}-${other.code}.png`,
@@ -280,14 +280,14 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                       <p className="text-[11px] text-brown-light">Counting GoDoggyDate…</p>
                     ) : count === 0 ? (
                       <p className="text-[11px] text-brown-mid leading-snug">
-                        No {pluralize(match.name)} on GoDoggyDate yet — one of {dogName}&apos;s rarer vibes so far, not a dead end.
+                        No {pluralize(match.name)} have joined GoDoggyDate yet — one of {dogName}&apos;s rarer vibes so far, not a dead end.
                       </p>
                     ) : (
                       <p className="text-[11px] text-brown-mid leading-snug">
                         <span className="font-bold text-brown">
-                          {count} {count === 1 ? shortName(match.name) : pluralize(match.name)}
+                          {counts?.capped ? 'At least ' : ''}{count} {count === 1 ? shortName(match.name) : pluralize(match.name)}
                         </span>{' '}
-                        on GoDoggyDate — you meet them one swipe at a time.
+                        {count === 1 ? 'has' : 'have'} joined GoDoggyDate so far (everywhere, not just near you).
                       </p>
                     )}
                   </div>

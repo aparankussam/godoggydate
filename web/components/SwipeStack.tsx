@@ -8,9 +8,11 @@ import SwipeCard, { type SwipeCardHandle } from './SwipeCard';
 import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
 import ReportProfileMenu from './ReportProfileMenu';
 import { breedConfidencePhrase } from '../lib/vibeCheck';
-import { trackEvent, trackOncePerSession } from '../lib/analytics';
+import { trackEvent, trackFirstTime } from '../lib/analytics';
 import { recordSwipe } from '../lib/matching';
-import { recordDemoSwipeLocally } from '../lib/discover';
+import { ageLabel, recordDemoSwipeLocally, rememberSwipe, sexLabel, sizeLabel } from '../lib/discover';
+import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
+import { LimitList } from './OwnerLimits';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
 
 interface FeedDog {
@@ -31,6 +33,7 @@ interface FeedDog {
   prompts?: { prompt: string; answer: string }[];
   ai?: DogProfile['ai'];
   distanceMiles: number;
+  locality?: 'near' | 'city' | 'state';
   compat: CompatibilityResult;
   firestoreId?: string;
   ownerId?: string;
@@ -99,13 +102,18 @@ export default function SwipeStack({
     return () => document.removeEventListener('keydown', onKey);
   }, [sheetOpen]);
 
+  // Calling onEmpty() from inside this updater set the PARENT's state while React
+  // was rendering SwipeStack (a console error on every last swipe); the "ran out
+  // of dogs" signal now comes from the effect below.
   const advance = useCallback(() => {
-    setIndex((i) => {
-      const next = i + 1;
-      if (next >= dogs.length) onEmpty();
-      return next;
-    });
-  }, [dogs.length, onEmpty]);
+    setIndex((i) => i + 1);
+  }, []);
+
+  const onEmptyRef = useRef(onEmpty);
+  onEmptyRef.current = onEmpty;
+  useEffect(() => {
+    if (dogs.length > 0 && index >= dogs.length) onEmptyRef.current();
+  }, [index, dogs.length]);
 
   const handleLike = useCallback(
     async (dog: FeedDog) => {
@@ -125,9 +133,11 @@ export default function SwipeStack({
         compatibility_score: dog.compat.score,
         is_demo: Boolean(dog.isDemo),
       });
-      trackOncePerSession('first_swipe', 'first_swipe', {
-        action: 'like',
-      });
+      // Once per account (not per session): the activation funnel counts the first
+      // swipe ever, not one per visit.
+      trackFirstTime(currentUserId, 'first_swipe', 'first_swipe', { action: 'like' });
+      // Keeps the dog out of the deck for this session without re-reading history.
+      if (!dog.isDemo) rememberSwipe(currentUserId, dog.ownerId ?? dog.id);
 
       // Demo/seed profiles exist only to preview the feed — they have no
       // owning account, so a like can never become a match. Skip the write
@@ -180,9 +190,8 @@ export default function SwipeStack({
         dog_id: dog.firestoreId ?? dog.id,
         compatibility_score: dog.compat.score,
       });
-      trackOncePerSession('first_swipe', 'first_swipe', {
-        action: 'pass',
-      });
+      trackFirstTime(currentUserId, 'first_swipe', 'first_swipe', { action: 'pass' });
+      if (!dog.isDemo) rememberSwipe(currentUserId, dog.ownerId ?? dog.id);
 
       if (dog.isDemo) {
         recordDemoSwipeLocally(dog.firestoreId ?? dog.id);
@@ -281,7 +290,10 @@ export default function SwipeStack({
               <div className="pr-24">
                 <p className="font-display text-[2rem] leading-tight text-brown break-words">{selectedDog.name}</p>
                 <p className="mt-1 text-sm text-brown-light [overflow-wrap:anywhere]">
-                  {[selectedDog.breed, selectedDog.age, selectedDog.sex, selectedDog.size].filter(Boolean).join(' · ')}
+                  {/* Words, each separate: "M" is Medium, never Male. */}
+                  {[selectedDog.breed, ageLabel(selectedDog.age), sizeLabel(selectedDog.size), sexLabel(selectedDog.sex)]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               </div>
             </div>
@@ -348,6 +360,9 @@ export default function SwipeStack({
                 </div>
               )}
 
+              {/* Declared limits first (D3: warn first, rank lower, never hide). */}
+              <LimitList compat={selectedDog.compat} />
+
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {[
                   // Not a "%" — the score isn't a percentage of anything measured,
@@ -355,11 +370,14 @@ export default function SwipeStack({
                   { label: 'Fit score', value: selectedDog.compat.score > 0 ? `${selectedDog.compat.score}` : '—' },
                   {
                     label: 'Distance',
-                    // Unknown is "Unknown" — the city has its own Neighbourhood tile
-                    // below, and printing it under "Distance" read as a distance.
-                    value: selectedDog.distanceMiles >= 0
-                      ? `${selectedDog.distanceMiles.toFixed(1)} mi`
-                      : 'Unknown',
+                    // Unknown says how we know they are close instead: the same city
+                    // or state. Under a mile is "Under 1 mi", not "0.0 mi".
+                    value: formatDistanceMiles(selectedDog.distanceMiles)
+                      ?? (selectedDog.locality === 'city'
+                        ? 'Same city'
+                        : selectedDog.locality === 'state'
+                          ? 'Same state'
+                          : 'Not shared'),
                   },
                   { label: 'Energy', value: `${selectedDog.energyLevel}%` },
                   // `false` is an explicit "no" from the owner, not an absence of
@@ -391,7 +409,7 @@ export default function SwipeStack({
                 <div className="mt-4 rounded-2xl border border-primary/25 bg-white px-4 py-4 shadow-[0_8px_24px_rgba(180,83,9,0.08)]">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Why you&apos;ll click</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Why this fit</p>
                       <p className="mt-1 text-sm font-semibold text-brown">{selectedDog.compat.label}</p>
                       {selectedDog.compat.microcopy && (
                         <p className="mt-0.5 text-xs text-brown-light">{selectedDog.compat.microcopy}</p>
@@ -421,18 +439,6 @@ export default function SwipeStack({
                     </div>
                   )}
 
-                  {/* All warnings, not just the first — a second safety flag
-                      silently dropped is exactly the kind of detail an owner
-                      needs before agreeing to a meetup. */}
-                  {(selectedDog.compat.warnings?.length ?? 0) > 0 && (
-                    <div className="mt-3 rounded-xl bg-[rgba(180,83,9,0.08)] px-3 py-2">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">Worth knowing</p>
-                      {selectedDog.compat.warnings.map((warning) => (
-                        <p key={warning} className="mt-1 text-sm text-brown">{warning}</p>
-                      ))}
-                    </div>
-                  )}
-
                   <button
                     type="button"
                     onClick={() => setShowBreakdown((v) => !v)}
@@ -450,7 +456,7 @@ export default function SwipeStack({
                 </div>
               )}
 
-              {selectedDog.location && (
+              {selectedDog.location && selectedDog.location !== 'Location not shared' && (
                 <div className="mt-3 rounded-2xl border border-border bg-white px-4 py-3">
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-brown-light">Neighbourhood</p>
                   <p className="mt-1 text-sm text-brown [overflow-wrap:anywhere]">{selectedDog.location}</p>

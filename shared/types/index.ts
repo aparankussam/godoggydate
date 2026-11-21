@@ -269,13 +269,44 @@ export interface Payment {
 
 export type MatchQuality = 'perfect' | 'good' | 'blocked';
 
+/**
+ * One owner-declared limit (an entry from notGoodWith / behaviorFlags), read
+ * against the other dog. These are the owners' STATED limits, not verified facts.
+ *  - 'caution'  : the limit is tripped by the other dog (e.g. "prefers no puppies"
+ *                 and the other dog is a puppy). Costs score and sinks in the deck.
+ *  - 'note'     : worth knowing before any meeting, whatever the other dog is
+ *                 (kids, off-leash, slow introduction, ...). Never costs score.
+ *  - 'declared' : a conditional limit the other dog does NOT trip. Shown so the
+ *                 owner's limits are visible up front, never counted as a warning.
+ * Every (side, chip) pair appears once, so counts never double count.
+ */
+export interface LimitItem {
+  id: string;                         // `${side}:${kind}:${chip}`
+  side: 'theirs' | 'yours';           // whose limit: the OTHER dog's owner, or the viewer
+  kind: 'notGoodWith' | 'behaviorFlag';
+  chip: string;                       // the owner's own chip, verbatim
+  severity: 'caution' | 'note' | 'declared';
+  concern: string;                    // cautions sharing a concern are one penalty
+  text: string;                       // owner-named sentence, e.g. "Moose's owner prefers no puppies"
+  detail?: string;                    // why it is tripped, e.g. "Waffles is a puppy"
+}
+
+export interface LimitAnalysis {
+  items: LimitItem[];                 // cautions first, then notes, then declared
+  cautionCount: number;               // distinct tripped limits (both owners)
+  noteCount: number;
+  declaredCount: number;
+  total: number;                      // items.length: each chip once
+}
+
 export interface CompatibilityResult {
   score: number;           // 0–100
   quality: MatchQuality;   // 🟢 perfect | 🟡 good | 🔴 blocked
-  label: string;           // short display label e.g. "Perfect play buddy"
+  label: string;           // short display label e.g. "Strong fit"
   microcopy: string;       // one-line trust copy shown on card
   reasons: string[];       // up to 4 positive match reasons
-  warnings: string[];      // safety warnings
+  warnings: string[];      // owner-named heads-ups: tripped limits + always-relevant notes (+ vaccination)
+  limits?: LimitAnalysis;  // the same limits, structured (web renders from this)
   breakdown: {
     breedScore: number;
     sizeScore: number;

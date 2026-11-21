@@ -38,8 +38,11 @@ async function loadDog(slug: string): Promise<{ uid: string; profile: SavedDogPr
   try {
     const snap = await getAdminDb().doc(`dogs/${uid}`).get();
     if (!snap.exists) return null;
-    const raw = snap.data() as SavedDogProfile;
+    const raw = snap.data() as SavedDogProfile & { publicPage?: boolean };
     if (!raw?.name) return null;
+    // The owner switched their public page off (Profile > Public page). Only an
+    // explicit false hides it; dogs that never set the field stay public.
+    if (raw.publicPage === false) return null;
     // STRICT ALLOWLIST — do not replace with a spread or a JSON round-trip.
     //
     // This page is public and pre-auth, and anything on this object crosses
@@ -169,8 +172,11 @@ export default async function PublicDogPage({ params }: PageProps) {
         <p className="text-brown-light text-sm">
           {profile.name} is on GoDoggyDate — the playdate app for dog people. Got a dog too?
         </p>
-        <Link href="/" className="btn-primary px-8 py-3 shadow-lg">
-          Make your dog&apos;s card 🐾
+        <Link href="/quiz?ref=dog" className="btn-primary px-8 py-3 shadow-lg">
+          Find your dog&apos;s Dogtype 🐾
+        </Link>
+        <Link href="/" className="text-xs text-brown-light underline underline-offset-2">
+          What is GoDoggyDate?
         </Link>
       </div>
     </div>

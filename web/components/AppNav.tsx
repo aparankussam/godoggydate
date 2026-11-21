@@ -100,6 +100,23 @@ export default function AppNav({ unreadMessages = 0, unreadMatches = 0, househol
             );
           })}
         </nav>
+
+        {/* The Playroom isn't one of the five tabs (the phone bar stays in step
+            with the iPhone app), so on desktop it gets a standing link here. */}
+        {!householdOnly && (
+          <Link
+            href="/app/fun"
+            aria-current={pathname.startsWith('/app/fun') ? 'page' : undefined}
+            className={`mt-4 flex items-center gap-3 rounded-2xl border border-border px-3 py-2.5 transition-colors ${
+              pathname.startsWith('/app/fun')
+                ? 'bg-primary/12 text-brown'
+                : 'text-brown-light hover:bg-cream-dark/60 hover:text-brown'
+            }`}
+          >
+            <span className="text-xl leading-none" aria-hidden="true">🎉</span>
+            <span className="flex-1 text-sm font-semibold">The Playroom</span>
+          </Link>
+        )}
       </aside>
 
       {/* ── Mobile: bottom tab bar (matches the native app) ──────────────── */}

@@ -56,7 +56,7 @@ export default function EarnedStickers({ dogId }: Props) {
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Stickers earned</p>
           <p className="mt-0.5 text-sm text-brown-mid">
-            Unlocked by booping — {allTime.toLocaleString()} boop{allTime === 1 ? '' : 's'} so far.
+            Unlocked by booping (tapping your dog&apos;s snoot in the Snoot Boop toy) — {allTime.toLocaleString()} boop{allTime === 1 ? '' : 's'} so far.
           </p>
         </div>
         <Link

@@ -115,16 +115,18 @@ const ExcuseNoteCard = forwardRef<HTMLDivElement, Props>(function ExcuseNoteCard
             <div
               className="flex flex-col items-center justify-center rounded-full shrink-0"
               style={{
-                width: 62,
-                height: 62,
+                width: 66,
+                height: 66,
                 border: `2px solid ${SEAL}`,
                 color: SEAL,
                 transform: 'rotate(-11deg)',
               }}
               aria-hidden="true"
             >
-              <span style={{ fontSize: 22, lineHeight: 1 }}>🐾</span>
-              <span className="text-[6px] font-bold uppercase tracking-[0.14em] mt-0.5 text-center leading-tight">
+              {/* The paw glyph used to sit on top of the first line of text;
+                  smaller, with clear space below it, keeps the stamp readable. */}
+              <span style={{ fontSize: 17, lineHeight: 1, marginBottom: 4 }}>🐾</span>
+              <span className="text-[6px] font-bold uppercase tracking-[0.14em] text-center leading-tight">
                 Certified
                 <br />
                 Good Dog

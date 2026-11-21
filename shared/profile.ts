@@ -39,6 +39,10 @@ export interface SavedDogProfile {
   birthDay?: number | null; // 1–31, optional — exact day when the owner knows it
   adoptionDate?: string | null; // 'YYYY-MM-DD' exact, or 'YYYY-MM' month-only; null = cleared
   photos?: string[];
+  // The owner's public dog page (/d/<slug>) is on unless this is exactly false.
+  // Absent on every older doc, which means "on" (the default); the Profile
+  // "Public page" switch writes true/false straight to dogs/{uid}.
+  publicPage?: boolean;
   // Owner-chosen cover ("hero") photo + crop focal point. When set, these
   // override the AI's vibeCheck.heroPhotoIndex so the owner controls which photo
   // and what part of it shows on cards (a center-crop hides off-centre subjects

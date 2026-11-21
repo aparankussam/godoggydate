@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadPublicPackDay } from '../../../lib/packDayPublic';
 import PackDayJoinCta from '../../../components/PackDayJoinCta';
-import { PACK_DAY_FORMATS, PACK_DAY_RULES, formatPackDayWhen, isPast, mapsSearchUrl } from '../../../../shared/packDay';
+import { PACK_DAY_FORMATS, PACK_DAY_RULES, formatPackDayWhen, goingSummary, isPast, mapsSearchUrl } from '../../../../shared/packDay';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,11 +51,14 @@ export default async function PublicPackDayPage({ params }: PageProps) {
       </Link>
 
       <article className="card w-full max-w-md overflow-hidden">
-        <div className="bg-gradient-to-br from-primary/15 to-gold/15 px-6 py-5">
+        <div className={`px-6 py-5 ${cancelled ? 'bg-cream-dark' : 'bg-gradient-to-br from-primary/15 to-gold/15'}`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
             {event.official ? '⭐ Official Pack Day' : 'Pack Day'} · {format.emoji} {format.label}
+            {cancelled && <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-red-700">Cancelled</span>}
           </p>
-          <h1 className="mt-1 font-display text-2xl text-brown leading-tight break-words">{event.title}</h1>
+          <h1 className={`mt-1 font-display text-2xl leading-tight break-words ${cancelled ? 'text-brown-mid line-through decoration-1' : 'text-brown'}`}>
+            {event.title}
+          </h1>
         </div>
 
         <div className="px-6 py-5 space-y-4">
@@ -93,8 +96,8 @@ export default async function PublicPackDayPage({ params }: PageProps) {
               <dt aria-hidden="true">🐕</dt>
               <dd className="text-brown">
                 Hosted by {event.hostDogName || 'a neighbor'}&apos;s human ·{' '}
-                <span className="font-semibold">
-                  {attendeeCount} of {event.capacity} dogs going
+                <span className={`font-semibold ${cancelled ? 'text-red-700' : ''}`}>
+                  {goingSummary({ capacity: event.capacity, status: event.status, attendeeCount })}
                 </span>
               </dd>
             </div>
@@ -108,9 +111,12 @@ export default async function PublicPackDayPage({ params }: PageProps) {
             disabled={closed}
             label={cancelled ? 'Cancelled' : over ? 'Over' : left === 0 ? 'Full' : 'Join this Pack Day 🐾'}
           />
-          <p className="text-center text-[11px] text-brown-light">
-            Free. You&apos;ll make a quick profile for your dog, then your spot is saved.
-          </p>
+          {!closed && (
+            <p className="text-center text-[11px] leading-relaxed text-brown-light">
+              Free. You&apos;ll sign in and set up your dog&apos;s profile first: about 5 minutes and 3 photos
+              of your dog. Then you can save your spot.
+            </p>
+          )}
         </div>
       </article>
 

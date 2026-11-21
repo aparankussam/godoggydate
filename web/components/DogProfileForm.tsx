@@ -51,11 +51,73 @@ const PLAY_STYLE_OPTIONS = [
   'high-energy runner ⚡', 'calm 🧘', 'explorer 👃',
 ];
 
-// Safety screening. These two lists are the ONLY inputs
-// detectUnsafePairings() reads (shared/utils/matchingEngine.ts) — nothing
-// collected them before, so the engine could never produce a single warning
-// while the homepage advertised that it prevented incompatible pairings.
-// Values must match the NotGoodWith / BehaviorFlag unions in shared/types.
+// ── Energy: a starting value that comes from the owner's own picks ───────────
+// The slider used to start at 60 and count as "answered" before anyone touched it, so
+// a calm senior who skipped it was saved as 60 (a "Spark" Dogtype, "Same energy level"
+// credited to an energetic puppy). Now the value starts from what the owner already
+// told us, says where it came from, and is never overwritten once they move it.
+//   temperament / play style cues:  high (Energetic, high-energy runner) +1,
+//   playful / fetch / wrestling +0.5, gentle -0.5, calm -1   (capped at +/-2 in total)
+//   value = 50 + cues * 13, puppy +5, senior -5, rounded to the slider's step of 5.
+const ENERGY_CUES: Record<string, number> = {
+  'Energetic ⚡': 1, 'high-energy runner ⚡': 1,
+  'Playful 🎮': 0.5, 'loves fetch 🎾': 0.5, 'wrestling 🤼': 0.5,
+  'Gentle 🕊️': -0.5, 'gentle play 🐾': -0.5,
+  'Calm 🧘': -1, 'calm 🧘': -1,
+};
+
+type EnergySource = 'none' | 'picks' | 'quiz' | 'photos' | 'owner' | 'saved';
+
+function suggestEnergy(input: {
+  temperament: string[];
+  playStyles: string[];
+  age: string;
+  quizLetter?: 'E' | 'Z' | null;
+}): { value: number; reasons: string[]; fromQuiz: boolean } {
+  const reasons: string[] = [];
+  let cues = 0;
+  for (const chip of [...input.temperament, ...input.playStyles]) {
+    const weight = ENERGY_CUES[chip];
+    if (weight) {
+      cues += weight;
+      reasons.push(chip);
+    }
+  }
+  cues = Math.max(-2, Math.min(2, cues));
+  const ageAdj = input.age === 'puppy' ? 5 : input.age === 'senior' ? -5 : 0;
+  const ageReason = ageAdj ? [input.age] : [];
+  const round = (v: number) => Math.max(10, Math.min(100, Math.round(v / 5) * 5));
+  // No energy cue in the picks: the quiz answer (Energy: Spark / Zen) is the next-best signal.
+  if (reasons.length === 0 && input.quizLetter) {
+    return { value: round((input.quizLetter === 'E' ? 75 : 25) + ageAdj), reasons: ageReason, fromQuiz: true };
+  }
+  return { value: round(50 + cues * 13 + ageAdj), reasons: [...reasons, ...ageReason], fromQuiz: false };
+}
+
+function energyWord(value: number): string {
+  return value >= 75 ? 'High energy' : value <= 35 ? 'Mellow' : 'Balanced';
+}
+
+// The Dogtype quiz (a separate page) leaves this behind so onboarding can pick up
+// where it left off: { name?: string, code: string, at: number }.
+const QUIZ_KEY = 'gdd.quiz.v1';
+function readQuizCarryover(): { name: string | null; energy: 'E' | 'Z' | null } {
+  try {
+    const raw = window.localStorage.getItem(QUIZ_KEY);
+    if (!raw) return { name: null, energy: null };
+    const parsed = JSON.parse(raw) as { name?: unknown; code?: unknown };
+    const name = typeof parsed.name === 'string' ? parsed.name.trim().slice(0, PROFILE_TEXT_LIMITS.name) : '';
+    const letter = typeof parsed.code === 'string' ? parsed.code.trim().toUpperCase()[0] : '';
+    return { name: name || null, energy: letter === 'E' || letter === 'Z' ? letter : null };
+  } catch {
+    return { name: null, energy: null }; // storage blocked or not JSON: nothing to carry over
+  }
+}
+
+// Safety screening. These two lists are what the matching engine reads
+// (analyzeLimits in shared/utils/matchingEngine.ts: every chip below is read
+// against the OTHER dog's size, age, energy, play style and flags). Values must
+// match the NotGoodWith / BehaviorFlag unions in shared/types.
 const NOT_GOOD_WITH_OPTIONS = [
   'small dogs', 'large dogs', 'puppies',
   'high-energy dogs', 'rough play', 'off-leash dogs',
@@ -172,7 +234,8 @@ function countComplete(p: {
   age: string | undefined;
   sex: string | undefined;
   size: string;
-  energyLevel: number;
+  /** undefined until the owner (or their picks) actually set it. */
+  energyLevel: number | undefined;
   temperament: string[];
   playStyles: string[];
   city: string;
@@ -215,8 +278,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   const [breed, setBreed] = useState('');
   const [age, setAge] = useState<'puppy' | 'adult' | 'senior' | ''>('');
   const [sex, setSex] = useState<'M' | 'F' | ''>('');
-  const [size, setSize] = useState<'S' | 'M' | 'L' | 'XL'>('M');
-  const [energyLevel, setEnergyLevel] = useState(60);
+  // '' until chosen. This started as 'M' and counted as answered on a blank form.
+  const [size, setSize] = useState<'S' | 'M' | 'L' | 'XL' | ''>('');
+  const [energyLevel, setEnergyLevel] = useState(50);
+  // Where the slider's value came from. Only 'owner' / 'saved' / 'photos' are never
+  // recomputed from the picks.
+  const [energySource, setEnergySource] = useState<EnergySource>('none');
+  const [quizEnergy, setQuizEnergy] = useState<'E' | 'Z' | null>(null);
   const [temperament, setTemperament] = useState<string[]>([]);
   const [playStyles, setPlayStyles] = useState<string[]>([]);
   const [notGoodWith, setNotGoodWith] = useState<string[]>([]);
@@ -298,6 +366,26 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     }
   }, [focusSection]);
 
+  // Pick up where the Dogtype quiz left off (first-time onboarding only): the dog's
+  // name, and the quiz's Energy answer as a fallback starting point for the slider.
+  // Never touches a name the owner has already typed.
+  useEffect(() => {
+    if (initialProfile) return;
+    const carried = readQuizCarryover();
+    if (carried.name) setName((current) => current || carried.name || '');
+    setQuizEnergy(carried.energy);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Starting energy from the owner's own picks, until THEY move the slider (or a saved
+  // value / the photo read set it). Recomputed as the picks change, never over an owner's value.
+  useEffect(() => {
+    if (energySource === 'owner' || energySource === 'saved' || energySource === 'photos') return;
+    const suggestion = suggestEnergy({ temperament, playStyles, age, quizLetter: quizEnergy });
+    setEnergyLevel(suggestion.value);
+    setEnergySource(suggestion.fromQuiz ? 'quiz' : suggestion.reasons.length > 0 ? 'picks' : 'none');
+  }, [temperament, playStyles, age, quizEnergy, energySource]);
+
   useEffect(() => {
     if (!initialProfile) return;
 
@@ -305,8 +393,11 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     setBreed(initialProfile.breed ?? '');
     setAge(initialProfile.age ?? '');
     setSex(initialProfile.sex ?? '');
-    setSize(initialProfile.size ?? 'M');
-    setEnergyLevel(initialProfile.energyLevel ?? 60);
+    setSize(initialProfile.size ?? '');
+    if (typeof initialProfile.energyLevel === 'number') {
+      setEnergyLevel(initialProfile.energyLevel);
+      setEnergySource('saved');
+    }
     setTemperament(initialProfile.temperament ?? []);
     setPlayStyles(initialProfile.playStyles ?? []);
     setNotGoodWith(initialProfile.notGoodWith ?? []);
@@ -520,7 +611,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       // through the normal form flow below.
       if (vc.breedGuess?.name) setBreed(vc.breedGuess.name);
       if (typeof vc.sizeEstimate === 'string') setSize(vc.sizeEstimate);
-      if (typeof vc.energyEstimate === 'number') setEnergyLevel(vc.energyEstimate);
+      if (typeof vc.energyEstimate === 'number' && energySource !== 'owner' && energySource !== 'saved') {
+        setEnergyLevel(vc.energyEstimate);
+        setEnergySource('photos');
+      }
       if (Array.isArray(vc.playStyleGuesses) && vc.playStyleGuesses.length > 0) setPlayStyles(vc.playStyleGuesses);
       if (Array.isArray(vc.temperamentGuesses) && vc.temperamentGuesses.length > 0) setTemperament(vc.temperamentGuesses);
       setVibeCheckResult({
@@ -547,7 +641,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       age: !age ? 'Required' : '',
       sex: !sex ? 'Required' : '',
       size: !size ? 'Required' : '',
-      energy: Number.isFinite(energyLevel) ? '' : 'Required',
+      energy: energySource !== 'none' && Number.isFinite(energyLevel) ? '' : 'Drag the slider to set your dog’s energy',
       zip: hasZip && !/^\d{5}(-\d{4})?$/.test(normalizeZipInput(zip)) ? "That ZIP doesn't smell right" : '',
       // The city is saved even when a ZIP is given, so it's always checked.
       city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : contentFilterError(city),
@@ -642,7 +736,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     age: age || undefined,
     sex: sex || undefined,
     size,
-    energyLevel,
+    // Counts only once it has a source: the owner moved it, their picks set it, or it was saved.
+    energyLevel: energySource === 'none' ? undefined : energyLevel,
     temperament,
     playStyles,
     city: zip.trim() || city,
@@ -686,8 +781,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     breed: breed.trim(),
     age: age || undefined,
     sex: sex || undefined,
-    size,
-    energyLevel,
+    size: size || undefined,
+    energyLevel: energySource === 'none' ? undefined : energyLevel,
     temperament,
     playStyles,
     photos: photosForCheck,
@@ -732,7 +827,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         breed: breed.trim(),
         age: age || undefined,
         sex: sex || undefined,
-        size,
+        size: size as 'S' | 'M' | 'L' | 'XL', // validated non-empty above
         energyLevel,
         temperament,
         playStyles,
@@ -1049,7 +1144,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
 
         <div>
           <label htmlFor="dog-energy" className="mb-1.5 block text-sm font-semibold text-brown-mid">
-            Energy level <span className="font-bold text-primary">{energyLevel}%</span>
+            Energy level{' '}
+            {energySource === 'none' ? (
+              <span className="font-bold text-brown-light">not set yet</span>
+            ) : (
+              <span className="font-bold text-primary">
+                {energyLevel}% · {energyWord(energyLevel)}
+              </span>
+            )}
           </label>
           <input
             id="dog-energy"
@@ -1059,13 +1161,44 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             max={100}
             step={5}
             value={energyLevel}
-            onChange={(e) => setEnergyLevel(Number(e.target.value))}
-            className="h-10 w-full accent-primary"
+            data-source={energySource}
+            onChange={(e) => {
+              // Once the owner moves it, it is theirs: picks no longer recompute it.
+              setEnergyLevel(Number(e.target.value));
+              setEnergySource('owner');
+            }}
+            className={`h-10 w-full ${energySource === 'none' ? 'accent-brown-light opacity-60' : 'accent-primary'}`}
           />
           <div className="mt-1 flex justify-between text-xs text-brown-light">
             <span>Chill 🧘</span>
             <span>Energetic ⚡</span>
           </div>
+          {/* Say where the number came from, so an estimate is never mistaken for an answer. */}
+          <p data-testid="energy-note" className={`mt-1 text-[11px] leading-snug ${energySource === 'none' ? 'text-amber-700' : 'text-brown-light'}`}>
+            {energySource === 'none' && 'Not set yet. Pick temperament and play style below, or drag the slider.'}
+            {energySource === 'picks' && `Auto-set from your picks (${suggestEnergy({ temperament, playStyles, age, quizLetter: null }).reasons.join(', ')}). Drag to change.`}
+            {energySource === 'quiz' && 'Auto-set from your Dogtype quiz answer. Drag to change.'}
+            {energySource === 'photos' && 'Estimated from the photos. Drag to change.'}
+            {energySource === 'saved' && 'Saved from before. Drag to change.'}
+            {energySource === 'owner' && 'Set by you.'}
+            {energySource === 'owner' && (temperament.length > 0 || playStyles.length > 0 || quizEnergy) && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Straight back to the suggestion, in one step (no frame of "not set yet").
+                    const suggestion = suggestEnergy({ temperament, playStyles, age, quizLetter: quizEnergy });
+                    setEnergyLevel(suggestion.value);
+                    setEnergySource(suggestion.fromQuiz ? 'quiz' : suggestion.reasons.length > 0 ? 'picks' : 'none');
+                  }}
+                  className="font-semibold text-primary underline underline-offset-2"
+                >
+                  Use my picks instead
+                </button>
+              </>
+            )}
+          </p>
           {errors.energy && <p className="mt-1 text-xs text-red-500">{errors.energy}</p>}
         </div>
 
@@ -1108,15 +1241,16 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           </div>
         </div>
 
-        {/* Safety screening — the only inputs the matching engine's
-            detectUnsafePairings() reads. Optional on purpose: most dogs have
-            nothing to declare, and forcing a choice would push people to
+        {/* Safety screening — what the matching engine reads against every other
+            dog (size, age, energy, play style). Optional on purpose: most dogs
+            have nothing to declare, and forcing a choice would push people to
             click something untrue. */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
           <p className="text-sm font-bold text-brown">Safety</p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
-            Only what you tell us here can warn another owner before a meetup. Skip anything that
-            doesn&apos;t apply.
+            Other owners see these on your dog&apos;s card in your name (&ldquo;{name.trim() || 'Your dog'}&apos;s
+            owner prefers no puppies&rdquo;), and the app ranks dogs that clash with them lower. Nobody
+            verifies them. Skip anything that doesn&apos;t apply.
           </p>
 
           <label id="dog-notgoodwith-label" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
@@ -1200,6 +1334,20 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           </div>
           {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}
           {errors.state && <p className="mt-1 text-xs text-red-500">{errors.state}</p>}
+          {/* Said BEFORE saving: a ZIP is private and never published, so a profile
+              with only a ZIP is invisible to other dogs. City + state is what makes
+              it discoverable. */}
+          <p data-testid="location-help" className="mt-2 text-[11px] leading-relaxed text-brown-light">
+            <span className="font-semibold text-brown-mid">City + state</span> makes {name.trim() || 'your dog'} discoverable to
+            nearby dogs (we show the city, never an address). A{' '}
+            <span className="font-semibold text-brown-mid">ZIP alone</span> stays private, and other dogs
+            won&apos;t see {name.trim() ? `${name.trim()}'s` : 'your'} profile.
+          </p>
+          {zip.trim() && !(city.trim() && usState.trim()) && (
+            <p role="status" className="mt-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-900">
+              With only a ZIP, other dogs can&apos;t see this profile yet. Add a city and state to be discoverable.
+            </p>
+          )}
         </div>
 
         <div ref={promptsRef} tabIndex={-1}>
@@ -1371,6 +1519,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               {!breed.trim() && <li>• Breed</li>}
               {!age && <li>• Age</li>}
               {!sex && <li>• Sex</li>}
+              {!size && <li>• Size</li>}
+              {energySource === 'none' && <li>• Energy level (pick a personality tag or drag the slider)</li>}
               {(temperament.length === 0 && playStyles.length === 0) && (
                 <li>• At least one temperament or play style</li>
               )}

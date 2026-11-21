@@ -9,6 +9,9 @@ import {
   formatPlaydateWhen,
   formatMessageTime,
   MAX_PLAYDATE_PLACE_LENGTH,
+  buildPlaydateIcs,
+  playdateIcsFileName,
+  otherUserIdFromMatchId,
 } from './playdates.ts';
 
 // Fixed "now": Thursday 2026-11-19, 15:30 local.
@@ -92,4 +95,67 @@ test('formatMessageTime says when, not just the clock time', () => {
   assert.equal(formatMessageTime(at(2026, 11, 12, 8, 0), now), 'Nov 12, 8:00 AM');
   assert.equal(formatMessageTime(at(2025, 11, 12, 8, 0), now), 'Nov 12, 2025');
   assert.equal(formatMessageTime(Number.NaN, now), '');
+});
+
+// ── .ics ─────────────────────────────────────────────────────────────────────
+
+const ICS_NOW = new Date(Date.UTC(2026, 10, 19, 20, 30, 0));
+
+test('buildPlaydateIcs makes a one-hour floating-time event with CRLF lines', () => {
+  const ics = buildPlaydateIcs(
+    { date: '2026-11-22', time: '15:30', place: 'Maple Dog Park, Ann Arbor' },
+    { dogName: 'Moose', uidSeed: 'matchABC', now: ICS_NOW },
+  );
+  assert.ok(ics);
+  assert.ok(ics.startsWith('BEGIN:VCALENDAR\r\n'));
+  assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
+  assert.match(ics, /DTSTART:20261122T153000\r\n/);
+  assert.match(ics, /DTEND:20261122T163000\r\n/);
+  assert.match(ics, /SUMMARY:Playdate with Moose\r\n/);
+  assert.match(ics, /LOCATION:Maple Dog Park\\, Ann Arbor\r\n/); // comma escaped
+  assert.match(ics, /DTSTAMP:20261119T203000Z\r\n/);
+  assert.match(ics, /UID:playdate-matchABC-2026-11-22-1530@godoggydate.com/);
+  assert.ok(!/\r\n\r\n/.test(ics.trimEnd()));
+});
+
+test('buildPlaydateIcs rolls a late-evening end into the next day and handles no time as all-day', () => {
+  const late = buildPlaydateIcs({ date: '2026-12-31', time: '23:30', place: 'Park' }, { dogName: 'Moose', uidSeed: 'm', now: ICS_NOW });
+  assert.match(late!, /DTSTART:20261231T233000/);
+  assert.match(late!, /DTEND:20270101T003000/);
+  const allDay = buildPlaydateIcs({ date: '2026-12-31', place: 'Park' }, { dogName: 'Moose', uidSeed: 'm', now: ICS_NOW });
+  assert.match(allDay!, /DTSTART;VALUE=DATE:20261231/);
+  assert.match(allDay!, /DTEND;VALUE=DATE:20270101/);
+});
+
+test('buildPlaydateIcs refuses a date that is not a real ISO date', () => {
+  assert.equal(buildPlaydateIcs({ date: 'Sat, July 12', time: '10:00', place: 'x' }, { dogName: 'M', uidSeed: 'm' }), null);
+  assert.equal(buildPlaydateIcs({ date: '2026-02-30', place: 'x' }, { dogName: 'M', uidSeed: 'm' }), null);
+});
+
+test('buildPlaydateIcs escapes and folds hostile text so it cannot inject calendar lines', () => {
+  const place = 'Park\r\nEND:VEVENT\r\nBEGIN:VEVENT; ' + 'x'.repeat(200) + ' 🐕🐕🐕';
+  const ics = buildPlaydateIcs({ date: '2026-11-22', time: '10:00', place }, { dogName: 'Zoë; DROP', uidSeed: '../../etc', now: ICS_NOW })!;
+  const lines = ics.split('\r\n');
+  assert.equal(lines.filter((l) => l === 'END:VEVENT').length, 1);
+  assert.equal(lines.filter((l) => l === 'BEGIN:VEVENT').length, 1);
+  for (const line of lines) assert.ok(Buffer.byteLength(line, 'utf8') <= 75, `line too long: ${line}`);
+  assert.match(ics, /UID:playdate-etc-/);
+  assert.match(ics, /SUMMARY:Playdate with Zoë\; DROP/);
+});
+
+test('playdateIcsFileName is a safe slug', () => {
+  assert.equal(playdateIcsFileName('Moose', '2026-11-22'), 'playdate-moose-2026-11-22.ics');
+  assert.equal(playdateIcsFileName('Zoë & Co!', '2026-11-22'), 'playdate-zoe-co-2026-11-22.ics');
+  assert.equal(playdateIcsFileName('../../x', 'Sat'), 'playdate-x.ics');
+  assert.equal(playdateIcsFileName('🐕', 'bad'), 'playdate-with-gdd.ics');
+});
+
+test('otherUserIdFromMatchId reads the other half of a {uid1}_{uid2} match id', () => {
+  assert.equal(otherUserIdFromMatchId('aaa_bbb', 'aaa'), 'bbb');
+  assert.equal(otherUserIdFromMatchId('aaa_bbb', 'bbb'), 'aaa');
+  assert.equal(otherUserIdFromMatchId('aaa_bbb', 'ccc'), null);
+  assert.equal(otherUserIdFromMatchId('aaa_bbb', 'aa'), null);   // a prefix is not the id
+  assert.equal(otherUserIdFromMatchId('aaa_bbb', ''), null);
+  assert.equal(otherUserIdFromMatchId('', 'aaa'), null);
+  assert.equal(otherUserIdFromMatchId('aaa_', 'aaa'), null);      // nothing on the other side
 });

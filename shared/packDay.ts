@@ -49,7 +49,49 @@ export const PACK_DAY_LIMITS = {
   maxTitleLength: 60,
   maxPlaceLength: 80,
   maxNoteLength: 280,
+  /** Earliest and latest START time, as minutes after midnight on the host's
+   *  wall clock: 6:00 AM to 9:45 PM, the hours public parks are open. The iPhone
+   *  form offers exactly these chips; the web form and createPackDay hold the
+   *  same line (firebase/functions/src/packDayWindow.ts mirrors these numbers,
+   *  shared/packDay.test.ts checks the two agree). */
+  earliestStartMinutes: 6 * 60,
+  latestStartMinutes: 21 * 60 + 45,
+  startStepMinutes: 15,
 } as const;
+
+function clockLabel(minutesAfterMidnight: number): string {
+  const h = Math.floor(minutesAfterMidnight / 60);
+  const m = minutesAfterMidnight % 60;
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+export const PACK_DAY_START_WINDOW_MESSAGE =
+  `Pack Days start between ${clockLabel(PACK_DAY_LIMITS.earliestStartMinutes)} and ${clockLabel(PACK_DAY_LIMITS.latestStartMinutes)}, when public parks are open.`;
+
+/** Every start time a host can pick, 'HH:MM' (24h) with its 12-hour label. */
+export function packDayStartTimes(): Array<{ value: string; label: string }> {
+  const out: Array<{ value: string; label: string }> = [];
+  for (
+    let m = PACK_DAY_LIMITS.earliestStartMinutes;
+    m <= PACK_DAY_LIMITS.latestStartMinutes;
+    m += PACK_DAY_LIMITS.startStepMinutes
+  ) {
+    out.push({ value: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`, label: clockLabel(m) });
+  }
+  return out;
+}
+
+/** Why a start time ('HH:MM') can't be hosted, or null. Format first, then the window. */
+export function packDayStartTimeProblem(localTime: string): string | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(localTime);
+  if (!match) return 'Pick a start time.';
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  if (minutes < PACK_DAY_LIMITS.earliestStartMinutes || minutes > PACK_DAY_LIMITS.latestStartMinutes) {
+    return PACK_DAY_START_WINDOW_MESSAGE;
+  }
+  return null;
+}
 
 /** What the host and every attendee agrees to. Shown verbatim and recorded as accepted. */
 export const PACK_DAY_RULES: readonly string[] = [
@@ -90,6 +132,16 @@ export function spotsLeft(event: Pick<PackDay, 'capacity' | 'attendeeUids'>): nu
 
 export function isPast(event: Pick<PackDay, 'startsAtMs' | 'durationMinutes'>, nowMs: number): boolean {
   return nowMs >= event.startsAtMs + event.durationMinutes * 60_000;
+}
+
+/** "3 of 8 dogs going", "3 of 8 dogs going · Full", or "Cancelled". A cancelled
+ *  event used to keep showing its head count, which read as still on. */
+export function goingSummary(
+  event: Pick<PackDay, 'capacity' | 'status'> & { attendeeUids?: readonly string[]; attendeeCount?: number },
+): string {
+  if (event.status === 'cancelled') return 'Cancelled';
+  const going = event.attendeeCount ?? event.attendeeUids?.length ?? 0;
+  return `${going} of ${event.capacity} dogs going${going >= event.capacity ? ' · Full' : ''}`;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

@@ -22,6 +22,12 @@ function energyLabel(level: number): string {
   return 'Balanced';
 }
 
+// 'M' next to a breed and age reads as Male, so the card spells the size out.
+const SIZE_WORDS: Record<string, string> = { S: 'Small', M: 'Medium', L: 'Large', XL: 'XL' };
+function sizeLabel(size: string | undefined): string | undefined {
+  return size ? SIZE_WORDS[size] ?? size : undefined;
+}
+
 function locationLabel(profile: SavedDogProfile): string {
   if (profile.city && profile.state) return `${profile.city}, ${profile.state}`;
   if (profile.location && !/^\d{5}(-\d{4})?$/.test(profile.location)) return profile.location;
@@ -101,7 +107,7 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
         )}
         <h3 className="font-display text-4xl text-white leading-tight">{profile.name}</h3>
         <p className="mt-1 text-white/85 text-sm font-semibold">
-          {[profile.breed, profile.age, profile.size].filter(Boolean).join(' · ')}
+          {[profile.breed, profile.age, sizeLabel(profile.size)].filter(Boolean).join(' · ')}
         </p>
         <p className="mt-0.5 text-white/65 text-xs">{locationLabel(profile)}</p>
         {/* Mutt Meter — the breed guess Vibe Check already makes, framed

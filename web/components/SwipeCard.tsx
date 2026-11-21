@@ -10,6 +10,9 @@ import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile
 import { resolveHeroIndex, getHeroFocus, getRenderablePhotos } from '../lib/photos';
 import { QUALITY_STYLES } from './CompatBreakdown';
 import ReportProfileMenu from './ReportProfileMenu';
+import { LimitChips } from './OwnerLimits';
+import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
+import { ageLabel, sexLabel, sizeLabel } from '../lib/discover';
 
 interface CardDog {
   ownerId?: string;
@@ -33,6 +36,8 @@ interface CardDog {
   coverFocusX?: number | null;
   coverFocusY?: number | null;
   distanceMiles: number;
+  /** 'near' = measured distance; 'city' / 'state' = only the place is known. */
+  locality?: 'near' | 'city' | 'state';
   compat: CompatibilityResult;
 }
 
@@ -73,12 +78,18 @@ function getEnergyLabel(energyLevel: number): string {
   return 'Balanced';
 }
 
+// Say only what is known: a measured distance, or the place and that the distance
+// isn't. "Nearby" / "Local match" are claims we don't have the data for.
 function getLocationLabel(dog: CardDog): string {
-  if (typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0) {
-    const city = dog.location?.split(',')[0]?.trim();
-    return city ? `${city} · ${dog.distanceMiles.toFixed(1)} mi` : `${dog.distanceMiles.toFixed(1)} mi away`;
+  const place = dog.location && dog.location !== 'Location not shared' ? dog.location : '';
+  const distance = formatDistanceMiles(dog.distanceMiles);
+  if (distance) {
+    const city = place.split(',')[0]?.trim();
+    return city ? `${city} · ${distance}` : `${distance} away`;
   }
-  return dog.location ?? 'Local match';
+  if (dog.locality === 'city') return place ? `${place} · same city` : 'Same city';
+  if (dog.locality === 'state') return place ? `${place} · same state` : 'Same state';
+  return place || 'Location not shared';
 }
 
 function getContentWidthClass(hasScore: boolean): string {
@@ -348,7 +359,12 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                 <p className="mt-1.5 text-[1.02rem] font-semibold tracking-[0.01em] text-white/95 truncate drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
                   {dog.breed}
                 </p>
-                <p className="mt-1 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)] [overflow-wrap:anywhere]">
+                {/* Size and sex as words, each on its own: a bare "M" read as
+                    Male when it was Medium. */}
+                <p className="mt-0.5 text-[13px] font-medium text-white/85 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
+                  {[ageLabel(dog.age), sizeLabel(dog.size), sexLabel(dog.sex)].filter(Boolean).join(' · ')}
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)] [overflow-wrap:anywhere]">
                   {distanceLabel}
                 </p>
                 {/* compat.microcopy — the engine's own one-line verdict,
@@ -376,26 +392,12 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                   ))}
                 </div>
 
-                {/* Safety warnings from detectUnsafePairings(). These were
-                    computed but rendered nowhere — the entire safety branch of
-                    the matching engine was invisible. They belong on the card
-                    itself, before a like, since that's the decision they're
-                    meant to inform. */}
-                {dog.compat.warnings.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {/* Not sliced. The engine used to cap warnings at 2 upstream,
-                        which made a local cap dead code; now that it returns all
-                        of them, a local cap would silently drop a safety flag. */}
-                    {dog.compat.warnings.map((warning) => (
-                      <span
-                        key={warning}
-                        className="rounded-2xl border border-amber-300/60 bg-amber-950/55 px-2.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-100 shadow-[0_4px_14px_rgba(0,0,0,0.3)] backdrop-blur-md"
-                      >
-                        ⚠ {warning}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {/* The limits the owners declared, owner-named, on the FIRST card —
+                    before a like, since that's the decision they inform. Tripped
+                    ones (this dog's owner's limits vs your dog, or yours vs this
+                    dog) are amber and never capped; the rest are neutral and
+                    capped with a pointer to Details. See OwnerLimits. */}
+                <LimitChips compat={dog.compat} className="mt-2" />
               </div>
             </div>
           </div>
@@ -405,7 +407,12 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
             // right edge is free. On the left the ring sat on top of the name,
             // breed and safety pills whenever the block ran tall (3+ warnings, or
             // any warnings on a short phone screen).
-            <div className="absolute right-4 top-16 flex flex-col items-center gap-1">
+            // Fades out while a WOOF / PASS stamp is showing: on a phone the stamp
+            // landed on the ring and the two overprinted each other.
+            <div
+              className="absolute right-4 top-16 flex flex-col items-center gap-1 transition-opacity duration-150"
+              style={{ opacity: isTop && Math.abs(dragX) > 20 ? 0 : 1 }}
+            >
               {/* Ring color now signals compat.quality (green/amber/red) —
                   previously a plain white ring regardless of tier, so a
                   "Safety mismatch" score looked exactly as inviting as a
@@ -418,7 +425,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                 {dog.compat.score}
               </div>
               <span className="rounded-full bg-black/38 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-                Match
+                Fit
               </span>
             </div>
           )}

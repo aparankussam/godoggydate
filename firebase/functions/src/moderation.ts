@@ -7,6 +7,8 @@
 
 import { checkContent, checkContentFields } from './contentFilter';
 import type { ContentFilterReason } from './contentFilter';
+import { splitDogPhotos } from './photoUrl';
+import type { PhotoUrlPolicy } from './photoUrl';
 
 /** Replaces the text of a chat message the filter refused. */
 export const MODERATED_MESSAGE_TEXT =
@@ -121,6 +123,39 @@ export function dogProfileContentFixes(
   return fixes;
 }
 
+// ── Photo URLs ─────────────────────────────────────────────────────────────────
+// photos[] may only hold this project's Storage URLs and the '_placeholder_'
+// padding (see shared/photoUrl.ts). Any other URL would be fetched by every
+// visitor of the public /d/ page and by the server-rendered share image.
+
+export interface DogPhotoFix {
+  /** The photos array to write back. */
+  photos: string[];
+  /** What was removed (strings are shortened for the log). */
+  dropped: string[];
+}
+
+/** What to do about a dog's photos, or null when they are all fine. */
+export function dogPhotoFixes(
+  after: Record<string, unknown>,
+  policy: PhotoUrlPolicy,
+): DogPhotoFix | null {
+  const photos = after.photos;
+  if (photos === undefined || photos === null) return null;
+  // A string, map or number where a list belongs: nothing in it can be kept.
+  if (!Array.isArray(photos)) return { photos: [], dropped: [describeDropped(photos)] };
+  const { kept, dropped } = splitDogPhotos(photos, policy);
+  if (dropped.length === 0) return null;
+  return { photos: kept, dropped: dropped.map(describeDropped) };
+}
+
+function describeDropped(value: unknown): string {
+  const text = typeof value === 'string' ? value : JSON.stringify(value) ?? String(value);
+  // Long enough for a whole Storage URL (the apps' are ~300 characters), so a
+  // wrongly dropped photo can be put back from the log.
+  return text.length > 1000 ? `${text.slice(0, 1000)}…` : text;
+}
+
 // ── Owner notice ───────────────────────────────────────────────────────────────
 // users/{uid}/private/moderationNotice tells the owner which profile text the
 // server cleared, so a blank field isn't a mystery. Owner-only (private/), not
@@ -182,7 +217,18 @@ function dropFailing(
   return { kept, reason };
 }
 
-/** Firestore document ids the server reads from client-written report fields. */
+/**
+ * Firestore document ids the server reads from client-written fields (report
+ * matchId/eventId, a household memberUid). Firestore itself refuses ids with a
+ * slash, "." or "..", and ones that look like __name__; a path built from those
+ * throws, so they are turned away before they reach it.
+ */
 export function isSafeDocId(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0 && value.length <= 128 && !value.includes('/');
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= 128
+    && !value.includes('/')
+    && value !== '.'
+    && value !== '..'
+    && !/^__.*__$/.test(value);
 }

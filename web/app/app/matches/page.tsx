@@ -18,7 +18,7 @@ import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getHeroPhoto, resolveHeroIndex } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
-import { getBlockedUserIds } from '../../../lib/blocks';
+import { BLOCKS_CHANGED_EVENT, getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
@@ -158,21 +158,28 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
 
   // Fetch counterpart profiles in parallel
   const results = await Promise.all(
-    visibleDocs.map(async (m): Promise<MatchWithProfile> => {
+    visibleDocs.map(async (m): Promise<(MatchWithProfile & { gone: boolean }) | null> => {
       const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
       const otherDogId  = m.dog1UserId === uid ? m.dog2Id     : m.dog1Id;
       let otherProfile: SavedDogProfile | null = null;
+      // Only a read that SUCCEEDED and found nothing means they have left; a read
+      // that failed (offline) keeps the row, as 'Mystery Dog'.
+      let gone = false;
       try {
         const profileSnap = await getDoc(doc(db, 'dogs', otherUserId));
         if (profileSnap.exists()) {
           otherProfile = profileSnap.data() as SavedDogProfile;
+        } else {
+          gone = true;
         }
       } catch { /* offline — proceed without profile */ }
-      return { ...m, otherUserId, otherDogId, otherProfile };
+      return { ...m, otherUserId, otherDogId, otherProfile, gone };
     }),
   );
 
-  return results;
+  // A match whose other dog parent has left (their profile is gone) is a dead
+  // thread: it can't be opened to anything, so it isn't listed.
+  return results.filter((r): r is MatchWithProfile & { gone: boolean } => r !== null && !r.gone);
 }
 
 function loadMatches(
@@ -223,6 +230,18 @@ export default function MatchesPage() {
     if (!authUser) return;
     fetchMatchesForUser(authUser.uid).then(setMatches).catch(() => { /* keep the current list */ });
   });
+
+  // Someone blocked or unblocked (here, or from the toast's Undo): the list
+  // follows without a reload.
+  useEffect(() => {
+    if (!authUser) return;
+    const uid = authUser.uid;
+    function refresh() {
+      fetchMatchesForUser(uid).then(setMatches).catch(() => { /* keep the current list */ });
+    }
+    window.addEventListener(BLOCKS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(BLOCKS_CHANGED_EVENT, refresh);
+  }, [authUser]);
 
   // ── Auth loading ────────────────────────────────────────────────────────────
   if (authLoading) {
@@ -282,13 +301,13 @@ export default function MatchesPage() {
             <span className="text-6xl">💛</span>
             <p className="font-display text-2xl text-brown">No matches yet</p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Matches happen when both dogs swipe right on each other.
+              A match happens when you and another dog parent both like each other&apos;s dogs.
             </p>
             <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Keep swiping in Discover and your next mutual like could show up here. 🐾
+              Check Discover for dogs nearby. New neighbors join over time, so it&apos;s worth looking again. 🐾
             </p>
             <Link href="/app" className="btn-primary px-8 py-3">
-              Back to Discover
+              Go to Discover
             </Link>
           </div>
         )}

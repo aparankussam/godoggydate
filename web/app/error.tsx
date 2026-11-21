@@ -5,10 +5,12 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { reportClientError } from '../lib/errorReporting';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error('route error', error);
+    reportClientError(error, 'boundary', { digest: error.digest });
   }, [error]);
 
   return (

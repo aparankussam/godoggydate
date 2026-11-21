@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { absoluteUrl, defaultSocialImages } from '../../lib/site';
+import SiteFooter from '../../components/SiteFooter';
 import {
   AFTER_A_BAD_MEETING,
   BODY_LANGUAGE_PREAMBLE,
@@ -439,6 +440,7 @@ export default function PlaydateSafetyPage() {
           </div>
         </section>
       </div>
+      <SiteFooter />
     </main>
   );
 }

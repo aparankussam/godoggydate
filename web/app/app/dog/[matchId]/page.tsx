@@ -20,12 +20,16 @@ import { breedConfidencePhrase } from '../../../../lib/vibeCheck';
 import VibeTypeCard from '../../../../components/VibeTypeCard';
 import ReportProfileMenu from '../../../../components/ReportProfileMenu';
 import { foundingBadgeLabel } from '../../../../../shared/founding';
+import { otherUserIdFromMatchId } from '../../../../../shared/playdates';
 import SignInGate from '../../../../components/SignInGate';
 
 interface MatchDoc {
   dog1UserId: string;
   dog2UserId: string;
 }
+
+/** Why there is no profile to show. 'left' is the one that says why. */
+type Unavailable = 'left' | 'unavailable' | 'error';
 
 export default function MatchedDogProfilePage() {
   const params = useParams<{ matchId: string }>();
@@ -36,7 +40,7 @@ export default function MatchedDogProfilePage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFoundOrDenied, setNotFoundOrDenied] = useState(false);
+  const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [otherUid, setOtherUid] = useState<string | null>(null);
 
@@ -54,15 +58,40 @@ export default function MatchedDogProfilePage() {
 
     (async () => {
       const { db } = getFirebase();
+      // The match is gone or unreadable (the rules answer permission-denied for
+      // both). The match id names both people, so look the other one up: no dog
+      // profile means they left; a profile that is still there means the match
+      // was removed some other way.
+      async function explainMissing(): Promise<Unavailable> {
+        const otherId = otherUserIdFromMatchId(matchId, authUser!.uid);
+        if (!otherId) return 'unavailable';
+        try {
+          const dog = await getDoc(doc(db, 'dogs', otherId));
+          return dog.exists() ? 'unavailable' : 'left';
+        } catch {
+          return 'unavailable';
+        }
+      }
       try {
-        const matchSnap = await getDoc(doc(db, 'matches', matchId));
+        let matchSnap;
+        try {
+          matchSnap = await getDoc(doc(db, 'matches', matchId));
+        } catch (error) {
+          if ((error as { code?: string }).code === 'permission-denied') {
+            const why = await explainMissing();
+            if (!cancelled) { setUnavailable(why); setLoading(false); }
+            return;
+          }
+          throw error;
+        }
         if (!matchSnap.exists()) {
-          if (!cancelled) { setNotFoundOrDenied(true); setLoading(false); }
+          const why = await explainMissing();
+          if (!cancelled) { setUnavailable(why); setLoading(false); }
           return;
         }
         const match = matchSnap.data() as MatchDoc;
         if (match.dog1UserId !== authUser.uid && match.dog2UserId !== authUser.uid) {
-          if (!cancelled) { setNotFoundOrDenied(true); setLoading(false); }
+          if (!cancelled) { setUnavailable('unavailable'); setLoading(false); }
           return;
         }
         const otherUserId = match.dog1UserId === authUser.uid ? match.dog2UserId : match.dog1UserId;
@@ -76,12 +105,13 @@ export default function MatchedDogProfilePage() {
             const hero = resolveHeroIndex(data);
             setActivePhoto(typeof hero === 'number' && hero >= 0 && hero < realPhotos.length ? hero : 0);
           } else {
-            setNotFoundOrDenied(true);
+            // The match is still here but their profile is gone: they left.
+            setUnavailable('left');
           }
           setLoading(false);
         }
       } catch {
-        if (!cancelled) { setNotFoundOrDenied(true); setLoading(false); }
+        if (!cancelled) { setUnavailable('error'); setLoading(false); }
       }
     })();
 
@@ -105,11 +135,26 @@ export default function MatchedDogProfilePage() {
     );
   }
 
-  if (notFoundOrDenied || !profile) {
+  if (unavailable === 'left') {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
+        <span className="text-5xl" aria-hidden="true">👋</span>
+        <h1 className="font-display text-2xl text-brown">This dog parent has left GoDoggyDate</h1>
+        <p className="max-w-xs text-sm leading-relaxed text-brown-light">
+          They’re no longer on GoDoggyDate, so this profile isn’t available any more.
+        </p>
+        <Link href="/app/matches" className="btn-primary px-8 py-3">Back to Matches</Link>
+      </div>
+    );
+  }
+
+  if (unavailable !== null || !profile) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
         <span className="text-4xl">😕</span>
-        <p className="font-display text-2xl text-brown">Couldn&apos;t load this profile</p>
+        <p className="font-display text-2xl text-brown">
+          {unavailable === 'error' || unavailable === null ? 'Couldn’t load this profile' : 'This profile isn’t available'}
+        </p>
         <Link href="/app/matches" className="btn-primary px-8 py-3">Back to Matches</Link>
       </div>
     );

@@ -64,8 +64,8 @@ export default function DogtypeIndexPage() {
 
       <p className="mt-8 text-center text-sm text-brown-mid">
         Don’t know your dog’s type yet?{' '}
-        <Link href="/app" className="font-bold text-primary underline underline-offset-2">
-          Find it on GoDoggyDate →
+        <Link href="/quiz?ref=dogtype" className="font-bold text-primary underline underline-offset-2">
+          Take the 90-second quiz →
         </Link>
       </p>
     </main>

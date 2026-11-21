@@ -46,7 +46,6 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
   const yearsLabel = read.ageYears === 0
     ? 'Under a year old'
     : `${read.ageYears} year${read.ageYears === 1 ? '' : 's'} old`;
-  const remaining = Math.round(read.cohortYearsRemaining);
 
   return (
     <section className="card rounded-[1.8rem] overflow-hidden">
@@ -76,15 +75,15 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
           </div>
           {read.outlivedCohort ? (
             <p className="mt-1.5 text-[11px] text-brown-light leading-snug">
-              Dogs {name}&apos;s size live about {read.cohortLifespan} years on average — and{' '}
+              Dogs of {name}&apos;s size live about {read.cohortLifespan} years on average — and{' '}
               <span className="font-semibold text-brown-mid">{name} is already living past it</span>. Every
               extra day is a gift. Keep them comfortable and keep the walks coming.
             </p>
           ) : (
             <p className="mt-1.5 text-[11px] text-brown-light leading-snug">
-              Dogs {name}&apos;s size live about {read.cohortLifespan} years on average — so, as a cohort, roughly{' '}
-              <span className="font-semibold text-brown-mid">{remaining} more year{remaining === 1 ? '' : 's'}</span>{' '}
-              of walks together. An average, not a prediction.
+              Dogs of {name}&apos;s size live about {read.cohortLifespan} years on average. That&apos;s a
+              cohort average, not a prediction about {name} — it&apos;s here to show the stage they&apos;re in,
+              not to count anything down.
             </p>
           )}
         </div>

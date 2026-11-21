@@ -3,14 +3,25 @@ import assert from 'node:assert/strict';
 
 import {
   PACK_DAY_LIMITS,
+  PACK_DAY_START_WINDOW_MESSAGE,
   buildPackDayIcs,
   foldIcsLine,
   formatPackDayWhen,
+  goingSummary,
   isPast,
   mapsSearchUrl,
+  packDayStartTimeProblem,
+  packDayStartTimes,
   spotsLeft,
   type PackDay,
 } from './packDay.ts';
+// The server's copy of the start window (the functions package can't import shared/).
+import {
+  EARLIEST_START_MINUTES,
+  LATEST_START_MINUTES,
+  START_WINDOW_MESSAGE,
+  isStartTimeAllowed,
+} from '../firebase/functions/src/packDayWindow.ts';
 
 function event(over: Partial<PackDay> = {}): PackDay {
   return {
@@ -120,4 +131,53 @@ test('buildPackDayIcs folds a maximum-length title and rolls DTEND past midnight
 test('buildPackDayIcs refuses malformed stored dates', () => {
   assert.equal(buildPackDayIcs(event({ localDate: 'nope' }), 'u'), null);
   assert.equal(buildPackDayIcs(event({ localTime: '' }), 'u'), null);
+});
+
+test('start times: 6:00 AM to 9:45 PM in 15-minute steps, same as the iPhone chips', () => {
+  const times = packDayStartTimes();
+  assert.equal(times.length, 64); // 16 hours x 4
+  assert.deepEqual(times[0], { value: '06:00', label: '6:00 AM' });
+  assert.deepEqual(times[times.length - 1], { value: '21:45', label: '9:45 PM' });
+  assert.ok(times.some((t) => t.value === '12:00' && t.label === '12:00 PM'));
+  assert.ok(times.some((t) => t.value === '09:15' && t.label === '9:15 AM'));
+  assert.equal(new Set(times.map((t) => t.value)).size, times.length);
+});
+
+test('packDayStartTimeProblem refuses the small hours and late nights, and non-times', () => {
+  assert.equal(packDayStartTimeProblem('06:00'), null);
+  assert.equal(packDayStartTimeProblem('09:30'), null);
+  assert.equal(packDayStartTimeProblem('21:45'), null);
+  assert.equal(packDayStartTimeProblem('05:59'), PACK_DAY_START_WINDOW_MESSAGE);
+  assert.equal(packDayStartTimeProblem('03:00'), PACK_DAY_START_WINDOW_MESSAGE); // a 3 AM event
+  assert.equal(packDayStartTimeProblem('00:00'), PACK_DAY_START_WINDOW_MESSAGE);
+  assert.equal(packDayStartTimeProblem('21:46'), PACK_DAY_START_WINDOW_MESSAGE);
+  assert.equal(packDayStartTimeProblem('23:59'), PACK_DAY_START_WINDOW_MESSAGE);
+  for (const bad of ['', '9:00', '24:00', '12:60', '9am', '09:00:00', ' 09:00', 'ab:cd']) {
+    assert.equal(packDayStartTimeProblem(bad), 'Pick a start time.', JSON.stringify(bad));
+  }
+});
+
+test('the server and the shared copy hold the same start window, minute for minute', () => {
+  assert.equal(EARLIEST_START_MINUTES, PACK_DAY_LIMITS.earliestStartMinutes);
+  assert.equal(LATEST_START_MINUTES, PACK_DAY_LIMITS.latestStartMinutes);
+  assert.equal(START_WINDOW_MESSAGE, PACK_DAY_START_WINDOW_MESSAGE);
+  for (let m = 0; m < 24 * 60; m += 1) {
+    const hhmm = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    assert.equal(isStartTimeAllowed(hhmm), packDayStartTimeProblem(hhmm) === null, hhmm);
+  }
+  assert.equal(isStartTimeAllowed(undefined), false);
+  assert.equal(isStartTimeAllowed(900), false);
+  assert.equal(isStartTimeAllowed('9:00'), false);
+});
+
+test('goingSummary: a cancelled event says Cancelled, not a head count', () => {
+  const base = { capacity: 8, attendeeUids: ['a', 'b', 'c'] };
+  assert.equal(goingSummary({ ...base, status: 'open' }), '3 of 8 dogs going');
+  assert.equal(goingSummary({ ...base, status: 'cancelled' }), 'Cancelled');
+  assert.equal(goingSummary({ capacity: 4, attendeeUids: ['a', 'b', 'c', 'd'], status: 'open' }), '4 of 4 dogs going · Full');
+  assert.equal(goingSummary({ capacity: 4, attendeeUids: ['a', 'b', 'c', 'd'], status: 'cancelled' }), 'Cancelled');
+  // The public flyer only has a count, never the list.
+  assert.equal(goingSummary({ capacity: 8, attendeeCount: 3, status: 'open' }), '3 of 8 dogs going');
+  assert.equal(goingSummary({ capacity: 8, attendeeCount: 3, status: 'cancelled' }), 'Cancelled');
+  assert.equal(goingSummary({ capacity: 8, attendeeCount: 8, status: 'open' }), '8 of 8 dogs going · Full');
 });

@@ -8,6 +8,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import BarkleGame from '../../components/BarkleGame';
+import SiteFooter from '../../components/SiteFooter';
 
 export const dynamic = 'force-static';
 
@@ -31,7 +32,7 @@ export default function BarklePage() {
       <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
-          <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Open the app</Link>
+          <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Sign up free</Link>
         </div>
       </nav>
 
@@ -49,13 +50,7 @@ export default function BarklePage() {
         <BarkleGame />
       </section>
 
-      <footer className="border-t border-border py-8">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-sm text-brown-light">
-            © {new Date().getFullYear()} GoDoggyDate · One breed a day, the same for everyone. Just for fun.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter note="One breed a day, the same for everyone. Just for fun." />
     </main>
   );
 }

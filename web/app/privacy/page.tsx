@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { absoluteUrl, defaultSocialImages } from '../../lib/site';
+import SiteFooter from '../../components/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | GoDoggyDate',
@@ -19,10 +20,12 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-cream px-6 py-10">
+    <main className="min-h-screen bg-cream">
+      <div className="px-6 py-10">
       <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Privacy</p>
         <h1 className="mt-3 font-display text-4xl text-brown">Privacy Policy</h1>
+        <p className="mt-2 text-xs text-brown-light">Last updated: November 2026</p>
         <div className="mt-6 space-y-4 text-sm leading-7 text-brown-light">
           <p>GoDoggyDate is operated by GoBots LLC, a Michigan limited liability company, and built to help dog owners find safer, more compatible local playdates.</p>
           <p><strong className="text-brown">What we collect:</strong> your sign-in details (name, email address, and account ID from Google or Apple); your dog&apos;s profile and photos; your ZIP code and approximate location (rounded to about 1 km); swipes, matches, chat messages, ratings, reminders, and reports; push notification tokens; and how you use the site.</p>
@@ -33,6 +36,8 @@ export default function PrivacyPage() {
           <p>Questions about privacy, or requests to access or correct your data, can be sent to <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-primary underline underline-offset-2">godoggydate@gobotsai.com</a>.</p>
         </div>
       </div>
+      </div>
+      <SiteFooter />
     </main>
   );
 }

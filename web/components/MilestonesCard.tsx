@@ -10,7 +10,7 @@ import type { SavedDogProfile } from '../lib/auth';
 import { computeMilestones, type Milestone } from '../../shared/milestones';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
-import { toDogSlug } from '../lib/dogSlug';
+import { publicDogUrl } from '../lib/dogSlug';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -64,7 +64,7 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
     trackEvent('milestone_share_click', { kind: celebrating.kind });
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://godoggydate.com';
-      const publicUrl = `${origin}/d/${toDogSlug(dogName, userId)}`;
+      const publicUrl = publicDogUrl(origin, dogName, userId, savedProfile.publicPage);
       const result = await shareOrDownloadCard(
         cardRef.current,
         `${dogName.toLowerCase().replace(/\s+/g, '-')}-${celebrating.kind}.png`,

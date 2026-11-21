@@ -1,8 +1,9 @@
 'use client';
 // web/components/PlaydateRatingModal.tsx
-// The "Playdate Payout" — a post-game score screen that's secretly the
-// missing client half of the deployed trust-score engine (onRatingCreated
-// reads from the `ratings` collection this writes to).
+// The "Playdate Payout" — a post-game score screen. The rating is private: it is
+// stored in `ratings` (and folded into a server-side score by onRatingCreated),
+// and no screen shows anyone's rating or score to another member. Keep the copy
+// in step with that; do not promise a visible trust score.
 
 import { useState } from 'react';
 
@@ -41,7 +42,7 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
         <p className="text-center text-4xl mb-2" aria-hidden="true">🎾</p>
         <h3 className="text-center font-display text-2xl text-brown">How did it go with {dogName}?</h3>
         <p className="text-center text-sm text-brown-light mt-1">
-          This feeds the trust score every other dog parent sees.
+          Your rating is private. It helps us notice problems and keep playdates safe.
         </p>
 
         <div className="mt-6 flex justify-center gap-2">

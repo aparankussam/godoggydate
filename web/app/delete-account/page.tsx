@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { absoluteUrl, defaultSocialImages } from '../../lib/site';
+import SiteFooter from '../../components/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'Delete Your Account | GoDoggyDate',
@@ -18,7 +19,8 @@ export const metadata: Metadata = {
 
 export default function DeleteAccountPage() {
   return (
-    <main className="min-h-screen bg-cream px-6 py-10">
+    <main className="min-h-screen bg-cream">
+      <div className="px-6 py-10">
       <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Account</p>
         <h1 className="mt-3 font-display text-4xl text-brown">Delete your account</h1>
@@ -30,6 +32,8 @@ export default function DeleteAccountPage() {
           <p>If you bought Founding Member in the last 14 days and want a refund, email us before deleting your account.</p>
         </div>
       </div>
+      </div>
+      <SiteFooter />
     </main>
   );
 }

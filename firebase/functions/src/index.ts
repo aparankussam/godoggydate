@@ -8,10 +8,22 @@ import { makePackDayFunctions } from './packDay';
 import {
   MODERATED_MESSAGE_TEXT,
   checkMessageContent,
+  dogPhotoFixes,
   dogProfileContentFixes,
   isSafeDocId,
   moderationNoticeFor,
 } from './moderation';
+import {
+  FOUNDING_FREE_SPOTS,
+  FOUNDING_PRICE_CENTS,
+  FOUNDING_TOTAL,
+  classifyFoundingCheckout,
+  foundingProfileGaps,
+  formatUsdCents,
+} from './founding';
+import { isOwnStoragePhotoUrl } from './photoUrl';
+import type { PhotoUrlPolicy } from './photoUrl';
+import { deleteUserData } from './accountCleanup';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -22,18 +34,19 @@ const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 const opsAlertWebhookUrl = defineSecret('OPS_ALERT_WEBHOOK_URL');
 
 // Founding Member lifetime tier — checkout sessions below this amount never
-// grant the entitlement ($39.00).
-const FOUNDING_MEMBER_MIN_CENTS = 3900;
+// grant the entitlement ($39.00). Mirrored from shared/founding.ts (./founding).
+const FOUNDING_MEMBER_MIN_CENTS = FOUNDING_PRICE_CENTS;
 
-// The founding ladder (mirrors shared/founding.ts, which this package can't
-// import): #1–50 are free and handed out by onDogProfileCreated, #51–150 are
-// numbered by the Stripe webhook as each $39 payment lands, and then founding
-// closes. Both draw from the one counters/foundingPack counter, which only
-// counts up, so a number is never handed out twice (a refunded number stays
-// retired). Change these together with shared/founding.ts and the payment
-// limit on the Stripe Payment Link (FOUNDING_TOTAL_CAP - FOUNDING_FREE_CAP).
-const FOUNDING_FREE_CAP = 50;
-const FOUNDING_TOTAL_CAP = 150;
+// The founding ladder (./founding is a copy of shared/founding.ts): #1–50 are
+// free and handed out by onDogProfileFounding to the first finished profiles,
+// #51–150 are numbered by the Stripe webhook as each $39 payment lands, and
+// then founding closes. Both draw from the one counters/foundingPack counter,
+// which only counts up, so a number is never handed out twice (a refunded
+// number stays retired). Change the numbers in shared/founding.ts (and copy it
+// to ./founding.ts) together with the payment limit on the Stripe Payment Link
+// (FOUNDING_TOTAL_CAP - FOUNDING_FREE_CAP).
+const FOUNDING_FREE_CAP = FOUNDING_FREE_SPOTS;
+const FOUNDING_TOTAL_CAP = FOUNDING_TOTAL;
 
 type MatchData = FirebaseFirestore.DocumentData & {
   dog1UserId?: string;
@@ -106,6 +119,136 @@ async function sendOpsAlert(text: string): Promise<void> {
     if (!response.ok) console.error('sendOpsAlert: webhook rejected', { status: response.status });
   } catch (error) {
     console.error('sendOpsAlert: webhook failed', { error });
+  }
+}
+
+// ── Alert throttling ───────────────────────────────────────────────────────────
+// One account can fire a trigger as often as it likes (50 reports took 113 ms),
+// and every run used to page a human. A throttle lets the first few alerts for
+// a scope through each hour, sends ONE summary when the limit is hit, and keeps
+// the rest quiet. What is being alerted about is always still stored (reports/,
+// moderationLog/, safetyEvidence/), so a suppressed alert loses nothing.
+//
+// Slots are documents created with create(), which fails if the id exists. That
+// needs no transaction, so a burst of concurrent triggers never contends on a
+// single counter. Windows are fixed clock hours, not sliding ones. The docs
+// carry expireAt: set a Firestore TTL policy on opsThrottle.expireAt to clear
+// them (see PRODUCTION-LAUNCH-CHECKS.md); they are tiny, so it is optional.
+const THROTTLE_WINDOW_MS = 60 * 60 * 1000;
+
+/** A short, document-id-safe key for ids and text that came from a client. */
+function throttleKey(...parts: string[]): string {
+  return crypto.createHash('sha256').update(parts.join('\u0000')).digest('hex').slice(0, 32);
+}
+
+function isAlreadyExists(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code ?? '')
+    : '';
+  return code === '6' || code === 'already-exists';
+}
+
+interface ThrottleClaim {
+  /** True when the caller is inside the limit and should alert. */
+  allowed: boolean;
+  /** True for exactly one caller per window, the first one past the limit. */
+  firstOverflow: boolean;
+}
+
+/** Claims one of `limit` slots for `scope` in the current window. */
+async function claimThrottleSlot(scope: string, limit: number, windowMs = THROTTLE_WINDOW_MS): Promise<ThrottleClaim> {
+  const bucket = Math.floor(Date.now() / windowMs);
+  const expireAt = Timestamp.fromMillis((bucket + 2) * windowMs);
+  const claim = async (id: string): Promise<boolean> => {
+    try {
+      await db.doc(`opsThrottle/${id}`).create({ scope, at: FieldValue.serverTimestamp(), expireAt });
+      return true;
+    } catch (error) {
+      if (isAlreadyExists(error)) return false;
+      throw error;
+    }
+  };
+  try {
+    for (let slot = 0; slot < limit; slot += 1) {
+      if (await claim(`${scope}_${bucket}_${slot}`)) return { allowed: true, firstOverflow: false };
+    }
+    return { allowed: false, firstOverflow: await claim(`${scope}_${bucket}_over`) };
+  } catch (error) {
+    // A broken throttle must never swallow an alert: over-alert instead.
+    console.error('claimThrottleSlot failed, letting the alert through', { scope, error });
+    return { allowed: true, firstOverflow: false };
+  }
+}
+
+type ThrottledAlertOutcome = 'sent' | 'summary' | 'suppressed';
+
+/**
+ * sendOpsAlert with a per-scope limit per hour. `summary` goes out once when
+ * the limit is first exceeded and should say that further alerts are held back.
+ */
+async function sendThrottledOpsAlert(
+  scope: string,
+  limit: number,
+  text: string,
+  summary: string,
+): Promise<ThrottledAlertOutcome> {
+  const claim = await claimThrottleSlot(scope, limit);
+  if (claim.allowed) {
+    await sendOpsAlert(text);
+    return 'sent';
+  }
+  if (claim.firstOverflow) {
+    await sendOpsAlert(summary);
+    return 'summary';
+  }
+  console.warn('[ops-alert suppressed]', text);
+  return 'suppressed';
+}
+
+// ── Where a dog photo may come from ───────────────────────────────────────────
+// Only this project's Storage buckets. The configured bucket plus both default
+// names (`<project>.appspot.com` and `<project>.firebasestorage.app`), because
+// which one a project has depends on when it was created (GDD_PHOTO_BUCKETS adds
+// others). The emulator's http://127.0.0.1:9199/ URLs count only while running
+// in the emulator.
+function photoUrlPolicy(): PhotoUrlPolicy {
+  const buckets = new Set<string>();
+  const projectId = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? '';
+  if (projectId) {
+    buckets.add(`${projectId}.appspot.com`);
+    buckets.add(`${projectId}.firebasestorage.app`);
+  }
+  try {
+    const configured = admin.app().options.storageBucket;
+    if (configured) buckets.add(configured);
+  } catch {
+    // No default app options: the project-id names above still apply.
+  }
+  // Escape hatch for photos kept in a bucket that is not the project's default
+  // one (comma-separated names, in firebase/functions/.env). Without it such
+  // photos would be dropped on the next profile write.
+  for (const extra of (process.env.GDD_PHOTO_BUCKETS ?? '').split(',')) {
+    if (extra.trim()) buckets.add(extra.trim());
+  }
+  const allowEmulator = process.env.FUNCTIONS_EMULATOR === 'true';
+  const emulatorPort = Number(process.env.FIREBASE_STORAGE_EMULATOR_HOST?.split(':').pop()) || 9199;
+  return { buckets: [...buckets], allowEmulator, emulatorPort };
+}
+
+/**
+ * False only when Auth positively says the user is gone or banned (disabled by
+ * scripts/admin-ban-user.cjs); any other failure throws rather than guessing.
+ */
+async function authUserIsActive(uid: string): Promise<boolean> {
+  try {
+    const user = await admin.auth().getUser(uid);
+    return user.disabled !== true;
+  } catch (error) {
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code ?? '')
+      : '';
+    if (code === 'auth/user-not-found') return false;
+    throw error;
   }
 }
 
@@ -264,6 +407,7 @@ type PaidFoundingOutcome =
   | 'granted'            // new paid member with a number
   | 'granted_unnumbered' // paid after #150 was taken: member, but no number left
   | 'already_member'     // already a Founding Member: nothing changed, refund by hand
+  | 'account_missing'    // the buyer's account no longer exists: nothing granted, refund by hand
   | 'replayed';          // this checkout session was already processed
 
 interface PaidFoundingResult {
@@ -283,6 +427,12 @@ async function grantPaidFoundingMember(
   session: Stripe.Checkout.Session,
   paymentIntentId: string,
 ): Promise<PaidFoundingResult> {
+  // A purchase for an account that has since been deleted (or banned) must not
+  // create an entitlement (and spend a number) for nobody: the caller turns this
+  // into an orphaned-payment alert for a manual refund.
+  if (!(await authUserIsActive(uid))) {
+    return { outcome: 'account_missing', foundingNumber: null, boughtDuringFreeSpots: false };
+  }
   const entitlementRef = db.doc(`users/${uid}/private/entitlements`);
   const dogRef = db.doc(`dogs/${uid}`);
   const counterRef = db.doc('counters/foundingPack');
@@ -332,7 +482,7 @@ async function grantPaidFoundingMember(
       foundingNumber = count + 1;
       boughtDuringFreeSpots = count < FOUNDING_FREE_CAP;
       tx.set(counterRef, { count: foundingNumber }, { merge: true });
-      // No dog profile yet: onDogProfileCreated copies the number across when
+      // No dog profile yet: onDogProfileFounding copies the number across when
       // they make one. Writing here would create a half-empty dog doc.
       if (dogSnap.exists) tx.set(dogRef, { foundingPackNumber: foundingNumber }, { merge: true });
     }
@@ -380,6 +530,10 @@ async function revokePaidFoundingMember(
 
     tx.set(paymentRef, { status: reason, updatedAt: now }, { merge: true });
 
+    // The account was deleted (deleteAccount removes users/{uid}) before this
+    // refund or dispute arrived: the payment record above is all that is left to
+    // update. Writing the entitlement would recreate an orphan doc for nobody.
+    if (!entSnap.exists) return;
     if (duplicatePurchase || ent.foundingFree === true) return;
     // A refund of an older payment must not end a membership a newer one bought.
     if (typeof ent.paymentIntentId === 'string' && ent.paymentIntentId !== paymentIntentId) return;
@@ -531,25 +685,91 @@ export const stripeWebhook = functions
             }
 
             if (paymentData.matchId && paymentData.userId && paymentData.unlockField) {
-              await upsertMatchUnlockState(
-                paymentData.matchId,
-                paymentData.userId,
-                paymentData.unlockField,
-                false,
-                event.type === 'charge.refunded' ? 'refunded' : 'disputed',
-                paymentIntentId,
-                {
-                  amountRefunded: charge.amount_refunded ?? 0,
-                  disputeId: event.type === 'charge.dispute.created' ? event.id : null,
-                  refundEventId: event.type === 'charge.refunded' ? event.id : null,
-                },
-              );
+              // deleteAccount removes the matches of a leaving user, so a refund
+              // that arrives afterwards has no match to relock. That is not an
+              // error (a 500 would make Stripe retry for days): the payment record
+              // is all that is left to mark.
+              const matchStillExists = (await db.doc(`matches/${paymentData.matchId}`).get()).exists;
+              if (matchStillExists) {
+                await upsertMatchUnlockState(
+                  paymentData.matchId,
+                  paymentData.userId,
+                  paymentData.unlockField,
+                  false,
+                  event.type === 'charge.refunded' ? 'refunded' : 'disputed',
+                  paymentIntentId,
+                  {
+                    amountRefunded: charge.amount_refunded ?? 0,
+                    disputeId: event.type === 'charge.dispute.created' ? event.id : null,
+                    refundEventId: event.type === 'charge.refunded' ? event.id : null,
+                  },
+                );
+              } else {
+                await db.doc(`payments/${paymentIntentId}`).set({
+                  status: event.type === 'charge.refunded' ? 'refunded' : 'disputed',
+                  updatedAt: FieldValue.serverTimestamp(),
+                  matchGone: true,
+                }, { merge: true });
+              }
             }
           }
         }
 
         await finalizeStripeEvent(event.id, 'processed', {
           paymentIntentId,
+        });
+        res.json({ received: true });
+        return;
+      }
+
+      // A dispute ends one of two ways. charge.dispute.created already took the
+      // access away, so a LOST dispute only has to make sure that stuck, while a
+      // WON dispute is the owner's call: the member did pay in the end, but the
+      // number was retired when the dispute opened, so nothing is given back
+      // automatically. Both are recorded on the payment and, for a Founding
+      // Member purchase, put in front of a human.
+      if (event.type === 'charge.dispute.closed') {
+        const dispute = event.data.object as Stripe.Dispute;
+        const paymentIntentId =
+          typeof dispute.payment_intent === 'string' ? dispute.payment_intent : '';
+        const outcome = dispute.status === 'won' || dispute.status === 'lost' ? dispute.status : 'other';
+
+        if (paymentIntentId) {
+          const paymentRef = db.doc(`payments/${paymentIntentId}`);
+          const paymentSnap = await paymentRef.get();
+          if (paymentSnap.exists) {
+            const paymentData = paymentSnap.data() as StoredPaymentDoc & { type?: string; duplicate?: boolean };
+            await paymentRef.set({
+              disputeStatus: dispute.status,
+              disputeId: dispute.id,
+              disputeClosedAt: FieldValue.serverTimestamp(),
+            }, { merge: true });
+
+            if (paymentData.type === 'founding_member' && paymentData.userId) {
+              if (outcome === 'lost') {
+                // Idempotent: a no-op if the dispute opening already revoked it.
+                await revokePaidFoundingMember(
+                  paymentData.userId,
+                  paymentIntentId,
+                  'disputed',
+                  paymentData.duplicate === true,
+                );
+              } else if (outcome === 'won') {
+                await sendOpsAlert(
+                  `Founding Member dispute WON: payment ${paymentIntentId}, dispute ${dispute.id}, user ${paymentData.userId}. ` +
+                  'The membership was revoked and its number retired when the dispute opened, and it stays revoked. ' +
+                  'If you want them back, grant it by hand.',
+                );
+              }
+            }
+          }
+        }
+
+        console.log('Stripe dispute closed', { disputeId: dispute.id, status: dispute.status, paymentIntentId });
+        await finalizeStripeEvent(event.id, 'processed', {
+          paymentIntentId,
+          disputeId: dispute.id,
+          disputeStatus: dispute.status,
         });
         res.json({ received: true });
         return;
@@ -589,23 +809,35 @@ export const stripeWebhook = functions
         // Founding Member lifetime purchase via a Stripe Payment Link.
         // The marketing site appends ?client_reference_id=<uid> to the link,
         // so the session carries the purchasing user's Firebase uid.
-        // Guards: must actually be paid, and must be at least the Founding
-        // Member price — a cheaper product on this Stripe account must never
-        // grant the entitlement. Subtotal, not total, so a promo code the owner
-        // handed out still grants what the buyer was promised.
+        // Guards (classifyFoundingCheckout, in ./founding): must actually be
+        // paid, and must be at least the Founding Member price — a cheaper
+        // product on this Stripe account must never grant the entitlement.
+        // Subtotal, not total, so a promo code the owner handed out still
+        // grants what the buyer was promised; but a 100%-off session (nothing
+        // charged) never spends a number.
         const uid = session.client_reference_id;
-        const paidEnough =
-          session.payment_status === 'paid' &&
-          (session.amount_subtotal ?? 0) >= FOUNDING_MEMBER_MIN_CENTS &&
-          session.currency === 'usd';
+        const verdict = classifyFoundingCheckout({
+          paymentStatus: session.payment_status,
+          amountSubtotal: session.amount_subtotal,
+          amountTotal: session.amount_total,
+          currency: session.currency,
+        });
+        const paidEnough = verdict.grants;
         const paymentIntentId =
           typeof session.payment_intent === 'string' ? session.payment_intent : '';
+        let granted = false;
 
         if (uid && paidEnough) {
           const result = await grantPaidFoundingMember(uid, session, paymentIntentId);
+          granted = result.outcome !== 'account_missing';
           // The buyer has a Stripe receipt either way, so anything other than a
           // clean grant goes to a human.
-          if (result.outcome === 'already_member') {
+          if (result.outcome === 'account_missing') {
+            await sendOpsAlert(
+              `Founding Member bought by an account that no longer exists or is banned: session ${session.id}. ` +
+              'Nothing was granted and no number was used. Refund this payment by hand.',
+            );
+          } else if (result.outcome === 'already_member') {
             await sendOpsAlert(
               `Founding Member bought by someone who already is one: session ${session.id}. ` +
               'Their membership is unchanged. Refund this payment by hand.',
@@ -621,11 +853,30 @@ export const stripeWebhook = functions
               `session ${session.id}. Refund it by hand if you want; a refund ends the membership and retires the number.`,
             );
           }
+          // One account holds one membership, so a raised quantity ($78 for two)
+          // grants one. The rest of the money needs a human decision.
+          if (granted && result.outcome !== 'replayed' && verdict.quantity > 1) {
+            await sendOpsAlert(
+              `Founding Member checkout paid for ${verdict.quantity} memberships (${formatUsdCents(session.amount_subtotal)} before discounts, ` +
+              `${formatUsdCents(session.amount_total)} charged): session ${session.id}. ` +
+              'One account can hold only one, so one membership was granted. Refund the extra by hand.',
+            );
+          }
+        }
+
+        // A 100%-off checkout took no money: no membership, no number. Tell a
+        // human in case the owner meant to give it away (then grant it by hand).
+        if (verdict.reason === 'zero_amount') {
+          await sendOpsAlert(
+            `Founding Member checkout with nothing charged (100% off): session ${session.id}, ` +
+            `client reference ${uid ? 'present' : 'missing'}. No membership was granted and no number was used. ` +
+            'If you meant to give this person Founding Member, grant it by hand.',
+          );
         }
 
         // Money was taken but nothing was granted: keep a server-only record and
         // tell a human, since the buyer sees a successful Stripe receipt.
-        if (session.payment_status === 'paid' && !(uid && paidEnough)) {
+        if (session.payment_status === 'paid' && !granted && verdict.reason !== 'zero_amount') {
           await db.doc(`orphanedPayments/${session.id}`).set({
             checkoutSessionId: session.id,
             paymentIntentId: paymentIntentId || null,
@@ -641,10 +892,12 @@ export const stripeWebhook = functions
           );
         }
 
-        await finalizeStripeEvent(event.id, uid && paidEnough ? 'processed' : 'ignored', {
+        await finalizeStripeEvent(event.id, granted ? 'processed' : 'ignored', {
           checkoutSessionId: session.id,
           hasClientReference: Boolean(uid),
           paidEnough,
+          verdict: verdict.reason,
+          quantity: verdict.quantity,
         });
         res.json({ received: true });
         return;
@@ -774,110 +1027,98 @@ export const onRatingCreated = functions.firestore
 // Deletes all of the caller's data, then the auth user itself. Client signs
 // the user out after this resolves. Matches the user participates in are
 // removed (including message subcollections) so the counterpart doesn't see
-// a ghost thread.
+// a ghost thread. The data cleanup itself lives in ./accountCleanup, shared
+// with scripts/admin-delete-user.cjs.
+//
+// Not done here, because it needs credentials this project doesn't hold yet:
+// revoking the person's Sign in with Apple token (App Store guideline 5.1.1(v)).
+// See "Apple token revocation" in PRODUCTION-LAUNCH-CHECKS.md.
+
+/**
+ * Cancels the person's Stripe subscriptions (goDoggyDate Pro) so deleting the
+ * account stops the billing. Best effort and quiet when there is nothing to
+ * cancel or Stripe isn't configured; a subscription that could not be
+ * cancelled goes to the ops channel, because the person would keep paying.
+ */
+async function cancelStripeSubscriptionsForUser(uid: string): Promise<void> {
+  const entitlements = (await db.doc(`users/${uid}/private/entitlements`).get()).data();
+  const pro = (entitlements?.pro ?? {}) as { stripeSubscriptionId?: unknown; stripeCustomerId?: unknown };
+  const subscriptionId = typeof pro.stripeSubscriptionId === 'string' ? pro.stripeSubscriptionId : '';
+  const customerId = typeof pro.stripeCustomerId === 'string' ? pro.stripeCustomerId : '';
+  if (!subscriptionId && !customerId) return;
+
+  const key = stripeSecretKey.value();
+  if (!key) return; // Stripe isn't configured on this deployment
+
+  // Short timeout, no retries: this must never hold up a deletion.
+  const stripe = new Stripe(key, { apiVersion: '2024-04-10', timeout: 15_000, maxNetworkRetries: 0 });
+  const failed: string[] = [];
+  try {
+    const ids = new Set<string>();
+    if (subscriptionId) ids.add(subscriptionId);
+    if (customerId) {
+      const listed = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 20 });
+      for (const sub of listed.data) {
+        if (sub.status !== 'canceled' && sub.status !== 'incomplete_expired') ids.add(sub.id);
+      }
+    }
+    for (const id of ids) {
+      try {
+        await stripe.subscriptions.cancel(id);
+      } catch (error) {
+        // Already gone or already cancelled: nothing left to stop.
+        const code = (error as { code?: string } | null)?.code;
+        if (code !== 'resource_missing') failed.push(id);
+        console.error('deleteAccount: could not cancel Stripe subscription', { uid, id, error });
+      }
+    }
+  } catch (error) {
+    console.error('deleteAccount: could not look up Stripe subscriptions', { uid, customerId, error });
+    if (subscriptionId) failed.push(subscriptionId);
+    else failed.push(`customer ${customerId}`);
+  }
+  if (failed.length > 0) {
+    await sendOpsAlert(
+      `A deleted account still has a Stripe subscription: user ${uid}, ${failed.join(', ')}. ` +
+      'Cancel it in the Stripe dashboard so they are not billed.',
+    );
+  }
+}
 
 export const deleteAccount = functions
-  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .runWith({ timeoutSeconds: 300, memory: '512MB', secrets: [stripeSecretKey, opsAlertWebhookUrl] })
   .https.onCall(async (_data, context) => {
     const uid = context.auth?.uid;
     if (!uid) {
       throw new functions.https.HttpsError('unauthenticated', 'Sign in to delete your account.');
     }
 
-    // Matches in every participant slot, including legacy userAId/userBId docs.
-    const matchQueries = await Promise.all([
-      db.collection('matches').where('dog1UserId', '==', uid).get(),
-      db.collection('matches').where('dog2UserId', '==', uid).get(),
-      db.collection('matches').where('userAId', '==', uid).get(),
-      db.collection('matches').where('userBId', '==', uid).get(),
-    ]);
-    const matchRefs = new Map<string, FirebaseFirestore.DocumentReference>();
-    for (const snap of matchQueries) {
-      for (const d of snap.docs) matchRefs.set(d.id, d.ref);
-    }
-    for (const ref of matchRefs.values()) {
-      await db.recursiveDelete(ref);
-    }
-
-    // Other users' swipe decisions that target this user (collection-group;
-    // requires the decisions.targetUserId COLLECTION_GROUP index).
+    // First, so no device can mint a fresh ID token while the data goes. A token
+    // already issued stays valid for up to an hour (Firebase can't recall it),
+    // which is why onDogProfileFounding also removes a dog doc written for a
+    // user that no longer exists.
     try {
-      const targeting = await db
-        .collectionGroup('decisions')
-        .where('targetUserId', '==', uid)
-        .get();
-      const batch = db.batch();
-      targeting.docs.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
+      await admin.auth().revokeRefreshTokens(uid);
     } catch (error) {
-      // Missing index must not strand the rest of the deletion.
-      console.error('deleteAccount: could not delete targeting decisions', { uid, error });
+      console.error('deleteAccount: could not revoke refresh tokens', { uid, error });
     }
 
-    // Ratings written by this user and reports they filed.
-    for (const [col, field] of [['ratings', 'raterId'], ['reports', 'reporterId']] as const) {
-      const snap = await db.collection(col).where(field, '==', uid).get();
-      const batch = db.batch();
-      snap.docs.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
-    }
-
-    await db.recursiveDelete(db.doc(`swipes/${uid}`));
-    await db.recursiveDelete(db.doc(`blocks/${uid}`));
-    await db.recursiveDelete(db.doc(`users/${uid}`));
-    // recursiveDelete, not delete(): a plain delete removed the dog document
-    // but ORPHANED its subcollections. dogs/{uid}/reminders holds medication,
-    // rabies and vet dates, and sendReminderNotifications would keep sweeping
-    // those orphans daily forever.
-    await db.recursiveDelete(db.doc(`dogs/${uid}`));
-
-    // Remove this user from every OTHER dog's household. Without this, a
-    // deleted user's uid and display label stay embedded in a third party's
-    // world-readable dog document indefinitely.
+    // Stop the billing before the entitlement record that names the
+    // subscription is deleted.
     try {
-      const households = await db
-        .collection('dogs')
-        .where('householdMemberIds', 'array-contains', uid)
-        .get();
-      for (const d of households.docs) {
-        await d.ref.update({
-          householdMemberIds: FieldValue.arrayRemove(uid),
-        });
-        await d.ref.collection('householdNames').doc(uid).delete().catch(() => {});
-      }
+      await cancelStripeSubscriptionsForUser(uid);
     } catch (error) {
-      // A missing index must not strand the rest of the deletion.
-      console.error('deleteAccount: could not clear household memberships', { uid, error });
+      console.error('deleteAccount: Stripe cleanup failed', { uid, error });
     }
 
-    // Invites this user created (they carry dogId + createdBy).
-    try {
-      const invites = await db.collection('householdInvites').where('createdBy', '==', uid).get();
-      const batch = db.batch();
-      invites.docs.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
-    } catch (error) {
-      console.error('deleteAccount: could not delete household invites', { uid, error });
-    }
-
-    // Pack Days they hosted (cancelled, attendees told) or joined.
-    try {
-      await packDay.cleanupPackDaysForUser(uid);
-    } catch (error) {
-      console.error('deleteAccount: could not clean up Pack Days', { uid, error });
-    }
-
-    // Uploaded images. Firestore deletion alone left every photo permanently
-    // fetchable: Storage download URLs carry their own ?alt=media&token=,
-    // which bypasses storage.rules entirely, so "delete my account" was
-    // leaving photographs public on the open internet.
-    for (const prefix of [`dogs/${uid}/`, `avatars/${uid}/`]) {
-      try {
-        await admin.storage().bucket().deleteFiles({ prefix });
-      } catch (error) {
-        console.error('deleteAccount: could not delete storage prefix', { uid, prefix, error });
-      }
-    }
+    await deleteUserData(
+      {
+        db,
+        bucket: admin.storage().bucket(),
+        cleanupPackDays: (id) => packDay.cleanupPackDaysForUser(id),
+      },
+      uid,
+    );
 
     // payments/matchUnlocks/stripeEvents are retained: financial records
     // needed for refund/dispute defense (legitimate-interest retention).
@@ -1185,6 +1426,15 @@ export const onMessageCreatedNotify = functions
 // ({ fields, reason, at }; see moderationNoticeFor), which both apps show and
 // delete on dismiss. It's owner-only: the dog doc is readable by every
 // signed-in user, so the notice can't go there.
+//
+// The same trigger also drops photo URLs that aren't this project's own Storage
+// files (dogPhotoFixes). photos[] is rendered on the public /d/ page and in the
+// server-made share image, so a URL on somebody else's host would make every
+// visitor's browser (and our server) fetch it. This is checked on every write,
+// not only when photos changed: it is a few string comparisons, and it cleans a
+// legacy document the first time anything touches it. Dropped URLs are kept in
+// moderationLog (kind dog_photo_url); the owner is not sent a notice, because
+// the notice's reasons are only slur, sexual and threat.
 export const onDogProfileWriteModerate = functions
   .runWith({ secrets: [opsAlertWebhookUrl] })
   .firestore.document('dogs/{uid}')
@@ -1192,7 +1442,14 @@ export const onDogProfileWriteModerate = functions
     if (!change.after.exists) return;
     const { uid } = context.params as { uid: string };
     const before = change.before.exists ? change.before.data() : undefined;
-    if (dogProfileContentFixes(before, change.after.data() ?? {}).problems.length === 0) return;
+    const policy = photoUrlPolicy();
+    const afterData = change.after.data() ?? {};
+    if (
+      dogProfileContentFixes(before, afterData).problems.length === 0 &&
+      dogPhotoFixes(afterData, policy) === null
+    ) {
+      return;
+    }
 
     // Re-check against the current doc inside a transaction, so an owner who
     // has already re-saved clean text (or edited a list since) keeps it.
@@ -1201,37 +1458,76 @@ export const onDogProfileWriteModerate = functions
     const applied = await db.runTransaction(async (tx) => {
       const fresh = await tx.get(ref);
       if (!fresh.exists) return null;
-      const fixes = dogProfileContentFixes(before, fresh.data() ?? {});
-      if (fixes.problems.length === 0) return null;
-      // A notice the owner hasn't dismissed yet is merged, not replaced.
-      const pending = await tx.get(noticeRef);
-      tx.update(ref, fixes.updates);
-      const logRef = db.collection('moderationLog').doc();
-      tx.set(logRef, {
-        kind: 'dog_profile',
-        uid,
-        problems: fixes.problems,
-        original: fixes.original,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      tx.set(noticeRef, {
-        ...moderationNoticeFor(fixes.problems, pending.exists ? pending.data() : undefined),
-        at: FieldValue.serverTimestamp(),
-      });
-      return { fixes, logPath: logRef.path };
+      const freshData = fresh.data() ?? {};
+      const fixes = dogProfileContentFixes(before, freshData);
+      const photoFix = dogPhotoFixes(freshData, policy);
+      if (fixes.problems.length === 0 && photoFix === null) return null;
+      // A notice the owner hasn't dismissed yet is merged, not replaced. (All
+      // reads come before the first write.)
+      const pending = fixes.problems.length > 0 ? await tx.get(noticeRef) : null;
+      tx.update(ref, { ...fixes.updates, ...(photoFix ? { photos: photoFix.photos } : {}) });
+      let contentLogPath: string | null = null;
+      if (fixes.problems.length > 0) {
+        const logRef = db.collection('moderationLog').doc();
+        contentLogPath = logRef.path;
+        tx.set(logRef, {
+          kind: 'dog_profile',
+          uid,
+          problems: fixes.problems,
+          original: fixes.original,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        tx.set(noticeRef, {
+          ...moderationNoticeFor(fixes.problems, pending?.exists ? pending.data() : undefined),
+          at: FieldValue.serverTimestamp(),
+        });
+      }
+      let photoLogPath: string | null = null;
+      if (photoFix) {
+        const logRef = db.collection('moderationLog').doc();
+        photoLogPath = logRef.path;
+        tx.set(logRef, {
+          kind: 'dog_photo_url',
+          uid,
+          dropped: photoFix.dropped,
+          keptCount: photoFix.photos.length,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+      return { fixes, photoFix, contentLogPath, photoLogPath };
     });
     if (!applied) return;
 
-    const summary = applied.fixes.problems.map((p) => `${p.field} (${p.reason})`).join(', ');
-    await sendOpsAlert(
-      `GoDoggyDate content filter cleared dog profile text: dog ${uid}, ${summary}. ` +
-      `Original in ${applied.logPath}. The owner was told (${noticeRef.path}). Check whether they need further action.`,
-    );
+    if (applied.contentLogPath) {
+      const summary = applied.fixes.problems.map((p) => `${p.field} (${p.reason})`).join(', ');
+      await sendOpsAlert(
+        `GoDoggyDate content filter cleared dog profile text: dog ${uid}, ${summary}. ` +
+        `Original in ${applied.contentLogPath}. The owner was told (${noticeRef.path}). Check whether they need further action.`,
+      );
+    }
+    if (applied.photoFix && applied.photoLogPath) {
+      // At most a few a day per dog: a profile that keeps writing foreign URLs
+      // is one account, and the log has every one of them.
+      await sendThrottledOpsAlert(
+        `dogphoto_${throttleKey(uid)}`,
+        3,
+        `GoDoggyDate removed ${applied.photoFix.dropped.length} photo URL(s) that are not this project's Storage files: dog ${uid}. ` +
+        `The URLs are in ${applied.photoLogPath}. Check whether the account is trying to point visitors at another site.`,
+        `GoDoggyDate keeps removing foreign photo URLs from dog ${uid}'s profile; further alerts for it are held back this hour. ` +
+        'Every removal is in moderationLog (kind "dog_photo_url").',
+      );
+    }
   });
 
 // ── Safety: reports and blocks ─────────────────────────────────────────────────
 
 const REPORT_EVIDENCE_MESSAGES = 50;
+
+// Report alerts are throttled (see "Alert throttling" above): a reporter can
+// page ops this many times an hour, and reporting the same person again within
+// the hour is a duplicate. Every report is still stored in reports/ and written
+// to moderationLog/report_<id>, whatever happens to its alert.
+const REPORT_ALERTS_PER_REPORTER_PER_HOUR = 5;
 
 // The parts of a Pack Day a moderator needs to judge a report about it. The
 // event doc is deleted when its host deletes their account, so this is copied
@@ -1276,6 +1572,46 @@ export const onReportCreated = functions
     // Both ids are client-written and go into document paths.
     const matchId = isSafeDocId(report.matchId) ? report.matchId : null;
     const eventId = isSafeDocId(report.eventId) ? report.eventId : null;
+
+    // Decide the alert first. The same reporter reporting the same person
+    // again within the hour is a duplicate and gets no alert of its own. The
+    // evidence snapshot below is still taken for every report: it is capped at
+    // REPORT_EVIDENCE_MESSAGES reads, and a later snapshot of an ongoing thread
+    // is exactly what a moderator may need.
+    const reporterKey = throttleKey('reporter', String(report.reporterId ?? ''));
+    const pairClaim = await claimThrottleSlot(
+      `reportpair_${throttleKey('pair', String(report.reporterId ?? ''), String(report.targetUserId ?? ''))}`,
+      1,
+    );
+    const reporterClaim = pairClaim.allowed
+      ? await claimThrottleSlot(`reporter_${reporterKey}`, REPORT_ALERTS_PER_REPORTER_PER_HOUR)
+      : null;
+    const alertDecision: 'alert' | 'summary' | 'suppressed_duplicate' | 'suppressed_cap' =
+      !pairClaim.allowed ? 'suppressed_duplicate'
+        : reporterClaim?.allowed ? 'alert'
+          : reporterClaim?.firstOverflow ? 'summary'
+            : 'suppressed_cap';
+
+    // Persist the report in moderationLog whatever happens to its alert, so
+    // "50 reports, 5 alerts" can always be reconciled.
+    const shorten = (value: unknown) => (typeof value === 'string' ? value.slice(0, 200) : null);
+    try {
+      await db.doc(`moderationLog/report_${reportId}`).set({
+        kind: 'report',
+        reportId,
+        uid: shorten(report.targetUserId),
+        reporterId: shorten(report.reporterId),
+        targetUserId: shorten(report.targetUserId),
+        matchId,
+        eventId,
+        reason: shorten(report.reason),
+        source: shorten(report.source),
+        alert: alertDecision,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('onReportCreated: moderationLog write failed', { reportId, error });
+    }
 
     const evidence: Record<string, unknown> = {};
     if (matchId) {
@@ -1327,12 +1663,30 @@ export const onReportCreated = functions
       ? ` To take the event down: node scripts/admin-remove-packday.cjs ${eventId} ` +
         '--reason "Broke the Pack Day rules" (dry run; add --confirm to apply).'
       : '';
-    await sendOpsAlert(
-      `GoDoggyDate report (${report.reason ?? 'no reason'}, source ${report.source ?? 'not given'}): ` +
-      `reporter ${report.reporterId}, target ${report.targetUserId}, ` +
-      `${where}, report ${reportId}, ` +
-      `evidence ${evidenceSaved ? 'saved' : 'NOT saved'}. Review within 24 hours.${takeDown}`,
-    );
+    if (alertDecision === 'alert') {
+      await sendOpsAlert(
+        `GoDoggyDate report (${report.reason ?? 'no reason'}, source ${report.source ?? 'not given'}): ` +
+        `reporter ${report.reporterId}, target ${report.targetUserId}, ` +
+        `${where}, report ${reportId}, ` +
+        `evidence ${evidenceSaved ? 'saved' : 'NOT saved'}. Please review.${takeDown}`,
+      );
+    } else if (alertDecision === 'summary') {
+      // The one summary per reporter per hour. The reports themselves are all
+      // saved, so nothing is lost, but a human should look at who is filing them.
+      await sendOpsAlert(
+        `GoDoggyDate report burst: reporter ${report.reporterId} has filed more than ` +
+        `${REPORT_ALERTS_PER_REPORTER_PER_HOUR} reports this hour (latest report ${reportId}, target ${report.targetUserId}). ` +
+        'Further report alerts from this reporter are held back until the next hour. Every report is saved in ' +
+        'reports/ and in moderationLog/ (kind "report", look for reporterId). Check whether they are spamming or in real trouble.',
+      );
+    } else {
+      console.warn(
+        alertDecision === 'suppressed_duplicate'
+          ? '[ops-alert suppressed] duplicate report within the hour'
+          : '[ops-alert suppressed] report over the hourly alert limit',
+        { reportId },
+      );
+    }
   });
 
 // Reverse index so the blocked person's own feed can hide the blocker: they
@@ -1657,49 +2011,143 @@ export const sendCelebrationNotifications = functions
   });
 
 // ── Founding ladder: free spots #1–50 ───────────────────────────────────────
-// The first FOUNDING_FREE_CAP dogs with a profile become Founding Members for
-// free: a permanent number on the dog doc (the public "⭐ Founding Member #N"
-// badge) plus the same lifetime entitlement a $39 buyer gets, marked
+// The first FOUNDING_FREE_CAP dogs with a FINISHED profile become Founding
+// Members for free: a permanent number on the dog doc (the public "⭐ Founding
+// Member #N" badge) plus the same lifetime entitlement a $39 buyer gets, marked
 // foundingFree so the refund logic never touches it. After #50 this hands out
 // nothing; numbers #51–150 come only from the Stripe webhook.
 //
-// Runs once, on true first creation of a dogs/{uid} doc (Firestore's onCreate
-// only fires the first time a document at that path is created). Counter,
-// badge and entitlement are written in one transaction, so concurrent signups
-// never collide and a retry never double-counts.
-export const onDogProfileCreated = functions.firestore
-  .document('dogs/{uid}')
-  .onCreate(async (snap, context) => {
-    const uid = context.params.uid as string;
-    const counterRef = db.doc('counters/foundingPack');
-    const entitlementRef = db.doc(`users/${uid}/private/entitlements`);
+// "Finished" is foundingProfileGaps (./founding, mirrored from shared/founding.ts):
+// name, breed, age, sex, size, energy, a personality chip, a public location and
+// at least three REAL photos, meaning this project's own Storage files in the
+// owner's upload folder, never the '_placeholder_' padding. The first version
+// numbered any dogs/{uid} document the moment it was created, so a hollow
+// { name: 'x' } doc from a throwaway account took a free spot. Together with
+// the firestore.rules requirement that dogs/{uid} can only be created by a
+// Google or Apple account (not an anonymous guest), that closes the drain.
+//
+// It runs on every write to dogs/{uid} (onWrite, not onCreate) and awards on the
+// first write that leaves the profile finished. Idempotent: a dog that already
+// has a number returns before anything is read, and the award re-checks inside
+// the transaction. Counter, badge and entitlement are written in ONE
+// transaction, so concurrent signups never collide, a retry never double-counts
+// and the numbers stay gapless (the counter only moves with an award). Someone
+// who bought Founding before making a profile gets their PURCHASED number copied
+// onto the dog doc whenever it appears (no finished profile needed: they paid).
+//
+// A dog doc written for a user that no longer exists (a stale ID token still
+// works for up to an hour after deleteAccount) or that has been banned
+// (scripts/admin-ban-user.cjs disables the Auth user) is deleted, and nothing is
+// awarded. A failure anywhere here goes to the ops channel instead of vanishing:
+// a lost award would otherwise be invisible.
+//
+// This function replaced onDogProfileCreated (an onCreate trigger). Firebase
+// can't change a deployed function's trigger type in place, so it has a new
+// name; deploy removes the old one (see PRODUCTION-LAUNCH-CHECKS.md).
 
-    await db.runTransaction(async (tx) => {
-      const [counterSnap, entSnap] = await Promise.all([tx.get(counterRef), tx.get(entitlementRef)]);
-      const ent: FirebaseFirestore.DocumentData = entSnap.data() ?? {};
+async function awardFoundingNumber(
+  uid: string,
+  dogRef: FirebaseFirestore.DocumentReference,
+  dogData: FirebaseFirestore.DocumentData,
+  isCreate: boolean,
+): Promise<void> {
+  if (asNumber(dogData.foundingPackNumber) !== null) return; // already numbered
 
-      // Bought founding before making a profile: the webhook numbered the
-      // purchase but had no dog doc to put the badge on yet.
-      const boughtNumber = asNumber(ent.foundingNumber);
-      if (ent.lifetimeChatUnlocks === true && boughtNumber !== null) {
-        tx.set(snap.ref, { foundingPackNumber: boughtNumber }, { merge: true });
-        return;
-      }
-
-      const current = asNumber(counterSnap.data()?.count) ?? 0;
-      if (current >= FOUNDING_FREE_CAP) return; // free spots are gone: founding is $39 now
-      const next = current + 1;
-      tx.set(counterRef, { count: next }, { merge: true });
-      tx.set(snap.ref, { foundingPackNumber: next }, { merge: true });
-      tx.set(entitlementRef, {
-        lifetimeChatUnlocks: true,
-        foundingFree: true,
-        foundingNumber: next,
-        // Someone who bought before the ladder existed keeps their purchase as the source.
-        source: ent.lifetimeChatUnlocks === true ? (ent.source ?? 'founding_member') : 'founding_free',
-        freeGrantedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
+  if (isCreate && !(await authUserIsActive(uid))) {
+    await db.recursiveDelete(dogRef);
+    await db.collection('moderationLog').add({
+      kind: 'orphan_dog_deleted',
+      uid,
+      reason: 'dog document written for a user that no longer exists or is banned',
+      createdAt: FieldValue.serverTimestamp(),
     });
+    await sendThrottledOpsAlert(
+      'orphan_dog',
+      5,
+      `GoDoggyDate removed a dog profile written for a deleted or banned account: uid ${uid}. ` +
+      'A stale sign-in token recreated it after the account was deleted or disabled. No founding number was awarded.',
+      'GoDoggyDate keeps removing dog profiles written for deleted or banned accounts; further alerts are held back this hour. ' +
+      'Every removal is in moderationLog (kind "orphan_dog_deleted").',
+    );
+    return;
+  }
+
+  const policy = photoUrlPolicy();
+  const isRealPhoto = (photo: unknown) => isOwnStoragePhotoUrl(photo, uid, policy);
+  const entitlementRef = db.doc(`users/${uid}/private/entitlements`);
+  const counterRef = db.doc('counters/foundingPack');
+
+  // Cheap checks outside the transaction, so a write that can never earn a
+  // number (an unfinished profile, or all 50 free spots gone) doesn't lock the
+  // counter. The counter only counts up, so "full" can't become "free" again.
+  const entBefore: FirebaseFirestore.DocumentData = (await entitlementRef.get()).data() ?? {};
+  const hasPurchasedNumber = entBefore.lifetimeChatUnlocks === true && asNumber(entBefore.foundingNumber) !== null;
+  if (!hasPurchasedNumber) {
+    if (foundingProfileGaps(dogData, isRealPhoto).length > 0) return;
+    if (entBefore.revokedAt || entBefore.revokedReason) return; // refunded or disputed: never a free number
+    const counterNow = asNumber((await counterRef.get()).data()?.count) ?? 0;
+    if (counterNow >= FOUNDING_FREE_CAP) return; // free spots are gone: founding is $39 now
+  }
+
+  await db.runTransaction(async (tx) => {
+    const [dogSnap, counterSnap, entSnap] = await Promise.all([
+      tx.get(dogRef),
+      tx.get(counterRef),
+      tx.get(entitlementRef),
+    ]);
+    if (!dogSnap.exists) return;
+    const dog = dogSnap.data() ?? {};
+    if (asNumber(dog.foundingPackNumber) !== null) return; // numbered while we waited
+    const ent: FirebaseFirestore.DocumentData = entSnap.data() ?? {};
+
+    // Bought founding before making a profile: the webhook numbered the
+    // purchase but had no dog doc to put the badge on yet. A member whose dog
+    // doc was deleted and made again gets the same number back.
+    const boughtNumber = asNumber(ent.foundingNumber);
+    if (ent.lifetimeChatUnlocks === true && boughtNumber !== null) {
+      tx.set(dogRef, { foundingPackNumber: boughtNumber }, { merge: true });
+      return;
+    }
+
+    // Re-check against the document as it is now, not as the trigger saw it.
+    if (foundingProfileGaps(dog, isRealPhoto).length > 0) return;
+    if (ent.revokedAt || ent.revokedReason) return;
+    const current = asNumber(counterSnap.data()?.count) ?? 0;
+    if (current >= FOUNDING_FREE_CAP) return;
+    const next = current + 1;
+    tx.set(counterRef, { count: next }, { merge: true });
+    tx.set(dogRef, { foundingPackNumber: next }, { merge: true });
+    tx.set(entitlementRef, {
+      lifetimeChatUnlocks: true,
+      foundingFree: true,
+      foundingNumber: next,
+      // Someone who bought before the ladder existed keeps their purchase as the source.
+      source: ent.lifetimeChatUnlocks === true ? (ent.source ?? 'founding_member') : 'founding_free',
+      freeGrantedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }, { maxAttempts: 15 });
+}
+
+export const onDogProfileFounding = functions
+  .runWith({ secrets: [opsAlertWebhookUrl] })
+  .firestore.document('dogs/{uid}')
+  .onWrite(async (change, context) => {
+    if (!change.after.exists) return;
+    const uid = context.params.uid as string;
+    try {
+      await awardFoundingNumber(uid, change.after.ref, change.after.data() ?? {}, !change.before.exists);
+    } catch (error) {
+      console.error('onDogProfileFounding failed', { uid, error });
+      const message = error instanceof Error ? error.message : String(error);
+      await sendThrottledOpsAlert(
+        'founding_failure',
+        5,
+        `GoDoggyDate could not check the founding number for dog ${uid}: ${message.slice(0, 300)}. ` +
+        'If they have a finished profile and free spots are left, they have no number yet. ' +
+        'The check runs again on their next profile save; compare counters/foundingPack with the dogs that hold a foundingPackNumber.',
+        'GoDoggyDate founding-number checks keep failing; further alerts are held back this hour. Look at the onDogProfileFounding logs.',
+      );
+    }
   });
 
 // ── Household ────────────────────────────────────────────────────────────────
@@ -1719,6 +2167,10 @@ export const onDogProfileCreated = functions.firestore
 
 const HOUSEHOLD_MAX_MEMBERS = 4; // owner + up to 3 more, per the research's "up to 4 humans"
 const HOUSEHOLD_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Open (unused, unexpired) invites one dog may have at a time. A full household
+// takes at most 3 more people, so a handful of spare codes is plenty; without a
+// cap one account could mint codes without limit.
+const HOUSEHOLD_MAX_OPEN_INVITES = 5;
 const INVITE_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L — easier to type from a screen
 
 function generateInviteCode(): string {
@@ -1742,6 +2194,27 @@ export const createHouseholdInvite = functions.https.onCall(async (_data, contex
   const currentMembers = (dogSnap.data()?.householdMemberIds as string[] | undefined) ?? [];
   if (currentMembers.length + 1 >= HOUSEHOLD_MAX_MEMBERS) {
     throw new functions.https.HttpsError('resource-exhausted', `Household is full (max ${HOUSEHOLD_MAX_MEMBERS} people).`);
+  }
+
+  // Cap the open invites. Used and expired ones don't count (and expired ones
+  // are cleared while we're here, so the collection doesn't fill up with them).
+  const mine = await db.collection('householdInvites').where('createdBy', '==', uid).get();
+  const nowMs = Date.now();
+  let openInvites = 0;
+  for (const invite of mine.docs) {
+    const data = invite.data() as { used?: boolean; expiresAt?: FirebaseFirestore.Timestamp };
+    const expired = (data.expiresAt?.toMillis?.() ?? 0) < nowMs;
+    if (expired) {
+      await invite.ref.delete().catch(() => undefined);
+    } else if (data.used !== true) {
+      openInvites += 1;
+    }
+  }
+  if (openInvites >= HOUSEHOLD_MAX_OPEN_INVITES) {
+    throw new functions.https.HttpsError(
+      'resource-exhausted',
+      `You already have ${openInvites} open invites. Share one of those, or wait for them to expire (7 days).`,
+    );
   }
 
   // Retry on the (very unlikely) collision of a freshly generated code.
@@ -1853,11 +2326,20 @@ export const removeHouseholdMember = functions.https.onCall(async (data, context
   if (!memberUid) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing memberUid.');
   }
+  // It goes into a document path: an id with a slash (or an absurd length) used
+  // to throw inside the path builder and come back as HTTP 500 "internal".
+  if (!isSafeDocId(memberUid)) {
+    throw new functions.https.HttpsError('invalid-argument', 'That is not a valid member id.');
+  }
 
   // Only the dog's owner may remove a household member — dogId === uid for
   // the caller's OWN dog, so this rejects anyone trying to edit a household
   // they were merely invited into.
-  await db.doc(`dogs/${uid}`).update({
+  const ownDog = await db.doc(`dogs/${uid}`).get();
+  if (!ownDog.exists) {
+    throw new functions.https.HttpsError('failed-precondition', 'Create your dog profile first.');
+  }
+  await ownDog.ref.update({
     householdMemberIds: FieldValue.arrayRemove(memberUid),
   });
   await db.doc(`dogs/${uid}/householdNames/${memberUid}`).delete().catch(() => {});
@@ -1874,3 +2356,8 @@ export const rsvpPackDay = packDay.rsvpPackDay;
 export const cancelPackDay = packDay.cancelPackDay;
 export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;
+export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
+export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
+
+// Local waitlist (joinWaitlist, leaveWaitlist, neighbor-joined push). See ./waitlist.ts
+export * from './waitlist';

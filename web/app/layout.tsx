@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Fraunces, Nunito } from 'next/font/google';
 import Script from 'next/script';
 import AnalyticsTracker from '../components/AnalyticsTracker';
+import ErrorReporter from '../components/ErrorReporter';
 import { absoluteUrl, siteUrl } from '../lib/site';
 import './globals.css';
 
@@ -79,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
         <AnalyticsTracker />
+        <ErrorReporter />
         {children}
       </body>
     </html>

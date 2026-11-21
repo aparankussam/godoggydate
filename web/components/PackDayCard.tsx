@@ -2,7 +2,7 @@
 // One Pack Day in a list: what it is, when, where, and how full it is.
 
 import Link from 'next/link';
-import { PACK_DAY_FORMATS, formatPackDayWhen, spotsLeft } from '../../shared/packDay';
+import { PACK_DAY_FORMATS, formatPackDayWhen, goingSummary, spotsLeft } from '../../shared/packDay';
 import type { PackDay } from '../../shared/packDay';
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
 export default function PackDayCard({ event, badge }: Props) {
   const format = PACK_DAY_FORMATS[event.format];
   const left = spotsLeft(event);
+  const cancelled = event.status === 'cancelled';
 
   return (
     <Link
@@ -25,9 +26,11 @@ export default function PackDayCard({ event, badge }: Props) {
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
             {event.official ? '⭐ Official · ' : ''}{format.emoji} {format.label}
           </p>
-          <h3 className="mt-0.5 font-display text-lg text-brown leading-tight break-words">{event.title}</h3>
+          <h3 className={`mt-0.5 font-display text-lg leading-tight break-words ${cancelled ? 'text-brown-mid line-through decoration-1' : 'text-brown'}`}>{event.title}</h3>
         </div>
-        {badge && (
+        {cancelled ? (
+          <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-bold text-red-700">Cancelled</span>
+        ) : badge && (
           <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
             {badge === 'hosting' ? 'Hosting' : "You're going"}
           </span>
@@ -37,8 +40,8 @@ export default function PackDayCard({ event, badge }: Props) {
       <p className="text-sm text-brown-mid break-words">
         {event.placeName} · {event.city}
       </p>
-      <p className={`mt-2 text-xs font-semibold ${left === 0 ? 'text-brown-light' : 'text-brown-mid'}`}>
-        {event.attendeeUids.length} of {event.capacity} dogs going{left === 0 ? ' · Full' : ''}
+      <p className={`mt-2 text-xs font-semibold ${cancelled ? 'text-red-700' : left === 0 ? 'text-brown-light' : 'text-brown-mid'}`}>
+        {goingSummary(event)}
       </p>
     </Link>
   );

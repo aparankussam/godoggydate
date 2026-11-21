@@ -306,7 +306,7 @@ export default function NewPackDayScreen() {
               multiline
               textAlignVertical="top"
             />
-            <Text style={styles.help}>No links or phone numbers. Members message each other in the app.</Text>
+            <Text style={styles.help}>No links or phone numbers. Members who match after you meet can message each other in the app.</Text>
           </View>
 
           <PackDayRules
