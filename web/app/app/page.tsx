@@ -88,6 +88,9 @@ export default function AppPage() {
   const [activeMatchId,    setActiveMatchId]    = useState<string | null>(null);
   const [feedDepleted,     setFeedDepleted]     = useState(false);
   const [feedLoading,      setFeedLoading]      = useState(false);
+  // The last non-background query failed (offline etc.) — the empty state says
+  // so instead of claiming the neighborhood is quiet.
+  const [feedError,        setFeedError]        = useState(false);
   const [activeFeed,       setActiveFeed]       = useState<FeedDog[]>([]);
   const [lastCheckedAt,    setLastCheckedAt]    = useState<number | null>(null);
   const [profileSavedToast, setProfileSavedToast] = useState(false);
@@ -97,6 +100,10 @@ export default function AppPage() {
   // ── Retention hook ────────────────────────────────────────────────────────
   const [showRetentionHook, setShowRetentionHook] = useState(false);
   const [hasHadFirstMatch,  setHasHadFirstMatch]  = useState(false);
+
+  const backgroundRefreshRef = useRef(false);
+  const activeFeedRef = useRef<FeedDog[]>([]);
+  activeFeedRef.current = activeFeed;
 
   // ── Auth observer ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -181,21 +188,45 @@ export default function AppPage() {
   // the screen and then returned an identical-looking page — the user couldn't
   // tell a real re-query from a no-op. Leaving the empty state mounted lets the
   // button own its own pending state; the result below sets the flag either way.
-  async function refreshDiscoverFeed(nextAuthUser: User, nextUserDog: DogProfile) {
-    setFeedLoading(true);
+  //
+  // `background` is the window-focus / tab-visible refresh. It must not tear
+  // down what the person is looking at: no skeleton card (that unmounted the
+  // swipe stack and closed the details sheet every time they clicked back into
+  // the window), no replacing the deck when nothing changed, and no wiping it
+  // when the query fails — a dropped connection used to turn the deck into
+  // "The neighborhood's still quiet".
+  async function refreshDiscoverFeed(
+    nextAuthUser: User,
+    nextUserDog: DogProfile,
+    { background = false }: { background?: boolean } = {},
+  ) {
+    if (background) {
+      if (backgroundRefreshRef.current) return; // visibilitychange + focus fire together
+      backgroundRefreshRef.current = true;
+    } else {
+      setFeedLoading(true);
+    }
 
     try {
       const feed = await buildDiscoverFeed(nextAuthUser.uid, nextUserDog);
-      setActiveFeed(feed);
+      const current = activeFeedRef.current;
+      const unchanged =
+        feed.length === current.length && feed.every((dog, i) => dog.id === current[i].id);
+      if (!(background && unchanged)) setActiveFeed(feed);
       setFeedDepleted(feed.length === 0);
+      setFeedError(false);
       // Only a completed query counts as a check — a failed one must not be
       // able to render a timestamp claiming we looked.
       setLastCheckedAt(Date.now());
     } catch {
-      setActiveFeed([]);
-      setFeedDepleted(true);
+      if (!background) {
+        setActiveFeed([]);
+        setFeedDepleted(true);
+        setFeedError(true);
+      }
     } finally {
-      setFeedLoading(false);
+      if (background) backgroundRefreshRef.current = false;
+      else setFeedLoading(false);
     }
   }
 
@@ -249,12 +280,12 @@ export default function AppPage() {
 
     function handleVisibilityRefresh() {
       if (document.visibilityState !== 'visible') return;
-      refreshDiscoverFeed(authUser, userDog)
+      refreshDiscoverFeed(authUser, userDog, { background: true })
         .catch(() => { /* handled inside refreshDiscoverFeed */ });
     }
 
     function handleWindowFocus() {
-      refreshDiscoverFeed(authUser, userDog)
+      refreshDiscoverFeed(authUser, userDog, { background: true })
         .catch(() => { /* handled inside refreshDiscoverFeed */ });
     }
 
@@ -301,6 +332,7 @@ export default function AppPage() {
       return {
         ...dog,
         vaccinated: fresh.vaccinated,
+        rabiesExpiry: fresh.rabiesExpiry,
         compat: calculateCompatibility(userDog, fresh, dog.distanceMiles),
       };
     } catch {
@@ -428,16 +460,18 @@ export default function AppPage() {
 
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
-        <span className="font-display text-xl text-brown">🐾 GoDoggyDate</span>
+        <span className="font-display text-xl text-brown whitespace-nowrap">🐾 GoDoggyDate</span>
         {!authLoading && (
           authUser ? (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              {/* Hidden on phones: with the logo and "Sign out" there's no room,
+                  and a long dog name wrapped the whole header onto 3 lines. */}
               {dogName && (
-                <span className="text-xs text-brown-light">Hi, {dogName}&apos;s owner 👋</span>
+                <span className="hidden min-w-0 truncate text-xs text-brown-light sm:inline">Hi, {dogName}&apos;s owner 👋</span>
               )}
               <button
                 onClick={handleSignOut}
-                className="text-xs text-brown-light hover:text-primary transition-colors"
+                className="shrink-0 whitespace-nowrap px-1 py-3 text-xs text-brown-light hover:text-primary transition-colors"
               >
                 Sign out
               </button>
@@ -445,7 +479,7 @@ export default function AppPage() {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="text-xs bg-primary/10 text-primary font-semibold rounded-full px-3 py-1 hover:bg-primary/20 transition-colors"
+              className="text-xs bg-primary/10 text-primary font-semibold rounded-full px-4 min-h-[40px] hover:bg-primary/20 transition-colors"
             >
               Sign in 🐾
             </button>
@@ -461,7 +495,7 @@ export default function AppPage() {
           </p>
           <button
             onClick={() => setShowAuthModal(true)}
-            className="shrink-0 text-xs font-bold text-primary bg-white/70 hover:bg-white rounded-full px-3 py-1.5 transition-colors"
+            className="shrink-0 text-xs font-bold text-primary bg-white/70 hover:bg-white rounded-full px-4 min-h-[40px] transition-colors"
           >
             Sign in 🐾
           </button>
@@ -495,9 +529,9 @@ export default function AppPage() {
 
       {/* ── Profile setup overlay ────────────────────────────────────────── */}
       {showProfileForm && authUser && (
-        <div className="absolute inset-0 z-30 bg-cream overflow-y-auto pb-20">
+        <div className="absolute inset-0 z-30 bg-cream overflow-y-auto pt-14 pb-20">
           {profileSaveError && (
-            <div className="sticky top-0 z-40 mx-auto w-full max-w-md px-4 pt-4">
+            <div className="sticky top-14 z-40 mx-auto w-full max-w-md px-4 pt-4">
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
                 {profileSaveError}
               </div>
@@ -584,10 +618,13 @@ export default function AppPage() {
               />
 
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">The neighborhood’s still quiet</p>
+              <p className="font-display text-2xl text-brown">
+                {feedError ? 'We couldn’t check for dogs' : 'The neighborhood’s still quiet'}
+              </p>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-                We haven’t found other pups near you yet — we check again every time you open
-                Discover, so keep an eye out.
+                {feedError
+                  ? 'Check your connection and try again.'
+                  : 'We haven’t found other pups near you yet — we check again every time you open Discover, so keep an eye out.'}
               </p>
 
               {/* Recruit Card — the actual growth lever here is a stranger
@@ -648,7 +685,7 @@ export default function AppPage() {
               <button
                 type="button"
                 onClick={() => setShowDemoGallery((v) => !v)}
-                className="mt-2 text-xs font-semibold text-brown-light hover:text-brown transition-colors underline underline-offset-2"
+                className="mt-1 py-3 text-xs font-semibold text-brown-light hover:text-brown transition-colors underline underline-offset-2"
               >
                 {showDemoGallery ? 'Hide demo' : 'See how matching works (demo)'}
               </button>
@@ -702,7 +739,7 @@ export default function AppPage() {
           {!authLoading && !feedLoading && !authUser && (
             <div className="flex flex-1 flex-col items-center justify-center py-16 gap-4 text-center px-4">
               <span className="text-6xl">🐾</span>
-              <p className="font-display text-2xl text-brown">See who&apos;s nearby</p>
+              <h1 className="font-display text-2xl text-brown">See who&apos;s nearby</h1>
               <p className="text-brown-light text-sm max-w-xs leading-relaxed">
                 Sign up to see real dogs near you and start matching.
               </p>
@@ -716,7 +753,7 @@ export default function AppPage() {
               <button
                 type="button"
                 onClick={() => setShowDemoGallery((v) => !v)}
-                className="mt-2 text-xs font-semibold text-brown-light hover:text-brown transition-colors underline underline-offset-2"
+                className="mt-1 py-3 text-xs font-semibold text-brown-light hover:text-brown transition-colors underline underline-offset-2"
               >
                 {showDemoGallery ? 'Hide demo' : 'See how matching works (demo)'}
               </button>

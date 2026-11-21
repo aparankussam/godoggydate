@@ -15,6 +15,12 @@ import {
   toIsoDate,
   partialFromIsoDate,
   maskUsDateInput,
+  isPartialDateInFuture,
+  birthDateProblem,
+  adoptionDateProblem,
+  rabiesExpiryProblem,
+  maskedCaretPosition,
+  reminderDueDateProblem,
 } from './dates.ts';
 
 // ── parsing ──────────────────────────────────────────────────────────────────
@@ -181,13 +187,104 @@ test('maskUsDateInput keeps the slashes the owner types and caps each segment', 
   // Idempotent.
   assert.equal(maskUsDateInput(maskUsDateInput('06/14/2021')), '06/14/2021');
   // Junk stripped, repeated slashes collapsed, extra parts dropped.
-  assert.equal(maskUsDateInput('06-14-2021'), '06142021'.slice(0, 4));
   assert.equal(maskUsDateInput('06//14'), '06/14');
+  assert.equal(maskUsDateInput('/06'), '06');
   assert.equal(maskUsDateInput('06/14/2021/9'), '06/14/2021');
+  assert.equal(maskUsDateInput('ab06/14/2021'), '06/14/2021');
   // Segment caps.
-  assert.equal(maskUsDateInput('061/14/2021'), '06/14/2021');
   assert.equal(maskUsDateInput('06/14/20219'), '06/14/2021');
+  assert.equal(maskUsDateInput('20219'), '2021');
   assert.equal(maskUsDateInput(''), '');
+});
+
+// Type like a controlled <input maxLength={10}>: each key is appended to what
+// the box currently shows, then masked.
+function typeInto(keys: string): string {
+  let shown = '';
+  for (const key of keys) {
+    const next = shown + key;
+    if (next.length > 10) continue;
+    shown = maskUsDateInput(next);
+  }
+  return shown;
+}
+
+test('maskUsDateInput: digits-only typing gets its slashes (a phone numeric keypad has no "/")', () => {
+  // This is the reported bug: the box stuck at "0614" because nothing but a
+  // typed slash could continue it.
+  assert.equal(typeInto('06142021'), '06/14/2021');
+  assert.equal(typeInto('01012020'), '01/01/2020');
+  assert.equal(typeInto('12312025'), '12/31/2025');
+  assert.equal(typeInto('02292024'), '02/29/2024');
+  // Months 3–9 and days 4–9 need no leading zero; months 1–2 and days 1–3 do.
+  assert.equal(typeInto('6142021'), '6/14/2021');
+  assert.equal(typeInto('06142021'), '06/14/2021');
+  assert.equal(typeInto('6/4/2021'), '6/4/2021');
+  assert.equal(typeInto('0642021'), '06/4/2021');
+  // Days 19 and 20 look like the start of a year until the fifth digit.
+  assert.equal(typeInto('06202021'), '06/20/2021');
+  assert.equal(typeInto('06192019'), '06/19/2019');
+  assert.equal(typeInto('05202027'), '05/20/2027');
+  // Every full date it produces parses to what was typed.
+  assert.deepEqual(parseUsDateInput(typeInto('06142021')), { ok: true, value: { year: 2021, month: 6, day: 14 } });
+  assert.deepEqual(parseUsDateInput(typeInto('06202021')), { ok: true, value: { year: 2021, month: 6, day: 20 } });
+});
+
+test('maskUsDateInput: the two PARTIAL shapes still work digits-only', () => {
+  // The case that ruled out naive auto-slashing: these must NOT be rebuilt as
+  // "06/20/21" and "20/21".
+  assert.equal(typeInto('062021'), '06/2021');
+  assert.equal(typeInto('62021'), '6/2021');
+  assert.equal(typeInto('2021'), '2021');
+  assert.equal(typeInto('1999'), '1999');
+  assert.deepEqual(parseUsDateInput(typeInto('062021')), { ok: true, value: { year: 2021, month: 6, day: null } });
+  assert.deepEqual(parseUsDateInput(typeInto('2021')), { ok: true, value: { year: 2021, month: null, day: null } });
+  // Each keystroke on the way shows what a person expects.
+  const shown: string[] = [];
+  let v = '';
+  for (const key of '06142021') shown.push((v = maskUsDateInput(v + key)));
+  assert.deepEqual(shown, ['0', '06', '06/1', '06/14', '06/14/2', '06/14/20', '06/14/202', '06/14/2021']);
+});
+
+test('maskUsDateInput: dashes, dots and spaces stand in for slashes, and ISO is turned around', () => {
+  assert.equal(typeInto('06-14-2021'), '06/14/2021');
+  assert.equal(typeInto('06.14.2021'), '06/14/2021');
+  assert.equal(typeInto('06 14 2021'), '06/14/2021');
+  // Pasted 'YYYY-MM-DD' used to collapse silently to the year ("2021").
+  assert.equal(maskUsDateInput('2021-06-14'), '06/14/2021');
+  assert.equal(maskUsDateInput(' 2021-06-14 '), '06/14/2021');
+  assert.equal(typeInto('2021-06-14'), '06/14/2021');
+  // Not flipped halfway through typing it.
+  assert.equal(maskUsDateInput('2021-06-1'), '2021/06/1');
+});
+
+test('maskUsDateInput: an impossible day stays visible instead of being reshuffled', () => {
+  // "03322022" must not become "03/3/2202" (March 3, year 2202). It shows the
+  // 32, and parseUsDateInput then keeps just March 2022, same as typing 03/32/2022.
+  assert.equal(typeInto('03322022'), '03/32/2022');
+  assert.deepEqual(parseUsDateInput('03/32/2022'), { ok: true, value: { year: 2022, month: 3, day: null } });
+  // A month that isn't one is left for the save-time error, not dropped.
+  assert.equal(typeInto('13/2021'), '13/2021');
+  assert.deepEqual(parseUsDateInput('13/2021'), { ok: false, reason: 'impossible' });
+});
+
+test('maskUsDateInput is stable: re-masking never changes a value, and backspace never sticks', () => {
+  // Exhaustive over every string of up to 5 characters from a digit/slash
+  // alphabet that covers each segment rule.
+  const alphabet = ['0', '1', '2', '3', '4', '9', '/'];
+  const walk = (s: string, depth: number) => {
+    const out = maskUsDateInput(s);
+    assert.equal(maskUsDateInput(out), out, `re-masking ${JSON.stringify(s)} → ${JSON.stringify(out)}`);
+    // Deleting the last character of what's shown must give back exactly that
+    // shorter string, otherwise an auto-inserted slash would trap the cursor.
+    for (let k = 0; k < out.length; k++) {
+      const shorter = out.slice(0, k);
+      assert.equal(maskUsDateInput(shorter), shorter, `backspace from ${JSON.stringify(out)} to ${JSON.stringify(shorter)}`);
+    }
+    if (depth === 0) return;
+    for (const c of alphabet) walk(s + c, depth - 1);
+  };
+  walk('', 5);
 });
 
 test('maskUsDateInput leaves the two PARTIAL shapes typeable', () => {
@@ -205,4 +302,104 @@ test('maskUsDateInput leaves the two PARTIAL shapes typeable', () => {
   for (const step of ['0', '06', '06/', '06/2', '06/20', '06/202', '06/2021']) {
     assert.equal(maskUsDateInput(step), step, `keystroke "${step}" must pass through`);
   }
+});
+
+// ── trailing separators, future dates, absurd years, caret ───────────────────
+
+test('parseUsDateInput ignores a trailing slash (a trailing space is masked into one)', () => {
+  // "2021 " and "06/2021 " are what a phone keyboard leaves behind; they were
+  // rejected with "Use MM/DD/YYYY" even though the date is plainly typed.
+  assert.deepEqual(parseUsDateInput('2021/'), { ok: true, value: { year: 2021, month: null, day: null } });
+  assert.deepEqual(parseUsDateInput('06/2021/'), { ok: true, value: { year: 2021, month: 6, day: null } });
+  assert.deepEqual(parseUsDateInput('06/14/2021/'), { ok: true, value: { year: 2021, month: 6, day: 14 } });
+  assert.equal(maskUsDateInput('2021 '), '2021/');
+  assert.deepEqual(parseUsDateInput(maskUsDateInput('2021 ')), { ok: true, value: { year: 2021, month: null, day: null } });
+  // Still unrecognised when what precedes the slash isn't a date.
+  assert.deepEqual(parseUsDateInput('06/14/'), { ok: false, reason: 'unrecognized' });
+  assert.deepEqual(parseUsDateInput('/'), { ok: false, reason: 'empty' });
+});
+
+test('isPartialDateInFuture judges each shape against today', () => {
+  const now = new Date(2026, 10, 20); // 20 Nov 2026
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 11, day: 20 }, now), false); // today
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 11, day: 21 }, now), true); // tomorrow
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 12, day: 25 }, now), true); // later this year
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 12, day: null }, now), true);
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 11, day: null }, now), false); // month under way
+  assert.equal(isPartialDateInFuture({ year: 2026, month: 10, day: 31 }, now), false);
+  assert.equal(isPartialDateInFuture({ year: 2026, month: null, day: null }, now), false);
+  assert.equal(isPartialDateInFuture({ year: 2027, month: null, day: null }, now), true);
+  assert.equal(isPartialDateInFuture({ year: 2025, month: 12, day: 31 }, now), false);
+});
+
+test('birthDateProblem rejects pre-1990 and not-yet-happened birthdays only', () => {
+  const now = new Date(2026, 10, 20);
+  assert.equal(birthDateProblem({ year: 2021, month: 6, day: 14 }, now), null);
+  assert.equal(birthDateProblem({ year: 2026, month: 11, day: 20 }, now), null); // born today
+  assert.equal(birthDateProblem({ year: 2026, month: 11, day: null }, now), null);
+  assert.equal(birthDateProblem({ year: 2026, month: null, day: null }, now), null);
+  assert.equal(birthDateProblem({ year: 1990, month: 1, day: 1 }, now), null);
+  assert.match(birthDateProblem({ year: 1989, month: 12, day: 31 }, now) ?? '', /between 1990 and 2026/);
+  assert.match(birthDateProblem({ year: 2027, month: null, day: null }, now) ?? '', /between 1990 and 2026/);
+  // The year is fine but the date is later this year.
+  assert.match(birthDateProblem({ year: 2026, month: 11, day: 21 }, now) ?? '', /hasn't happened yet/);
+  assert.match(birthDateProblem({ year: 2026, month: 12, day: 25 }, now) ?? '', /hasn't happened yet/);
+  assert.match(birthDateProblem({ year: 2026, month: 12, day: null }, now) ?? '', /hasn't happened yet/);
+});
+
+test('adoptionDateProblem rejects pre-1990 and future Gotcha Days', () => {
+  const now = new Date(2026, 10, 20);
+  assert.equal(adoptionDateProblem({ year: 2023, month: 9, day: 14 }, now), null);
+  assert.equal(adoptionDateProblem({ year: 2023, month: 9, day: null }, now), null);
+  assert.equal(adoptionDateProblem({ year: 2026, month: 11, day: 20 }, now), null); // came home today
+  assert.match(adoptionDateProblem({ year: 1899, month: 1, day: 1 }, now) ?? '', /between 1990 and 2026/);
+  assert.match(adoptionDateProblem({ year: 2026, month: 12, day: 25 }, now) ?? '', /can't be in the future/);
+  assert.match(adoptionDateProblem({ year: 2026, month: 12, day: null }, now) ?? '', /can't be in the future/);
+  assert.match(adoptionDateProblem({ year: 2027, month: 1, day: null }, now) ?? '', /between 1990 and 2026/);
+});
+
+test('rabiesExpiryProblem allows a past expiry but not an absurd year', () => {
+  const now = new Date(2026, 10, 20);
+  assert.equal(rabiesExpiryProblem({ year: 2020, month: 4, day: 18 }, now), null); // expired is valid
+  assert.equal(rabiesExpiryProblem({ year: 2026, month: 11, day: 19 }, now), null);
+  assert.equal(rabiesExpiryProblem({ year: 2029, month: 4, day: 18 }, now), null);
+  assert.equal(rabiesExpiryProblem({ year: 2036, month: 12, day: 31 }, now), null);
+  assert.match(rabiesExpiryProblem({ year: 2037, month: 1, day: 1 }, now) ?? '', /between 1990 and 2036/);
+  assert.match(rabiesExpiryProblem({ year: 2207, month: 4, day: 18 }, now) ?? '', /between 1990 and 2036/);
+  assert.match(rabiesExpiryProblem({ year: 1000, month: 1, day: 1 }, now) ?? '', /between 1990 and 2036/);
+  assert.match(rabiesExpiryProblem({ year: 9999, month: 1, day: 1 }, now) ?? '', /between 1990 and 2036/);
+});
+
+test('maskedCaretPosition keeps the caret among the digits when the mask rewrites the value', () => {
+  // Typing at the end: always the end.
+  assert.equal(maskedCaretPosition('06/14', 5, '06/14'), 5);
+  assert.equal(maskedCaretPosition('0614', 4, '06/14'), 5);
+  // Backspace over the slash of 06/4/2021: raw "064/2021", caret 2 -> the mask
+  // puts the slash back and the caret stays after the "6".
+  assert.equal(maskUsDateInput('064/2021'), '06/4/2021');
+  assert.equal(maskedCaretPosition('064/2021', 2, '06/4/2021'), 2);
+  // Insert "/" into 06/2021 after the 06: raw "06//2021" caret 3 collapses to
+  // "06/2021" and the caret sits after the slash, ready for "14".
+  assert.equal(maskUsDateInput('06//2021'), '06/2021');
+  assert.equal(maskedCaretPosition('06//2021', 3, '06/2021'), 3);
+  // Insert a digit mid-month: "1" typed after "0" of 06/2021 -> raw "016/2021".
+  assert.equal(maskUsDateInput('016/2021'), '01/6/2021');
+  assert.equal(maskedCaretPosition('016/2021', 2, '01/6/2021'), 2);
+  // Caret at the very start.
+  assert.equal(maskedCaretPosition('x06/2021', 0, '06/2021'), 0);
+});
+
+test('reminderDueDateProblem keeps due dates in a believable window', () => {
+  const now = new Date(2026, 10, 20, 15, 0).getTime();
+  const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 12).getTime();
+  assert.equal(reminderDueDateProblem(at(2026, 11, 20), now), null); // today
+  assert.equal(reminderDueDateProblem(at(2026, 11, 19), now), null); // a day overdue
+  assert.equal(reminderDueDateProblem(at(2021, 1, 1), now), null); // 5 years back, the floor
+  assert.equal(reminderDueDateProblem(at(2056, 12, 31), now), null); // 30 years out, the ceiling
+  assert.match(reminderDueDateProblem(at(2020, 12, 31), now) ?? '', /between 2021 and 2056/);
+  assert.match(reminderDueDateProblem(at(2057, 1, 1), now) ?? '', /between 2021 and 2056/);
+  assert.match(reminderDueDateProblem(at(1899, 12, 31), now) ?? '', /between 2021 and 2056/);
+  assert.match(reminderDueDateProblem(new Date('0001-01-01T12:00:00').getTime(), now) ?? '', /between/);
+  assert.match(reminderDueDateProblem(new Date('9999-12-31T12:00:00').getTime(), now) ?? '', /between/);
+  assert.equal(reminderDueDateProblem(Number.NaN, now), 'Pick a valid date');
 });

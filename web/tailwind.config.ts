@@ -18,8 +18,12 @@ const config: Config = {
         'cream-dark': '#F5E6D3',
         brown: '#2D1A0E',
         'brown-mid': '#5C3D2E',
-        'brown-light': '#9B7560',
+        // Secondary text. Was #9B7560 (3.8:1 on cream, 3.4:1 on cream-dark), which
+        // fails WCAG AA for the small body copy it is used for; this is 5.3:1 / 4.6:1.
+        'brown-light': '#80604B',
         border: '#EAD9C8',
+        // Tailwind's red-500 is 3.8:1 on white; as error text it needs red-600.
+        red: { 500: '#DC2626' },
       },
       fontFamily: {
         display: ['var(--font-fraunces)', 'Georgia', 'serif'],

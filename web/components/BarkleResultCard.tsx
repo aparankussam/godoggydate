@@ -43,9 +43,17 @@ const BarkleResultCard = forwardRef<HTMLDivElement, Props>(function BarkleResult
           </p>
         </div>
 
+        {/* Six tiles at 34px are wider than the 272px content box in emoji fonts
+            with wide glyphs (Noto, Apple), so the sixth wrapped onto its own row
+            in the shared PNG. Shrink for a full row and never wrap. */}
         <p
           className="mt-5 text-center"
-          style={{ fontSize: 34, lineHeight: 1.2, letterSpacing: 4 }}
+          style={{
+            fontSize: results.length > 5 ? 28 : 34,
+            lineHeight: 1.2,
+            letterSpacing: results.length > 5 ? 2 : 4,
+            whiteSpace: 'nowrap',
+          }}
           aria-label={`Result grid ${grid}`}
         >
           {grid}

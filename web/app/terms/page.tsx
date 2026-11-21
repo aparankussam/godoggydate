@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { absoluteUrl } from '../../lib/site';
+import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 import { FOUNDING_FREE_SPOTS, FOUNDING_PAID_SPOTS, FOUNDING_TOTAL } from '../../../shared/founding';
 
 export const metadata: Metadata = {
@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     description: 'The terms for using GoDoggyDate, including meetup safety and liability.',
     url: absoluteUrl('/terms'),
     type: 'article',
+    images: defaultSocialImages,
   },
 };
 

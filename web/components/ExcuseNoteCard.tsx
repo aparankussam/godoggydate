@@ -38,13 +38,16 @@ const ExcuseNoteCard = forwardRef<HTMLDivElement, Props>(function ExcuseNoteCard
   return (
     <div
       ref={ref}
-      className="relative w-[360px] aspect-[4/5] overflow-hidden"
+      className="relative w-[360px] min-h-[450px] overflow-hidden [overflow-wrap:anywhere]"
       style={{ background: 'linear-gradient(155deg, #FBF3E4 0%, #F3E4C9 100%)' }}
     >
-      {/* Decorative formal double-border frame */}
+      {/* Decorative formal double-border frame. It is in flow (not absolutely
+          positioned) with a 4:5 minimum, so a long dog name or event makes the
+          note taller instead of clipping the disclaimer and the brand footer
+          out of the saved image. */}
       <div
-        className="absolute inset-3 flex flex-col"
-        style={{ border: `2px solid ${INK}`, boxShadow: `inset 0 0 0 4px ${PAPER}, inset 0 0 0 6px ${INK_SOFT}` }}
+        className="relative m-3 flex flex-col"
+        style={{ minHeight: 426, border: `2px solid ${INK}`, boxShadow: `inset 0 0 0 4px ${PAPER}, inset 0 0 0 6px ${INK_SOFT}` }}
       >
         {/* "Not a real note" ribbon — the unmistakable tell, kept in-frame */}
         <div

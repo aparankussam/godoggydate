@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { absoluteUrl } from '../../lib/site';
+import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 
 export const metadata: Metadata = {
   title: 'Dog Playdates Near Me | GoDoggyDate',
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
       'A practical guide to finding safe, compatible dog playdates in your area.',
     url: absoluteUrl('/dog-playdates'),
     type: 'article',
+    images: defaultSocialImages,
   },
 };
 

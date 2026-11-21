@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
@@ -120,7 +121,7 @@ async function markStripeEventStarted(event: Stripe.Event): Promise<boolean> {
   try {
     await db.collection('stripeEvents').doc(event.id).create({
       type: event.type,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       livemode: event.livemode,
     });
     return true;
@@ -134,7 +135,7 @@ async function markStripeEventStarted(event: Stripe.Event): Promise<boolean> {
       const marker = (await markerRef.get()).data();
       const startedAtMs = marker?.createdAt?.toMillis?.() ?? 0;
       if (!marker?.processedAt && Date.now() - startedAtMs > STALE_STRIPE_EVENT_MS) {
-        await markerRef.update({ createdAt: admin.firestore.FieldValue.serverTimestamp() });
+        await markerRef.update({ createdAt: FieldValue.serverTimestamp() });
         return true;
       }
       return false;
@@ -147,7 +148,7 @@ async function markStripeEventStarted(event: Stripe.Event): Promise<boolean> {
 async function finalizeStripeEvent(eventId: string, status: 'processed' | 'ignored', extra?: Record<string, unknown>) {
   await db.collection('stripeEvents').doc(eventId).set({
     status,
-    processedAt: admin.firestore.FieldValue.serverTimestamp(),
+    processedAt: FieldValue.serverTimestamp(),
     ...extra,
   }, { merge: true });
 }
@@ -181,8 +182,8 @@ async function upsertMatchUnlockState(
       chatUnlocked: anyUnlocked,
       paymentId: nextFieldValue ? paymentIntentId : matchData.paymentId ?? null,
       unlockedByUserId: nextFieldValue ? userId : matchData.unlockedByUserId ?? null,
-      unlockedAt: nextFieldValue ? admin.firestore.FieldValue.serverTimestamp() : matchData.unlockedAt ?? null,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      unlockedAt: nextFieldValue ? FieldValue.serverTimestamp() : matchData.unlockedAt ?? null,
+      updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
     transaction.set(unlockRef, {
@@ -191,7 +192,7 @@ async function upsertMatchUnlockState(
       unlockField: field,
       paymentIntentId,
       status,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       ...extra,
     }, { merge: true });
 
@@ -202,7 +203,7 @@ async function upsertMatchUnlockState(
       unlockField: field,
       paymentIntentId,
       status,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       ...extra,
     }, { merge: true });
   });
@@ -286,7 +287,7 @@ async function grantPaidFoundingMember(
   const dogRef = db.doc(`dogs/${uid}`);
   const counterRef = db.doc('counters/foundingPack');
   const paymentRef = paymentIntentId ? db.doc(`payments/${paymentIntentId}`) : null;
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const now = FieldValue.serverTimestamp();
 
   return db.runTransaction(async (tx) => {
     const [entSnap, dogSnap, counterSnap] = await Promise.all([
@@ -346,8 +347,8 @@ async function grantPaidFoundingMember(
       currency: session.currency ?? null,
       grantedAt: now,
       // Buying again after a refund: clear the old revocation.
-      revokedAt: admin.firestore.FieldValue.delete(),
-      revokedReason: admin.firestore.FieldValue.delete(),
+      revokedAt: FieldValue.delete(),
+      revokedReason: FieldValue.delete(),
     }, { merge: true });
     if (paymentRef) tx.set(paymentRef, { ...paymentRecord, foundingNumber }, { merge: true });
 
@@ -371,7 +372,7 @@ async function revokePaidFoundingMember(
   const entitlementRef = db.doc(`users/${uid}/private/entitlements`);
   const dogRef = db.doc(`dogs/${uid}`);
   const paymentRef = db.doc(`payments/${paymentIntentId}`);
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const now = FieldValue.serverTimestamp();
 
   await db.runTransaction(async (tx) => {
     const [entSnap, dogSnap] = await Promise.all([tx.get(entitlementRef), tx.get(dogRef)]);
@@ -386,7 +387,7 @@ async function revokePaidFoundingMember(
     const foundingNumber = asNumber(ent.foundingNumber);
     tx.set(entitlementRef, {
       lifetimeChatUnlocks: false,
-      foundingNumber: admin.firestore.FieldValue.delete(),
+      foundingNumber: FieldValue.delete(),
       revokedAt: now,
       revokedReason: reason,
     }, { merge: true });
@@ -395,7 +396,7 @@ async function revokePaidFoundingMember(
       dogSnap.exists &&
       asNumber(dogSnap.data()?.foundingPackNumber) === foundingNumber
     ) {
-      tx.update(dogRef, { foundingPackNumber: admin.firestore.FieldValue.delete() });
+      tx.update(dogRef, { foundingPackNumber: FieldValue.delete() });
     }
   });
 }
@@ -460,7 +461,7 @@ export const stripeWebhook = functions
               amount: pi.amount,
               currency: pi.currency,
               unlockedByUserId: userId,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              createdAt: FieldValue.serverTimestamp(),
             },
           );
         }
@@ -632,7 +633,7 @@ export const stripeWebhook = functions
             amountSubtotal: session.amount_subtotal ?? null,
             amountTotal: session.amount_total ?? null,
             currency: session.currency ?? null,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
           }, { merge: true });
           await sendOpsAlert(
             `Paid Stripe checkout granted nothing: session ${session.id}, ` +
@@ -747,10 +748,10 @@ export const onRatingCreated = functions.firestore
     // is "not rated yet". The UI distinguishes absent from 0, so this matters.
     if (counted === 0) {
       await db.doc(`dogs/${dogId}`).update({
-        trustScore: admin.firestore.FieldValue.delete(),
-        ratingCount: admin.firestore.FieldValue.delete(),
-        meetAgainRate: admin.firestore.FieldValue.delete(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        trustScore: FieldValue.delete(),
+        ratingCount: FieldValue.delete(),
+        meetAgainRate: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       return;
     }
@@ -765,7 +766,7 @@ export const onRatingCreated = functions.firestore
       trustScore,
       ratingCount: counted,
       meetAgainRate,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
   });
 
@@ -840,7 +841,7 @@ export const deleteAccount = functions
         .get();
       for (const d of households.docs) {
         await d.ref.update({
-          householdMemberIds: admin.firestore.FieldValue.arrayRemove(uid),
+          householdMemberIds: FieldValue.arrayRemove(uid),
         });
         await d.ref.collection('householdNames').doc(uid).delete().catch(() => {});
       }
@@ -961,10 +962,10 @@ async function sendPushToUser(uid: string, payload: PushPayload): Promise<void> 
   if (staleExpo.length > 0 || staleWeb.length > 0) {
     await tokenRef.set({
       ...(staleExpo.length > 0
-        ? { expoPushTokens: admin.firestore.FieldValue.arrayRemove(...staleExpo) }
+        ? { expoPushTokens: FieldValue.arrayRemove(...staleExpo) }
         : {}),
       ...(staleWeb.length > 0
-        ? { fcmWebTokens: admin.firestore.FieldValue.arrayRemove(...staleWeb) }
+        ? { fcmWebTokens: FieldValue.arrayRemove(...staleWeb) }
         : {}),
     }, { merge: true });
   }
@@ -1104,9 +1105,9 @@ async function moderateMessage(
       text: MODERATED_MESSAGE_TEXT,
       moderated: true,
       moderationReason: reason,
-      moderatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      type: admin.firestore.FieldValue.delete(),
-      playdate: admin.firestore.FieldValue.delete(),
+      moderatedAt: FieldValue.serverTimestamp(),
+      type: FieldValue.delete(),
+      playdate: FieldValue.delete(),
     });
     tx.set(logRef, {
       kind: 'message',
@@ -1119,7 +1120,7 @@ async function moderateMessage(
         type: message.type ?? null,
         playdate: message.playdate ?? null,
       },
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
     return true;
   });
@@ -1211,11 +1212,11 @@ export const onDogProfileWriteModerate = functions
         uid,
         problems: fixes.problems,
         original: fixes.original,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
       tx.set(noticeRef, {
         ...moderationNoticeFor(fixes.problems, pending.exists ? pending.data() : undefined),
-        at: admin.firestore.FieldValue.serverTimestamp(),
+        at: FieldValue.serverTimestamp(),
       });
       return { fixes, logPath: logRef.path };
     });
@@ -1308,7 +1309,7 @@ export const onReportCreated = functions
         await db.doc(`safetyEvidence/${reportId}`).set({
           ...report,
           ...evidence,
-          capturedAt: admin.firestore.FieldValue.serverTimestamp(),
+          capturedAt: FieldValue.serverTimestamp(),
         });
         evidenceSaved = true;
       } catch (error) {
@@ -1343,7 +1344,7 @@ export const onBlockWrite = functions.firestore
     const { uid, targetId } = context.params as { uid: string; targetId: string };
     const reverseRef = db.doc(`blocks/${targetId}/blockedBy/${uid}`);
     if (change.after.exists) {
-      await reverseRef.set({ createdAt: admin.firestore.FieldValue.serverTimestamp() });
+      await reverseRef.set({ createdAt: FieldValue.serverTimestamp() });
     } else {
       await reverseRef.delete();
     }
@@ -1396,7 +1397,7 @@ export const sendReminderNotifications = functions.pubsub
   .schedule('every 24 hours')
   .onRun(async () => {
     const now = Date.now();
-    const windowEnd = admin.firestore.Timestamp.fromMillis(now + 24 * 60 * 60 * 1000);
+    const windowEnd = Timestamp.fromMillis(now + 24 * 60 * 60 * 1000);
 
     const snap = await db.collectionGroup('reminders')
       .where('dueDate', '<=', windowEnd)
@@ -1441,8 +1442,8 @@ export const sendReminderNotifications = functions.pubsub
           // the stale count survived the miss and both clients went on
           // showing a streak that hadn't been earned.
           await doc.ref.update({
-            dueDate: admin.firestore.Timestamp.fromMillis(nextDue),
-            notifiedAt: admin.firestore.FieldValue.delete(),
+            dueDate: Timestamp.fromMillis(nextDue),
+            notifiedAt: FieldValue.delete(),
             currentStreak: 0,
           });
         }
@@ -1630,7 +1631,7 @@ export const sendCelebrationNotifications = functions
         // markStripeEventStarted). Nothing else reads these; server-only.
         const markerRef = db.doc(`dogs/${dogId}/celebrations/${hit.kind}_${hit.year}`);
         try {
-          await markerRef.create({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+          await markerRef.create({ sentAt: FieldValue.serverTimestamp() });
         } catch {
           continue; // already celebrated this occasion this year
         }
@@ -1696,7 +1697,7 @@ export const onDogProfileCreated = functions.firestore
         foundingNumber: next,
         // Someone who bought before the ladder existed keeps their purchase as the source.
         source: ent.lifetimeChatUnlocks === true ? (ent.source ?? 'founding_member') : 'founding_free',
-        freeGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
+        freeGrantedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     });
   });
@@ -1761,8 +1762,8 @@ export const createHouseholdInvite = functions.https.onCall(async (_data, contex
   await db.doc(`householdInvites/${code}`).set({
     dogId: uid,
     createdBy: uid,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    expiresAt: admin.firestore.Timestamp.fromMillis(now + HOUSEHOLD_INVITE_TTL_MS),
+    createdAt: FieldValue.serverTimestamp(),
+    expiresAt: Timestamp.fromMillis(now + HOUSEHOLD_INVITE_TTL_MS),
     used: false,
   });
 
@@ -1807,7 +1808,9 @@ export const acceptHouseholdInvite = functions.https.onCall(async (data, context
     if (currentMembers.includes(uid) || invite.dogId === uid) {
       // Already a member (or the owner themself) — treat as a harmless no-op
       // rather than erroring, since a re-tapped invite link is easy to hit.
-      transaction.update(inviteRef, { used: true, usedBy: uid });
+      // The invite is NOT consumed: an owner opening their own link to check
+      // it works would otherwise burn the code, and the person they actually
+      // sent it to would be told "That invite has already been used."
       return invite.dogId;
     }
     if (currentMembers.length + 1 >= HOUSEHOLD_MAX_MEMBERS) {
@@ -1828,7 +1831,7 @@ export const acceptHouseholdInvite = functions.https.onCall(async (data, context
     const displayLabel = rawName ? rawName.slice(0, 60) : 'Household member';
 
     transaction.update(dogRef, {
-      householdMemberIds: admin.firestore.FieldValue.arrayUnion(uid),
+      householdMemberIds: FieldValue.arrayUnion(uid),
     });
     // The real display name goes in a private subcollection (readable only by
     // the owner + household — see firestore.rules), NOT on the world-readable
@@ -1855,7 +1858,7 @@ export const removeHouseholdMember = functions.https.onCall(async (data, context
   // the caller's OWN dog, so this rejects anyone trying to edit a household
   // they were merely invited into.
   await db.doc(`dogs/${uid}`).update({
-    householdMemberIds: admin.firestore.FieldValue.arrayRemove(memberUid),
+    householdMemberIds: FieldValue.arrayRemove(memberUid),
   });
   await db.doc(`dogs/${uid}/householdNames/${memberUid}`).delete().catch(() => {});
 

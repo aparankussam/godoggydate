@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { absoluteUrl } from '../../lib/site';
+import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | GoDoggyDate',
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     description: 'How GoDoggyDate handles your data — plainly explained.',
     url: absoluteUrl('/privacy'),
     type: 'article',
+    images: defaultSocialImages,
   },
 };
 

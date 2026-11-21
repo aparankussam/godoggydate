@@ -40,7 +40,7 @@ export default function EnablePushBanner({ userId }: { userId: string }) {
         </div>
         <button
           onClick={() => { dismissBlockedPushBanner(); setState('none'); }}
-          className="shrink-0 text-brown-light text-lg leading-none px-1"
+          className="shrink-0 text-brown-light text-lg leading-none p-3 -m-2"
           aria-label="Dismiss"
         >
           ×
@@ -68,13 +68,13 @@ export default function EnablePushBanner({ userId }: { userId: string }) {
           setState(enabled ? 'none' : await getPushBannerState());
         }}
         disabled={busy}
-        className="shrink-0 rounded-full bg-primary text-white text-xs font-bold px-4 py-2 hover:scale-105 transition-transform disabled:opacity-50"
+        className="shrink-0 rounded-full bg-primary text-white text-xs font-bold px-4 py-3 hover:scale-105 transition-transform disabled:opacity-50"
       >
         {busy ? '…' : 'Enable'}
       </button>
       <button
         onClick={() => { dismissPushBanner(); setState('none'); }}
-        className="shrink-0 text-brown-light text-lg leading-none px-1"
+        className="shrink-0 text-brown-light text-lg leading-none p-3 -m-2"
         aria-label="Dismiss"
       >
         ×

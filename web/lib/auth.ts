@@ -12,7 +12,7 @@ import {
   signOut as _signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { deleteField, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
 import {
   isProfileComplete,
@@ -170,14 +170,29 @@ export async function saveUserDogProfile(
   const updatedAt = Date.now();
   const batch = writeBatch(db);
 
+  // Location fields the owner CLEARED. The form omits an emptied field, and
+  // stripUndefined + { merge: true } would then leave the old value in
+  // Firestore: swapping a ZIP for city+state kept the ZIP (and the form showed
+  // it again), and swapping city+state for a ZIP kept the old public city, so a
+  // profile meant to be private stayed discoverable at the old place. Every
+  // caller passes the whole profile, so an empty one here means "cleared".
+  const publicDoc = stripUndefined(toPublicSavedDogProfile(profile)) as unknown as Record<string, unknown>;
+  for (const key of ['location', 'city', 'state'] as const) {
+    if (!publicDoc[key]) publicDoc[key] = deleteField();
+  }
+  const privateDoc = stripUndefined(toPrivateSavedDogProfile(profile)) as unknown as Record<string, unknown>;
+  for (const key of ['zip', 'city', 'state'] as const) {
+    if (!privateDoc[key]) privateDoc[key] = deleteField();
+  }
+
   batch.set(
     doc(db, 'dogs', uid),
-    stripUndefined({
-      ...toPublicSavedDogProfile(profile),
+    {
+      ...publicDoc,
       ownerId: uid,
       createdAt,
       updatedAt,
-    }),
+    },
     // Preserve server-assigned fields (e.g. foundingPackNumber, trustScore)
     // that aren't part of the client's local profile object — a plain
     // overwrite would silently wipe them on every subsequent edit.
@@ -186,7 +201,7 @@ export async function saveUserDogProfile(
 
   batch.set(
     doc(db, 'users', uid, 'private', 'dogProfile'),
-    stripUndefined(toPrivateSavedDogProfile(profile)),
+    privateDoc,
     { merge: true },
   );
 

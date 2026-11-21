@@ -241,7 +241,11 @@ export default function BarkleScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Header />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <Text style={styles.kicker}>THE DAILY DOG GAME</Text>
         <Text style={styles.h1}>Barkle</Text>
         <Text style={styles.intro}>

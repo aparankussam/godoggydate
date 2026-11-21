@@ -638,6 +638,12 @@ export default function ChatScreen() {
   async function proposePlaydate() {
     const { date, time, place } = playdateDraft;
     if (!parseIsoDate(date) || !place.trim()) return;
+    // The Send button reads `now`, which only ticks once a minute, so check the
+    // real clock again: a time picked a moment ago can have slipped past.
+    if (draftToDate(playdateDraft).getTime() < Date.now()) {
+      setNow(Date.now()); // shows the "already passed" warning immediately
+      return;
+    }
     const when = time ? `${date} at ${time}` : date;
     const delivered = await handleSend(`📅 Playdate proposal: ${when} — ${place.trim()}`, {
       type: 'playdate_proposal',
@@ -739,13 +745,19 @@ export default function ChatScreen() {
           <Text style={styles.playdateWhen}>{formatPlaydateWhen(item.playdate, now)}</Text>
           <Text style={styles.playdateWhere}>{item.playdate.place}</Text>
           {!isMe && !confirmed && (
-            <Pressable
-              style={styles.playdateAcceptBtn}
-              onPress={() => acceptPlaydate(item)}
-              disabled={sending}
-            >
-              <Text style={styles.playdateAcceptText}>Accept playdate</Text>
-            </Pressable>
+            // A proposal whose time has gone by can't be confirmed: that would
+            // count as a meetup that never happened and prompt for a rating of it.
+            playdatePhase(item.playdate, now, item.createdAt) === 'happened' ? (
+              <Text style={styles.playdateExpiredText}>That time has passed. Propose a new one.</Text>
+            ) : (
+              <Pressable
+                style={styles.playdateAcceptBtn}
+                onPress={() => acceptPlaydate(item)}
+                disabled={sending}
+              >
+                <Text style={styles.playdateAcceptText}>Accept playdate</Text>
+              </Pressable>
+            )
           )}
           <Text style={styles.playdateTime}>{time}</Text>
         </View>
@@ -1092,6 +1104,8 @@ export default function ChatScreen() {
                 placeholder="Where? (e.g. Maple Dog Park)"
                 placeholderTextColor={colors.brownLight}
                 maxLength={200}
+                autoCapitalize="words"
+                returnKeyType="done"
               />
               <View style={styles.playdateFormActions}>
                 <Pressable
@@ -1148,6 +1162,11 @@ export default function ChatScreen() {
               multiline
               maxLength={MAX_MESSAGE_LENGTH}
               returnKeyType="send"
+              // A multiline TextInput defaults to submitBehavior 'newline': the
+              // keyboard's "send" key would insert a line break and never call
+              // onSubmitEditing. 'submit' makes it send (like web's Enter),
+              // keeps the keyboard up, and still lets long messages wrap.
+              submitBehavior="submit"
               onSubmitEditing={() => handleSend()}
             />
             <Pressable
@@ -1571,6 +1590,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: fonts.bold,
     fontSize: 12,
+  },
+  playdateExpiredText: {
+    marginTop: 8,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.brownLight,
   },
   playdateToggleBtn: {
     width: 44,

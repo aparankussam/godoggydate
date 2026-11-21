@@ -25,13 +25,13 @@ interface Props {
 
 const NOTE_MAX_LEN = 160;
 
+// A fixed English table, not toLocaleDateString: the weekday goes into an
+// English prompt, and Hermes' Intl support (and the device locale) would
+// otherwise change the word ("viernes") from phone to phone.
+const WEEKDAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function weekdayContext(): string {
-  try {
-    const day = new Date().toLocaleDateString(undefined, { weekday: 'long' });
-    return `It's ${day}.`;
-  } catch {
-    return '';
-  }
+  return `It's ${WEEKDAYS_LONG[new Date().getDay()]}.`;
 }
 
 export default function TextsSection({ savedProfile }: Props) {
@@ -100,6 +100,7 @@ export default function TextsSection({ savedProfile }: Props) {
         placeholderTextColor={colors.brownLight}
         style={styles.input}
         editable={!busy}
+        maxLength={NOTE_MAX_LEN}
         returnKeyType="done"
       />
       <View style={styles.metaRow}>

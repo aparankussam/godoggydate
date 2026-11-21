@@ -2,12 +2,29 @@
 // web/lib/shareCard.ts
 // Renders a DogTradingCard DOM node to a PNG and shares/downloads it.
 
+import { safeCardFileName } from '../../shared/fileName';
+
 export async function exportCardImage(node: HTMLElement): Promise<Blob> {
   const html2canvas = (await import('html2canvas')).default;
   const canvas = await html2canvas(node, {
     backgroundColor: null,
     scale: 2, // crisp on retina + when re-shared to social
     useCORS: true,
+    // ScaleToFit shrinks cards on narrow screens with a CSS transform on an
+    // ancestor; capture the card at its real size, not the shrunken one.
+    onclone: (_doc, el) => {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (p.style.transform) p.style.transform = 'none';
+      }
+      // html2canvas draws the text inside an ellipsis box (Tailwind `truncate`
+      // = overflow-hidden + text-overflow) too low, so the bottom of the name
+      // and the line under it were sliced off the Handoff Card's PNG. The
+      // card's own rounded overflow-hidden root still bounds a very long name.
+      el.querySelectorAll<HTMLElement>('.truncate').forEach((node) => {
+        node.style.overflow = 'visible';
+        node.style.textOverflow = 'clip';
+      });
+    },
   });
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -35,9 +52,10 @@ export interface ShareCardOptions {
 
 export async function shareOrDownloadCard(
   node: HTMLElement,
-  fileName: string,
+  rawFileName: string,
   options: ShareCardOptions = {},
 ): Promise<'shared' | 'downloaded'> {
+  const fileName = safeCardFileName(rawFileName);
   const blob = await exportCardImage(node);
   const file = new File([blob], fileName, { type: 'image/png' });
   const { publicUrl, dogName } = options;

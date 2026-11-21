@@ -22,3 +22,13 @@ export const siteUrl = normalizeSiteUrl(
 export function absoluteUrl(path = '/'): string {
   return new URL(path, siteUrl).toString();
 }
+
+/**
+ * The site-wide social card (app/opengraph-image.tsx). A page that sets its own
+ * `openGraph` / `twitter` metadata replaces the layout's, and with it the card
+ * Next attaches to the root segment, so those pages must name it explicitly or
+ * their shared links unfurl with no image.
+ */
+export const defaultSocialImages = [
+  { url: '/opengraph-image', width: 1200, height: 630, alt: "GoDoggyDate — Your dog's whole life, in one place" },
+];

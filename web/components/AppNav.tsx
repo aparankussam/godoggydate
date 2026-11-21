@@ -29,6 +29,9 @@ interface Props {
    *  dog to swipe with, so showing them would be four tabs of which three
    *  are guaranteed dead ends. */
   householdOnly?: boolean;
+  /** Hide the phone tab bar (an open chat thread uses the full screen). The
+   *  desktop sidebar is unaffected. */
+  hideBottomBar?: boolean;
 }
 
 const TABS = [
@@ -54,7 +57,7 @@ function Badge({ count, className = '' }: { count: number; className?: string })
   );
 }
 
-export default function AppNav({ unreadMessages = 0, unreadMatches = 0, householdOnly = false }: Props) {
+export default function AppNav({ unreadMessages = 0, unreadMatches = 0, householdOnly = false, hideBottomBar = false }: Props) {
   const pathname = usePathname();
   const badges = { unreadMessages, unreadMatches };
   const tabs: readonly (typeof TABS)[number][] = householdOnly ? HOUSEHOLD_TABS : TABS;
@@ -100,7 +103,7 @@ export default function AppNav({ unreadMessages = 0, unreadMatches = 0, househol
       </aside>
 
       {/* ── Mobile: bottom tab bar (matches the native app) ──────────────── */}
-      <nav className="lg:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/96 backdrop-blur-xl border-t border-border shadow-[0_-10px_30px_rgba(45,26,14,0.08)] flex z-40 pb-safe">
+      <nav className={`lg:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/96 backdrop-blur-xl border-t border-border shadow-[0_-10px_30px_rgba(45,26,14,0.08)] ${hideBottomBar ? 'hidden' : 'flex'} z-40 pb-safe`}>
         {tabs.map((tab) => {
           const count = 'badge' in tab ? badges[tab.badge] : 0;
           const active = isActive(tab.href);

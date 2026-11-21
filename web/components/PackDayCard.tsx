@@ -25,7 +25,7 @@ export default function PackDayCard({ event, badge }: Props) {
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
             {event.official ? '⭐ Official · ' : ''}{format.emoji} {format.label}
           </p>
-          <h3 className="mt-0.5 font-display text-lg text-brown leading-tight">{event.title}</h3>
+          <h3 className="mt-0.5 font-display text-lg text-brown leading-tight break-words">{event.title}</h3>
         </div>
         {badge && (
           <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
@@ -34,7 +34,7 @@ export default function PackDayCard({ event, badge }: Props) {
         )}
       </div>
       <p className="mt-2 text-sm font-semibold text-brown">{formatPackDayWhen(event)}</p>
-      <p className="text-sm text-brown-mid">
+      <p className="text-sm text-brown-mid break-words">
         {event.placeName} · {event.city}
       </p>
       <p className={`mt-2 text-xs font-semibold ${left === 0 ? 'text-brown-light' : 'text-brown-mid'}`}>

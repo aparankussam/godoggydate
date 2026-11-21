@@ -128,6 +128,36 @@ function icsEscape(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
 }
 
+function utf8Size(char: string): number {
+  const code = char.codePointAt(0) ?? 0;
+  return code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+}
+
+/** RFC 5545 §3.1: content lines are folded at 75 octets (CRLF + one space),
+ *  never in the middle of a UTF-8 character. Strict calendar apps (Outlook,
+ *  some CalDAV servers) drop or garble a long SUMMARY/DESCRIPTION otherwise.
+ *  Counts UTF-8 bytes by hand: no TextEncoder, which older Hermes lacks. */
+export function foldIcsLine(line: string): string {
+  const parts: string[] = [];
+  let current = '';
+  let bytes = 0;
+  // Continuation lines start with a space, which counts toward their 75.
+  let limit = 75;
+  for (const char of line) {
+    const size = utf8Size(char);
+    if (bytes + size > limit) {
+      parts.push(current);
+      current = '';
+      bytes = 0;
+      limit = 74;
+    }
+    current += char;
+    bytes += size;
+  }
+  parts.push(current);
+  return parts.join('\r\n ');
+}
+
 /** A single-event .ics using floating local time (no zone), so it lands at the
  *  host's wall-clock time on the attendee's calendar. */
 export function buildPackDayIcs(event: PackDay, url: string): string | null {
@@ -156,5 +186,5 @@ export function buildPackDayIcs(event: PackDay, url: string): string | null {
     `URL:${url}`,
     'END:VEVENT',
     'END:VCALENDAR',
-  ].join('\r\n');
+  ].map(foldIcsLine).join('\r\n') + '\r\n';
 }

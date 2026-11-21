@@ -121,7 +121,9 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const [dragX, setDragX]           = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [gone, setGone]             = useState<'left' | 'right' | null>(null);
-  const [imgError, setImgError]     = useState(false);
+  // Photos that failed to load. Was a single sticky boolean, so one dead URL
+  // made the whole card read "No photo yet" even while the other photos were fine.
+  const [failedPhotos, setFailedPhotos] = useState<string[]>([]);
   const [photoIndex, setPhotoIndex] = useState(() => heroIndexFor(dog));
 
   const startX = useRef(0);
@@ -166,7 +168,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
     setGone(null);
     setDragX(0);
     setIsDragging(false);
-    setImgError(false);
+    setFailedPhotos([]);
     setPhotoIndex(heroIndexFor(dog));
   }, [dog.firestoreId ?? dog.id]);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -274,13 +276,19 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
         {/* ── Photo section ────────────────────────────────────────────── */}
         <div className="relative h-full bg-transparent">
-          {hasPhoto && !imgError && currentPhoto ? (
+          {hasPhoto && currentPhoto && !failedPhotos.includes(currentPhoto) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={currentPhoto}
               alt={dog.name}
               key={currentPhoto}
-              onError={() => setImgError(true)}
+              onError={() => {
+                // Mark this one dead and move on to the next photo that hasn't failed.
+                const failed = [...failedPhotos, currentPhoto];
+                setFailedPhotos(failed);
+                const next = photos.findIndex((p) => !failed.includes(p));
+                if (next >= 0) setPhotoIndex(next);
+              }}
               className="h-full w-full scale-[1.02] object-cover object-[center_24%] pointer-events-none contrast-[1.15] saturate-[1.18]"
               style={heroObjectPosition ? { objectPosition: heroObjectPosition } : undefined}
               draggable={false}
@@ -294,7 +302,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
           {/* Photo dot indicators — shown only when 2+ photos */}
           {photos.length > 1 && isTop && (
-            <div className="absolute top-4 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
+            <div className="absolute top-12 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
               {photos.map((_, i) => (
                 <div
                   key={i}
@@ -310,7 +318,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
 
           {/* Gradient overlay */}
           <div
-            className="absolute inset-x-0 bottom-0"
+            className="absolute inset-x-0 bottom-0 max-h-full overflow-hidden"
             style={{
               background:
                 'linear-gradient(to top, rgba(8,6,5,0.78) 0%, rgba(8,6,5,0.52) 22%, rgba(8,6,5,0.26) 46%, rgba(8,6,5,0.12) 62%, transparent 72%)',
@@ -334,13 +342,13 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                     </span>
                   </div>
                 )}
-                <p className="font-display text-[2.55rem] leading-[0.94] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)]">
+                <p className="font-display text-[2.55rem] leading-[0.94] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)] [overflow-wrap:anywhere]">
                   {dog.name}
                 </p>
                 <p className="mt-1.5 text-[1.02rem] font-semibold tracking-[0.01em] text-white/95 truncate drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
                   {dog.breed}
                 </p>
-                <p className="mt-1 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
+                <p className="mt-1 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)] [overflow-wrap:anywhere]">
                   {distanceLabel}
                 </p>
                 {/* compat.microcopy — the engine's own one-line verdict,
@@ -374,14 +382,14 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                     itself, before a like, since that's the decision they're
                     meant to inform. */}
                 {dog.compat.warnings.length > 0 && (
-                  <div className="mt-2.5 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {/* Not sliced. The engine used to cap warnings at 2 upstream,
                         which made a local cap dead code; now that it returns all
                         of them, a local cap would silently drop a safety flag. */}
                     {dog.compat.warnings.map((warning) => (
                       <span
                         key={warning}
-                        className="rounded-full border border-amber-300/60 bg-amber-950/55 px-3 py-1 text-[11px] font-semibold text-amber-100 shadow-[0_4px_14px_rgba(0,0,0,0.3)] backdrop-blur-md"
+                        className="rounded-2xl border border-amber-300/60 bg-amber-950/55 px-2.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-100 shadow-[0_4px_14px_rgba(0,0,0,0.3)] backdrop-blur-md"
                       >
                         ⚠ {warning}
                       </span>
@@ -393,7 +401,11 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
           </div>
 
           {hasScore && (
-            <div className="absolute left-4 top-16 flex flex-col items-center gap-1">
+            // Right side: the text block is capped at ~72% of the card width, so the
+            // right edge is free. On the left the ring sat on top of the name,
+            // breed and safety pills whenever the block ran tall (3+ warnings, or
+            // any warnings on a short phone screen).
+            <div className="absolute right-4 top-16 flex flex-col items-center gap-1">
               {/* Ring color now signals compat.quality (green/amber/red) —
                   previously a plain white ring regardless of tier, so a
                   "Safety mismatch" score looked exactly as inviting as a
@@ -489,7 +501,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                 e.stopPropagation();
                 onOpenDetails();
               }}
-              className="absolute right-4 bottom-4 rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white"
+              className="absolute right-4 bottom-4 rounded-full bg-white/80 px-3.5 py-2.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white"
               aria-label={`View details for ${dog.name}`}
             >
               Details
