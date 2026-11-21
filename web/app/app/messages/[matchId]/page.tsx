@@ -34,6 +34,14 @@ import { shareOrDownloadCard } from '../../../../lib/shareCard';
 import { setBestFriend, clearBestFriend } from '../../../../lib/bestFriend';
 import { checkContent, CONTENT_FILTER_MESSAGE } from '../../../../../shared/contentFilter';
 import { parseLocalIsoDate } from '../../../../../shared/profile';
+import {
+  MAX_PLAYDATE_PLACE_LENGTH,
+  formatMessageTime,
+  formatPlaydateWhen,
+  playdateDateBounds,
+  playdateDraftProblem,
+  type PlaydateDraftProblem,
+} from '../../../../../shared/playdates';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -54,6 +62,8 @@ interface Message {
   // Set by the server's content filter (onMessageCreatedNotify), which also
   // replaces the text with a neutral notice and drops any playdate card.
   moderated?: boolean;
+  // Still only on this device: not yet acknowledged by the server.
+  pending?: boolean;
 }
 
 function playdateKey(p?: PlaydateDetails): string {
@@ -122,8 +132,7 @@ function buildSmartPromptsFromProfile(profile: {
 
 function formatTime(createdAt: { seconds: number } | null): string {
   if (!createdAt) return '';
-  const d = new Date(createdAt.seconds * 1000);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatMessageTime(createdAt.seconds * 1000);
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -165,6 +174,8 @@ export default function ChatPage() {
   const [reportDone, setReportDone]         = useState<{ text: string; failed: boolean } | null>(null);
   const [showPlaydateForm, setShowPlaydateForm] = useState(false);
   const [playdateDraft, setPlaydateDraft]   = useState<PlaydateDetails>({ date: '', time: '', place: '' });
+  // Why the proposal can't be sent yet (past date, absurd year, ...), shown by the form.
+  const [playdateProblem, setPlaydateProblem] = useState<PlaydateDraftProblem | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [alreadyRated, setAlreadyRated]     = useState(true); // assume rated until checked, to avoid a flash
   const [memoryCardStars, setMemoryCardStars] = useState<number | null>(null);
@@ -174,6 +185,12 @@ export default function ChatPage() {
   const [togglingBestFriend, setTogglingBestFriend] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  // Synchronous send guard. `sending` is state, so two taps/Enters landing in the
+  // same tick can both read it as false before the re-render; a ref can't.
+  const sendingRef = useRef(false);
+  // Id of the newest incoming message already stamped as read.
+  const lastMarkedReadRef = useRef<string | null>(null);
   // Which read-timestamp slot on the match doc is THIS user's, resolved once the
   // match loads — used to mark the thread read so the unread badge clears.
   const myReadFieldRef = useRef<'dog1LastReadAt' | 'dog2LastReadAt' | null>(null);
@@ -208,6 +225,12 @@ export default function ChatPage() {
     });
     return unsub;
   }, []);
+
+  // Signed out (and no handoff pending): back to Discover. An effect, not a
+  // router call during render.
+  useEffect(() => {
+    if (!authLoading && handoffAttempted && !authUser) router.replace('/app');
+  }, [authLoading, handoffAttempted, authUser, router]);
 
   // ── Founding Member entitlement (unlocks every chat, no per-match payment) ───
   useEffect(() => {
@@ -312,7 +335,11 @@ export default function ChatPage() {
       // own error state instead so it never gets mistaken for either "access
       // denied" or "payment required".
       console.error('Failed to subscribe to match:', error);
-      setLoadError(true);
+      // The rules answer permission-denied both for someone else's match and for
+      // an id that doesn't exist (they can't tell the two apart). That's not a
+      // connection problem, and "Retry" can never fix it.
+      if ((error as { code?: string }).code === 'permission-denied') setAccessDenied(true);
+      else setLoadError(true);
       setLoadingProfile(false);
     });
 
@@ -327,7 +354,9 @@ export default function ChatPage() {
     const msgsRef = collection(db, 'matches', matchId, 'messages');
     const q = query(msgsRef, orderBy('createdAt', 'asc'));
 
-    const unsub = onSnapshot(q, { includeMetadataChanges: false }, (snap) => {
+    // includeMetadataChanges so a message sent offline flips from "Sending…" to
+    // its time when the server acknowledges it (that's a metadata-only change).
+    const unsub = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
       const msgs: Message[] = snap.docs.map((d) => {
         // serverTimestamps:'estimate' gives a just-sent (pending) message an
         // estimated createdAt instead of null — null sorts first under 'asc',
@@ -342,6 +371,7 @@ export default function ChatPage() {
           type:       data.type,
           playdate:   data.playdate,
           moderated:  data.moderated === true,
+          pending:    d.metadata.hasPendingWrites,
         };
       });
       setMessages(msgs);
@@ -350,13 +380,18 @@ export default function ChatPage() {
       // the bottom-nav unread badge clears on READ (not only when you reply).
       const last = msgs[msgs.length - 1];
       const field = myReadFieldRef.current;
-      if (last && field && last.fromUserId && last.fromUserId !== authUser?.uid) {
-        void updateDoc(doc(db, 'matches', matchId), { [field]: serverTimestamp() }).catch(() => {});
+      // Once per newest message: with metadata changes on, this callback also
+      // fires for cache→server transitions, which must not re-stamp the read time.
+      if (last && field && last.fromUserId && last.fromUserId !== authUser?.uid && lastMarkedReadRef.current !== last.id) {
+        lastMarkedReadRef.current = last.id;
+        void updateDoc(doc(db, 'matches', matchId), { [field]: serverTimestamp() }).catch(() => {
+          lastMarkedReadRef.current = null; // try again on the next snapshot
+        });
       }
     });
 
     return unsub;
-  }, [matchId, accessDenied, canChat]);
+  }, [matchId, accessDenied, canChat, authUser?.uid]);
 
   useEffect(() => {
     if (!matchId || authLoading || loadingProfile || accessDenied) return;
@@ -366,8 +401,16 @@ export default function ChatPage() {
   }, [accessDenied, authLoading, canChat, loadingProfile, matchId]);
 
   // ── Auto-scroll to bottom on new messages ────────────────────────────────────
+  // Scrolls the thread's own container. scrollIntoView() also scrolls every
+  // scrollable ancestor — the window included — which dragged the page up and
+  // took the header off the screen. The first paint of a long thread jumps
+  // straight to the newest message; later arrivals glide.
+  const scrolledOnceRef = useRef(false);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: scrolledOnceRef.current ? 'smooth' : 'auto' });
+    if (messages.length > 0) scrolledOnceRef.current = true;
   }, [messages]);
 
   // ── Send message ──────────────────────────────────────────────────────────────
@@ -375,7 +418,7 @@ export default function ChatPage() {
     text: string,
     extra?: { type: Message['type']; playdate: PlaydateDetails },
   ): Promise<boolean> => {
-    if (!text.trim() || !authUser || !matchId || sending || !canChat) return false;
+    if (!text.trim() || !authUser || !matchId || sending || sendingRef.current || !canChat) return false;
     const trimmed = text.trim().slice(0, MAX_MESSAGE_LENGTH);
     // Checked before the input is cleared, so a refused draft stays in the box
     // to be rephrased. The server runs the same filter again on every message.
@@ -385,6 +428,7 @@ export default function ChatPage() {
       return false;
     }
     setContentError(null);
+    sendingRef.current = true;
     setSending(true);
     setSendError(null);
     setChatInput('');
@@ -435,12 +479,14 @@ export default function ChatPage() {
     } catch (err) {
       console.warn('Message send failed:', err);
       if (!delivered) {
-        // Restore the draft and tell the user — silent loss is worse.
-        setChatInput(trimmed);
+        // Restore the draft and tell the user — silent loss is worse. Unless
+        // they've already started typing the next message: don't overwrite it.
+        setChatInput((current) => (current ? current : trimmed));
         setSendError('Message didn’t send — check your connection and try again.');
         setTimeout(() => setSendError(null), 4000);
       }
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
     return delivered;
@@ -480,6 +526,11 @@ export default function ChatPage() {
   const proposePlaydate = useCallback(async () => {
     const { date, time, place } = playdateDraft;
     if (!date || !place.trim()) return;
+    // <input type="date"> accepts yesterday and year 99999; a past playdate that
+    // gets confirmed would open the rating prompt (and feed the trust score) at once.
+    const problem = playdateDraftProblem(playdateDraft);
+    setPlaydateProblem(problem);
+    if (problem) return;
     const when = time ? `${date} at ${time}` : date;
     const delivered = await sendMessage(`📅 Playdate proposal: ${when} — ${place.trim()}`, {
       type: 'playdate_proposal',
@@ -487,6 +538,7 @@ export default function ChatPage() {
     });
     if (!delivered) return; // keep the form + draft so the user can retry
     trackEvent('playdate_proposed', { match_id: matchId });
+    setPlaydateProblem(null);
     setShowPlaydateForm(false);
     setPlaydateDraft({ date: '', time: '', place: '' });
   }, [playdateDraft, sendMessage, matchId]);
@@ -605,7 +657,10 @@ export default function ChatPage() {
 
   // ── Loading / access states ───────────────────────────────────────────────────
 
-  if (authLoading || loadingProfile || !handoffAttempted) {
+  // loadingProfile is only ever cleared by the signed-in match listener, so it
+  // must not gate the signed-out case — that left a signed-out visitor on this
+  // spinner forever instead of sending them to /app.
+  if (authLoading || (authUser && loadingProfile) || !handoffAttempted) {
     return (
       <div className="flex-1 flex items-center justify-center h-screen">
         <span className="text-4xl animate-spin">🐾</span>
@@ -613,10 +668,7 @@ export default function ChatPage() {
     );
   }
 
-  if (!authUser) {
-    router.replace('/app');
-    return null;
-  }
+  if (!authUser) return null; // the effect above redirects to /app
 
   if (loadError) {
     return (
@@ -652,7 +704,7 @@ export default function ChatPage() {
   const dogPhoto = getPrimaryRenderablePhoto(otherProfile?.photos);
 
   return (
-    <div className="flex flex-col h-screen bg-cream">
+    <div className="flex flex-col h-screen h-dvh bg-cream">
 
       {showRatingModal && (
         <PlaydateRatingModal
@@ -771,7 +823,7 @@ export default function ChatPage() {
       {/* Messages */}
       {/* Capped on desktop: full-viewport-wide chat bubbles beside the
           sidebar read as a log file, not a conversation. Mobile unchanged. */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 w-full lg:max-w-3xl lg:mx-auto">
+      <div ref={messagesRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-3 w-full lg:max-w-3xl lg:mx-auto">
         {!canChat && (
           <div className="rounded-[1.5rem] border border-border bg-white px-4 py-4 text-center shadow-sm">
             {isSeedUserId(otherUserId) ? (
@@ -892,10 +944,13 @@ export default function ChatPage() {
                   📅 Playdate {confirmed ? '· Confirmed' : 'proposal'}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-brown">
-                  {msg.playdate.date}{msg.playdate.time ? ` at ${msg.playdate.time}` : ''}
+                  {formatPlaydateWhen(msg.playdate)}
                 </p>
-                <p className="text-sm text-brown-light">{msg.playdate.place}</p>
-                {!fromMe && !confirmed && (
+                <p className="text-sm text-brown-light break-words">{msg.playdate.place}</p>
+                {!fromMe && !confirmed && hasIsoDate(msg.playdate) && msg.playdate.date < todayIso && (
+                  <p className="mt-2 text-xs font-semibold text-brown-light">This date has passed.</p>
+                )}
+                {!fromMe && !confirmed && !(hasIsoDate(msg.playdate) && msg.playdate.date < todayIso) && (
                   <button
                     onClick={() => acceptPlaydate(msg)}
                     disabled={sending}
@@ -915,6 +970,7 @@ export default function ChatPage() {
               fromMe={msg.fromUserId === authUser.uid}
               isSystem={msg.isSystem}
               time={msg.isSystem ? undefined : formatTime(msg.createdAt)}
+              pending={msg.pending && msg.fromUserId === authUser.uid}
             />
           );
         })}
@@ -940,14 +996,16 @@ export default function ChatPage() {
             <input
               type="date"
               value={playdateDraft.date}
-              onChange={(e) => setPlaydateDraft((d) => ({ ...d, date: e.target.value }))}
+              min={playdateDateBounds().min}
+              max={playdateDateBounds().max}
+              onChange={(e) => { setPlaydateDraft((d) => ({ ...d, date: e.target.value })); setPlaydateProblem(null); }}
               className="bg-cream rounded-xl px-3 py-2 text-sm text-brown outline-none border border-transparent focus:border-primary/30"
               aria-label="Playdate date"
             />
             <input
               type="time"
               value={playdateDraft.time}
-              onChange={(e) => setPlaydateDraft((d) => ({ ...d, time: e.target.value }))}
+              onChange={(e) => { setPlaydateDraft((d) => ({ ...d, time: e.target.value })); setPlaydateProblem(null); }}
               className="bg-cream rounded-xl px-3 py-2 text-sm text-brown outline-none border border-transparent focus:border-primary/30"
               aria-label="Playdate time"
             />
@@ -955,8 +1013,10 @@ export default function ChatPage() {
               type="text"
               placeholder="Where? (e.g. Maple Dog Park)"
               value={playdateDraft.place}
+              maxLength={MAX_PLAYDATE_PLACE_LENGTH}
               onChange={(e) => {
                 setPlaydateDraft((d) => ({ ...d, place: e.target.value }));
+                setPlaydateProblem(null);
                 if (contentError === 'playdate') setContentError(null);
               }}
               className="flex-1 min-w-[10rem] bg-cream rounded-xl px-3 py-2 text-sm text-brown placeholder:text-brown-light outline-none border border-transparent focus:border-primary/30"
@@ -970,6 +1030,11 @@ export default function ChatPage() {
               {CONTENT_FILTER_MESSAGE}
             </p>
           )}
+          {playdateProblem && (
+            <p role="alert" className="mt-2 text-xs font-semibold text-red-600">
+              {playdateProblem.message}
+            </p>
+          )}
           <div className="mt-2 flex gap-2">
             <button
               onClick={proposePlaydate}
@@ -981,6 +1046,7 @@ export default function ChatPage() {
             <button
               onClick={() => {
                 setShowPlaydateForm(false);
+                setPlaydateProblem(null);
                 if (contentError === 'playdate') setContentError(null);
               }}
               className="rounded-full px-4 py-2 text-xs font-semibold text-brown-light hover:text-brown"
@@ -1033,8 +1099,13 @@ export default function ChatPage() {
             setChatInput(e.target.value);
             if (contentError === 'message') setContentError(null);
           }}
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage(chatInput)}
-          disabled={sending || !canChat}
+          // Enter while an IME is composing (Japanese/Chinese/Korean) confirms the
+          // candidate — it must not send the half-typed message.
+          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && sendMessage(chatInput)}
+          // Not disabled while a send is in flight: a disabled input blurs, so the
+          // phone keyboard closed after every message. sendMessage already
+          // ignores a second send until the first has finished.
+          disabled={!canChat}
           maxLength={MAX_MESSAGE_LENGTH}
           autoComplete="off"
         />

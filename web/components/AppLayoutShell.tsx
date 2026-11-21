@@ -9,6 +9,7 @@
 //   unreadMessages — matches where last msg was from the OTHER user
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   collection, query, where, onSnapshot,
 } from 'firebase/firestore';
@@ -26,6 +27,12 @@ interface Props {
 }
 
 export default function AppLayoutShell({ children }: Props) {
+  const pathname = usePathname();
+  // An open chat thread owns the whole phone screen, like the native app's chat
+  // (which sits outside the tab bar). Leaving the bottom bar up put it on top of
+  // the composer and made the page 5rem taller than the screen, so the document
+  // scrolled and the thread's header (back / report / block) slid out of view.
+  const inChatThread = /^\/app\/messages\/[^/]+/.test(pathname ?? '');
   const [authUser, setAuthUser]             = useState<User | null>(null);
   const [savedProfile, setSavedProfile]     = useState<SavedDogProfile | null>(null);
   const [ready, setReady]                   = useState(false);
@@ -85,7 +92,15 @@ export default function AppLayoutShell({ children }: Props) {
     const { db } = getFirebase();
     const col = collection(db, 'matches');
 
+    // Everyone hidden from this user (blocked by them, or blocking them). The
+    // Matches/Messages lists drop those threads, so the badge must too — it kept
+    // counting an unread message from someone you'd just blocked, with nothing
+    // in the list to open or clear it.
+    const hidden = new Set<string>();
+    const blockedBy = new Map<string, Set<string>>();
+
     const allMatches = new Map<string, {
+      otherUserId:        string | null;
       lastMessage:        string | null;
       lastMessageFromUid: string | null;
       lastMessageAt:      number | null; // ms
@@ -101,6 +116,7 @@ export default function AppLayoutShell({ children }: Props) {
       const isDog1 = data.dog1UserId === uid;
       const myRead = isDog1 ? data.dog1LastReadAt : data.dog2LastReadAt;
       return {
+        otherUserId:        ((isDog1 ? data.dog2UserId : data.dog1UserId) as string | undefined) ?? null,
         lastMessage:        (data.lastMessage as string | null) ?? null,
         lastMessageFromUid: (data.lastMessageFromUid as string | null) ?? null,
         lastMessageAt:      toMs(data.lastMessageTime),
@@ -112,6 +128,7 @@ export default function AppLayoutShell({ children }: Props) {
       let newMatches  = 0;
       let newMessages = 0;
       for (const m of allMatches.values()) {
+        if (m.otherUserId && hidden.has(m.otherUserId)) continue;
         if (!m.lastMessage) {
           newMatches++;
         } else if (m.lastMessageFromUid && m.lastMessageFromUid !== uid) {
@@ -142,7 +159,23 @@ export default function AppLayoutShell({ children }: Props) {
       },
     );
 
-    return () => { unsubA(); unsubB(); };
+    // blocks/{uid}/blocked and blocks/{uid}/blockedBy are owner-readable. A
+    // failed listener just leaves that half empty (the badge then over-counts).
+    const watchBlocks = (sub: 'blocked' | 'blockedBy') =>
+      onSnapshot(
+        collection(db, 'blocks', uid, sub),
+        (snap) => {
+          blockedBy.set(sub, new Set(snap.docs.map((d) => d.id)));
+          hidden.clear();
+          for (const ids of blockedBy.values()) ids.forEach((id) => hidden.add(id));
+          recompute();
+        },
+        () => { /* leave as is */ },
+      );
+    const unsubBlocked = watchBlocks('blocked');
+    const unsubBlockedBy = watchBlocks('blockedBy');
+
+    return () => { unsubA(); unsubB(); unsubBlocked(); unsubBlockedBy(); };
   }, [authUser]);
 
   // hasOwnDog is the pre-existing condition, untouched. The household clause
@@ -157,7 +190,7 @@ export default function AppLayoutShell({ children }: Props) {
     <>
       {/* Offsets for whichever nav form is showing: bottom padding for the
           mobile tab bar, left padding for the desktop sidebar rail. */}
-      <div className={showNav ? 'pb-20 lg:pb-0 lg:pl-64' : undefined}>
+      <div className={showNav ? (inChatThread ? 'lg:pl-64' : 'pb-20 lg:pb-0 lg:pl-64') : undefined}>
         {children}
       </div>
       {showNav && (
@@ -165,6 +198,7 @@ export default function AppLayoutShell({ children }: Props) {
           unreadMessages={unreadMessages}
           unreadMatches={unreadMatches}
           householdOnly={householdOnly}
+          hideBottomBar={inChatThread}
         />
       )}
     </>

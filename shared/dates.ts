@@ -67,7 +67,11 @@ const two = (n: number) => String(n).padStart(2, '0');
  * show an error instead of silently writing null over a good stored date.
  */
 export function parseUsDateInput(raw: string | null | undefined): ParseResult {
-  const text = (raw ?? '').trim();
+  // A trailing slash is just a separator the owner hasn't followed yet — and a
+  // trailing space (which the mask turns into one) is easy to leave behind on a
+  // phone keyboard. "2021 " / "06/2021/" are the date they obviously meant, not
+  // an error.
+  const text = (raw ?? '').trim().replace(/\/+$/, '');
   if (!text) return { ok: false, reason: 'empty' };
 
   const parts = text.split('/').map((p) => p.trim());
@@ -212,6 +216,92 @@ export function isBirthYearInRange(year: number, now: Date = new Date()): boolea
   return Number.isInteger(year) && year >= MIN_BIRTH_YEAR && year <= now.getFullYear();
 }
 
+/**
+ * True when a (possibly partial) date lies after today. A year-only date is in
+ * the future only if the YEAR is; a month+year only if that MONTH hasn't begun;
+ * a full date only if the DAY hasn't arrived. So 11/2026 is fine on 11/20/2026
+ * (the month is under way) but 12/2026 is not.
+ */
+export function isPartialDateInFuture(partial: PartialDate, now: Date = new Date()): boolean {
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  if (partial.year !== y) return partial.year > y;
+  if (partial.month === null) return false;
+  if (partial.month !== m) return partial.month > m;
+  if (partial.day === null) return false;
+  return partial.day > d;
+}
+
+/**
+ * Why a typed birthday can't be saved, as the message to show, or null if it
+ * can. Two separate failures: the year is outside what Life Stage understands
+ * (before 1990), and the date simply hasn't happened yet — a dog can't have been
+ * born after today, and a "birthday" of 12/25 typed in November would otherwise
+ * count down to a first birthday that is really a birth.
+ */
+export function birthDateProblem(partial: PartialDate, now: Date = new Date()): string | null {
+  if (!isBirthYearInRange(partial.year, now)) {
+    return `Year must be between ${MIN_BIRTH_YEAR} and ${now.getFullYear()}`;
+  }
+  if (isPartialDateInFuture(partial, now)) return "That date hasn't happened yet";
+  return null;
+}
+
+/**
+ * Same idea for Gotcha Day ("the day they came home"): not before 1990, and not
+ * in the future. A future Gotcha Day was silently accepted and then did nothing
+ * (milestones needs a full year to pass).
+ */
+export function adoptionDateProblem(partial: PartialDate, now: Date = new Date()): string | null {
+  if (!isBirthYearInRange(partial.year, now)) {
+    return `Year must be between ${MIN_BIRTH_YEAR} and ${now.getFullYear()}`;
+  }
+  if (isPartialDateInFuture(partial, now)) return "Gotcha Day can't be in the future";
+  return null;
+}
+
+/** How far ahead a rabies expiry may sit. Rabies certificates run 1–3 years; a
+ *  typo like 2207 for 2027 would otherwise print "valid through 04/18/2207" on
+ *  the public profile for ever. */
+export const MAX_RABIES_YEARS_AHEAD = 10;
+
+/** Why a typed rabies expiry can't be saved, or null. A PAST expiry is valid —
+ *  "expired" is exactly what this field exists to show — but not an absurd one. */
+export function rabiesExpiryProblem(partial: PartialDate, now: Date = new Date()): string | null {
+  const maxYear = now.getFullYear() + MAX_RABIES_YEARS_AHEAD;
+  if (!Number.isInteger(partial.year) || partial.year < MIN_BIRTH_YEAR || partial.year > maxYear) {
+    return `Year must be between ${MIN_BIRTH_YEAR} and ${maxYear}`;
+  }
+  return null;
+}
+
+/**
+ * Where to put the caret after the mask rewrote what the owner just typed.
+ *
+ * A controlled <input> whose value is changed under it sends the caret to the
+ * END, so editing mid-string (insert a digit, backspace over a slash) used to
+ * fling the caret away and turn the next keystroke into garbage. Typing at the
+ * end is unchanged. Elsewhere the caret keeps its place among the DIGITS: the
+ * same number of digits sit to its left as before, and a separator the owner
+ * just typed is stepped over.
+ */
+export function maskedCaretPosition(raw: string, caret: number, masked: string): number {
+  if (caret >= raw.length) return masked.length;
+  const before = raw.slice(0, caret);
+  const digits = (before.match(/\d/g) ?? []).length;
+  let pos = 0;
+  let seen = 0;
+  while (pos < masked.length && seen < digits) {
+    if (/\d/.test(masked[pos])) seen += 1;
+    pos += 1;
+  }
+  // The owner's last keystroke was a separator ("06/" with more after it), so
+  // the caret belongs after that slash, not before it.
+  if (before.length > 0 && !/\d/.test(before[before.length - 1]) && masked[pos] === '/') pos += 1;
+  return pos;
+}
+
 // ── Gotcha Day bridge (one polymorphic string ⇄ one input box) ────────────────
 
 /**
@@ -289,6 +379,24 @@ function startOfLocalDay(ms: number): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
+/** How far a reminder's due date may sit from today. A booster really can be a
+ *  few months overdue, but "45,979 days overdue" (a typed 0001) is nobody's
+ *  reminder, and Firestore refuses a Timestamp past year 9999. */
+export const REMINDER_MAX_YEARS_BACK = 5;
+export const REMINDER_MAX_YEARS_AHEAD = 30;
+
+/** Why a reminder due date (unix ms) can't be saved, as the message to show, or null. */
+export function reminderDueDateProblem(dueDate: number, now: number = Date.now()): string | null {
+  if (!Number.isFinite(dueDate)) return 'Pick a valid date';
+  const today = new Date(now);
+  const earliest = new Date(today.getFullYear() - REMINDER_MAX_YEARS_BACK, 0, 1).getTime();
+  const latest = new Date(today.getFullYear() + REMINDER_MAX_YEARS_AHEAD + 1, 0, 1).getTime();
+  if (dueDate < earliest || dueDate >= latest) {
+    return `Pick a date between ${today.getFullYear() - REMINDER_MAX_YEARS_BACK} and ${today.getFullYear() + REMINDER_MAX_YEARS_AHEAD}`;
+  }
+  return null;
+}
+
 /** Whole local calendar days from today to the due date. 0 = today, -1 = yesterday. */
 export function calendarDaysUntil(dueDate: number, now: number = Date.now()): number {
   // `|| 0` normalises -0 (Math.round of a small negative) to 0, so callers can
@@ -327,28 +435,100 @@ export function reminderDueLabel(
 
 // ── Input masking ────────────────────────────────────────────────────────────
 
+// A segment is "complete" when no further digit can belong to it, so the next
+// digit starts the next segment. These decide where a slash goes when the owner
+// types digits only.
+//
+// The hard part is the two SHORTER shapes the boxes advertise: "2021" (year
+// only) and "06/2021" (month + year). A mask that blindly rebuilt MM/DD/YY from
+// digits turned "062021" into "06/20/21" and "2021" into "20/21", which broke
+// both. So the rules below only split where the digits themselves settle it,
+// and otherwise wait for more.
+
+/** A year in this app starts 19 or 20, so those two digits can't be a month. */
+const isYearPrefix = (two: string) => two === '19' || two === '20';
+
+/** Month segment: '3'–'9' can only be a one-digit month, '00'–'12' a two-digit
+ *  one. '1' and '2' stay open (they may start 10–12 or 19xx/20xx), and '13'+
+ *  is a year being typed, not a month. */
+function monthIsComplete(seg: string): boolean {
+  if (seg.length === 1) return seg >= '3';
+  if (seg.length === 2) return Number(seg) <= 12;
+  return false;
+}
+
+/** Middle segment: '4'–'9' can only be a one-digit day, and any other two
+ *  digits are a day (even an impossible 32, which stays visible in the box and
+ *  is dropped on save, same as when typed with slashes) — except '19' and '20',
+ *  which are just as likely the start of a year ("06/2021"), so those wait for
+ *  more digits. */
+function dayIsComplete(seg: string): boolean {
+  if (seg.length === 1) return seg >= '4';
+  if (seg.length === 2) return !isYearPrefix(seg);
+  return false;
+}
+
 /**
- * Sanitise what the owner is typing in a US date box: keep digits and the
- * slashes THEY type, cap each segment, and otherwise leave the value alone.
+ * Shape what the owner is typing in a US date box into MM/DD/YYYY.
  *
- * It deliberately does NOT auto-insert slashes. Auto-insertion has to guess how
- * many parts the value will end up with, and that guess makes the two SHORTER
- * shapes these boxes explicitly advertise impossible to type: rebuilding from
- * digits alone turns "062021" (June 2021) into "06/20/21" and "2021" into
- * "20/21", both of which then fail to parse. A month-only Gotcha Day and a
- * year-only birthday are the whole point of accepting partial dates, so the
- * mask must never stand between the owner and them.
+ * - Slashes they type are kept. Dashes, dots and spaces count as slashes, and a
+ *   complete 'YYYY-MM-DD' is turned around into MM/DD/YYYY.
+ * - Typing DIGITS ONLY works too, which matters because a phone's numeric
+ *   keypad has no "/" key: "06142021" becomes "06/14/2021", "062021" becomes
+ *   "06/2021", and "2021" stays "2021". Typed this way, months 1–2 and days 1–3
+ *   need their leading zero ("01", "03"): a bare 1, 2 or 3 could be the start
+ *   of a two-digit number or a year. Months 3–9 and days 4–9 don't.
+ * - A slash is only added when the NEXT digit arrives, never at the end, so
+ *   backspacing over one always works.
+ * - Each segment is capped (month 2, day 2, year 4), and the value is stable:
+ *   masking an already-masked value changes nothing.
  *
- * Segment caps: month 2, middle 4 (it is either a 1–2 digit day or a 4-digit
- * year), year 4. With no slash yet the single segment allows 4, since it may be
- * a bare "YYYY" rather than a month being typed.
+ * The one visible wobble: a day of 19 or 20 typed digits-only shows as
+ * "06/2020" until the fifth digit shows it was a day, then re-splits to
+ * "06/20/202". Typing the slash yourself avoids it.
  */
 export function maskUsDateInput(raw: string): string {
-  const cleaned = (raw ?? '').replace(/[^\d/]/g, '').replace(/\/{2,}/g, '/');
-  const parts = cleaned.split('/').slice(0, 3);
-  if (parts.length === 1) return parts[0].slice(0, 4);
-  parts[0] = parts[0].slice(0, 2);
-  parts[1] = parts[1].slice(0, 4);
-  if (parts.length === 3) parts[2] = parts[2].slice(0, 4);
-  return parts.join('/');
+  const text = raw ?? '';
+
+  // 'YYYY-MM-DD' (pasted from a form or spreadsheet). Only once complete, so
+  // nobody typing it digit by digit is flipped halfway through.
+  const iso = /^\s*(\d{4})[-./\s](\d{2})[-./\s](\d{2})\s*$/.exec(text);
+  if (iso) return `${iso[2]}/${iso[3]}/${iso[1]}`;
+
+  const cleaned = text
+    .replace(/[-.\s]+/g, '/')
+    .replace(/[^\d/]/g, '')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\//, '');
+
+  const segs: string[] = [''];
+  for (const ch of cleaned) {
+    const i = segs.length - 1;
+    const cur = segs[i];
+
+    if (ch === '/') {
+      if (cur !== '' && segs.length < 3) segs.push('');
+      continue;
+    }
+
+    if (i === 0) {
+      // Month, or a bare year.
+      if (monthIsComplete(cur)) segs.push(ch);
+      else if (cur.length < 4) segs[0] = cur + ch;
+    } else if (i === 1) {
+      // Day, or the year of "MM/YYYY".
+      if (dayIsComplete(cur)) {
+        segs.push(ch);
+      } else if (cur.length < 4) {
+        segs[1] = cur + ch;
+      } else {
+        // A fifth digit: those four were a day plus the start of a year.
+        segs[1] = cur.slice(0, 2);
+        segs.push((cur.slice(2) + ch).slice(0, 4));
+      }
+    } else if (cur.length < 4) {
+      segs[2] = cur + ch;
+    }
+  }
+  return segs.join('/');
 }

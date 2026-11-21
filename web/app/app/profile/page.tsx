@@ -567,7 +567,7 @@ export default function ProfilePage() {
                     ✨ {vibeCheck.archetype.name}
                   </p>
                 )}
-                <p className="font-display text-3xl text-brown leading-tight">{savedProfile.name}</p>
+                <p className="font-display text-3xl text-brown leading-tight break-words">{savedProfile.name}</p>
                 <p className="text-sm text-brown-light mt-1 truncate">
                   {[savedProfile.breed, savedProfile.age, savedProfile.location].filter(Boolean).join(' · ')}
                 </p>
@@ -703,9 +703,9 @@ export default function ProfilePage() {
               // would rewrite "valid through Aug 12" the module says never to.
               { label: 'Vaccination',   value: (() => { const v = getVaccinationStatus(savedProfile); return v.tone === 'unstated' ? undefined : v.label; })(), raw: true },
             ].map(({ label, value, raw }) => value ? (
-              <div key={label} className="flex justify-between items-center px-4 py-3">
-                <span className="text-sm text-brown-light">{label}</span>
-                <span className={`text-sm font-semibold text-brown ${raw ? '' : 'capitalize'}`}>{value}</span>
+              <div key={label} className="flex justify-between items-center gap-3 px-4 py-3">
+                <span className="shrink-0 text-sm text-brown-light">{label}</span>
+                <span className={`min-w-0 break-words text-right text-sm font-semibold text-brown ${raw ? '' : 'capitalize'}`}>{value}</span>
               </div>
             ) : null)}
 
@@ -817,7 +817,7 @@ export default function ProfilePage() {
           {!householdOnly && (
             <Link
               href="/app"
-              className="text-center text-xs text-brown-light hover:text-brown transition-colors py-2"
+              className="text-center text-xs text-brown-light hover:text-brown transition-colors py-3.5"
             >
               ← Back to discover
             </Link>
@@ -834,8 +834,12 @@ export default function ProfilePage() {
             Member CTA at the bottom permanently unreachable whenever this
             column's own content — card + reminders + household + CTA — ran
             taller than the screen, since a sticky element with no shorter
-            sibling to scroll past never gets the chance to un-stick. */}
-        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+            sibling to scroll past never gets the chance to un-stick.
+            Children must not shrink (shrink-0): in a height-capped flex
+            column the overflow-hidden cards (Reminders, Household) have a
+            min-height of 0 and were squashed to nothing, so neither could be
+            seen or used on desktop. */}
+        <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:[&>*]:shrink-0">
 
         {/* Trading card share */}
         {savedProfile && complete && (
@@ -855,7 +859,7 @@ export default function ProfilePage() {
               <Link
                 href={`/d/${toDogSlug(savedProfile.name, authUser.uid)}`}
                 target="_blank"
-                className="text-xs text-brown-light hover:text-brown transition-colors"
+                className="inline-block max-w-full break-words py-3 text-center text-xs text-brown-light hover:text-brown transition-colors"
               >
                 View {savedProfile.name}&apos;s public page →
               </Link>

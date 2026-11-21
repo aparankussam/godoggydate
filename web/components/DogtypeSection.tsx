@@ -154,7 +154,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
       <button
         type="button"
         onClick={() => setShowAxes((v) => !v)}
-        className="mt-3 text-xs font-bold text-primary underline underline-offset-2"
+        className="mt-1 py-3 text-xs font-bold text-primary underline underline-offset-2"
       >
         {showAxes ? 'Hide the read' : 'How we read this'}
       </button>

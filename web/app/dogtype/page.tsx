@@ -7,6 +7,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DOGTYPE_CODES, dogtypeByCode, dogtypeCodeDecode } from '../../../shared/dogtype';
+import { defaultSocialImages } from '../../lib/site';
 
 export const dynamic = 'force-static';
 
@@ -18,8 +19,9 @@ export const metadata: Metadata = {
     title: 'The 16 Dogtypes — GoDoggyDate',
     description: 'A playful personality system for dogs. Meet all 16 Dogtypes.',
     type: 'website',
+    images: defaultSocialImages,
   },
-  twitter: { card: 'summary_large_image', title: 'The 16 Dogtypes — GoDoggyDate' },
+  twitter: { card: 'summary_large_image', title: 'The 16 Dogtypes — GoDoggyDate', images: defaultSocialImages },
   alternates: { canonical: '/dogtype' },
 };
 

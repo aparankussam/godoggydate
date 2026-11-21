@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { absoluteUrl } from '../../lib/site';
+import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 
 export const metadata: Metadata = {
   title: 'Delete Your Account | GoDoggyDate',
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     description: 'How to delete your GoDoggyDate account and the data connected to it.',
     url: absoluteUrl('/delete-account'),
     type: 'article',
+    images: defaultSocialImages,
   },
 };
 

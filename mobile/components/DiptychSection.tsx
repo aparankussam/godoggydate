@@ -31,6 +31,7 @@ import { webBaseUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import DiptychCard from './DiptychCard';
 import { formatUsMonthYear, maskUsDateInput, parseUsDateInput } from '../../shared/dates';
+import { DATE_KEYBOARD } from '../lib/keyboards';
 
 /** A "then vs now" needs two different photos. */
 export const DIPTYCH_MIN_PHOTOS = 2;
@@ -178,7 +179,7 @@ export default function DiptychSection({ savedProfile }: Props) {
         placeholderTextColor={colors.brownLight}
         value={dateValue}
         onChangeText={(t) => setDateValue(maskUsDateInput(t))}
-        keyboardType="numbers-and-punctuation"
+        keyboardType={DATE_KEYBOARD}
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={10}

@@ -71,6 +71,7 @@ export default function ExcuseScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
       >
         <View style={styles.intro}>
           <Text style={styles.eyebrow}>The Dog Excuse Note</Text>

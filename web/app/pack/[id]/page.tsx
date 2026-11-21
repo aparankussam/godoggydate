@@ -55,7 +55,7 @@ export default async function PublicPackDayPage({ params }: PageProps) {
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
             {event.official ? '⭐ Official Pack Day' : 'Pack Day'} · {format.emoji} {format.label}
           </p>
-          <h1 className="mt-1 font-display text-2xl text-brown leading-tight">{event.title}</h1>
+          <h1 className="mt-1 font-display text-2xl text-brown leading-tight break-words">{event.title}</h1>
         </div>
 
         <div className="px-6 py-5 space-y-4">
@@ -77,13 +77,13 @@ export default async function PublicPackDayPage({ params }: PageProps) {
             </div>
             <div className="flex gap-3">
               <dt aria-hidden="true">📍</dt>
-              <dd className="text-brown">
+              <dd className="text-brown min-w-0 break-words">
                 <span className="font-semibold">{event.placeName}</span>, {event.city}{event.state ? `, ${event.state}` : ''}
                 <a
                   href={mapsSearchUrl(event)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-2 text-primary font-semibold underline"
+                  className="ml-1 px-1.5 py-3 text-primary font-semibold underline"
                 >
                   Map
                 </a>
@@ -101,7 +101,7 @@ export default async function PublicPackDayPage({ params }: PageProps) {
           </dl>
 
           <p className="text-sm text-brown-mid leading-relaxed">{format.blurb}</p>
-          {event.note && <p className="text-sm text-brown leading-relaxed">&ldquo;{event.note}&rdquo;</p>}
+          {event.note && <p className="text-sm text-brown leading-relaxed break-words">&ldquo;{event.note}&rdquo;</p>}
 
           <PackDayJoinCta
             eventId={event.id}

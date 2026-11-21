@@ -187,10 +187,10 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
             <p className="italic mt-3" style={{ fontSize: 13, color: INK_SOFT }}>
               a.k.a.
             </p>
-            <p className="font-display mt-0.5 leading-tight" style={{ fontSize: 26, color: INK }}>
+            <p className="font-display mt-0.5 max-w-full break-words leading-tight" style={{ fontSize: 26, color: INK }}>
               {poster.alias}
             </p>
-            <p className="mt-0.5" style={{ fontSize: 11, color: INK_SOFT }}>
+            <p className="mt-0.5 max-w-full break-words" style={{ fontSize: 11, color: INK_SOFT }}>
               (known to the law as {dogName})
             </p>
 

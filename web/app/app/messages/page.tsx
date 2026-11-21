@@ -18,6 +18,8 @@ import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
+import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
+import SignInGate from '../../../components/SignInGate';
 
 interface ConversationItem {
   matchId:      string;
@@ -224,6 +226,12 @@ export default function MessagesPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [authUser]);
 
+  // New matches and incoming messages appear (and light their unread dot) live.
+  useLiveMatchRefresh(authUser?.uid, () => {
+    if (!authUser) return;
+    fetchConversations(authUser.uid).then(setConvos).catch(() => { /* keep the current list */ });
+  });
+
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
@@ -234,11 +242,7 @@ export default function MessagesPage() {
 
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">💬</span>
-        <p className="font-display text-2xl text-brown">Sign in to see messages</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate emoji="💬" title="Sign in to see messages" />
     );
   }
 
@@ -339,7 +343,7 @@ export default function MessagesPage() {
                       {c.isNew
                         ? (c.chatUnlocked
                             ? 'New match! Say hello 👋'
-                            : 'Send the first hello from the mobile app')
+                            : 'Unlock chat to say hello')
                         : conversationHint(c, authUser.uid, name)}
                     </p>
                   </div>

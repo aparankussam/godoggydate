@@ -16,6 +16,7 @@
 import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import ExcuseNoteCard from '../../components/ExcuseNoteCard';
+import ScaleToFit from '../../components/ScaleToFit';
 import { shareOrDownloadCard } from '../../lib/shareCard';
 import { buildExcuseNote, EXCUSE_REASONS } from '../../../shared/excuseNote';
 
@@ -62,8 +63,8 @@ export default function ExcuseClient() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-display text-2xl text-brown">🐾 GoDoggyDate</Link>
-          <Link href="/app" className="btn-secondary text-sm">Open the app</Link>
+          <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
+          <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Open the app</Link>
         </div>
       </nav>
 
@@ -82,7 +83,7 @@ export default function ExcuseClient() {
       </section>
 
       {/* Builder + preview */}
-      <section className="max-w-4xl mx-auto px-6 pb-16 grid gap-8 md:grid-cols-2 items-start">
+      <section className="max-w-4xl mx-auto px-6 pb-16 grid gap-8 grid-cols-1 md:grid-cols-2 items-start">
         {/* Form */}
         <div className="card p-6">
           <div className="space-y-4">
@@ -133,7 +134,7 @@ export default function ExcuseClient() {
                       type="button"
                       onClick={() => setReasonId(r.id)}
                       className={
-                        'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition ' +
+                        'flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ' +
                         (active
                           ? 'border-primary bg-primary/10 text-brown font-bold'
                           : 'border-border bg-cream text-brown-mid hover:border-primary/50')
@@ -152,9 +153,9 @@ export default function ExcuseClient() {
 
         {/* Live preview + share */}
         <div className="flex flex-col items-center">
-          <div className="flex justify-center">
+          <ScaleToFit width={360}>
             <ExcuseNoteCard ref={cardRef} note={note} />
-          </div>
+          </ScaleToFit>
 
           <button
             type="button"
@@ -180,7 +181,7 @@ export default function ExcuseClient() {
 
       <footer className="border-t border-border py-8">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-sm text-brown-light">
+          <p className="text-sm text-brown-light" suppressHydrationWarning>
             © {new Date().getFullYear()} GoDoggyDate · A novelty note issued by a dog, for fun —
             not a real medical, legal, or employer document.
           </p>

@@ -94,8 +94,17 @@ export interface SavedDogPrivateProfile {
   lng?: number;
 }
 
-function normalizedPublicLocation(profile: SavedDogProfile): string | undefined {
+const ZIP_SHAPE = /^\d{5}(-\d{4})?$/;
+
+// A city that is really a ZIP (older builds read a ZIP-only profile's location
+// back into the City box) would publish the private ZIP.
+function normalizedPublicCity(profile: SavedDogProfile): string | undefined {
   const city = profile.city?.trim();
+  return city && !ZIP_SHAPE.test(city) ? city : undefined;
+}
+
+function normalizedPublicLocation(profile: SavedDogProfile): string | undefined {
+  const city = normalizedPublicCity(profile);
   const state = profile.state?.trim().toUpperCase();
   const location = profile.location?.trim();
 
@@ -125,7 +134,7 @@ export function toPublicSavedDogProfile(profile: SavedDogProfile): SavedDogProfi
   return {
     ...profile,
     location: normalizedPublicLocation(profile),
-    city: profile.city?.trim() || undefined,
+    city: normalizedPublicCity(profile),
     state: profile.state?.trim().toUpperCase() || undefined,
     zip: undefined,
     lat: roundPublicCoord(profile.lat),

@@ -23,6 +23,7 @@ import ApologySection from '../../../components/ApologySection';
 import TextsSection from '../../../components/TextsSection';
 import DogQuizSection from '../../../components/DogQuizSection';
 import PlaqueCard from '../../../components/PlaqueCard';
+import SignInGate from '../../../components/SignInGate';
 
 export default function FunPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -66,11 +67,7 @@ export default function FunPage() {
   // ── Not signed in ───────────────────────────────────────────────────────────
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">🤠</span>
-        <p className="font-display text-2xl text-brown">Sign in to make your dog&apos;s fun cards</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate emoji="🤠" title="Sign in to make your dog&apos;s fun cards" />
     );
   }
 

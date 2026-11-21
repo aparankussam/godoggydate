@@ -20,6 +20,7 @@ import { breedConfidencePhrase } from '../../../../lib/vibeCheck';
 import VibeTypeCard from '../../../../components/VibeTypeCard';
 import ReportProfileMenu from '../../../../components/ReportProfileMenu';
 import { foundingBadgeLabel } from '../../../../../shared/founding';
+import SignInGate from '../../../../components/SignInGate';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -87,7 +88,10 @@ export default function MatchedDogProfilePage() {
     return () => { cancelled = true; };
   }, [authUser, matchId]);
 
-  if (authLoading || loading) {
+  // `loading` only ever flips off inside the authed fetch above, so for a
+  // signed-out visitor it stays true — gate on it only once there's a user,
+  // or the sign-in prompt below is unreachable and the page spins forever.
+  if (authLoading || (authUser && loading)) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
         <span className="text-4xl animate-spin">🐾</span>
@@ -97,10 +101,7 @@ export default function MatchedDogProfilePage() {
 
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <p className="font-display text-2xl text-brown">Sign in to view this profile</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
-      </div>
+      <SignInGate title="Sign in to view this profile" />
     );
   }
 
@@ -128,7 +129,7 @@ export default function MatchedDogProfilePage() {
         >
           ←
         </button>
-        <span className="font-display text-lg text-brown truncate">{profile.name}&apos;s profile</span>
+        <span className="min-w-0 font-display text-lg text-brown truncate">{profile.name}&apos;s profile</span>
         {otherUid && (
           <ReportProfileMenu
             targetUserId={otherUid}
@@ -190,8 +191,8 @@ export default function MatchedDogProfilePage() {
 
         {/* Name + meta */}
         <div>
-          <p className="font-display text-3xl text-brown leading-tight">{profile.name}</p>
-          <p className="text-sm text-brown-light mt-1">
+          <p className="font-display text-3xl text-brown leading-tight [overflow-wrap:anywhere]">{profile.name}</p>
+          <p className="text-sm text-brown-light mt-1 [overflow-wrap:anywhere]">
             {[profile.breed, profile.age, profile.size, profile.location].filter(Boolean).join(' · ')}
           </p>
           {typeof profile.foundingPackNumber === 'number' && (
@@ -210,7 +211,7 @@ export default function MatchedDogProfilePage() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-0.5">
                   ✨ Written by AI from their photos
                 </p>
-                <p className="text-sm italic leading-relaxed text-brown-mid">
+                <p className="text-sm italic leading-relaxed text-brown-mid [overflow-wrap:anywhere]">
                   “{vibeCheck.bio}”
                 </p>
               </div>
@@ -245,7 +246,7 @@ export default function MatchedDogProfilePage() {
           </div>
         )}
 
-        <Link href={`/app/messages/${matchId}`} className="btn-primary text-center px-8 py-3.5 mt-2">
+        <Link href={`/app/messages/${matchId}`} className="btn-primary text-center px-8 py-3.5 mt-2 [overflow-wrap:anywhere]">
           💬 Message {profile.name}
         </Link>
       </div>

@@ -94,5 +94,8 @@ export function openReportSheet(target: ReportTarget, options: ReportSheetOption
       { text: 'Block', style: 'destructive', onPress: () => void run('block') },
       { text: 'Cancel', style: 'cancel' },
     ],
+    // Android shows at most three buttons, so Cancel can be the one dropped;
+    // tapping outside (or Back) must still be a way out that reports nothing.
+    { cancelable: true },
   );
 }

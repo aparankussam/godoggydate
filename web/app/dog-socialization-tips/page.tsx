@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { absoluteUrl } from '../../lib/site';
+import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 
 export const metadata: Metadata = {
   title: 'Dog Socialization Tips | GoDoggyDate',
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
       'Practical steps to help your dog build confidence and enjoy better social experiences.',
     url: absoluteUrl('/dog-socialization-tips'),
     type: 'article',
+    images: defaultSocialImages,
   },
 };
 

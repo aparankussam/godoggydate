@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { absoluteUrl } from '../../lib/site';
+import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 import {
   AFTER_A_BAD_MEETING,
   BODY_LANGUAGE_PREAMBLE,
@@ -31,6 +31,7 @@ export const metadata: Metadata = {
       'The introduction protocol professionals use, a play-vs-conflict body language reference, and honest notes for new and future dog owners.',
     url: absoluteUrl('/playdate-safety'),
     type: 'article',
+    images: defaultSocialImages,
   },
 };
 

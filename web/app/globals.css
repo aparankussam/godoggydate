@@ -10,7 +10,7 @@
   --color-cream-dark: #F5E6D3;
   --color-brown: #2D1A0E;
   --color-brown-mid: #5C3D2E;
-  --color-brown-light: #9B7560;
+  --color-brown-light: #80604B;
   --color-border: #EAD9C8;
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-body: var(--font-nunito), system-ui, sans-serif;
@@ -93,4 +93,34 @@
 }
 .animate-dust-puff {
   animation: dustPuff 0.5s ease-out both;
+}
+
+/* Keyboard focus: many fields use `outline-none` and only tint the 1px border,
+   which is too faint to follow with the keyboard. A box-shadow ring survives
+   `outline-none` and yields to any explicit Tailwind ring on the same field. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  box-shadow: 0 0 0 3px rgba(232, 99, 58, 0.35);
+}
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Respect "reduce motion": the fade-ins, confetti, paw bursts and card flips
+   all collapse to their end state instead of animating. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

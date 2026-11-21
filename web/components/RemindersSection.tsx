@@ -1,5 +1,5 @@
 'use client';
-import { reminderDueLabel } from '../../shared/dates';
+import { reminderDueDateProblem, reminderDueLabel } from '../../shared/dates';
 // web/components/RemindersSection.tsx
 // Cadence — a calendar for the dog-care dates nobody holds in their head.
 // The one feature this week's strategy research identified as genuinely
@@ -51,8 +51,9 @@ export default function RemindersSection({ dogId, reminders }: Props) {
       return;
     }
     const dueDate = new Date(`${dueDateInput}T12:00:00`).getTime();
-    if (!Number.isFinite(dueDate)) {
-      setError('Pick a valid date');
+    const dateProblem = reminderDueDateProblem(dueDate);
+    if (dateProblem) {
+      setError(dateProblem);
       return;
     }
     setSaving(true);
@@ -110,7 +111,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
         <button
           type="button"
           onClick={() => setShowAdd((v) => !v)}
-          className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+          className="-my-3 -mr-2 px-2 py-3 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
         >
           {showAdd ? 'Cancel' : '+ Add'}
         </button>
@@ -133,6 +134,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
               value={customLabel}
               onChange={(e) => setCustomLabel(e.target.value)}
               placeholder="e.g. Refill anxiety meds"
+              maxLength={80}
               className="rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown"
             />
           )}

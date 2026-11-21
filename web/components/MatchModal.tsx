@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { CompatibilityResult } from '../../shared/types';
 import { getPrimaryRenderablePhoto } from '../lib/photos';
+import { getVaccinationStatus } from '../../shared/profile';
 import { getChatUnlockPitch } from '../shared/utils/stripe';
 import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
 
@@ -27,6 +28,7 @@ interface MatchDog {
   distanceMiles?: number;
   location?: string;
   vaccinated?: boolean | null;
+  rabiesExpiry?: string;
   compat: CompatibilityResult;
 }
 
@@ -46,6 +48,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
   const topReasons = dog.compat.reasons.slice(0, 3);
   const warnings = dog.compat.warnings;
   const qualityStyle = QUALITY_STYLES[dog.compat.quality];
+  const vaccination = getVaccinationStatus(dog);
 
   // milesBetween() returns -1 when either dog has no coords. Asserting "Nearby"
   // for a dog whose location we don't know is the same overclaim the engine
@@ -140,7 +143,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
     <div
       ref={overlayRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 overflow-y-auto px-8 py-10 text-center outline-none"
+      className="fixed inset-0 z-50 overflow-y-auto text-center outline-none"
       style={{
         background: isBlocked
           ? 'linear-gradient(160deg, #1F2937 0%, #334155 60%, #1E293B 100%)'
@@ -150,6 +153,12 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
       role="dialog"
       aria-label={headline}
     >
+      {/* The centring lives on this inner wrapper, not on the scrolling overlay:
+          `justify-center` on an overflow-y-auto flex column pushes the overflow
+          off the TOP edge, where it can't be scrolled to, so on a phone the
+          headline and photo were cut off and only the bottom half was reachable.
+          `min-h-full` still centres a short modal; a tall one grows and scrolls. */}
+      <div className="relative flex min-h-full flex-col items-center justify-center gap-6 px-8 py-10">
       {!isBlocked && (
         <div className="text-7xl animate-bounce select-none" aria-hidden="true">
           🐕&nbsp;💛&nbsp;🐶
@@ -178,11 +187,11 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           )}
         </div>
         <div className="space-y-1">
-          <p className="font-display text-3xl text-white">{dog.name}</p>
+          <p className="font-display text-3xl text-white [overflow-wrap:anywhere]">{dog.name}</p>
           {/* "wants to sniff you out" asserted intent from a swipe. The only
               underlying datum is a decision doc with action:'like'. */}
           <p className="text-white/90 text-lg font-semibold">You both said WOOF.</p>
-          <p className="text-white/70 text-sm">
+          <p className="text-white/70 text-sm [overflow-wrap:anywhere]">
             {dog.breed} · {distanceSummary}
           </p>
           {/* The verdict gets its own line in its tier colour — it's a
@@ -241,11 +250,16 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
             moment the user decides to meet. null means nobody answered. */}
         <p className="mt-3 text-sm text-white/90">
           <span className="mr-2 font-bold text-gold">•</span>
-          {dog.vaccinated === true
-            ? `${dog.name}'s owner marked them vaccinated`
-            : dog.vaccinated === false
-              ? `${dog.name}'s owner marked them NOT currently vaccinated`
-              : `Vaccination: not stated`}
+          {/* A rabies date the owner typed is quoted (and an expired one flagged),
+              exactly as on the swipe card — the line used to read only the
+              boolean, so an expired certificate came back as "marked them vaccinated". */}
+          {dog.vaccinated === false
+            ? `${dog.name}'s owner marked them NOT currently vaccinated`
+            : vaccination.tone === 'dated' || vaccination.tone === 'expired'
+              ? `${vaccination.tone === 'expired' ? '⚠ ' : ''}${dog.name} — ${vaccination.label}`
+              : dog.vaccinated === true
+                ? `${dog.name}'s owner marked them vaccinated`
+                : `Vaccination: not stated`}
         </p>
 
         {/* Same size and contrast as the reasons above it — a disclosure set in
@@ -337,6 +351,7 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -21,6 +21,8 @@ import { isUserChatUnlocked } from '../../../../shared/matchAccess';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
+import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
+import SignInGate from '../../../components/SignInGate';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -141,8 +143,12 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
     }
   }
 
-  // Sort by createdAt desc (merge already sorted, but re-sort to be safe)
-  docs.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+  // Latest activity first — the newest message, or the match itself when nobody
+  // has written yet. This used to sort by createdAt alone, so a thread with
+  // messages from this morning sat below a match nobody had spoken in, and the
+  // list disagreed with the Messages tab and the iPhone app.
+  const activity = (m: MatchDoc) => m.lastMessageTime?.seconds ?? m.createdAt?.seconds ?? 0;
+  docs.sort((a, b) => activity(b) - activity(a));
 
   // Hide matches with users the current user has blocked
   const visibleDocs = docs.filter((m) => {
@@ -211,6 +217,13 @@ export default function MatchesPage() {
     loadMatches(authUser.uid, setMatches, setError, setLoading);
   }, [authUser]);
 
+  // A match made (or a message sent) while this page is open shows up without a
+  // reload. Silent: no skeleton, and a failed refresh keeps what's on screen.
+  useLiveMatchRefresh(authUser?.uid, () => {
+    if (!authUser) return;
+    fetchMatchesForUser(authUser.uid).then(setMatches).catch(() => { /* keep the current list */ });
+  });
+
   // ── Auth loading ────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -223,13 +236,7 @@ export default function MatchesPage() {
   // ── Not signed in ───────────────────────────────────────────────────────────
   if (!authUser) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">💛</span>
-        <p className="font-display text-2xl text-brown">Sign in to see your matches</p>
-        <Link href="/app" className="btn-primary px-8 py-3">
-          Go to Discover
-        </Link>
-      </div>
+      <SignInGate emoji="💛" title="Sign in to see your matches" />
     );
   }
 

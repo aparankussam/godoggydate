@@ -38,7 +38,7 @@ export default function CoverPhotoEditor({ photos, coverIndex, focusX, focusY, o
     <div>
       <div
         ref={boxRef}
-        className="relative mx-auto aspect-[3/4] w-full max-w-[220px] cursor-crosshair touch-none select-none overflow-hidden rounded-2xl border border-border bg-cream-dark"
+        className="relative mx-auto aspect-[3/4] w-full max-w-[220px] cursor-crosshair touch-none select-none overflow-hidden rounded-2xl border border-border bg-cream-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         onPointerDown={(e) => {
           dragging.current = true;
           (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -47,9 +47,33 @@ export default function CoverPhotoEditor({ photos, coverIndex, focusX, focusY, o
         onPointerMove={(e) => { if (dragging.current) setFromPointer(e.clientX, e.clientY); }}
         onPointerUp={() => { dragging.current = false; }}
         onPointerCancel={() => { dragging.current = false; }}
+        // A 2-D focal point exposed as one slider: aria-valuenow tracks the
+        // horizontal position, aria-valuetext spells out both, and the arrow
+        // keys move it (so the crop can be set without a pointer).
         role="slider"
+        tabIndex={0}
         aria-label="Cover photo focal point"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={focusX}
         aria-valuetext={`Focus ${focusX}% across, ${focusY}% down`}
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 1 : 5;
+          const move: Record<string, [number, number]> = {
+            ArrowLeft: [-step, 0],
+            ArrowRight: [step, 0],
+            ArrowUp: [0, -step],
+            ArrowDown: [0, step],
+          };
+          const delta = move[e.key];
+          if (!delta) return;
+          e.preventDefault();
+          onChange({
+            coverIndex: idx,
+            focusX: Math.max(0, Math.min(100, focusX + delta[0])),
+            focusY: Math.max(0, Math.min(100, focusY + delta[1])),
+          });
+        }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
