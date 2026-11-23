@@ -1,73 +1,72 @@
 // web/app/dogtype/page.tsx
-// The Dogtype index — a static, SEO-indexable grid of all 16 types, linking to
-// each type's public page. Reads only the static shared/dogtype catalogue (no
-// Firestore, no auth), so it prerenders. This is the "Browse all 16 Dogtypes"
-// destination from the profile explorer's locked-match lure.
+// The Dogtype teaser. There are 16 types, but their names are a mystery you
+// uncover by matching in the app, so this page shows 16 identical blanks and
+// reads nothing from the catalogue. Static and indexable.
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { DOGTYPE_CODES, dogtypeByCode, dogtypeCodeDecode } from '../../../shared/dogtype';
 import { defaultSocialImages } from '../../lib/site';
 
 export const dynamic = 'force-static';
 
 export const metadata: Metadata = {
-  title: 'The 16 Dogtypes — GoDoggyDate',
+  title: '16 Dogtypes. One is your dog. — GoDoggyDate',
   description:
-    'Every dog is one of 16 Dogtypes — a playful personality read from energy, play style, sociability, and spirit. Meet all 16 and find your dog’s.',
+    'Every dog is one of 16 Dogtypes — a playful personality read from energy, play style, sociability, and spirit. Find your dog’s in 90 seconds.',
   openGraph: {
-    title: 'The 16 Dogtypes — GoDoggyDate',
-    description: 'A playful personality system for dogs. Meet all 16 Dogtypes.',
+    title: '16 Dogtypes. One is your dog. — GoDoggyDate',
+    description: 'A playful personality system for dogs. Find your dog’s type, then meet the rest by matching.',
     type: 'website',
     images: defaultSocialImages,
   },
-  twitter: { card: 'summary_large_image', title: 'The 16 Dogtypes — GoDoggyDate', images: defaultSocialImages },
+  twitter: { card: 'summary_large_image', title: '16 Dogtypes. One is your dog. — GoDoggyDate', images: defaultSocialImages },
   alternates: { canonical: '/dogtype' },
 };
 
 export default function DogtypeIndexPage() {
-  const types = DOGTYPE_CODES.map((code) => dogtypeByCode(code)).filter(
-    (t): t is NonNullable<typeof t> => t !== null,
-  );
-
   return (
     <main className="mx-auto max-w-3xl px-5 py-12">
       <header className="text-center">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-brown">The Dogtypes</p>
-        <h1 className="mt-2 font-display text-3xl text-brown sm:text-4xl">All 16 Dogtypes</h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-relaxed text-brown">
-          Every dog lands on one of these — a playful personality read from four things you already
-          know about them: their energy, how they play, how social they are, and their spirit. It’s a
-          vibe, not a verdict.
+        <h1 className="mt-2 font-display text-3xl text-brown sm:text-4xl">
+          16 Dogtypes.
+          <br />
+          One of them is your dog.
+        </h1>
+        <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-relaxed text-brown-mid">
+          Every dog lands on one of 16 personalities, read from their energy, how they play, how social
+          they are, and their spirit. It’s a vibe, not a verdict. Find yours in 90 seconds.
         </p>
       </header>
 
-      <ul className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {types.map((type) => (
-          <li key={type.code}>
-            <Link
-              href={`/dogtype/${type.code}`}
-              className="flex items-start gap-3 rounded-2xl border-2 border-brown bg-paper px-4 py-3.5 shadow-[0_4px_0_rgba(42,31,74,0.12)] transition-all hover:brightness-95"
-            >
-              <span className="text-3xl leading-none" aria-hidden="true">
-                {type.emoji}
-              </span>
-              <span className="min-w-0">
-                <span className="block font-display text-lg leading-tight text-brown">{type.name}</span>
-                <span className="mt-0.5 block text-[12px] font-semibold text-rose">{type.tagline}</span>
-                <span className="mt-0.5 block text-[11px] text-brown-light">{dogtypeCodeDecode(type.code)}</span>
-              </span>
-            </Link>
+      <ul aria-label="16 hidden Dogtypes" className="mt-8 grid grid-cols-4 gap-2.5">
+        {Array.from({ length: 16 }, (_, i) => (
+          <li
+            key={i}
+            aria-hidden="true"
+            className="flex aspect-square items-center justify-center rounded-2xl border-2 border-dashed border-brown-mid bg-cream-dark font-display text-3xl text-brown-mid"
+          >
+            ?
           </li>
         ))}
       </ul>
 
-      <p className="mt-8 text-center text-sm font-semibold text-brown">
-        Don’t know your dog’s type yet?{' '}
-        <Link href="/quiz?ref=dogtype" className="font-black text-brown underline decoration-2 underline-offset-2">
-          Take the 90-second quiz →
+      <section className="mt-8 rounded-2xl border-2 border-brown p-4" style={{ background: '#DCEEFB' }}>
+        <h2 className="font-display text-xl text-brown">How you meet the other 15</h2>
+        <p className="mt-1 text-sm font-semibold text-brown">
+          Each one stays a mystery until your dog matches with a dog of that type in GoDoggyDate. Then you see
+          who they are and how they get along with yours.
+        </p>
+      </section>
+
+      <div className="mt-8 flex flex-col gap-3">
+        <Link href="/quiz?ref=dogtype" className="btn-primary text-center text-lg">
+          Find your dog&apos;s Dogtype
         </Link>
-      </p>
+        <Link href="/app?from=dogtype" className="btn-secondary text-center">
+          Join GoDoggyDate
+        </Link>
+      </div>
     </main>
   );
 }

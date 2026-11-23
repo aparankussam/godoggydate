@@ -22,6 +22,7 @@ import { BLOCKS_CHANGED_EVENT, getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
+import { discoverFromProfiles } from '../../../lib/dogtypeDiscovery';
 import SignInGate from '../../../components/SignInGate';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
 
@@ -179,7 +180,18 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
 
   // A match whose other dog parent has left (their profile is gone) is a dead
   // thread: it can't be opened to anything, so it isn't listed.
-  return results.filter((r): r is MatchWithProfile & { gone: boolean } => r !== null && !r.gone);
+  const live = results.filter((r): r is MatchWithProfile & { gone: boolean } => r !== null && !r.gone);
+  // Matched dogs' Dogtypes join your collection (quietly on the first fill).
+  discoverFromProfiles(
+    uid,
+    live.map((m) => ({
+      dogId: m.otherDogId,
+      profile: m.otherProfile,
+      name: m.otherProfile?.name,
+      createdAtMs: m.createdAt ? m.createdAt.seconds * 1000 : undefined,
+    })),
+  );
+  return live;
 }
 
 function loadMatches(

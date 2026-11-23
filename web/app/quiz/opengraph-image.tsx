@@ -1,9 +1,8 @@
 // web/app/quiz/opengraph-image.tsx
 // Link-unfurl preview for the no-signup Dogtype quiz — the card that shows up
 // in iMessage/WhatsApp/Discord/X when someone shares "/quiz". Pure static
-// content: the emoji row is drawn from the real shared/dogtype catalogue.
+// content: the row is paw prints, because type names are a mystery until you match.
 import { ImageResponse } from 'next/og';
-import { DOGTYPE_CODES, dogtypeByCode } from '../../../shared/dogtype';
 
 export const dynamic = 'force-static';
 export const alt = "What's your dog's Dogtype? — a 90-second quiz";
@@ -11,7 +10,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 export default function OpengraphImage() {
-  const emojis = DOGTYPE_CODES.slice(0, 8).map((code) => dogtypeByCode(code)?.emoji ?? '🐾');
+  const emojis = Array.from({ length: 8 }, () => '🐾');
 
   return new ImageResponse(
     (

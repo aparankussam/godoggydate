@@ -127,6 +127,11 @@ module.exports = {
     NEXT_PUBLIC_RELEASE:
       process.env.NEXT_PUBLIC_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'dev',
   },
+  // The per-type compatibility pages named every type, so they now send visitors
+  // to that type's page (which names only itself).
+  async redirects() {
+    return [{ source: '/compat/:code', destination: '/dogtype/:code', permanent: true }];
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

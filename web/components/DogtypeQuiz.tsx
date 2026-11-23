@@ -156,7 +156,7 @@ function computeCodeFromAnswers(answers: string[]): string {
 }
 
 type Stage = 'name' | 'quiz' | 'reveal' | 'result';
-type ShareKind = 'type' | 'compat';
+type ShareKind = 'type';
 
 export default function DogtypeQuiz() {
   const [stage, setStage] = useState<Stage>('name');
@@ -242,12 +242,9 @@ export default function DogtypeQuiz() {
   const share = async (kind: ShareKind) => {
     if (!result) return;
     feedback.pop();
-    const url = absoluteUrl(kind === 'type' ? `/dogtype/${result.code}` : `/compat/${result.code}`);
-    const text =
-      kind === 'type'
-        ? `${shareName} is ${result.name} ${result.emoji} — what's YOUR dog?`
-        : `${shareName} is ${result.name} ${result.emoji} — would our dogs get along?`;
-    trackEvent(kind === 'type' ? 'quiz_share' : 'quiz_share_compat', { code: result.code });
+    const url = absoluteUrl(`/dogtype/${result.code}`);
+    const text = `${shareName} is ${result.name} ${result.emoji} — what's YOUR dog?`;
+    trackEvent('quiz_share', { code: result.code });
 
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       try {
@@ -424,13 +421,6 @@ export default function DogtypeQuiz() {
           className="btn-primary flex h-14 items-center justify-center gap-2.5 pb-[5px] pt-0 text-[25px] leading-none tracking-[0.3px]"
         >
           {copied === 'type' ? 'Link copied!' : (<><ShareIcon />{`Share ${dogLabel === 'your dog' ? 'this' : `${trimmedName}'s`} Dogtype`}</>)}
-        </button>
-        <button
-          type="button"
-          onClick={() => share('compat')}
-          className="btn-secondary mt-2.5 flex min-h-[48px] items-center justify-center gap-2 text-base"
-        >
-          {copied === 'compat' ? 'Link copied!' : (<>Would our dogs get along?<Chevron w={10} h={16} /></>)}
         </button>
         <Link
           href="/app?from=quiz"
