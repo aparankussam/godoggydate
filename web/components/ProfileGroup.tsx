@@ -33,11 +33,11 @@ export default function ProfileGroup({ title, hint, children, className = '' }: 
       <summary className="card flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 rounded-[1.8rem] px-5 py-3 marker:hidden [&::-webkit-details-marker]:hidden">
         <span className="min-w-0">
           <span className="block text-sm font-bold text-brown">{title}</span>
-          {hint && <span className="block text-xs leading-snug text-brown-light">{hint}</span>}
+          {hint && <span className="block text-xs leading-snug text-brown-mid">{hint}</span>}
         </span>
         <span
           aria-hidden="true"
-          className="shrink-0 text-xl text-brown-light transition-transform group-open:rotate-90 motion-reduce:transition-none"
+          className="shrink-0 text-xl text-brown-mid transition-transform group-open:rotate-90 motion-reduce:transition-none"
         >
           ›
         </span>

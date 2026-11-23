@@ -54,14 +54,14 @@ export default function EarnedStickers({ dogId }: Props) {
     <section className="card rounded-[1.8rem] px-5 py-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Stickers earned</p>
+          <p className="text-xs font-bold text-brown">Stickers earned</p>
           <p className="mt-0.5 text-sm text-brown-mid">
             Unlocked by booping (tapping your dog&apos;s snoot in the Snoot Boop toy) — {allTime.toLocaleString()} boop{allTime === 1 ? '' : 's'} so far.
           </p>
         </div>
         <Link
           href="/app/fun/sticker-studio"
-          className="shrink-0 rounded-full border border-primary px-3.5 py-1.5 text-xs font-bold text-rose hover:bg-primary/5 transition-colors"
+          className="shrink-0 rounded-full border-2 border-brown px-3.5 py-1.5 text-xs font-bold text-brown hover:bg-cream-dark transition-colors"
         >
           Use them →
         </Link>
@@ -72,7 +72,7 @@ export default function EarnedStickers({ dogId }: Props) {
           <span
             key={s.id}
             title={s.label}
-            className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-cream-dark/50 border border-border text-2xl"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-cream-dark/50 border-2 border-brown text-2xl"
           >
             {s.emoji}
           </span>
@@ -80,9 +80,9 @@ export default function EarnedStickers({ dogId }: Props) {
       </div>
 
       {next && (
-        <p className="mt-2.5 text-[12px] text-brown-light">
+        <p className="mt-2.5 text-[12px] text-brown-mid">
           Next up: {next.emoji} {next.label} at {next.unlockAt.toLocaleString()} boops.{' '}
-          <Link href="/app/fun/snoot" className="text-rose font-bold hover:underline">Boop the snoot</Link>
+          <Link href="/app/fun/snoot" className="text-brown font-bold hover:underline">Boop the snoot</Link>
         </p>
       )}
     </section>

@@ -60,23 +60,23 @@ export default function BlockedList({ userId }: Props) {
     <div className="card rounded-[1.8rem] overflow-hidden" id="blocked-members">
       <div className="px-4 py-3 border-b border-border">
         <p className="text-sm font-bold text-brown">Blocked members</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-brown-light">
+        <p className="mt-0.5 text-xs leading-relaxed text-brown-mid">
           People you block can’t see you or message you, and you won’t see them. They aren’t told.
         </p>
       </div>
 
       <div className="divide-y divide-border">
         {members === null && !loadFailed && (
-          <p className="px-4 py-4 text-sm text-brown-light" role="status">Loading…</p>
+          <p className="px-4 py-4 text-sm text-brown-mid" role="status">Loading…</p>
         )}
 
         {loadFailed && (
           <div className="px-4 py-4">
-            <p role="alert" className="text-sm text-red-600">Couldn’t load your blocked members.</p>
+            <p role="alert" className="text-sm text-brown">Couldn’t load your blocked members.</p>
             <button
               type="button"
               onClick={() => void load()}
-              className="mt-1 min-h-[40px] text-sm font-semibold text-rose underline underline-offset-2"
+              className="mt-1 min-h-[40px] text-sm font-semibold text-brown underline underline-offset-2"
             >
               Try again
             </button>
@@ -84,7 +84,7 @@ export default function BlockedList({ userId }: Props) {
         )}
 
         {members !== null && members.length === 0 && (
-          <p className="px-4 py-4 text-sm text-brown-light">You haven’t blocked anyone.</p>
+          <p className="px-4 py-4 text-sm text-brown-mid">You haven’t blocked anyone.</p>
         )}
 
         {(members ?? []).map((m) => {
@@ -93,7 +93,7 @@ export default function BlockedList({ userId }: Props) {
           return (
             <div key={m.targetUserId} className="px-4 py-3">
               <div className="flex items-center gap-3">
-                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[0.9rem] bg-gradient-to-br from-gold to-primary flex items-center justify-center">
+                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-[0.9rem] bg-note text-brown flex items-center justify-center">
                   {m.dogPhoto ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={m.dogPhoto} alt="" className="h-full w-full object-cover" />
@@ -107,7 +107,7 @@ export default function BlockedList({ userId }: Props) {
                     type="button"
                     onClick={() => { setConfirmId(m.targetUserId); setFailedId(null); setNotice(null); }}
                     aria-label={`Unblock ${name}`}
-                    className="shrink-0 min-h-[44px] rounded-full border border-border bg-white px-4 text-xs font-bold text-brown hover:border-primary hover:text-rose"
+                    className="shrink-0 min-h-[44px] rounded-full border-2 border-brown bg-cream px-4 text-xs font-bold text-brown hover:bg-cream-dark"
                   >
                     Unblock
                   </button>
@@ -119,7 +119,7 @@ export default function BlockedList({ userId }: Props) {
                     {m.dogName ?? 'They'} will be able to see you and message you again.
                   </p>
                   {failedId === m.targetUserId && (
-                    <p role="alert" className="mt-1 text-xs font-semibold text-red-600">
+                    <p role="alert" className="mt-1 text-xs font-semibold text-brown">
                       That didn’t go through. Check your connection and try again.
                     </p>
                   )}
@@ -128,14 +128,14 @@ export default function BlockedList({ userId }: Props) {
                       type="button"
                       onClick={() => void unblock(m)}
                       disabled={busyId === m.targetUserId}
-                      className="min-h-[44px] rounded-full bg-primary px-4 text-xs font-bold text-brown disabled:opacity-50"
+                      className="min-h-[44px] rounded-full bg-brown px-4 text-xs font-bold text-cream disabled:opacity-50"
                     >
                       {busyId === m.targetUserId ? 'Unblocking…' : `Unblock ${name}`}
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmId(null)}
-                      className="min-h-[44px] rounded-full px-3 text-xs font-semibold text-brown-light"
+                      className="min-h-[44px] rounded-full px-3 text-xs font-semibold text-brown-mid"
                     >
                       Cancel
                     </button>

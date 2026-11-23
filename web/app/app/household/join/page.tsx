@@ -17,7 +17,7 @@ export default function HouseholdJoinPage() {
   // in Suspense — without this, `next build` fails prerendering this route
   // entirely (caught building this feature, not a pre-existing issue).
   return (
-    <Suspense fallback={<div className="min-h-screen bg-cream flex items-center justify-center"><span className="text-4xl animate-spin">🐾</span></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><span className="text-4xl animate-spin">🐾</span></div>}>
       <HouseholdJoinContent />
     </Suspense>
   );
@@ -62,18 +62,18 @@ function HouseholdJoinContent() {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-5 py-10 gap-6">
+    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 gap-6">
       <span className="text-5xl">🐾</span>
       <div className="text-center max-w-xs">
         <p className="font-display text-2xl text-brown">Join a household</p>
-        <p className="mt-2 text-sm text-brown-light">
+        <p className="mt-2 text-sm text-brown-mid">
           You&apos;ve been invited to help look after someone&apos;s dog — reminders, everything, no dog of your own required.
         </p>
       </div>
 
       {success ? (
-        <div className="rounded-2xl bg-green-50 border border-green-200 px-5 py-4 text-center">
-          <p className="text-sm font-semibold text-green-800">You&apos;re in! 🐾</p>
+        <div className="rounded-2xl bg-cream border border-brown px-5 py-4 text-center">
+          <p className="text-sm font-semibold text-brown">You&apos;re in! 🐾</p>
         </div>
       ) : authLoading ? (
         <span className="text-3xl animate-spin">🐾</span>
@@ -92,7 +92,7 @@ function HouseholdJoinContent() {
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="Invite code"
             maxLength={6}
-            className="rounded-xl border border-border bg-white px-4 py-3 text-center font-mono text-xl tracking-[0.2em] text-brown"
+            className="rounded-xl border-2 border-brown bg-cream px-4 py-3 text-center font-mono text-xl tracking-[0.2em] text-brown"
           />
           {error && <p className="text-xs text-red-500 text-center">{error}</p>}
           <button

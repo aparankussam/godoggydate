@@ -58,7 +58,7 @@ export default function FirstNameSwitch({ userId }: Props) {
           <p id="first-name-switch-label" className="text-sm font-bold text-brown">
             Show my first name to people I match with
           </p>
-          <p id="first-name-switch-help" className="mt-0.5 text-xs leading-relaxed text-brown-light">
+          <p id="first-name-switch-help" className="mt-0.5 text-[13px] font-extrabold leading-snug text-brown-mid">
             Matches see your first name next to your dog’s, in chat and on playdate cards. It comes from your
             Google or Apple account name. It is never shown on public pages, in Discover or on Pack Day.
           </p>
@@ -75,15 +75,15 @@ export default function FirstNameSwitch({ userId }: Props) {
         >
           <span
             aria-hidden="true"
-            className={`relative block h-8 w-14 rounded-full transition-colors ${show ? 'bg-primary' : 'bg-brown-light/40'}`}
+            className={`relative block h-8 w-14 rounded-full transition-colors ${show ? 'bg-brown' : 'bg-cream-dark'} border-2 border-brown`}
           >
             <span
-              className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${show ? 'left-7' : 'left-1'}`}
+              className={`absolute top-1 h-6 w-6 rounded-full border-2 border-brown ${show ? 'bg-cream left-7' : 'bg-brown left-1'} transition-all`}
             />
           </span>
         </button>
       </div>
-      {error && <p role="alert" className="mt-2 text-xs font-semibold text-red-600">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-[13px] font-black text-brown">{error}</p>}
     </div>
   );
 }

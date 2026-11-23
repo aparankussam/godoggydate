@@ -9,7 +9,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadPublicPackDay } from '../../../lib/packDayPublic';
 import PackDayJoinCta from '../../../components/PackDayJoinCta';
-import { PACK_DAY_FORMATS, PACK_DAY_RULES, formatPackDayWhen, goingSummary, isPast, mapsSearchUrl } from '../../../../shared/packDay';
+import PackDayFlyerActions from '../../../components/PackDayFlyerActions';
+import { FlyerSheet, FlyerFacts, GoingTokens, RulesSlip, PawIcon } from '../../../components/PackDayFlyer';
+import { formatPackDayWhen, isPast } from '../../../../shared/packDay';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,98 +40,69 @@ export default async function PublicPackDayPage({ params }: PageProps) {
   if (!result) notFound();
 
   const { event, attendeeCount } = result;
-  const format = PACK_DAY_FORMATS[event.format];
   const over = isPast(event, Date.now());
   const cancelled = event.status === 'cancelled';
   const left = Math.max(0, event.capacity - attendeeCount);
   const closed = over || cancelled || left === 0;
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center px-5 py-10 gap-6">
-      <Link href="/" className="font-display text-2xl text-brown">
-        🐾 GoDoggyDate
+    <div className="flex min-h-screen flex-col items-center gap-5 px-3.5 pb-10 pt-3">
+      <Link href="/" className="flex items-center gap-2.5 self-start px-1.5">
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 -rotate-[8deg] items-center justify-center rounded-full border-2 border-brown bg-cream text-brown shadow-[0_3px_0_rgba(42,31,74,0.28)]"
+        >
+          <PawIcon size={20} />
+        </span>
+        <span className="font-display text-[26px] leading-none text-brown">GoDoggyDate</span>
       </Link>
 
-      <article className="card w-full max-w-md overflow-hidden">
-        <div className={`px-6 py-5 ${cancelled ? 'bg-cream-dark' : 'bg-gradient-to-br from-primary/15 to-gold/15'}`}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
-            {event.official ? '⭐ Official Pack Day' : 'Pack Day'} · {format.emoji} {format.label}
-            {cancelled && <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-red-700">Cancelled</span>}
+      <FlyerSheet className="w-full max-w-md">
+        {cancelled && (
+          <p role="status" className="mb-4 rounded-xl bg-cream-dark px-4 py-3 text-[15px] font-black text-brown">
+            This Pack Day was cancelled.
           </p>
-          <h1 className={`mt-1 font-display text-2xl leading-tight break-words ${cancelled ? 'text-brown-mid line-through decoration-1' : 'text-brown'}`}>
-            {event.title}
-          </h1>
-        </div>
+        )}
+        {!cancelled && over && (
+          <p className="mb-4 rounded-xl bg-cream-dark px-4 py-3 text-[15px] font-black text-brown">
+            This one is over. Host the next one!
+          </p>
+        )}
 
-        <div className="px-6 py-5 space-y-4">
-          {cancelled && (
-            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-              This Pack Day was cancelled.
-            </p>
-          )}
-          {!cancelled && over && (
-            <p className="rounded-xl bg-cream-dark px-4 py-3 text-sm font-semibold text-brown-mid">
-              This one is over. Host the next one!
-            </p>
-          )}
+        <FlyerFacts event={event} />
+        <GoingTokens capacity={event.capacity} count={attendeeCount} status={event.status} />
 
-          <dl className="space-y-3 text-sm">
-            <div className="flex gap-3">
-              <dt aria-hidden="true">📅</dt>
-              <dd className="font-semibold text-brown">{formatPackDayWhen(event)} · {event.durationMinutes} min</dd>
-            </div>
-            <div className="flex gap-3">
-              <dt aria-hidden="true">📍</dt>
-              <dd className="text-brown min-w-0 break-words">
-                <span className="font-semibold">{event.placeName}</span>, {event.city}{event.state ? `, ${event.state}` : ''}
-                <a
-                  href={mapsSearchUrl(event)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-1 px-1.5 py-3 text-rose font-semibold underline"
-                >
-                  Map
-                </a>
-              </dd>
-            </div>
-            <div className="flex gap-3">
-              <dt aria-hidden="true">🐕</dt>
-              <dd className="text-brown">
-                Hosted by {event.hostDogName || 'a neighbor'}&apos;s human ·{' '}
-                <span className={`font-semibold ${cancelled ? 'text-red-700' : ''}`}>
-                  {goingSummary({ capacity: event.capacity, status: event.status, attendeeCount })}
-                </span>
-              </dd>
-            </div>
-          </dl>
+        <RulesSlip className="mt-5" />
 
-          <p className="text-sm text-brown-mid leading-relaxed">{format.blurb}</p>
-          {event.note && <p className="text-sm text-brown leading-relaxed break-words">&ldquo;{event.note}&rdquo;</p>}
-
+        <div className="mt-5">
           <PackDayJoinCta
             eventId={event.id}
             disabled={closed}
-            label={cancelled ? 'Cancelled' : over ? 'Over' : left === 0 ? 'Full' : 'Join this Pack Day 🐾'}
+            label={cancelled ? 'Cancelled' : over ? 'Over' : left === 0 ? 'Full' : 'Join this Pack Day'}
           />
           {!closed && (
-            <p className="text-center text-[11px] leading-relaxed text-brown-light">
-              Free. You&apos;ll sign in and set up your dog&apos;s profile first: about 5 minutes and 3 photos
-              of your dog. Then you can save your spot.
+            <p className="mt-3 text-center text-[14px] font-extrabold leading-snug text-brown-mid">
+              <span className="font-black text-brown">Free.</span> You&apos;ll sign in and set up your dog&apos;s
+              profile first: about 5 minutes and 3 photos of your dog. Then you can save your spot.
             </p>
           )}
         </div>
-      </article>
 
-      <section className="w-full max-w-md rounded-2xl border border-border bg-white px-5 py-4">
-        <h2 className="text-sm font-bold text-brown">House rules</h2>
-        <ul className="mt-2 space-y-1.5 text-sm text-brown-mid list-disc pl-5">
-          {PACK_DAY_RULES.map((rule) => <li key={rule}>{rule}</li>)}
-        </ul>
-        <p className="mt-3 text-[11px] text-brown-light">
-          GoDoggyDate doesn&apos;t verify dogs or owners. See the{' '}
-          <Link href="/playdate-safety" className="underline">first-meeting guide</Link>.
+        {!cancelled && !over && (
+          <div className="mt-4">
+            <PackDayFlyerActions event={event} />
+          </div>
+        )}
+
+        <p className="mt-4 text-center text-[14px] font-extrabold text-brown-mid">
+          GoDoggyDate doesn&apos;t verify dogs or owners.
         </p>
-      </section>
+        <p className="text-center">
+          <Link href="/playdate-safety" className="inline-flex min-h-[44px] items-center text-[15px] font-black text-brown underline decoration-2 underline-offset-4">
+            Read the first-meeting guide
+          </Link>
+        </p>
+      </FlyerSheet>
     </div>
   );
 }

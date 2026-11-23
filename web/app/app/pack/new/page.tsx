@@ -15,13 +15,13 @@ import {
   PACK_DAY_FORMATS,
   PACK_DAY_FORMAT_KEYS,
   PACK_DAY_LIMITS,
-  PACK_DAY_RULES,
   packDayStartTimeProblem,
   packDayStartTimes,
 } from '../../../../../shared/packDay';
 import type { PackDayFormat } from '../../../../../shared/packDay';
 import { checkContentFields, CONTENT_FILTER_MESSAGE } from '../../../../../shared/contentFilter';
 import SignInGate from '../../../../components/SignInGate';
+import { PawIcon, RulesSlip } from '../../../../components/PackDayFlyer';
 
 // 6:00 AM to 9:45 PM in 15-minute steps: the hours public parks are open, and the
 // same chips the iPhone form offers. createPackDay enforces the same window.
@@ -145,34 +145,39 @@ export default function NewPackDayPage() {
   if (authLoading || (authUser && profileLoading)) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
-        <span className="text-4xl animate-spin">🐾</span>
+        <span className="text-brown animate-spin motion-reduce:animate-none" role="status" aria-label="Loading"><PawIcon size={36} /></span>
       </div>
     );
   }
 
   if (!authUser) {
-    return <SignInGate emoji="🐶" title="Sign in to host a Pack Day" />;
+    return <SignInGate title="Sign in to host a Pack Day" />;
   }
 
   if (!isProfileComplete(profile)) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-6xl">🐶</span>
-        <p className="font-display text-2xl text-brown">Add your dog first</p>
-        <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
+        <p className="font-display text-3xl text-brown">Add your dog first</p>
+        <Link href="/app" className="btn-primary inline-flex min-h-[52px] items-center px-8 py-3">Go to Discover</Link>
       </div>
     );
   }
 
   const inputClass =
-    'w-full rounded-xl border border-border bg-white px-4 py-2.5 text-brown text-base focus:border-primary focus:outline-none';
-  const labelClass = 'block text-sm font-bold text-brown mb-1';
+    'w-full min-h-[44px] rounded-xl border-2 border-brown bg-cream px-4 py-2.5 text-brown text-base font-extrabold focus:outline-none focus:ring-2 focus:ring-brown focus:ring-offset-2 focus:ring-offset-sky';
+  const labelClass = 'block text-[15px] font-black text-brown mb-1';
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center gap-3">
-        <Link href="/app/pack" aria-label="Back to Pack Days" className="text-xl text-brown -m-2.5 p-2.5">←</Link>
-        <span className="font-display text-xl text-brown">Host a Pack Day</span>
+    <div className="min-h-screen">
+      <header className="px-4 h-14 flex items-center gap-2">
+        <Link
+          href="/app/pack"
+          aria-label="Back to Pack Days"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 border-brown bg-cream text-xl font-black text-brown shadow-[0_3px_0_rgba(42,31,74,0.28)]"
+        >
+          <span aria-hidden="true">←</span>
+        </Link>
+        <h1 className="font-display text-[26px] leading-none text-brown">Host a Pack Day</h1>
       </header>
 
       <form onSubmit={handleSubmit} className="p-4 lg:max-w-2xl lg:mx-auto lg:px-8 lg:py-8 space-y-5">
@@ -197,8 +202,8 @@ export default function NewPackDayPage() {
               return (
                 <label
                   key={key}
-                  className={`flex items-start gap-3 rounded-xl border-2 bg-white px-4 py-3 cursor-pointer ${
-                    format === key ? 'border-primary bg-primary/5' : 'border-border'
+                  className={`flex items-start gap-3 rounded-xl border-2 border-brown px-4 py-3 cursor-pointer ${
+                    format === key ? 'bg-note shadow-[0_3px_0_rgba(42,31,74,0.28)]' : 'bg-cream'
                   }`}
                 >
                   <input
@@ -207,11 +212,11 @@ export default function NewPackDayPage() {
                     value={key}
                     checked={format === key}
                     onChange={() => setFormat(key)}
-                    className="mt-1"
+                    className="mt-1 h-5 w-5 accent-[#2A1F4A]"
                   />
                   <span>
-                    <span className="block text-sm font-bold text-brown">{f.emoji} {f.label}</span>
-                    <span className="block text-xs text-brown-mid">{f.blurb}</span>
+                    <span className="block text-[15px] font-black text-brown">{f.label}</span>
+                    <span className="block text-[13px] font-extrabold text-brown-mid">{f.blurb}</span>
                   </span>
                 </label>
               );
@@ -270,7 +275,7 @@ export default function NewPackDayPage() {
           </div>
         </div>
 
-        <p className="-mt-2 text-xs text-brown-light">
+        <p className="-mt-2 text-[13px] font-extrabold text-brown-mid">
           Start times run 6:00 AM to 9:45 PM, when public parks are open.
         </p>
 
@@ -285,13 +290,13 @@ export default function NewPackDayPage() {
             placeholder="Cedar Park, main entrance"
             required
           />
-          <p className="mt-1 text-xs text-brown-light">
+          <p className="mt-1 text-[13px] font-extrabold text-brown-mid">
             A park, trail or other public spot. Never your home address. Meets in {profile?.city || 'your city'}.
           </p>
         </div>
 
         <div>
-          <label htmlFor="pd-note" className={labelClass}>Note <span className="font-normal text-brown-light">(optional)</span></label>
+          <label htmlFor="pd-note" className={labelClass}>Note <span className="font-extrabold text-brown-mid">(optional)</span></label>
           <textarea
             id="pd-note"
             className={inputClass}
@@ -301,33 +306,30 @@ export default function NewPackDayPage() {
             maxLength={PACK_DAY_LIMITS.maxNoteLength}
             placeholder="Where to park, which gate, bring water…"
           />
-          <p className="mt-1 text-xs text-brown-light">
+          <p className="mt-1 text-[13px] font-extrabold text-brown-mid">
             No links or phone numbers. Members who match after you meet can message each other in the app.
           </p>
         </div>
 
-        <section className="rounded-2xl border border-border bg-white px-5 py-4">
-          <h2 className="text-sm font-bold text-brown">House rules</h2>
-          <ul className="mt-2 space-y-1.5 text-sm text-brown-mid list-disc pl-5">
-            {PACK_DAY_RULES.map((rule) => <li key={rule}>{rule}</li>)}
-          </ul>
-          <label className="mt-1 flex items-start gap-2 py-2.5 text-sm text-brown cursor-pointer">
+        <section>
+          <RulesSlip />
+          <label className="mt-1 flex min-h-[44px] items-start gap-2 py-2.5 text-[15px] font-extrabold text-brown cursor-pointer">
             <input
               type="checkbox"
               checked={accepted}
               onChange={(e) => setAccepted(e.target.checked)}
-              className="mt-1"
+              className="mt-1 h-5 w-5 accent-[#2A1F4A]"
             />
             <span>I&apos;ll follow these rules and remind people who join.</span>
           </label>
-          <p className="mt-2 text-[11px] text-brown-light">
+          <p className="mt-2 text-[13px] font-extrabold text-brown-mid">
             GoDoggyDate doesn&apos;t verify dogs or owners, and the host isn&apos;t responsible for other people&apos;s dogs.
           </p>
         </section>
 
-        {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="rounded-xl border-2 border-brown bg-cream px-4 py-3 text-[15px] font-black text-brown">{error}</p>}
 
-        <button type="submit" disabled={busy} className="btn-primary w-full py-3 disabled:opacity-60">
+        <button type="submit" disabled={busy} className="btn-primary min-h-[52px] w-full py-3 disabled:opacity-60">
           {busy ? 'Creating…' : 'Create Pack Day'}
         </button>
       </form>

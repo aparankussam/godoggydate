@@ -74,7 +74,7 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
           </div>
           <div className="relative h-3 rounded-full bg-paper border-2 border-brown overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
+              className="h-full rounded-full bg-brown transition-all duration-500"
               style={{ width: `${pct}%` }}
             />
             {/* Where the free spots end and the $39 spots begin. */}

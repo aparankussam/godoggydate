@@ -27,14 +27,14 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
     return (
       <section className="card rounded-[1.8rem] px-5 py-4">
         <p className="text-sm font-bold text-brown">🎂 {name}&apos;s life stage</p>
-        <p className="mt-1 text-xs leading-relaxed text-brown-light">
+        <p className="mt-1 text-xs leading-relaxed text-brown-mid">
           Add {name}&apos;s birth year and we&apos;ll show where they are in their life, and what this stage needs.
         </p>
         {onEditProfile && (
           <button
             type="button"
             onClick={onEditProfile}
-            className="mt-2 text-xs font-bold text-rose underline underline-offset-2"
+            className="mt-2 text-xs font-bold text-brown underline underline-offset-2"
           >
             Add birth date
           </button>
@@ -52,14 +52,14 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
       <div className="px-5 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brown-light">Life stage</p>
+            <p className="text-xs font-bold text-brown-mid">Life stage</p>
             <p className="font-display text-2xl text-brown leading-tight">
               {read.stageEmoji} {read.stageLabel}
             </p>
           </div>
           <div className="text-right">
             <p className="text-sm font-semibold text-brown">{yearsLabel}</p>
-            <p className="text-[11px] text-brown-light">~{read.humanYearsEstimate} in human years</p>
+            <p className="text-xs text-brown-mid">~{read.humanYearsEstimate} in human years</p>
           </div>
         </div>
 
@@ -69,18 +69,18 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
         <div className="mt-3">
           <div className="h-2 rounded-full bg-cream-dark overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-gold to-primary"
+              className="h-full rounded-full bg-brown"
               style={{ width: `${Math.round(read.percentOfLife * 100)}%` }}
             />
           </div>
           {read.outlivedCohort ? (
-            <p className="mt-1.5 text-[11px] text-brown-light leading-snug">
+            <p className="mt-1.5 text-xs text-brown-mid leading-snug">
               Dogs of {name}&apos;s size live about {read.cohortLifespan} years on average — and{' '}
               <span className="font-semibold text-brown-mid">{name} is already living past it</span>. Every
               extra day is a gift. Keep them comfortable and keep the walks coming.
             </p>
           ) : (
-            <p className="mt-1.5 text-[11px] text-brown-light leading-snug">
+            <p className="mt-1.5 text-xs text-brown-mid leading-snug">
               Dogs of {name}&apos;s size live about {read.cohortLifespan} years on average. That&apos;s a
               cohort average, not a prediction about {name} — it&apos;s here to show the stage they&apos;re in,
               not to count anything down.

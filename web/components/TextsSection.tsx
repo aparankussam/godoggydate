@@ -91,9 +91,9 @@ export default function TextsSection({ savedProfile }: Props) {
   const remaining = NOTE_MAX_LEN - note.length;
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Just for fun</p>
+        <p className="text-xs font-bold text-brown">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">💬 Texts From {dogName}</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           If {dogName} had a phone, it would be chaos. Get a short thread of the unhinged texts they
@@ -102,7 +102,7 @@ export default function TextsSection({ savedProfile }: Props) {
       </div>
 
       <label htmlFor="texts-note" className="block text-xs font-bold text-brown mb-1.5">
-        Anything going on today? <span className="font-normal text-brown-light">(optional)</span>
+        Anything going on today? <span className="font-normal text-brown-mid">(optional)</span>
       </label>
       <input
         id="texts-note"
@@ -110,24 +110,24 @@ export default function TextsSection({ savedProfile }: Props) {
         value={note}
         onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LEN))}
         placeholder="A long walk. A squirrel. The mail came."
-        className="w-full rounded-xl border border-border bg-cream px-3.5 py-2.5 text-sm text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="w-full rounded-xl border-2 border-brown bg-cream px-3.5 py-2.5 text-sm text-brown placeholder:text-brown-mid focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
       <div className="mt-1 flex items-center justify-between">
-        <p className="text-[11px] text-brown-light">Imagined by AI — {dogName} cannot really text.</p>
-        <p className="text-[11px] text-brown-light tabular-nums">{remaining}</p>
+        <p className="text-xs text-brown-mid">Imagined by AI — {dogName} cannot really text.</p>
+        <p className="text-xs text-brown-mid tabular-nums">{remaining}</p>
       </div>
 
       <button
         type="button"
         onClick={handleGenerate}
         disabled={busy}
-        className="btn-primary w-full mt-3 disabled:opacity-60"
+        className="btn-secondary w-full mt-3 disabled:opacity-60"
       >
         {busy ? 'Reading the group chat…' : thread ? 'Get a new thread' : `See ${dogName}'s texts`}
       </button>
 
       {error && (
-        <p className="mt-2 text-[13px] text-rose font-semibold text-center">{error}</p>
+        <p className="mt-2 text-[13px] text-brown font-semibold text-center">{error}</p>
       )}
 
       {thread && (
@@ -149,7 +149,7 @@ export default function TextsSection({ savedProfile }: Props) {
             {sharing ? 'Preparing…' : `Share ${dogName}'s texts`}
           </button>
 
-          <p className="mt-2 text-[11px] text-brown-light leading-snug text-center">
+          <p className="mt-2 text-xs text-brown-mid leading-snug text-center">
             A playful thread imagined by AI in {dogName}&apos;s voice — {dogName} did not actually send these.
           </p>
         </>

@@ -140,7 +140,7 @@ export default function MatchedDogProfilePage() {
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
         <span className="text-5xl" aria-hidden="true">👋</span>
         <h1 className="font-display text-2xl text-brown">This dog parent has left GoDoggyDate</h1>
-        <p className="max-w-xs text-sm leading-relaxed text-brown-light">
+        <p className="max-w-xs text-sm leading-relaxed text-brown-mid">
           They’re no longer on GoDoggyDate, so this profile isn’t available any more.
         </p>
         <Link href="/app/matches" className="btn-primary px-8 py-3">Back to Matches</Link>
@@ -165,11 +165,11 @@ export default function MatchedDogProfilePage() {
   const vibeCheck = profile.ai?.vibeCheck;
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-4 h-14 flex items-center gap-3">
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-4 h-14 flex items-center gap-3">
         <button
           onClick={() => router.back()}
-          className="text-2xl text-brown-light hover:text-brown transition-colors"
+          className="text-2xl text-brown-mid hover:text-brown transition-colors"
           aria-label="Back"
         >
           ←
@@ -193,7 +193,7 @@ export default function MatchedDogProfilePage() {
           onClick={() => photos.length > 1 && setActivePhoto((i) => (i + 1) % photos.length)}
           disabled={photos.length <= 1}
           aria-label={photos.length > 1 ? `Photo ${safeActive + 1} of ${photos.length}. Tap for next.` : undefined}
-          className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-gold to-primary aspect-square flex items-center justify-center w-full text-left"
+          className="relative rounded-[2rem] overflow-hidden bg-note text-brown aspect-square flex items-center justify-center w-full text-left"
         >
           {photos[safeActive] ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -206,7 +206,7 @@ export default function MatchedDogProfilePage() {
               {photos.map((_, i) => (
                 <span
                   key={i}
-                  className={`h-1 flex-1 rounded-full ${i === safeActive ? 'bg-white' : 'bg-white/40'}`}
+                  className={`h-1 flex-1 rounded-full ${i === safeActive ? 'bg-cream' : 'bg-white/40'}`}
                 />
               ))}
             </div>
@@ -224,7 +224,7 @@ export default function MatchedDogProfilePage() {
                 aria-label={`Show ${profile.name} photo ${i + 1}`}
                 aria-pressed={i === safeActive}
                 className={`w-24 h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all ${
-                  i === safeActive ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
+                  i === safeActive ? 'border-brown ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -237,11 +237,11 @@ export default function MatchedDogProfilePage() {
         {/* Name + meta */}
         <div>
           <p className="font-display text-3xl text-brown leading-tight [overflow-wrap:anywhere]">{profile.name}</p>
-          <p className="text-sm text-brown-light mt-1 [overflow-wrap:anywhere]">
+          <p className="text-sm text-brown-mid mt-1 [overflow-wrap:anywhere]">
             {[profile.breed, profile.age, profile.size, profile.location].filter(Boolean).join(' · ')}
           </p>
           {typeof profile.foundingPackNumber === 'number' && (
-            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-gold/15 border border-gold/40 px-3 py-1.5 text-xs font-bold text-brown">
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-note px-3 py-1.5 text-xs font-bold text-brown">
               {foundingBadgeLabel(profile.foundingPackNumber)}
             </span>
           )}
@@ -253,7 +253,7 @@ export default function MatchedDogProfilePage() {
             <VibeTypeCard archetype={vibeCheck.archetype} />
             {vibeCheck.bio && (
               <div className="px-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-0.5">
+                <p className="text-xs font-bold text-brown-mid mb-0.5">
                   ✨ Written by AI from their photos
                 </p>
                 <p className="text-sm italic leading-relaxed text-brown-mid [overflow-wrap:anywhere]">
@@ -262,7 +262,7 @@ export default function MatchedDogProfilePage() {
               </div>
             )}
             {vibeCheck.breedGuess && (
-              <p className="text-xs text-brown-light px-1">
+              <p className="text-xs text-brown-mid px-1">
                 🔍 AI&apos;s read: {vibeCheck.breedGuess.name} · {breedConfidencePhrase(vibeCheck.breedGuess.confidence)}
               </p>
             )}
@@ -272,20 +272,20 @@ export default function MatchedDogProfilePage() {
         {/* Temperament + play style */}
         {(profile.temperament?.length ?? 0) > 0 && (
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brown-light mb-2">Temperament</p>
+            <p className="text-xs font-bold text-brown-mid mb-2">Temperament</p>
             <div className="flex flex-wrap gap-2">
               {profile.temperament!.map((t) => (
-                <span key={t} className="rounded-full bg-white border border-border px-3 py-1.5 text-sm text-brown">{t}</span>
+                <span key={t} className="rounded-full bg-cream border-2 border-brown px-3 py-1.5 text-sm text-brown">{t}</span>
               ))}
             </div>
           </div>
         )}
         {(profile.playStyles?.length ?? 0) > 0 && (
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brown-light mb-2">Play style</p>
+            <p className="text-xs font-bold text-brown-mid mb-2">Play style</p>
             <div className="flex flex-wrap gap-2">
               {profile.playStyles!.map((p) => (
-                <span key={p} className="rounded-full bg-white border border-border px-3 py-1.5 text-sm text-brown">{p}</span>
+                <span key={p} className="rounded-full bg-cream border-2 border-brown px-3 py-1.5 text-sm text-brown">{p}</span>
               ))}
             </div>
           </div>

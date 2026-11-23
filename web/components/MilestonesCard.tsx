@@ -29,14 +29,14 @@ function CelebrationCard({
   return (
     <div
       ref={innerRef}
-      className="rounded-2xl p-6 text-center text-white"
-      style={{ background: 'linear-gradient(155deg, #B45309 0%, #FF5C8D 55%, #F5B731 100%)' }}
+      className="rounded-2xl border-[2.5px] border-brown p-6 text-center text-brown"
+      style={{ background: '#FFF9EC' }}
     >
       <div className="text-5xl" aria-hidden="true">{milestone.emoji}</div>
       <p className="mt-2 font-display text-2xl leading-tight">{milestone.title}</p>
-      <p className="mt-1 text-sm text-white/90">{milestone.subtitle}</p>
-      <p className="mt-4 pt-3 border-t border-white/20 text-[11px] text-white/70">
-        🐾 {dogName} on GoDoggyDate
+      <p className="mt-1 text-[15px] font-extrabold text-brown-mid">{milestone.subtitle}</p>
+      <p className="mt-4 pt-3 border-t-2 border-brown/20 text-sm font-extrabold text-brown-mid">
+        {dogName} on GoDoggyDate
       </p>
     </div>
   );
@@ -89,7 +89,7 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   if (celebrating) {
     return (
       <section className="card rounded-[1.8rem] px-5 py-5 flex flex-col gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose self-start">
+        <p className="text-xs font-bold text-brown self-start">
           🎉 Today
         </p>
         <CelebrationCard milestone={celebrating} dogName={dogName} innerRef={cardRef} />
@@ -102,7 +102,7 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
           {sharing ? 'Rendering…' : `Share ${dogName}'s ${celebrating.kind === 'birthday' ? 'birthday' : 'day'}`}
         </button>
         {active.length > 1 && (
-          <p className="text-center text-[11px] text-brown-light">
+          <p className="text-center text-xs text-brown-mid">
             +{active.length - 1} more to celebrate this month
           </p>
         )}
@@ -113,12 +113,12 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   // Countdown to the next real occasion.
   return (
     <section className="card rounded-[1.8rem] px-5 py-4">
-      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brown-light">Coming up</p>
+      <p className="text-xs font-bold text-brown-mid">Coming up</p>
       <div className="mt-1 flex items-center gap-3">
         <span className="text-2xl" aria-hidden="true">{next!.emoji}</span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-brown truncate">{next!.title}</p>
-          <p className="text-xs text-brown-light">
+          <p className="text-xs text-brown-mid">
             {next!.subtitle} · {next!.daysUntil === 1 ? 'tomorrow' : `in ${next!.daysUntil} days`}
           </p>
         </div>

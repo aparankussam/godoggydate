@@ -73,9 +73,9 @@ export default function RoastSection({ savedProfile }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Just for fun</p>
+        <p className="text-xs font-bold text-brown">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">🎤 Roast {dogName}</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           A certified <em>affectionate</em> roast: three loving jabs at {dogName}&apos;s zoomies, drama, and nap
@@ -88,17 +88,17 @@ export default function RoastSection({ savedProfile }: Props) {
         type="button"
         onClick={handleGenerate}
         disabled={busy}
-        className="btn-primary w-full disabled:opacity-60"
+        className="btn-secondary w-full disabled:opacity-60"
       >
         {busy ? 'Warming up the mic…' : roast ? `Roast ${dogName} again` : `Roast ${dogName}`}
       </button>
 
-      <p className="mt-2 text-[11px] text-brown-light text-center leading-snug">
+      <p className="mt-2 text-xs text-brown-mid text-center leading-snug">
         Written by AI, all in good fun. A few fresh sets a day — then the club rests.
       </p>
 
       {error && (
-        <p className="mt-2 text-[13px] text-rose font-semibold text-center">{error}</p>
+        <p className="mt-2 text-[13px] text-brown font-semibold text-center">{error}</p>
       )}
 
       {roast && (
@@ -121,7 +121,7 @@ export default function RoastSection({ savedProfile }: Props) {
             {sharing ? 'Preparing…' : `Share ${dogName}'s roast`}
           </button>
 
-          <p className="mt-2 text-[11px] text-brown-light leading-snug text-center">
+          <p className="mt-2 text-xs text-brown-mid leading-snug text-center">
             A playful roast written by AI — every line is affectionate, and {dogName} is a very good dog.
           </p>
         </>

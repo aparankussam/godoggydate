@@ -179,9 +179,9 @@ export default function StickerStudioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
-        <Link href="/app/fun" className="text-sm font-bold text-rose hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center justify-between">
+        <Link href="/app/fun" className="text-sm font-bold text-brown hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
         <span className="font-display text-xl text-brown">🎨 Sticker Studio</span>
         <span className="w-16" />
       </header>
@@ -225,7 +225,7 @@ export default function StickerStudioPage() {
                   aria-label="Remove sticker"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); removePlaced(p.key); }}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white/95 border border-border text-brown text-[11px] leading-none flex items-center justify-center shadow"
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white/95 border-2 border-brown text-brown text-xs leading-none flex items-center justify-center shadow"
                 >
                   ✕
                 </button>
@@ -242,20 +242,20 @@ export default function StickerStudioPage() {
         </div>
 
         {!capturing && (
-          <p className="text-xs text-brown-light text-center">Tap a sticker to add it · drag to move · tap ✕ to remove</p>
+          <p className="text-xs text-brown-mid text-center">Tap a sticker to add it · drag to move · tap ✕ to remove</p>
         )}
 
         {/* Photo controls */}
         {gallery.length > 0 && (
           <div className="w-full">
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-mid mb-1.5">Photo</p>
+            <p className="text-xs font-bold text-brown-mid mb-1.5">Photo</p>
             <div className="flex flex-wrap gap-2 items-center">
               {gallery.map((src, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => { setPhotoUri(src); feedback.tap(); }}
-                  className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-colors ${photoUri === src ? 'border-primary' : 'border-border'}`}
+                  className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-colors ${photoUri === src ? 'border-brown' : 'border-border'}`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={src} alt={`${dogName} ${i + 1}`} className="w-full h-full object-cover" />
@@ -264,7 +264,7 @@ export default function StickerStudioPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-xl border-2 border-dashed border-border text-brown-light text-xl flex items-center justify-center hover:border-primary/50"
+                className="w-12 h-12 rounded-xl border-2 border-dashed border-border text-brown-mid text-xl flex items-center justify-center "
                 aria-label="Upload a photo"
               >
                 +
@@ -278,14 +278,14 @@ export default function StickerStudioPage() {
         {stickers.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <span className="text-4xl">🔒</span>
-            <p className="text-sm text-brown-light leading-relaxed max-w-xs">
+            <p className="text-sm text-brown-mid leading-relaxed max-w-xs">
               Boop {dogName}&apos;s snoot to earn your first stickers — the first two unlock at 10 boops.
             </p>
             <Link href="/app/fun/snoot" onClick={() => feedback.tap()} className="btn-primary px-6 py-3">Go boop 🐽</Link>
           </div>
         ) : (
           <div className="w-full flex flex-col gap-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brown-mid">
+            <p className="text-xs font-bold text-brown-mid">
               Your stickers ({stickers.length})
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
@@ -296,29 +296,29 @@ export default function StickerStudioPage() {
                     key={s.id}
                     type="button"
                     onClick={() => addSticker(s)}
-                    className="w-[62px] h-[70px] rounded-2xl bg-white border border-border flex flex-col items-center justify-center gap-0.5 hover:border-primary/40 transition-colors"
+                    className="w-[62px] h-[70px] rounded-2xl bg-cream border-2 border-brown flex flex-col items-center justify-center gap-0.5  transition-colors"
                   >
                     <span className="text-2xl">{s.emoji}</span>
-                    <span className="text-[9px] text-brown-light">{s.label}</span>
+                    <span className="text-[9px] text-brown-mid">{s.label}</span>
                   </button>
                 ) : (
                   <div
                     key={s.id}
-                    className="w-[62px] h-[70px] rounded-2xl bg-cream-dark/60 border border-border flex flex-col items-center justify-center gap-0.5 opacity-70"
+                    className="w-[62px] h-[70px] rounded-2xl bg-cream-dark/60 border-2 border-brown flex flex-col items-center justify-center gap-0.5 opacity-70"
                     title={`Unlocks at ${s.unlockAt} boops`}
                   >
                     <span className="text-2xl grayscale">🔒</span>
-                    <span className="text-[9px] font-bold text-brown-light">{s.unlockAt}</span>
+                    <span className="text-[9px] font-bold text-brown-mid">{s.unlockAt}</span>
                   </div>
                 );
               })}
             </div>
 
             {next && (
-              <p className="text-[12px] text-brown-light text-center">
+              <p className="text-[12px] text-brown-mid text-center">
                 Next: {next.emoji} {next.label} at {next.unlockAt.toLocaleString()} boops
                 {' · '}
-                <Link href="/app/fun/snoot" className="text-rose font-bold hover:underline">keep booping</Link>
+                <Link href="/app/fun/snoot" className="text-brown font-bold hover:underline">keep booping</Link>
               </p>
             )}
 
@@ -340,7 +340,7 @@ export default function StickerStudioPage() {
           </div>
         )}
 
-        <p className="text-[11px] text-brown-light text-center max-w-xs leading-relaxed">
+        <p className="text-xs text-brown-mid text-center max-w-xs leading-relaxed">
           Stickers are genuinely earned by your own boops — no shortcuts, no fabricated stats. 🐾
         </p>
       </div>

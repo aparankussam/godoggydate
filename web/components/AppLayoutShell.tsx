@@ -217,7 +217,7 @@ export default function AppLayoutShell({ children }: Props) {
     <>
       {/* Offsets for whichever nav form is showing: bottom padding for the
           mobile tab bar, left padding for the desktop sidebar rail. */}
-      <div className={showNav ? (inChatThread ? 'lg:pl-64' : 'pb-20 lg:pb-0 lg:pl-64') : undefined}>
+      <div className={showNav ? (inChatThread ? 'lg:pl-64' : 'pb-24 lg:pb-0 lg:pl-64') : undefined}>
         {children}
       </div>
       {showNav && (
