@@ -387,9 +387,13 @@ interface Props {
   eventId?: string;
   className?: string;
   onBlocked?: () => void;
+  /** 'dots' is the 44px paper "..." button used on Discover; default is the text pill. */
+  variant?: 'pill' | 'dots';
+  /** The dog's name, for the sheet wording and the button's accessible name. */
+  targetName?: string | null;
 }
 
-export default function ReportProfileMenu({ targetUserId, matchId, eventId, className, onBlocked }: Props) {
+export default function ReportProfileMenu({ targetUserId, matchId, eventId, className, onBlocked, variant = 'pill', targetName }: Props) {
   const [open, setOpen] = useState(false);
   const uid = getFirebase().auth.currentUser?.uid;
 
@@ -404,16 +408,25 @@ export default function ReportProfileMenu({ targetUserId, matchId, eventId, clas
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Report or block"
+        aria-label={variant === 'dots' && targetName ? `Report or block ${targetName}` : 'Report or block'}
         aria-haspopup="dialog"
-        className="rounded-full bg-white/80 px-3.5 py-2.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white"
+        className={
+          variant === 'dots'
+            ? 'flex h-11 w-11 items-center justify-center rounded-full border-2 border-brown bg-cream shadow-[inset_0_-3px_0_#E3D6BA] transition-all hover:brightness-95 active:translate-y-px'
+            : 'rounded-full bg-white/80 px-3.5 py-2.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white'
+        }
       >
-        Report
+        {variant === 'dots' ? (
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="#2A1F4A">
+            <circle cx="5" cy="12" r="2.1" /><circle cx="12" cy="12" r="2.1" /><circle cx="19" cy="12" r="2.1" />
+          </svg>
+        ) : 'Report'}
       </button>
       <SafetySheet
         open={open}
         onClose={() => setOpen(false)}
         targetUserId={targetUserId}
+        targetName={targetName}
         matchId={matchId}
         eventId={eventId}
         source={eventId ? 'packday' : 'profile'}

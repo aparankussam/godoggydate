@@ -35,29 +35,29 @@ interface Props {
 
 export default function CompatBreakdown({ breakdown, score }: Props) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-cream/70 px-3 py-2.5">
+    <div className="flex flex-col gap-1.5 rounded-xl border-2 border-brown/30 bg-cream px-3 py-2.5">
       {AXES.map((axis) => {
         const value = breakdown[axis.key] ?? 0;
         const pct = Math.max(0, Math.min(100, (value / axis.max) * 100));
         return (
           <div key={axis.key}>
-            <div className="flex items-center justify-between text-[10px] font-semibold text-brown-light">
+            <div className="flex items-center justify-between text-xs font-extrabold text-brown-mid">
               <span>{axis.label}</span>
               <span>{Math.round(value)}/{axis.max}</span>
             </div>
             <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-border">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-brown-mid" style={{ width: `${pct}%` }} />
             </div>
           </div>
         );
       })}
       {breakdown.penalty > 0 && (
-        <div className="flex items-center justify-between border-t border-border pt-1.5 text-[10px] font-bold text-red-600">
+        <div className="flex items-center justify-between border-t border-border pt-1.5 text-xs font-bold text-red-700">
           <span>Safety penalty</span>
           <span>−{breakdown.penalty}</span>
         </div>
       )}
-      <div className="flex items-center justify-between border-t border-border pt-1.5 text-[11px] font-black text-brown">
+      <div className="flex items-center justify-between border-t border-border pt-1.5 text-xs font-black text-brown">
         <span>Match score</span>
         <span>{score}/100</span>
       </div>

@@ -6,11 +6,9 @@
 
 import { forwardRef, useState, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
-import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
 import { resolveHeroIndex, getHeroFocus, getRenderablePhotos } from '../lib/photos';
-import { QUALITY_STYLES } from './CompatBreakdown';
 import ReportProfileMenu from './ReportProfileMenu';
-import { LimitChips } from './OwnerLimits';
+import { plain, FitSticker, PawIcon, PlaceTicket, TrustSlip } from './DiscoverBits';
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 import { ageLabel, sexLabel, sizeLabel } from '../lib/discover';
 
@@ -72,12 +70,6 @@ function heroIndexFor(dog: CardDog): number {
   return typeof h === 'number' && h >= 0 && h < real.length ? h : 0;
 }
 
-function getEnergyLabel(energyLevel: number): string {
-  if (energyLevel >= 75) return 'High energy';
-  if (energyLevel <= 35) return 'Mellow';
-  return 'Balanced';
-}
-
 // Say only what is known: a measured distance, or the place and that the distance
 // isn't. "Nearby" / "Local match" are claims we don't have the data for.
 function getLocationLabel(dog: CardDog): string {
@@ -92,10 +84,6 @@ function getLocationLabel(dog: CardDog): string {
   return place || 'Location not shared';
 }
 
-function getContentWidthClass(hasScore: boolean): string {
-  return hasScore ? 'max-w-[72%] sm:max-w-[74%]' : 'max-w-[78%]';
-}
-
 // Fixed scatter offsets for the like-swipe paw burst — a handful of divs at
 // varied angles/distances reads as a burst without needing per-render
 // randomness (which would also fight React's reconciliation on re-render).
@@ -106,19 +94,6 @@ const PAW_BURST_OFFSETS = [
   { tx: '-56px', ty: '4px',   rot: '-30deg' },
   { tx: '10px',  ty: '-70px', rot: '4deg' },
 ];
-
-// Vaccination pill styling, keyed by how much the underlying data supports.
-// Deliberately no green ✓ in any row: a checkmark on a self-reported boolean
-// reads as a verification badge, and nothing here is verified. Only an
-// owner-supplied certificate date earns the confident treatment, and even that
-// stays worded as the owner's claim.
-const VACCINATION_PILL_STYLES: Record<VaccinationTone, string> = {
-  dated:           'border-emerald-200/50 bg-emerald-950/60 text-emerald-50',
-  expired:         'border-red-300/60 bg-red-950/60 text-red-50',
-  'self-reported': 'border-white/30 bg-black/40 text-white/90',
-  unvaccinated:    'border-amber-300/60 bg-amber-950/60 text-amber-100',
-  unstated:        'border-white/20 bg-black/34 text-white/70',
-};
 
 const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   dog,
@@ -258,17 +233,19 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const likeStrength = Math.min(dragX / THRESHOLD, 1);
   const passStrength = Math.min(-dragX / THRESHOLD, 1);
 
-  // Compact location/distance string shown on the card
+  // Say only what is known: a measured distance, or the place and that the distance isn't.
   const distanceLabel = getLocationLabel(dog);
-  const energyLabel = getEnergyLabel(dog.energyLevel);
   const hasScore = dog.compat.score > 0;
-  const archetype = dog.ai?.vibeCheck?.archetype;
-  const vaccination = getVaccinationStatus(dog);
-  const vaccinationIsWarning = vaccination.tone === 'expired' || vaccination.tone === 'unvaccinated';
+  // One quiet line of what the owner listed: play styles first, then a temperament word.
+  const vibeLine = [...(dog.playStyles ?? []).slice(0, 2), ...(dog.temperament ?? []).slice(0, 1)].map(plain).join(' · ');
+  const factsLine = [dog.breed, [ageLabel(dog.age), sizeLabel(dog.size), sexLabel(dog.sex)].filter(Boolean).join(' · ')]
+    .filter(Boolean)
+    .join('  ·  ');
 
   return (
     <div
       className="absolute inset-0 select-none overflow-visible bg-transparent"
+      aria-hidden={!isTop || undefined}
       style={{
         zIndex,
         opacity,
@@ -282,11 +259,13 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
-      {/* ── Card shell ─────────────────────────────────────────────────── */}
-      <div className="absolute inset-0 overflow-hidden rounded-[2.15rem] bg-transparent shadow-[0_18px_40px_rgba(0,0,0,0.12)]">
-
-        {/* ── Photo section ────────────────────────────────────────────── */}
-        <div className="relative h-full bg-transparent">
+      {/* ── Card shell: paper, ink outline, hard shadow ─────────────────── */}
+      <article
+        aria-label={`${dog.name}, ${dog.breed}`}
+        className="absolute inset-0 flex flex-col overflow-hidden rounded-3xl border-2 border-brown bg-cream shadow-[0_10px_0_rgba(42,31,74,0.12)]"
+      >
+        {/* ── Photo (about 60% of the card) ──────────────────────────────── */}
+        <div className="relative min-h-0 flex-1 bg-[#C9D3D8]">
           {hasPhoto && currentPhoto && !failedPhotos.includes(currentPhoto) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -300,161 +279,70 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
                 const next = photos.findIndex((p) => !failed.includes(p));
                 if (next >= 0) setPhotoIndex(next);
               }}
-              className="h-full w-full scale-[1.02] object-cover object-[center_24%] pointer-events-none contrast-[1.15] saturate-[1.18]"
+              className="pointer-events-none h-full w-full object-cover object-[center_28%]"
               style={heroObjectPosition ? { objectPosition: heroObjectPosition } : undefined}
               draggable={false}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#f0dfcb] via-[#f4c96f] to-[#eb7c58] flex flex-col items-center justify-center gap-3">
-              <span className="text-8xl">🐕</span>
-              <span className="text-sm text-brown font-semibold">No photo yet</span>
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-note">
+              <span className="text-7xl" aria-hidden="true">🐕</span>
+              <span className="text-sm font-extrabold text-brown">No photo yet</span>
             </div>
           )}
 
-          {/* Photo dot indicators — shown only when 2+ photos */}
+          {/* Photo counter, top-left (safe zone: the dog is rarely there) — only with 2+ photos. */}
           {photos.length > 1 && isTop && (
-            <div className="absolute top-12 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
-              {photos.map((_, i) => (
-                <div
-                  key={i}
-                  className={`rounded-full transition-all duration-200 ${
-                    i === photoIndex
-                      ? 'w-5 h-1.5 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.35)] ring-1 ring-black/15'
-                      : 'w-2 h-2 bg-white/90 shadow-[0_2px_8px_rgba(0,0,0,0.28)] ring-1 ring-black/20'
-                  }`}
-                />
-              ))}
-            </div>
+            <span
+              role="img"
+              aria-label={`Photo ${Math.min(photoIndex, photos.length - 1) + 1} of ${photos.length}. Tap the photo for the next one.`}
+              className="pointer-events-none absolute left-3 top-3 rounded-full border-2 border-brown bg-cream px-2.5 py-1 text-xs font-black leading-none shadow-[0_2px_5px_rgba(42,31,74,0.25)]"
+            >
+              {Math.min(photoIndex, photos.length - 1) + 1} / {photos.length}
+            </span>
           )}
 
-          {/* Gradient overlay */}
-          <div
-            className="absolute inset-x-0 bottom-0 max-h-full overflow-hidden"
-            style={{
-              background:
-                'linear-gradient(to top, rgba(8,6,5,0.78) 0%, rgba(8,6,5,0.52) 22%, rgba(8,6,5,0.26) 46%, rgba(8,6,5,0.12) 62%, transparent 72%)',
-            }}
-          >
-            <div className="px-5 pb-5 pt-14">
-              <div className={`min-w-0 ${getContentWidthClass(hasScore)}`}>
-                {/* The dog's Vibe Check identity — generated at onboarding and,
-                    until now, visible only AFTER a mutual match. Deciding
-                    whether you like a dog is exactly when it's useful. No
-                    fallback: dogs without a Vibe Check render as before. */}
-                {archetype && (
-                  <div className="mb-1.5 flex items-center gap-2">
-                    {archetype.code && (
-                      <span className="rounded-md bg-black/40 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.18em] text-gold backdrop-blur-sm">
-                        {archetype.code}
-                      </span>
-                    )}
-                    <span className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-gold drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]">
-                      ✨ {archetype.name}
-                    </span>
-                  </div>
-                )}
-                <p className="font-display text-[2.55rem] leading-[0.94] text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.55)] [overflow-wrap:anywhere]">
-                  {dog.name}
-                </p>
-                <p className="mt-1.5 text-[1.02rem] font-semibold tracking-[0.01em] text-white/95 truncate drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
-                  {dog.breed}
-                </p>
-                {/* Size and sex as words, each on its own: a bare "M" read as
-                    Male when it was Medium. */}
-                <p className="mt-0.5 text-[13px] font-medium text-white/85 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
-                  {[ageLabel(dog.age), sizeLabel(dog.size), sexLabel(dog.sex)].filter(Boolean).join(' · ')}
-                </p>
-                <p className="mt-0.5 text-sm font-medium text-white/80 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)] [overflow-wrap:anywhere]">
-                  {distanceLabel}
-                </p>
-                {/* compat.microcopy — the engine's own one-line verdict,
-                    written specifically to be "shown on card" (see its type
-                    comment in shared/types). Was computed for every dog and
-                    rendered nowhere; compat.label is the same information in
-                    a shorter form, so it's reserved for the detail sheet
-                    instead of repeating the same phrase twice on one card. */}
-                {hasScore && dog.compat.microcopy && (
-                  <p className="mt-1.5 text-[0.92rem] font-semibold text-white/95 drop-shadow-[0_6px_16px_rgba(0,0,0,0.5)]">
-                    {dog.compat.microcopy}
-                  </p>
-                )}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-white/30 bg-black/34 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_4px_14px_rgba(0,0,0,0.28)] backdrop-blur-md">
-                    {energyLabel}
-                  </span>
-                  {dog.playStyles.slice(0, 2).map((style) => (
-                    <span
-                      key={style}
-                      className="rounded-full border border-white/30 bg-black/34 px-3 py-1 text-[11px] font-semibold text-white shadow-[0_4px_14px_rgba(0,0,0,0.28)] backdrop-blur-md"
-                    >
-                      {style}
-                    </span>
-                  ))}
-                </div>
-
-                {/* The limits the owners declared, owner-named, on the FIRST card —
-                    before a like, since that's the decision they inform. Tripped
-                    ones (this dog's owner's limits vs your dog, or yours vs this
-                    dog) are amber and never capped; the rest are neutral and
-                    capped with a pointer to Details. See OwnerLimits. */}
-                <LimitChips compat={dog.compat} className="mt-2" />
-              </div>
-            </div>
-          </div>
-
+          {/* Fit: the tag and the sticker, top-right. Fades out while a WOOF / PASS
+              stamp is showing so the two never overprint. */}
           {hasScore && (
-            // Right side: the text block is capped at ~72% of the card width, so the
-            // right edge is free. On the left the ring sat on top of the name,
-            // breed and safety pills whenever the block ran tall (3+ warnings, or
-            // any warnings on a short phone screen).
-            // Fades out while a WOOF / PASS stamp is showing: on a phone the stamp
-            // landed on the ring and the two overprinted each other.
             <div
-              className="absolute right-4 top-16 flex flex-col items-center gap-1 transition-opacity duration-150"
+              className="pointer-events-none absolute right-3 top-3 flex flex-col items-end gap-1.5 transition-opacity duration-150"
               style={{ opacity: isTop && Math.abs(dragX) > 20 ? 0 : 1 }}
             >
-              {/* Ring color now signals compat.quality (green/amber/red) —
-                  previously a plain white ring regardless of tier, so a
-                  "Safety mismatch" score looked exactly as inviting as a
-                  "Perfect play buddy" one. */}
-              <div
-                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/95 bg-[rgba(24,18,12,0.34)] text-xl font-black text-white shadow-[0_10px_28px_rgba(0,0,0,0.34)] ring-[3px] backdrop-blur-md ${
-                  QUALITY_STYLES[dog.compat.quality]?.ring ?? 'ring-black/18'
-                }`}
-              >
-                {dog.compat.score}
-              </div>
-              <span className="rounded-full bg-black/38 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-                Fit
+              <span className="flex items-center gap-1.5 rounded-full border-2 border-brown bg-cream py-1 pl-2 pr-2.5 text-xs font-black leading-none shadow-[0_2px_5px_rgba(42,31,74,0.25)]">
+                <PawIcon />
+                Fit with your dog
               </span>
+              <FitSticker compat={dog.compat} />
             </div>
           )}
 
-          {/* WOOF overlay */}
+          {/* Place ticket, bottom-left */}
+          <PlaceTicket text={distanceLabel} className="pointer-events-none absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)]" />
+
+          {/* WOOF stamp */}
           {isTop && dragX > 20 && (
             <div
-              className="absolute top-14 right-4 rounded-xl px-4 py-2 border-[3px] border-[#F5B731] bg-black/10"
-              style={{ opacity: Math.min(likeStrength * 1.5, 1), transform: 'rotate(10deg)' }}
+              className="pointer-events-none absolute right-4 top-24 rounded-xl border-[3px] border-brown bg-cream px-4 py-1.5 shadow-[0_3px_0_rgba(42,31,74,0.25)]"
+              style={{ opacity: Math.min(likeStrength * 1.5, 1), transform: 'rotate(8deg)' }}
             >
-              <span className="font-display text-white text-2xl font-black drop-shadow">WOOF 🐾</span>
+              <span className="font-display text-2xl text-brown">WOOF</span>
             </div>
           )}
 
-          {/* PASS overlay */}
+          {/* PASS stamp */}
           {isTop && dragX < -20 && (
             <div
-              className="absolute top-14 left-4 rounded-xl px-4 py-2 border-[3px] border-red-400 bg-black/10"
-              style={{ opacity: Math.min(passStrength * 1.5, 1), transform: 'rotate(-10deg)' }}
+              className="pointer-events-none absolute left-4 top-16 rounded-xl border-[3px] border-brown bg-cream px-4 py-1.5 shadow-[0_3px_0_rgba(42,31,74,0.25)]"
+              style={{ opacity: Math.min(passStrength * 1.5, 1), transform: 'rotate(-8deg)' }}
             >
-              <span className="font-display text-white text-2xl font-black drop-shadow">PASS</span>
+              <span className="font-display text-2xl text-brown">PASS</span>
             </div>
           )}
 
-          {/* Swipe-completion reactions — everything above only fires
-              during the drag itself; the card previously just flew off with
-              no feedback at the moment a like/pass actually committed. */}
+          {/* Swipe-completion reactions: the card used to just fly off with no
+              feedback at the moment a like/pass actually committed. */}
           {gone === 'right' && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
               {PAW_BURST_OFFSETS.map((offset, i) => (
                 <span
                   key={i}
@@ -467,55 +355,35 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
             </div>
           )}
           {gone === 'left' && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
-              <span className="absolute h-24 w-24 rounded-full bg-white/40 animate-dust-puff" />
-              <span className="absolute h-16 w-16 rounded-full bg-white/30 animate-dust-puff" style={{ animationDelay: '80ms' }} />
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+              <span className="absolute h-24 w-24 animate-dust-puff rounded-full bg-white/40" />
+              <span className="absolute h-16 w-16 animate-dust-puff rounded-full bg-white/30" style={{ animationDelay: '80ms' }} />
             </div>
           )}
-
-          {/* Vaccination pill. Was a green "✓ Vaccinated" badge shown whenever
-              dog.vaccinated === true — a value the profile form initialised to
-              true, so the card asserted a verified-looking fact about dogs
-              nobody had ever asked about. getVaccinationStatus grades the copy
-              to the data: a real expiry date is quoted, an expired one is shown
-              rather than hidden (that's the case worth knowing before a
-              meetup), a bare boolean is attributed to the owner, and an absence
-              says so. Always rendered — "not stated" is information too. */}
-          <div
-            className={`absolute left-4 top-4 max-w-[62%] rounded-full border px-2.5 py-1 text-[10px] font-bold leading-tight shadow-[0_6px_18px_rgba(0,0,0,0.18)] backdrop-blur-md ${VACCINATION_PILL_STYLES[vaccination.tone]}`}
-          >
-            {vaccinationIsWarning ? `⚠ ${vaccination.label}` : vaccination.label}
-          </div>
-
-          <div className="pointer-events-none absolute inset-0 rounded-[2.15rem] ring-1 ring-black/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]" />
-
-          {/* Only in the real deck (it passes onOpenDetails), not on public share
-              pages. Blocking swipes the card away as a pass. */}
-          {onOpenDetails && isTop && dog.ownerId && (
-            <ReportProfileMenu
-              targetUserId={dog.ownerId}
-              className="absolute right-4 top-4 z-10"
-              onBlocked={() => runSwipe('left')}
-            />
-          )}
-
-          {/* Details button */}
-          {onOpenDetails && (
-            <button
-              type="button"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenDetails();
-              }}
-              className="absolute right-4 bottom-4 rounded-full bg-white/80 px-3.5 py-2.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white"
-              aria-label={`View details for ${dog.name}`}
-            >
-              Details
-            </button>
-          )}
         </div>
-      </div>
+
+        {/* ── Name, facts, one quiet trust slip ───────────────────────────── */}
+        <div className="shrink-0 px-4 pb-3.5 pt-3">
+          <div className="flex items-center justify-between gap-2.5">
+            <h2 className="min-w-0 truncate font-display text-[30px] leading-none text-brown">{dog.name}</h2>
+            {/* Only in the real deck (it passes onOpenDetails). Blocking swipes the card away as a pass. */}
+            {onOpenDetails && isTop && dog.ownerId && (
+              <ReportProfileMenu
+                targetUserId={dog.ownerId}
+                targetName={dog.name}
+                variant="dots"
+                className="shrink-0"
+                onBlocked={() => runSwipe('left')}
+              />
+            )}
+          </div>
+          <p className="mt-0.5 text-[14.5px] font-black leading-[1.3] [overflow-wrap:anywhere]">{factsLine}</p>
+          {vibeLine && (
+            <p className="text-sm font-extrabold leading-[1.3] text-brown-mid [overflow-wrap:anywhere]">{vibeLine}</p>
+          )}
+          <TrustSlip dog={dog} compat={dog.compat} className="mt-2.5" />
+        </div>
+      </article>
     </div>
   );
 });

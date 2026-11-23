@@ -141,3 +141,36 @@ export function LimitList({
     </div>
   );
 }
+
+/**
+ * Details view, "Sticker Book" paper version: every limit the owner listed, nothing
+ * hidden. A limit that applies to the viewer's dog is an AMBER slip with the reason in
+ * plain words; the rest are neutral paper slips. Always owner-named.
+ */
+export function LimitsBlock({ compat, ownerName }: { compat: CompatibilityResult; ownerName: string }) {
+  const items = itemsOf(compat);
+  const lines: Array<{ key: string; text: string; detail?: string; caution: boolean }> = items
+    ? items.map((i) => ({ key: i.id, text: i.text, detail: i.detail, caution: i.severity === 'caution' }))
+    : compat.warnings.map((w) => ({ key: w, text: w, caution: true }));
+  if (lines.length === 0) {
+    return <p className="text-[13.5px] font-extrabold leading-snug">{ownerName}&apos;s owner listed no limits</p>;
+  }
+  const ordered = [...lines.filter((l) => l.caution), ...lines.filter((l) => !l.caution)];
+  return (
+    <ul className="flex flex-col gap-1.5" aria-label={`Limits ${ownerName}'s owner listed`}>
+      {ordered.map((line) => (
+        <li
+          key={line.key}
+          className={`overflow-hidden rounded-[5px] border-2 border-brown border-l-[7px] px-2.5 py-1 ${
+            line.caution ? 'border-l-amber-spine bg-amber' : 'border-l-brown bg-cream'
+          }`}
+        >
+          <p className="text-sm font-extrabold leading-snug [overflow-wrap:anywhere]">{line.text}</p>
+          {line.caution && line.detail && (
+            <p className="text-sm font-extrabold leading-snug [overflow-wrap:anywhere]">{line.detail}</p>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}

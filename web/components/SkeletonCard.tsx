@@ -6,33 +6,20 @@
 export default function SkeletonCard() {
   return (
     <div
-      className="absolute inset-x-0 rounded-3xl overflow-hidden bg-white shadow-xl animate-pulse"
-      style={{ height: 420, top: 0 }}
+      className="absolute inset-x-4 bottom-2.5 top-2 flex animate-pulse flex-col overflow-hidden rounded-3xl border-2 border-brown bg-cream shadow-[0_10px_0_rgba(42,31,74,0.12)]"
       aria-hidden="true"
     >
       {/* Photo placeholder */}
-      <div className="w-full h-64 bg-border" />
+      <div className="min-h-0 flex-1 bg-border" />
 
       {/* Content placeholder */}
-      <div className="px-5 py-4 flex flex-col gap-3">
-        {/* Name + breed */}
-        <div className="flex items-end justify-between">
-          <div className="flex flex-col gap-1.5">
-            <div className="h-6 w-28 bg-border rounded-full" />
-            <div className="h-4 w-20 bg-border rounded-full" />
-          </div>
-          <div className="w-12 h-12 rounded-full bg-border" />
+      <div className="flex flex-col gap-2.5 px-4 pb-4 pt-3">
+        <div className="flex items-center justify-between">
+          <div className="h-7 w-28 rounded-full bg-border" />
+          <div className="h-11 w-11 rounded-full bg-border" />
         </div>
-
-        {/* Chips */}
-        <div className="flex gap-2">
-          <div className="h-6 w-16 bg-border rounded-full" />
-          <div className="h-6 w-20 bg-border rounded-full" />
-          <div className="h-6 w-14 bg-border rounded-full" />
-        </div>
-
-        {/* Distance */}
-        <div className="h-4 w-24 bg-border rounded-full" />
+        <div className="h-4 w-48 rounded-full bg-border" />
+        <div className="h-12 w-full rounded-lg bg-border" />
       </div>
     </div>
   );
