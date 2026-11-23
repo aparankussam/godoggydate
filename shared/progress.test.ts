@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 
 import {
   BARKLE_HISTORY_LIMIT,
+  addDiscovery,
+  discoveredOrder,
+  markSeen,
+  mergeDogtypes,
+  normalizeDogtypes,
+  setOwnType,
   addBarkleRecord,
   adventuresFromLocal,
   applyBoopWrite,
@@ -441,4 +447,45 @@ test('a save made while a sync is on the network is pushed right after', async (
   await sleep(80);
   assert.deepEqual(remote.doc?.unlocks, ['ZROM']);
   assert.equal(stableStringify(store.get(progressKeys.unlocks(uid))), stableStringify({ invitedCodes: ['ZROM'] }));
+});
+
+// ── Dogtype discoveries ──────────────────────────────────────────────────────
+
+test('normalizeDogtypes drops bad codes and bad times, and caps at 16', () => {
+  const raw: Record<string, unknown> = { EROB: { at: 5, dogId: 'd1', dogName: 'Biscuit', seen: true }, XXXX: { at: 1 }, ZROM: { at: -3 }, EGOB: { at: 'x' } };
+  assert.deepEqual(normalizeDogtypes(raw), { EROB: { at: 5, dogId: 'd1', dogName: 'Biscuit', seen: true } });
+  assert.equal(normalizeDogtypes('nope'), undefined);
+  assert.equal(normalizeDogtypes({}), undefined);
+});
+
+test('mergeDogtypes keeps earliest at and its dog; seen/own are OR-ed', () => {
+  const a = { EROB: { at: 10, dogId: null, dogName: null, seen: false, own: true } };
+  const b = { EROB: { at: 20, dogId: 'd1', dogName: 'Biscuit', seen: true } };
+  assert.deepEqual(mergeDogtypes(a, b)!.EROB, { at: 10, dogId: 'd1', dogName: 'Biscuit', seen: true, own: true });
+});
+
+test('mergeDogtypes is commutative, associative and idempotent', () => {
+  const x = { EROB: { at: 3, dogId: 'a', dogName: 'A', seen: false } };
+  const y = { EROB: { at: 1, dogId: 'b', dogName: 'B', seen: true }, EGOB: { at: 9, dogId: 'c', dogName: 'C', seen: false } };
+  const z = { ZROM: { at: 2, dogId: null, dogName: null, seen: false, own: true } };
+  const m = mergeDogtypes;
+  assert.deepEqual(m(x, y), m(y, x));
+  assert.deepEqual(m(m(x, y), z), m(x, m(y, z)));
+  assert.deepEqual(m(x, x), m(x));
+});
+
+test('discoveredOrder lists dog-met types and the current own type by time; old own types hide', () => {
+  let l = addDiscovery(undefined, 'EGOB', { at: 50, dogId: 'd1', dogName: 'Biscuit' });
+  l = setOwnType(l, 'EROB', 10);
+  l = setOwnType(l, 'ZROM', 20);
+  assert.deepEqual(discoveredOrder(l, 'ZROM'), ['ZROM', 'EGOB']);
+  l = addDiscovery(l, 'EROB', { at: 60, dogId: 'd2', dogName: 'Rex' });
+  assert.deepEqual(discoveredOrder(l, 'ZROM'), ['EROB', 'ZROM', 'EGOB']);
+});
+
+test('markSeen flips seen, and merge/normalize carry dogtypes through the doc', () => {
+  const l = markSeen(addDiscovery(undefined, 'EGOB', { at: 1, dogId: 'd', dogName: 'B', seen: false }), 'EGOB');
+  assert.equal(l.EGOB.seen, true);
+  const doc = normalizeProgress({ dogtypes: l });
+  assert.deepEqual(mergeProgress(doc, {}).dogtypes, l);
 });
