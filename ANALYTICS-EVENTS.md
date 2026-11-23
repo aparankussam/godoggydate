@@ -129,7 +129,12 @@ Other events in the same family:
 - Web and mobile: `adventures_open`, `adventure_stamped`, `barkle_complete`, `snoot_open`, `snoot_milestone`, `sticker_studio_open`, `dogquiz_setup_start`, `dogquiz_key_set`, `dogquiz_key_redo`, `dogquiz_guest_start`, `dogquiz_guest_scored`.
 - Web only: `fun_hub_open`, `fun_hub_click`, `wanted_mugshot_change`.
 - Mobile only: `fun_open`, `barkle_open`, `wanted_open`, `excuse_share_click`, `excuse_shared`, `dogtype_reveal_open`, `dogtype_reveal_cta`.
-- Dogtype discovery (web and mobile): `dogtype_discovered` (`source`: live, matches or first_fill), `dogtype_reveal_shown` (`context`: modal or sheet), `dogtype_tile_tap` (`discovered`: true or false). The type code is never sent for a hidden tile.
+- Dogtype discovery (web and mobile): `dogtype_discovered` (`source`: live, matches, first_fill or packday), `dogtype_reveal_shown` (`context`: modal, profile or sheet), `dogtype_tile_tap` (`discovered`: true or false), `dogtype_sheet_open`, `dogtype_first_reveal` (the owner watched their own dog's reveal for the first time). The type code is never sent for a hidden tile.
+- Playroom and Profile structure (web and mobile): `playroom_card_open` (`feature`: snoot, sticker-studio, wanted, adventures, excuse, letter, card, dogday, roast, apology, texts, review, quiz, plaque), `profile_section_view` (`section`: about, dates, dogtype, care).
+
+### Measuring the Dogtype reveal (build 40 onward)
+
+Funnel to watch, all from the events above: matches per user per week (`match_created`), reveals shown per match (`dogtype_reveal_shown` / `match_created`), collection progress (distinct `dogtype_discovered` per user, by `source`), sheet opens per discovery (`dogtype_sheet_open`), first-reveal rate for new profiles (`dogtype_first_reveal` / profiles created), and 7-day return for users with 2+ discoveries versus 0-1. A rise in Playroom opens (`playroom_card_open`) after the redesign is the signal for the Playroom change.
 
 ### Recommended custom dimensions
 

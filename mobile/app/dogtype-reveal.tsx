@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, fonts } from '../constants/theme';
 import { PawCoin, PrimaryButton, SecondaryButton, SkyBackground, StickerDog } from '../components/sticker';
 import { useSession } from '../lib/session';
+import { markRevealed } from '../lib/dogtypeDiscovery';
 import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
 import { webUrl } from '../lib/webLinks';
@@ -27,7 +28,7 @@ import { resolveHeroIndex } from '../lib/coverPhoto';
 const READING_MS = 1600;
 
 export default function DogtypeRevealScreen() {
-  const { profile } = useSession();
+  const { profile, user } = useSession();
   const dogtype = computeDogtype(profile ?? undefined);
   const dogName = profile?.name?.trim() || 'Your dog';
   const photo = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
@@ -58,6 +59,7 @@ export default function DogtypeRevealScreen() {
     const timer = setTimeout(() => {
       loop.stop();
       setPhase('revealed');
+      if (user?.uid) void markRevealed(user.uid);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       Animated.parallel([
         Animated.spring(revealScale, { toValue: 1, friction: 6, tension: 60, useNativeDriver: true }),

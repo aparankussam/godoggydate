@@ -11,6 +11,7 @@
 // perfect one. The blocked variant stays sober: the same information, a
 // "READ FIRST" stamp, and the owner has to acknowledge it before "Say hi".
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, type ReactNode } from 'react';
 import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ import { getVaccinationStatus, type SavedDogProfile } from '../../shared/profile
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 import { PawIcon, PrimaryButton, SecondaryButton, SkyBackground, StickerDog, Tape } from './sticker';
 import DogtypeRevealCard, { type RevealVariant } from './DogtypeRevealCard';
+import DogtypeSheet from './dogtype/DogtypeSheet';
 import { Dot, FIT_TONE_BG, fitShortLabel, fitTone } from './discover/DiscoverBits';
 
 export interface MatchReveal {
@@ -35,6 +37,8 @@ export interface MatchReveal {
   ownName: string;
   discovered: number;
   variant: RevealVariant;
+  /** Same type as yours but your own reveal is unwatched: name nothing. */
+  sealed: boolean;
 }
 
 interface Props {
@@ -90,6 +94,8 @@ function MatchModalContent({
   const isBlocked = dog.compat.quality === 'blocked';
   const [acknowledged, setAcknowledged] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const theirPhotos = getRenderablePhotos(dog.photos);
   const theirHero = resolveHeroIndex(dog);
@@ -136,10 +142,29 @@ function MatchModalContent({
 
   const tone = fitTone(dog.compat);
 
+  // A blocked pairing keeps its buttons below the safety slip until it is acknowledged, so the
+  // slip can't be skipped by tapping a pinned button; after that they pin to the bottom.
+  const ctas = (
+    <>
+          {isBlocked && !acknowledged ? (
+            <PrimaryButton label="Got it, I’ve read this" onPress={() => setAcknowledged(true)} />
+          ) : (
+            <PrimaryButton
+              label={`Say hi to ${dog.name}`}
+              onPress={onSayHi}
+              icon={<Ionicons name="chatbubble-ellipses" size={24} color={colors.ink} />}
+            />
+          )}
+          {showPitch && <Text style={styles.pitch}>{getChatUnlockPitch()}</Text>}
+          <SecondaryButton label="Keep swiping" onPress={onKeepSwiping} />
+    </>
+  );
+
   return (
     <View style={styles.page}>
       <SkyBackground />
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         accessibilityViewIsModal
@@ -222,6 +247,9 @@ function MatchModalContent({
             otherCode={reveal.otherCode}
             discovered={reveal.discovered}
             variant={reveal.variant}
+            sealed={reveal.sealed}
+            compact
+            onOpenMore={() => setSheetOpen(true)}
           />
         )}
 
@@ -279,24 +307,28 @@ function MatchModalContent({
             otherCode={reveal.otherCode}
             discovered={reveal.discovered}
             variant={reveal.variant}
+            sealed={reveal.sealed}
+            compact
+            onOpenMore={() => setSheetOpen(true)}
           />
         )}
 
-        {/* CTAs: exactly one pink */}
-        <View style={styles.ctas}>
-          {isBlocked && !acknowledged ? (
-            <PrimaryButton label="Got it, I’ve read this" onPress={() => setAcknowledged(true)} />
-          ) : (
-            <PrimaryButton
-              label={`Say hi to ${dog.name}`}
-              onPress={onSayHi}
-              icon={<Ionicons name="chatbubble-ellipses" size={24} color={colors.ink} />}
-            />
-          )}
-          {showPitch && <Text style={styles.pitch}>{getChatUnlockPitch()}</Text>}
-          <SecondaryButton label="Keep swiping" onPress={onKeepSwiping} />
-        </View>
       </ScrollView>
+
+        {/* CTAs: exactly one pink */}
+      {!(isBlocked && !acknowledged) && <View style={[styles.footer, { paddingBottom: Math.max(26, insets.bottom + 12) }]}>{ctas}</View>}
+
+      {reveal && (
+        <DogtypeSheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          code={reveal.otherCode}
+          ownCode={reveal.ownCode}
+          ownName={reveal.ownName}
+          matches={[]}
+          showMatches={false}
+        />
+      )}
     </View>
   );
 }
@@ -511,7 +543,16 @@ const styles = StyleSheet.create({
   mathBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   mathText: { fontFamily: fonts.black, fontSize: 12.5, color: colors.brownMid, textDecorationLine: 'underline' },
 
-  ctas: { marginTop: 18, gap: 12 },
+  inlineCtas: { marginTop: 18, gap: 10 },
+  footer: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 26,
+    gap: 10,
+    backgroundColor: colors.sky,
+    borderTopWidth: 2,
+    borderTopColor: colors.ink,
+  },
   pitch: {
     marginTop: -4,
     textAlign: 'center',

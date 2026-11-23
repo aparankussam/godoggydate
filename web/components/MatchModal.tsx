@@ -18,6 +18,8 @@ import { getPrimaryRenderablePhoto } from '../lib/photos';
 import { getVaccinationStatus } from '../../shared/profile';
 import { getChatUnlockPitch } from '../shared/utils/stripe';
 import CompatBreakdown from './CompatBreakdown';
+import DogtypeRevealCard, { type RevealVariant } from './dogtype/DogtypeRevealCard';
+import DogtypeSheet from './dogtype/DogtypeSheet';
 import { getFirebase } from '../shared/utils/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
@@ -36,13 +38,26 @@ interface MatchDog {
   compat: CompatibilityResult;
 }
 
+export interface MatchReveal {
+  ownCode: string;
+  otherCode: string;
+  ownName: string;
+  discovered: number;
+  variant: RevealVariant;
+  /** Same type as yours but your own reveal is unwatched: name nothing. */
+  sealed: boolean;
+}
+
 interface Props {
   dog: MatchDog;
   matchId: string;
+  /** The Dogtype reveal for this match, when both types are known. */
+  reveal?: MatchReveal | null;
   onKeepSwiping: () => void;
 }
 
-export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
+export default function MatchModal({ dog, matchId, reveal = null, onKeepSwiping }: Props) {
+  const [sheetOpen, setSheetOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -307,6 +322,24 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           )}
         </div>
 
+        {/* Dogtype reveal: after the fit sticker on a normal pairing; a blocked
+            pairing reads the safety slip first (below). */}
+        {!isBlocked && reveal && (
+          <div className="relative z-10 mt-5">
+            <DogtypeRevealCard
+              ownName={reveal.ownName}
+              ownCode={reveal.ownCode}
+              otherName={dog.name}
+              otherCode={reveal.otherCode}
+              discovered={reveal.discovered}
+              variant={reveal.variant}
+              sealed={reveal.sealed}
+              compact
+              onOpenMore={() => setSheetOpen(true)}
+            />
+          </div>
+        )}
+
         {/* Before you meet: calm slip, owner-attributed */}
         <div className="relative z-10 mt-5 rounded-l rounded-r-xl border-l-4 border-brown bg-cream-dark px-4 pb-3.5 pt-3.5">
           <h3 className="mb-1.5 text-[15px] font-black leading-tight">
@@ -366,8 +399,24 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
           )}
         </div>
 
-        {/* CTAs: exactly one pink */}
-        <div className="relative z-10 mt-5 flex flex-col gap-3">
+        {isBlocked && acknowledged && reveal && (
+          <div className="relative z-10 mt-5">
+            <DogtypeRevealCard
+              ownName={reveal.ownName}
+              ownCode={reveal.ownCode}
+              otherName={dog.name}
+              otherCode={reveal.otherCode}
+              discovered={reveal.discovered}
+              variant={reveal.variant}
+              sealed={reveal.sealed}
+              compact
+              onOpenMore={() => setSheetOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* CTAs: exactly one pink, pinned so "Say hi" never scrolls out of reach */}
+        <div className={`mt-5 flex flex-col gap-3 ${isBlocked && !acknowledged ? 'relative z-10' : 'sticky bottom-0 z-20 -mx-[18px] border-t-2 border-brown bg-sky px-[18px] pb-5 pt-3'}`}>
           {isBlocked && !acknowledged ? (
             <button type="button" onClick={() => setAcknowledged(true)} className={pinkBtn}>
               Got it, I&apos;ve read this
@@ -393,6 +442,17 @@ export default function MatchModal({ dog, matchId, onKeepSwiping }: Props) {
         </div>
 
       </div>
+      {reveal && (
+        <DogtypeSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          code={reveal.otherCode}
+          ownCode={reveal.ownCode}
+          ownName={reveal.ownName}
+          matches={[]}
+          showMatches={false}
+        />
+      )}
     </div>
   );
 }

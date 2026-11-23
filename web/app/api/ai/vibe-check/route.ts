@@ -5,6 +5,7 @@ import { claimAiBudget, guardAiRequest } from '../../../../lib/aiGuard';
 import { trustedPhotoUrl } from '../../../../lib/trustedPhotoUrl';
 import { resolveBreed } from '../../../../../shared/types/breeds';
 import type { DogSize, DogVibeCheck, PlayStyle } from '../../../../../shared/types';
+import { DOGTYPE_CODES, dogtypeByCode } from '../../../../../shared/dogtype';
 
 // "Vibe Check" onboarding: 1-3 photos in, a finished profile out. This is the
 // single highest-leverage AI feature in the Phase 0 build — it converts the
@@ -219,6 +220,7 @@ Ground rules:
 - Only describe what is visibly true in the photos. Never invent facts you can't see.
 - Never diagnose a health condition, never call a dog "aggressive," "dangerous," or "reactive" — describe observable posture/body language only if directly relevant, and default to warm/neutral framing.
 - Never use generic pet-copy phrasing. Banned phrases (do not use, in any form): ${BANNED_PHRASES.join(', ')}.
+- The archetype name must NOT be, or contain, any of these reserved Dogtype names (they are a separate personality system): ${DOGTYPE_CODES.map((c) => dogtypeByCode(c)?.name).filter(Boolean).join(', ')}. Invent something fresh instead.
 - The bio and archetype are the highlight — make them specific, a little funny, and grounded in real details from the photo (coloring, ear shape, expression, pose), not generic dog-owner cliché.
 - If the photos are unclear, low quality, or don't clearly show a dog, still do your best with lower confidence values rather than refusing.
 - Breed guessing is a trust-sensitive area for owners of mixes and rescues — always frame it as a guess (the confidence field exists for this reason), never as certain fact.`;

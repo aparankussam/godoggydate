@@ -23,7 +23,9 @@ import type { DogProfile } from '../../../shared/types';
 import DogProfileForm from '../../components/DogProfileForm';
 import SwipeStack from '../../components/SwipeStack';
 import AuthModal from '../../components/AuthModal';
-import MatchModal from '../../components/MatchModal';
+import MatchModal, { type MatchReveal } from '../../components/MatchModal';
+import { discoveredCount } from '../../../shared/progress';
+import { discoverFromMatch, loadDiscoveries, loadRevealed } from '../../lib/dogtypeDiscovery';
 import SkeletonCard from '../../components/SkeletonCard';
 import { trackEvent, trackFirstTime } from '../../lib/analytics';
 import {
@@ -99,6 +101,7 @@ export default function AppPage() {
 
   // ── Swipe / match ─────────────────────────────────────────────────────────
   const [matchedDog,       setMatchedDog]       = useState<FeedDog | null>(null);
+  const [matchReveal,      setMatchReveal]      = useState<MatchReveal | null>(null);
   const [activeMatchId,    setActiveMatchId]    = useState<string | null>(null);
   const [feedDepleted,     setFeedDepleted]     = useState(false);
   const [feedLoading,      setFeedLoading]      = useState(false);
@@ -432,6 +435,33 @@ export default function AppPage() {
 
   async function handleMatch(dog: FeedDog, matchId: string) {
     const fresh = await refreshCompat(dog);
+    // Dogtype reveal: save the discovery BEFORE the pop-up so it can say whether
+    // this type is new. Quiet on any failure (no reveal then).
+    let reveal: MatchReveal | null = null;
+    try {
+      const own = savedProfile ? computeDogtype(savedProfile) : null;
+      // The deck's copy of a dog lacks behavior flags, so read the full profile: the type must
+      // be the same one the Matches page and the other owner's own profile compute.
+      const ownerId = fresh.ownerId ?? fresh.firestoreId ?? fresh.id;
+      const otherSnap = !fresh.isDemo && ownerId ? await getDoc(doc(getFirebase().db, 'dogs', ownerId)) : null;
+      const other = otherSnap?.exists() ? computeDogtype(otherSnap.data() as SavedDogProfile) : null;
+      const uid = authUser?.uid;
+      if (uid && own && other && !fresh.isDemo) {
+        const ownRevealed = loadRevealed(uid);
+        const { isNew } = discoverFromMatch(uid, { code: other.code, dogId: fresh.firestoreId ?? fresh.id, dogName: fresh.name, at: Date.now() });
+        reveal = {
+          ownCode: own.code,
+          otherCode: other.code,
+          ownName: savedProfile?.name?.trim() || 'Your dog',
+          discovered: discoveredCount(loadDiscoveries(uid), own.code, ownRevealed),
+          variant: own.code === other.code ? 'same' : isNew ? 'new' : 'met',
+          sealed: own.code === other.code && !ownRevealed,
+        };
+      }
+    } catch {
+      reveal = null;
+    }
+    setMatchReveal(reveal);
     setMatchedDog(fresh);
     setActiveMatchId(matchId);
     trackEvent('match_created', {
@@ -454,6 +484,7 @@ export default function AppPage() {
   }
 
   function continueAfterMatch() {
+    setMatchReveal(null);
     setMatchedDog(null);
     setActiveMatchId(null);
   }
@@ -781,6 +812,7 @@ export default function AppPage() {
         <MatchModal
           dog={matchedDog}
           matchId={activeMatchId}
+          reveal={matchReveal}
           onKeepSwiping={continueAfterMatch}
         />
       )}

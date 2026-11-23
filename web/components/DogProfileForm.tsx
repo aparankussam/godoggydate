@@ -2,6 +2,8 @@
 // web/components/DogProfileForm.tsx
 // Dog profile form — device photo upload, breed datalist, structured location.
 
+import { loadRevealed } from '../lib/dogtypeDiscovery';
+import { computeDogtype, describeTypeChange, profileHintsForCode } from '../../shared/dogtype';
 import { useEffect, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
 import { isProfileComplete } from '../lib/auth';
@@ -102,16 +104,17 @@ function energyWord(value: number): string {
 // The Dogtype quiz (a separate page) leaves this behind so onboarding can pick up
 // where it left off: { name?: string, code: string, at: number }.
 const QUIZ_KEY = 'gdd.quiz.v1';
-function readQuizCarryover(): { name: string | null; energy: 'E' | 'Z' | null } {
+function readQuizCarryover(): { name: string | null; energy: 'E' | 'Z' | null; code: string | null } {
   try {
     const raw = window.localStorage.getItem(QUIZ_KEY);
-    if (!raw) return { name: null, energy: null };
+    if (!raw) return { name: null, energy: null, code: null };
     const parsed = JSON.parse(raw) as { name?: unknown; code?: unknown };
     const name = typeof parsed.name === 'string' ? parsed.name.trim().slice(0, PROFILE_TEXT_LIMITS.name) : '';
     const letter = typeof parsed.code === 'string' ? parsed.code.trim().toUpperCase()[0] : '';
-    return { name: name || null, energy: letter === 'E' || letter === 'Z' ? letter : null };
+    const fullCode = typeof parsed.code === 'string' ? parsed.code.trim().toUpperCase() : '';
+    return { name: name || null, energy: letter === 'E' || letter === 'Z' ? letter : null, code: profileHintsForCode(fullCode) ? fullCode : null };
   } catch {
-    return { name: null, energy: null }; // storage blocked or not JSON: nothing to carry over
+    return { name: null, energy: null, code: null }; // storage blocked or not JSON: nothing to carry over
   }
 }
 
@@ -375,6 +378,17 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     const carried = readQuizCarryover();
     if (carried.name) setName((current) => current || carried.name || '');
     setQuizEnergy(carried.energy);
+    // The quiz showed a Dogtype. Start the profile from the answers that produce that same
+    // type, so signing up never turns "The Zoomie Menace" into something else. Only fills
+    // what is still empty; the owner can change every one of them.
+    const hints = carried.code ? profileHintsForCode(carried.code) : null;
+    if (hints) {
+      setEnergyLevel(hints.energyLevel);
+      setEnergySource('owner');
+      setPlayStyles((cur) => (cur.length > 0 ? cur : hints.playStyles));
+      setBehaviorFlags((cur) => (cur.length > 0 ? cur : hints.behaviorFlags));
+      setTemperament((cur) => (cur.length > 0 ? cur : hints.temperament));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -802,6 +816,19 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     if (Object.values(nextErrors).some(Boolean)) {
       focusFirstInvalid(nextErrors);
       return;
+    }
+
+    // Editing can change the dog's Dogtype (read from energy, play style, sociability and
+    // temperament). Say so before saving, so a new type is never a surprise.
+    if (initialProfile) {
+      const change = describeTypeChange(
+        computeDogtype(initialProfile)?.code,
+        computeDogtype({ energyLevel, playStyles, behaviorFlags, notGoodWith, temperament })?.code,
+        loadRevealed(getFirebase().auth.currentUser?.uid ?? ''),
+      );
+      if (change.changed && !window.confirm(`${change.message!.replace('{name}', name.trim() || initialProfile.name || 'your dog')}\n\nSave anyway?`)) {
+        return;
+      }
     }
 
     setSubmitError('');

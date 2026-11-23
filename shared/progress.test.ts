@@ -4,6 +4,14 @@ import assert from 'node:assert/strict';
 import {
   BARKLE_HISTORY_LIMIT,
   addDiscovery,
+  barkleStreak,
+  matchedDogsOfType,
+  mergeDogtypeDogs,
+  mergeRevealed,
+  normalizeDogtypeDogs,
+  normalizeRevealed,
+  snapshotDog,
+  discoveredCount,
   discoveredOrder,
   markSeen,
   mergeDogtypes,
@@ -500,4 +508,71 @@ test('mergeDogtypes tie-breaks on dogName so it is order independent', () => {
   const a = { EGOB: { at: 1, dogId: 'd', dogName: 'Alpha', seen: false } };
   const b = { EGOB: { at: 1, dogId: 'd', dogName: 'Beta', seen: false } };
   assert.deepEqual(mergeDogtypes(a, b), mergeDogtypes(b, a));
+});
+
+// ── Per-dog type snapshots and the "has revealed" flag ──────────────────────
+
+test('normalizeDogtypeDogs drops bad codes and caps at 200', () => {
+  const raw: Record<string, unknown> = { d1: { code: 'EROB', at: 5 }, d2: { code: 'XXXX', at: 5 }, d3: { code: 'ZGSM', at: -1 } };
+  for (let i = 0; i < 250; i++) raw[`dog${i}`] = { code: 'EROB', at: i + 1 };
+  const out = normalizeDogtypeDogs(raw)!;
+  assert.equal(Object.keys(out).length, 200);
+  assert.ok(!('d2' in out) && !('d3' in out));
+  assert.equal(normalizeDogtypeDogs('nope'), undefined);
+});
+
+test('dogtypeDogs merge is commutative, associative and idempotent, earliest wins', () => {
+  const a = { d1: { code: 'EROB', at: 10 } };
+  const b = { d1: { code: 'ZGSM', at: 5 }, d2: { code: 'EGOB', at: 7 } };
+  const c = { d3: { code: 'ZROM', at: 1 } };
+  assert.deepEqual(mergeDogtypeDogs(a, b), mergeDogtypeDogs(b, a));
+  assert.deepEqual(mergeDogtypeDogs(mergeDogtypeDogs(a, b), c), mergeDogtypeDogs(a, mergeDogtypeDogs(b, c)));
+  assert.deepEqual(mergeDogtypeDogs(a, a), mergeDogtypeDogs(a));
+  assert.equal(mergeDogtypeDogs(a, b)!.d1.code, 'ZGSM');
+});
+
+test('snapshotDog keeps the first code even if called again with another', () => {
+  let m = snapshotDog(undefined, 'd1', 'EROB', 10);
+  m = snapshotDog(m, 'd1', 'ZGSM', 20);
+  assert.equal(m.d1.code, 'EROB');
+  m = snapshotDog(m, 'd2', 'EROB', 30);
+  assert.deepEqual(matchedDogsOfType(m, 'EROB').sort(), ['d1', 'd2']);
+  assert.deepEqual(matchedDogsOfType(undefined, 'EROB'), []);
+});
+
+test('revealed merges with OR and normalizes only true', () => {
+  assert.equal(normalizeRevealed(true), true);
+  assert.equal(normalizeRevealed('yes'), undefined);
+  assert.equal(mergeRevealed(undefined, true), true);
+  assert.equal(mergeRevealed(true, undefined), true);
+  assert.equal(mergeRevealed(undefined, undefined), undefined);
+});
+
+test('normalizeProgress and mergeProgress carry the new fields', () => {
+  const doc = normalizeProgress({ dogtypeRevealed: true, dogtypeDogs: { d1: { code: 'EROB', at: 3 } } });
+  assert.equal(doc.dogtypeRevealed, true);
+  assert.equal(doc.dogtypeDogs!.d1.code, 'EROB');
+  const merged = mergeProgress(doc, { dogtypeDogs: { d1: { code: 'ZGSM', at: 1 } } });
+  assert.equal(merged.dogtypeDogs!.d1.code, 'ZGSM');
+  assert.equal(merged.dogtypeRevealed, true);
+});
+
+test('barkleStreak counts consecutive solved days ending today or yesterday', () => {
+  const h = (nums: number[], unsolved: number[] = []) =>
+    Object.fromEntries([...nums.map((n) => [String(n), { solved: true }]), ...unsolved.map((n) => [String(n), { solved: false }])]);
+  assert.deepEqual(barkleStreak(h([8, 9, 10]), 10), { current: 3, best: 3, yesterdaySolved: true });
+  // today not played yet: yesterday's run still counts
+  assert.deepEqual(barkleStreak(h([8, 9]), 10), { current: 2, best: 2, yesterdaySolved: true });
+  // a missed day breaks it
+  assert.deepEqual(barkleStreak(h([5, 6, 7, 9]), 10), { current: 1, best: 3, yesterdaySolved: true });
+  assert.deepEqual(barkleStreak(h([5, 6, 7]), 10), { current: 0, best: 3, yesterdaySolved: null });
+  // lost yesterday
+  assert.deepEqual(barkleStreak(h([7, 8], [9]), 10), { current: 0, best: 2, yesterdaySolved: false });
+  assert.deepEqual(barkleStreak(undefined, 10), { current: 0, best: 0, yesterdaySolved: null });
+});
+
+test('discoveredCount hides the own type until it has been revealed', () => {
+  const l = addDiscovery(setOwnType(undefined, 'EROB', 1), 'EGOB', { at: 2, dogId: 'd1', dogName: 'B' });
+  assert.equal(discoveredCount(l, 'EROB', false), 1);
+  assert.equal(discoveredCount(l, 'EROB', true), 2);
 });

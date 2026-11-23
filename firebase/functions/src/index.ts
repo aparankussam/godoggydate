@@ -1298,7 +1298,7 @@ export const onMatchCreatedNotify = functions.firestore
       const otherName = await getDogName(otherUid);
       await sendPushToUser(uid, {
         title: "It's a match! 🐾",
-        body: `${otherName} wants to play too. Say hello and set up a playdate!`,
+        body: `${otherName} wants to play too. Open it to see their Dogtype.`,
         data: {
           type: 'match',
           matchId,

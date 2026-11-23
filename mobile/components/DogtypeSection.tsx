@@ -21,9 +21,11 @@ import { resolveHeroIndex } from '../lib/coverPhoto';
 
 interface Props {
   savedProfile: SavedDogProfile;
+  /** Inside the glimpse card: skip the header and chips it already shows. */
+  embedded?: boolean;
 }
 
-export default function DogtypeSection({ savedProfile }: Props) {
+export default function DogtypeSection({ savedProfile, embedded = false }: Props) {
   const cardRef = useRef<View>(null);
   const storyRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
@@ -80,7 +82,8 @@ export default function DogtypeSection({ savedProfile }: Props) {
   }
 
   return (
-    <View style={styles.section}>
+    <View style={embedded ? styles.sectionEmbedded : styles.section}>
+      {!embedded && (
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>Dogtype</Text>
@@ -88,10 +91,13 @@ export default function DogtypeSection({ savedProfile }: Props) {
         </View>
       </View>
 
+      )}
+
       <Text style={styles.blurb}>{dogtype.blurb}</Text>
 
       {/* Trait chips — the warm, self-explanatory personality read that leads in
           place of the old 4-letter code. Same four axes, plainly named. */}
+      {!embedded && (
       <View style={styles.traitChips}>
         {dogtype.axes.map((a) => (
           <View key={a.key} style={styles.traitChip}>
@@ -100,6 +106,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
           </View>
         ))}
       </View>
+      )}
 
       {/* The card itself — captured to PNG at full resolution regardless of the
           display scale applied by the wrapper below. */}
@@ -162,6 +169,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
 }
 
 const styles = StyleSheet.create({
+  sectionEmbedded: { marginTop: 4 },
   section: {
     borderRadius: radius.xl,
     borderWidth: 2,

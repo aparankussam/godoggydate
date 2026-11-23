@@ -34,13 +34,14 @@ interface Props {
   hideBottomBar?: boolean;
 }
 
-type TabIcon = 'paw' | 'tree' | 'heart' | 'chat' | 'dog';
+type TabIcon = 'paw' | 'tree' | 'heart' | 'chat' | 'ball' | 'dog';
 
 const TABS = [
   { href: '/app',           label: 'Discover',  icon: 'paw'   as TabIcon },
   { href: '/app/pack',      label: 'Pack Day',  icon: 'tree'  as TabIcon },
   { href: '/app/matches',  label: 'Matches',   icon: 'heart' as TabIcon, badge: 'unreadMatches'  as const },
   { href: '/app/messages',  label: 'Messages',  icon: 'chat'  as TabIcon, badge: 'unreadMessages' as const },
+  { href: '/app/fun',       label: 'Playroom',  icon: 'ball'  as TabIcon },
   { href: '/app/profile',   label: 'Profile',   icon: 'dog'   as TabIcon },
 ] as const;
 
@@ -82,6 +83,13 @@ function TabGlyph({ icon, size = 24, hole }: { icon: TabIcon; size?: number; hol
         <svg {...common}>
           <path d="M5.5 3.5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-6l-4.4 3.6c-.6.5-1.6.1-1.6-.7v-2.9h-1a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3z" fill="currentColor" />
           <circle cx="8" cy="10.5" r="1.4" fill={hole} /><circle cx="12" cy="10.5" r="1.4" fill={hole} /><circle cx="16" cy="10.5" r="1.4" fill={hole} />
+        </svg>
+      );
+    case 'ball':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9.5" fill="currentColor" />
+          <path d="M3.5 9.2c5.2 1.2 11.8 1.2 17 0M3.5 14.8c5.2-1.2 11.8-1.2 17 0" stroke={hole} strokeWidth="1.7" fill="none" strokeLinecap="round" />
         </svg>
       );
     case 'dog':
@@ -158,20 +166,6 @@ export default function AppNav({ unreadMessages = 0, unreadMatches = 0, househol
             );
           })}
         </nav>
-
-        {/* The Playroom isn't one of the five tabs (the phone bar stays in step
-            with the iPhone app), so on desktop it gets a standing link here. */}
-        {!householdOnly && (
-          <Link
-            href="/app/fun"
-            aria-current={pathname.startsWith('/app/fun') ? 'page' : undefined}
-            className={`mt-4 flex min-h-[44px] items-center gap-3 rounded-full border-2 border-brown px-4 py-2 transition-colors ${
-              pathname.startsWith('/app/fun') ? 'bg-brown text-cream' : 'text-brown hover:bg-cream-dark'
-            }`}
-          >
-            <span className="flex-1 text-[15px] font-extrabold">The Playroom</span>
-          </Link>
-        )}
       </aside>
 
       {/* ── Mobile: bottom tab bar ───────────────────────────────────────── */}

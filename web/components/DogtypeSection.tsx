@@ -1,11 +1,11 @@
 'use client';
 // web/components/DogtypeSection.tsx
-// Profile-page surface for Dogtype: computes the dog's deterministic type from
-// its own profile, renders the shareable card, explains the four real axes it
-// was read from, and offers a playful "plays well with" line (clearly a vibe,
-// not a measured score — real compatibility comes from the swipe engine).
+// Profile-page surface for the owner's OWN Dogtype, kept short. Before the first
+// reveal it is SEALED (no name, no chips) so the reveal stays a surprise. After
+// that it is a collapsed glimpse (sticker, name, tagline, trait chips); tapping
+// opens the full card in place. It starts collapsed on every visit.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { shareOrDownloadCard } from '../lib/shareCard';
@@ -15,7 +15,7 @@ import StoryShareCard, { shareOrDownloadStoryCard } from './StoryShareCard';
 import DogtypeReveal from './DogtypeReveal';
 import { feedback } from '../lib/feedback';
 import { computeDogtype } from '../../shared/dogtype';
-import DogtypeCollection from './DogtypeCollection';
+import { loadRevealed, markRevealed, onDiscoveriesChange } from '../lib/dogtypeDiscovery';
 import ScaleToFit from './ScaleToFit';
 import { ShareIcon } from './StickerBits';
 
@@ -31,6 +31,14 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
   const [sharingStory, setSharingStory] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
   const [showReveal, setShowReveal] = useState(false);
+  const [revealed, setRevealed] = useState<boolean | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const load = () => setRevealed(loadRevealed(userId));
+    load();
+    return onDiscoveriesChange(load);
+  }, [userId]);
 
   const dogtype = computeDogtype(savedProfile);
   if (!dogtype) return null;
@@ -90,19 +98,55 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
     }
   }
 
+  if (revealed === null) return null;
+
+  if (!revealed) {
+    return (
+      <section className="card p-5">
+        <button
+          type="button"
+          onClick={() => { feedback.pop(); trackEvent('dogtype_reveal_cta'); setShowReveal(true); }}
+          aria-label={`Reveal ${dogName}'s Dogtype`}
+          className="flex w-full items-center gap-4 text-left"
+        >
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-[3px] border-dashed border-brown-mid bg-cream-dark font-display text-3xl text-brown-mid" aria-hidden="true">?</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Dogtype</span>
+            <span className="block font-display text-xl leading-tight text-brown">Tap to reveal {dogName}&apos;s Dogtype</span>
+            <span className="block text-[13px] font-semibold text-brown-mid">A shareable card, read from their real profile.</span>
+          </span>
+          <span className="text-2xl" aria-hidden="true">→</span>
+        </button>
+        {showReveal && (
+          <DogtypeReveal
+            dogtype={dogtype}
+            dogName={dogName}
+            photoUrl={photo ?? undefined}
+            photoFocus={photoFocus}
+            onDone={() => { markRevealed(userId); setShowReveal(false); }}
+          />
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="card p-5">
-      <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Dogtype</p>
-        <h2 className="font-display text-xl text-brown leading-tight">
-          {dogtype.emoji} {dogtype.name}
-        </h2>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-4 text-left"
+      >
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-[3px] border-brown bg-gold-light text-3xl" aria-hidden="true">{dogtype.emoji}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-rose">{dogName} is</span>
+          <span className="block font-display text-2xl leading-tight text-brown">{dogtype.name}</span>
+          <span className="block font-hand text-xl leading-tight text-brown">{dogtype.tagline}</span>
+        </span>
+      </button>
 
-      <p className="text-sm text-brown-mid leading-relaxed">{dogtype.blurb}</p>
-
-      {/* Trait chips — the warm, self-explanatory read of the four axes that
-          leads in place of the old 4-letter code. */}
+      {/* Trait chips: the glimpse. */}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {dogtype.axes.map((a) => (
           <span
@@ -113,6 +157,10 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
           </span>
         ))}
       </div>
+
+      {open && (
+      <>
+      <p className="mt-3 text-sm text-brown-mid leading-relaxed">{dogtype.blurb}</p>
 
       {/* The card itself (this is what gets captured to PNG) */}
       <div className="mt-4 mb-4 flex justify-center">
@@ -148,9 +196,6 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
         </button>
       </div>
 
-      {/* The collection: names show only for types you've met by matching. */}
-      <DogtypeCollection savedProfile={savedProfile} userId={userId} />
-
       {/* How the type was read — the four real axes */}
       <button
         type="button"
@@ -178,6 +223,17 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
           </p>
         </div>
       )}
+
+      </>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="mt-1 flex min-h-[44px] w-full items-center justify-center text-sm font-black text-rose"
+      >
+        {open ? 'Show less ▲' : `See ${dogName}'s full Dogtype ▼`}
+      </button>
 
       {/* Off-screen 9:16 story card — rendered for html2canvas capture only. */}
       <div className="fixed -left-[9999px] top-0" aria-hidden="true">

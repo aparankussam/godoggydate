@@ -14,6 +14,8 @@
 //   • boops         max all-time count; today's count from the later day (max on a tie)
 //   • unlocks       union of invited match codes
 //   • dogtypes      per Dogtype code, earliest discovery wins (with its dog); seen/own OR-ed
+//   • dogtypeDogs   per matched dog, the first Dogtype we saw it as (earliest wins)
+//   • dogtypeRevealed  OR: the owner has watched their own dog's reveal
 //   • adventures    per quest, the mark with more stamp/unstamp toggles wins;
 //                   on a tie the earliest time wins (two devices stamping the
 //                   same quest keep the first stamp)
@@ -86,6 +88,10 @@ export interface ProgressDoc {
   boops?: BoopsProgress;
   unlocks?: string[];
   dogtypes?: DogtypeLedger;
+  /** The owner has watched their own dog's Dogtype reveal once. */
+  dogtypeRevealed?: boolean;
+  /** The Dogtype each matched dog had the first time we saw it (a later profile edit never re-discovers). */
+  dogtypeDogs?: DogtypeDogMap;
   adventures?: AdventureLedger;
   barkle?: BarkleHistory;
   humanReview?: HumanReviewProgress;
@@ -101,6 +107,8 @@ export const progressKeys = {
   boops: (uid: string) => `godoggydate.boops.${uid}`,
   unlocks: (uid: string) => `godoggydate.revealUnlocks.${uid}`,
   dogtypes: (uid: string) => `godoggydate.dogtypes.${uid}`,
+  dogtypeRevealed: (uid: string) => `godoggydate.dogtypes.revealed.${uid}`,
+  dogtypeDogs: (uid: string) => `godoggydate.dogtypes.dogs.${uid}`,
   adventures: (uid: string) => `godoggydate.adventures.${uid}`,
   barkleHistory: (uid: string) => `godoggydate.barkle.history.${uid}`,
   humanReview: (uid: string) => `gdd:humanReview:${uid}`,
@@ -333,12 +341,93 @@ export function markSeen(ledger: DogtypeLedger | undefined, code: string): Dogty
   return { ...ledger, [code]: { ...cur, seen: true } };
 }
 
+/** How many types count as found: your own only once you've watched your reveal. */
+export function discoveredCount(ledger: DogtypeLedger | undefined, ownCode: string, ownRevealed: boolean): number {
+  return discoveredOrder(ledger, ownCode).filter((c) => c !== ownCode || ownRevealed).length;
+}
+
 /** Your current own type first (always counted, stored or not), then types met via a dog, oldest first. */
 export function discoveredOrder(ledger: DogtypeLedger | undefined, ownCode?: string): string[] {
   const met = Object.keys(ledger ?? {})
     .filter((c) => c !== ownCode && ledger![c].dogId !== null)
     .sort((a, b) => ledger![a].at - ledger![b].at || a.localeCompare(b));
   return ownCode ? [ownCode, ...met] : met;
+}
+
+// ── Per-dog type snapshots + the reveal flag ────────────────────────────────
+
+export type DogtypeDogMap = Record<string, { code: string; at: number }>;
+const MAX_DOGTYPE_DOGS = 200;
+
+export function normalizeDogtypeDogs(raw: unknown): DogtypeDogMap | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: DogtypeDogMap = {};
+  let kept = 0;
+  for (const id of Object.keys(raw).sort()) {
+    if (kept >= MAX_DOGTYPE_DOGS) break;
+    const v = raw[id];
+    if (!isRecord(v) || typeof v.code !== 'string' || !DOGTYPE_CODE_RE.test(v.code)) continue;
+    const at = toTimestamp(v.at);
+    const dogId = toText(id, 128);
+    if (at === null || dogId === null) continue;
+    out[dogId] = { code: v.code, at };
+    kept += 1;
+  }
+  return kept ? out : undefined;
+}
+
+export function mergeDogtypeDogs(a?: DogtypeDogMap, b?: DogtypeDogMap): DogtypeDogMap | undefined {
+  if (!a || !b) return a ?? b;
+  const out: DogtypeDogMap = {};
+  for (const id of uniqSorted([...Object.keys(a), ...Object.keys(b)]).slice(0, MAX_DOGTYPE_DOGS)) {
+    const x = a[id];
+    const y = b[id];
+    if (x && y) out[id] = x.at < y.at || (x.at === y.at && x.code <= y.code) ? x : y;
+    else out[id] = (x ?? y) as { code: string; at: number };
+  }
+  return out;
+}
+
+/** Records the code a matched dog had the first time we saw it; later calls never change it. */
+export function snapshotDog(map: DogtypeDogMap | undefined, dogId: string, code: string, at: number): DogtypeDogMap {
+  if (map?.[dogId] || !DOGTYPE_CODE_RE.test(code)) return map ?? {};
+  return mergeDogtypeDogs(map, { [dogId]: { code, at } }) ?? {};
+}
+
+export function matchedDogsOfType(map: DogtypeDogMap | undefined, code: string): string[] {
+  return Object.keys(map ?? {}).filter((id) => map![id].code === code);
+}
+
+export function normalizeRevealed(raw: unknown): boolean | undefined {
+  return raw === true ? true : undefined;
+}
+
+export function mergeRevealed(a?: boolean, b?: boolean): boolean | undefined {
+  return a || b ? true : undefined;
+}
+
+/** Consecutive solved Barkle days. Today not being played yet never breaks a run that ends yesterday. */
+export function barkleStreak(
+  history: Record<string, { solved: boolean }> | undefined,
+  todayPuzzle: number,
+): { current: number; best: number; yesterdaySolved: boolean | null } {
+  const solved = new Set<number>();
+  for (const [k, v] of Object.entries(history ?? {})) if (v && v.solved && PUZZLE_RE.test(k)) solved.add(Number(k));
+  let best = 0;
+  let run = 0;
+  const sorted = [...solved].sort((x, y) => x - y);
+  sorted.forEach((n, i) => {
+    run = i > 0 && sorted[i - 1] === n - 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  });
+  let cursor = solved.has(todayPuzzle) ? todayPuzzle : todayPuzzle - 1;
+  let current = 0;
+  while (solved.has(cursor)) {
+    current += 1;
+    cursor -= 1;
+  }
+  const y = history?.[String(todayPuzzle - 1)];
+  return { current, best, yesterdaySolved: y ? y.solved === true : null };
 }
 
 // ── Adventure Passport ───────────────────────────────────────────────────────
@@ -613,6 +702,8 @@ function compact(doc: ProgressDoc): ProgressDoc {
   if (doc.boops) out.boops = doc.boops;
   if (doc.unlocks) out.unlocks = doc.unlocks;
   if (doc.dogtypes) out.dogtypes = doc.dogtypes;
+  if (doc.dogtypeRevealed) out.dogtypeRevealed = doc.dogtypeRevealed;
+  if (doc.dogtypeDogs) out.dogtypeDogs = doc.dogtypeDogs;
   if (doc.adventures) out.adventures = doc.adventures;
   if (doc.barkle) out.barkle = doc.barkle;
   if (doc.humanReview) out.humanReview = doc.humanReview;
@@ -626,6 +717,8 @@ export function normalizeProgress(raw: unknown): ProgressDoc {
     boops: normalizeBoops(raw.boops),
     unlocks: normalizeUnlocks(raw.unlocks),
     dogtypes: normalizeDogtypes(raw.dogtypes),
+    dogtypeRevealed: normalizeRevealed(raw.dogtypeRevealed),
+    dogtypeDogs: normalizeDogtypeDogs(raw.dogtypeDogs),
     adventures: normalizeAdventures(raw.adventures),
     barkle: normalizeBarkle(raw.barkle),
     humanReview: normalizeHumanReview(raw.humanReview),
@@ -638,6 +731,8 @@ export function mergeProgress(a: ProgressDoc, b: ProgressDoc): ProgressDoc {
     boops: mergeBoops(a.boops, b.boops),
     unlocks: mergeUnlocks(a.unlocks, b.unlocks),
     dogtypes: mergeDogtypes(a.dogtypes, b.dogtypes),
+    dogtypeRevealed: mergeRevealed(a.dogtypeRevealed, b.dogtypeRevealed),
+    dogtypeDogs: mergeDogtypeDogs(a.dogtypeDogs, b.dogtypeDogs),
     adventures: mergeAdventures(a.adventures, b.adventures),
     barkle: mergeBarkle(a.barkle, b.barkle),
     humanReview: mergeHumanReview(a.humanReview, b.humanReview),
@@ -680,10 +775,12 @@ export interface ProgressStore {
 
 /** This uid's progress as stored on this device. */
 export async function readLocalProgress(store: ProgressStore, uid: string): Promise<ProgressDoc> {
-  const [boops, unlocks, dogtypes, adventures, barkle, humanReview] = await Promise.all([
+  const [boops, unlocks, dogtypes, dogtypeRevealed, dogtypeDogs, adventures, barkle, humanReview] = await Promise.all([
     store.read(progressKeys.boops(uid)),
     store.read(progressKeys.unlocks(uid)),
     store.read(progressKeys.dogtypes(uid)),
+    store.read(progressKeys.dogtypeRevealed(uid)),
+    store.read(progressKeys.dogtypeDogs(uid)),
     store.read(progressKeys.adventures(uid)),
     store.read(progressKeys.barkleHistory(uid)),
     store.read(progressKeys.humanReview(uid)),
@@ -692,6 +789,8 @@ export async function readLocalProgress(store: ProgressStore, uid: string): Prom
     boops: normalizeBoops(boops),
     unlocks: unlocksFromLocal(unlocks),
     dogtypes: normalizeDogtypes(dogtypes),
+    dogtypeRevealed: normalizeRevealed(dogtypeRevealed),
+    dogtypeDogs: normalizeDogtypeDogs(dogtypeDogs),
     adventures: adventuresFromLocal(adventures),
     barkle: normalizeBarkle(barkle),
     humanReview: normalizeHumanReview(humanReview),
@@ -733,6 +832,8 @@ export async function mergeIntoLocalProgress(
     mergeFeature(store, progressKeys.boops(uid), incoming.boops, normalizeBoops, mergeBoops, boopsToLocal),
     mergeFeature(store, progressKeys.unlocks(uid), incoming.unlocks, unlocksFromLocal, mergeUnlocks, unlocksToLocal),
     mergeFeature(store, progressKeys.dogtypes(uid), incoming.dogtypes, normalizeDogtypes, mergeDogtypes, (v) => v),
+    mergeFeature(store, progressKeys.dogtypeRevealed(uid), incoming.dogtypeRevealed, normalizeRevealed, mergeRevealed, (v) => v),
+    mergeFeature(store, progressKeys.dogtypeDogs(uid), incoming.dogtypeDogs, normalizeDogtypeDogs, mergeDogtypeDogs, (v) => v),
     mergeFeature(
       store,
       progressKeys.adventures(uid),
@@ -751,12 +852,14 @@ export async function mergeIntoLocalProgress(
       humanReviewToLocal,
     ),
   ]);
-  const [boops, unlocks, dogtypes, adventures, barkle, humanReview] = results;
+  const [boops, unlocks, dogtypes, dogtypeRevealed, dogtypeDogs, adventures, barkle, humanReview] = results;
   return {
     doc: compact({
       boops: boops.value,
       unlocks: unlocks.value,
       dogtypes: dogtypes.value,
+      dogtypeRevealed: dogtypeRevealed.value,
+      dogtypeDogs: dogtypeDogs.value,
       adventures: adventures.value,
       barkle: barkle.value,
       humanReview: humanReview.value,

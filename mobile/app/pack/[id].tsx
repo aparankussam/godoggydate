@@ -38,6 +38,8 @@ import {
   packDayUrl,
   type PackDayAttendee,
 } from '../../lib/packDay';
+import { discoverFromPackDay } from '../../lib/dogtypeDiscovery';
+import { getFirebase } from '../../lib/firebase';
 import { getBlockedUserIds } from '../../lib/blocks';
 import { openReportSheet } from '../../lib/reports';
 import { playdateSafetyUrl } from '../../lib/webLinks';
@@ -95,7 +97,18 @@ export default function PackDayScreen() {
         return;
       }
       setEvent(result.event);
-      setAttendees(await loadPackDayAttendees(result.event, result.foundingUids));
+      const loaded = await loadPackDayAttendees(result.event, result.foundingUids);
+      setAttendees(loaded);
+      // A finished Pack Day you went to: the dogs there count as met (their Dogtypes join your collection).
+      const me = getFirebase().auth.currentUser?.uid;
+      if (me && isPast(result.event, Date.now()) && result.event.status !== 'cancelled' && result.event.attendeeUids.includes(me)) {
+        void discoverFromPackDay(
+          me,
+          loaded
+            .filter((a) => a.uid !== me && a.dogtypeCode)
+            .map((a) => ({ code: a.dogtypeCode as string, dogId: a.uid, dogName: a.name, at: result.event.startsAtMs })),
+        );
+      }
       setLoadState('ready');
     } catch (err) {
       console.warn('Failed to load Pack Day:', err);

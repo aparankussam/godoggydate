@@ -427,3 +427,30 @@ Each step can ship on its own (a TestFlight build, or a website deploy and promo
 - The Playroom tab icon.
 - Analytics event names.
 - How the Share sheet and Settings screen are built: a native sheet or pushed screens.
+
+## Addendum 2026-11-23 (after build 39 testing): decisions, not yet built
+
+Owner feedback from TestFlight and walking the mockups. Nothing below is built; the owner said not to build until told.
+
+### A1. Photo thumbnails (built on branch `claude/thumbnails-under-cover`)
+The photo thumbnail strip and the cover-photo controls ("Make this the cover photo", "Adjust the crop") sit directly under the cover photo in the Profile summary card, as in build 38. They are not in About.
+
+### A2. Dogtype section: collapsed card, compact collection, type panel
+1. **Collapsed Dogtype card first.** Sticker, type name, tagline, and the four trait chips as the glimpse, plus a "See {name}'s full Dogtype" row. Tapping expands in place: full description, shareable card, Share, Share as Story, Replay reveal, "How we read this". It is collapsed on every new visit (no remembered state). The separate "Reveal {name}'s Dogtype" button is removed; the first tap still plays the reveal animation.
+2. **Compact collection.** Two rows of four tiles (8) by default, smaller tiles. Discovered types first, then identical "?" tiles. "Show all 16" / "Show fewer" toggles the other 8. Progress bar and "N of 16" stay on top.
+3. **Tapping a discovered tile (own type included) opens a bottom sheet:** sticker, name, tagline, full description, four trait chips; "How they get along with {name}" (vibe chip and ALL reason lines); "Your matches of this type (N)" listing every currently matched dog of that type (photo, name, breed; tap opens their profile). The list is computed from current matches each time the sheet opens, because the ledger keeps only the first dog per type. Blocked, unmatched or cleaned-up matches drop off the list; the type stays discovered. A hidden tile still says "Still hidden. No hints, no peeking."
+4. Section order: collapsed Dogtype card, compact collection, earned stickers.
+
+### A3. Playroom (decided with the owner)
+1. **Today's Barkle** stays alone at the top (pink "Play today's Barkle").
+2. **"Zoomies"** (games and keepsakes), one row each with a small preview or a real number from the owner's own data, never made up. Tapping a row opens that game or card. Rows: Snoot Boop (boop count and next sticker), Sticker Studio (stickers earned), Wanted Poster (tiny poster), Adventure Passport (stamps of total), Excuse Note (a sample line), A letter from {name} (next occasion, or when it will be ready), Trading card (tiny card), and last, National Dog Day "Day 1 vs Day N" as a collapsed row that expands in place when `shouldShowDiptych` is true.
+3. **"Treat Lab"** (the generators): Roast, Notes-App Apology, Texts, My Human Review, the dog quiz and the Plaque, one line each with a short glimpse. Tapping expands that generator in place, one at a time (accordion). All collapsed on every visit. Generators still call their AI routes only on an explicit tap inside the expanded view.
+4. The earlier inline "letter" and "trading card" panels in the grid are replaced by these rows.
+
+### Open for the builder
+Preview art per Zoomies row, the exact glimpse copy per Treat Lab row, and the Playroom row icons.
+
+### A4. Three refinements the owner approved (supersede the matching lines above)
+1. **Sealed card before the first reveal.** Until the owner has watched their dog's reveal once, the Dogtype card is sealed: "Tap to reveal {name}'s Dogtype", no type name, no trait chips. Tapping plays the reveal animation; after that the card becomes the collapsed glimpse from A2.1. Needs a small "has revealed" flag (synced with the progress doc so a reinstall does not re-seal). The own-type tile in the collection and the summary chip also stay hidden ("?") until the first reveal.
+2. **Summary chip is a shortcut, not a repeat.** The Dogtype chip in the Profile summary card opens the Dogtype section (and scrolls to the collapsed card) instead of being a standalone label.
+3. **Zoomies is a 2-column grid of small cards**, each with its preview or real number, not one row per item. National Dog Day is the last card and expands in place. Treat Lab stays as one-line rows that expand.

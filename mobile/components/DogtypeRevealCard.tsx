@@ -5,7 +5,7 @@
 // ever receives a type you've just met (or your own), never a hidden one.
 
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { trackEvent } from '../lib/analytics';
 import { colors, fonts } from '../constants/theme';
 import { dogtypeByCode, dogtypeCompat, dogtypeReasons } from '../../shared/dogtype';
@@ -21,6 +21,11 @@ interface Props {
   discovered: number;
   variant: RevealVariant;
   showTease?: boolean;
+  /** Short version for the match screen: one reason and a link to the full sheet. */
+  compact?: boolean;
+  onOpenMore?: () => void;
+  /** Same type as yours, but you haven't watched your own reveal yet: name nothing. */
+  sealed?: boolean;
 }
 
 const EYEBROW: Record<RevealVariant, string> = {
@@ -29,22 +34,22 @@ const EYEBROW: Record<RevealVariant, string> = {
   same: 'Same Dogtype as yours',
 };
 
-export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true }: Props) {
+export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true, compact = false, onOpenMore, sealed = false }: Props) {
   useEffect(() => {
-    trackEvent('dogtype_reveal_shown', { context: showTease ? 'modal' : 'sheet', variant });
+    trackEvent('dogtype_reveal_shown', { context: compact ? 'modal' : showTease ? 'profile_new' : 'profile', variant });
   }, [showTease, variant]);
   const type = dogtypeByCode(otherCode);
   const compat = dogtypeCompat(ownCode, otherCode);
   if (!type || !compat) return null;
   const reasons = dogtypeReasons(ownCode, otherCode);
   const hidden = Math.max(0, 16 - discovered);
-  const vibeLabel = compat.vibe === 'great' ? 'Great vibe' : compat.vibe === 'spicy' ? 'Spicy · take it slow' : 'Good potential';
+  const vibeLabel = `Personality vibe · ${compat.vibe === 'great' ? 'Great' : compat.vibe === 'spicy' ? 'Spicy, take it slow' : 'Good potential'}`;
   const headline = variant === 'same' ? `${otherName} is a ${type.name.replace(/^The /, '')} too` : type.name;
 
   return (
     <View style={styles.card} accessible={false}>
       <View style={styles.topRow}>
-        <Text style={styles.eyebrow}>{EYEBROW[variant]}</Text>
+        <Text style={styles.eyebrow}>{sealed ? `Same Dogtype as ${ownName}` : EYEBROW[variant]}</Text>
         {variant === 'new' && (
           <View style={styles.chip} accessibilityLabel={`${discovered} of 16 discovered`}>
             <Text style={styles.chipText}>{discovered} of 16</Text>
@@ -54,22 +59,22 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
 
       <View style={styles.identity}>
         <View style={styles.sticker} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Text style={styles.stickerEmoji}>{type.emoji}</Text>
+          <Text style={styles.stickerEmoji}>{sealed ? '?' : type.emoji}</Text>
         </View>
         <View style={styles.identityText}>
           {variant !== 'same' && <Text style={styles.isLine}>{otherName} is</Text>}
-          <Text style={styles.typeName}>{headline}</Text>
-          <Text style={styles.tagline}>{type.tagline}</Text>
+          <Text style={styles.typeName}>{sealed ? `${otherName} is just like ${ownName}` : headline}</Text>
+          <Text style={styles.tagline}>{sealed ? `Watch ${ownName}’s reveal in Profile to see which.` : type.tagline}</Text>
         </View>
       </View>
-      <Text style={styles.blurb}>{type.blurb}</Text>
+      {!compact && !sealed && <Text style={styles.blurb}>{type.blurb}</Text>}
 
       <View style={styles.rule} />
-      <Text style={styles.sectionTitle}>How they get along with {ownName}</Text>
+      {!compact && <Text style={styles.sectionTitle}>How they get along with {ownName}</Text>}
       <View style={[styles.vibe, compat.vibe === 'great' && { backgroundColor: colors.fit }]} accessibilityLabel={`Vibe: ${vibeLabel}`}>
         <Text style={styles.vibeText}>{vibeLabel}</Text>
       </View>
-      {reasons.map((r) => (
+      {(compact ? reasons.slice(0, 1) : reasons).map((r) => (
         <View key={r.text} style={styles.reasonRow}>
           <View style={[styles.mark, r.mark === 'good' ? { backgroundColor: colors.fit } : { backgroundColor: colors.amber }]}>
             <Text style={styles.markText}>{r.mark === 'good' ? '✓' : '!'}</Text>
@@ -77,6 +82,12 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
           <Text style={styles.reasonText}>{r.text}</Text>
         </View>
       ))}
+
+      {compact && onOpenMore && !sealed && (
+        <Pressable style={styles.more} accessibilityRole="button" onPress={onOpenMore}>
+          <Text style={styles.moreText}>See how they get along with {ownName} ›</Text>
+        </Pressable>
+      )}
 
       {showTease && hidden > 0 && (
         <View style={styles.tease} accessible accessibilityLabel={`${hidden} Dogtypes still hidden. Each new match could uncover the next one.`}>
@@ -155,6 +166,8 @@ const styles = StyleSheet.create({
   },
   markText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
   reasonText: { flex: 1, fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
+  more: { minHeight: 40, justifyContent: 'center' },
+  moreText: { fontFamily: fonts.black, fontSize: 14, color: colors.rose },
   tease: { marginTop: 4, backgroundColor: colors.note, borderWidth: 2, borderColor: colors.ink, borderRadius: 18, padding: 14, gap: 8 },
   teaseTop: { flexDirection: 'row', alignItems: 'baseline' },
   teaseTitle: { flex: 1, fontFamily: fonts.display, fontSize: 19, color: colors.ink },
