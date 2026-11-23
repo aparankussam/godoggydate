@@ -449,3 +449,8 @@ The photo thumbnail strip and the cover-photo controls ("Make this the cover pho
 
 ### Open for the builder
 Preview art per Zoomies row, the exact glimpse copy per Treat Lab row, and the Playroom row icons.
+
+### A4. Three refinements the owner approved (supersede the matching lines above)
+1. **Sealed card before the first reveal.** Until the owner has watched their dog's reveal once, the Dogtype card is sealed: "Tap to reveal {name}'s Dogtype", no type name, no trait chips. Tapping plays the reveal animation; after that the card becomes the collapsed glimpse from A2.1. Needs a small "has revealed" flag (synced with the progress doc so a reinstall does not re-seal). The own-type tile in the collection and the summary chip also stay hidden ("?") until the first reveal.
+2. **Summary chip is a shortcut, not a repeat.** The Dogtype chip in the Profile summary card opens the Dogtype section (and scrolls to the collapsed card) instead of being a standalone label.
+3. **Zoomies is a 2-column grid of small cards**, each with its preview or real number, not one row per item. National Dog Day is the last card and expands in place. Treat Lab stays as one-line rows that expand.
