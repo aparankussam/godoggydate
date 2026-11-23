@@ -302,6 +302,28 @@ export function dogtypeMatchScore(aCode: string, bCode: string): number {
   return score;
 }
 
+export interface DogtypeReason {
+  mark: 'good' | 'care';
+  text: string;
+}
+
+/** One plain line per part of dogtypeMatchScore that moved; 'good' lines first. Never names a type. */
+export function dogtypeReasons(aCode: string, bCode: string): DogtypeReason[] {
+  const a = aCode.toUpperCase();
+  const b = bCode.toUpperCase();
+  if (a.length !== 4 || b.length !== 4) return [];
+  const good: DogtypeReason[] = [];
+  const care: DogtypeReason[] = [];
+  if (a[0] !== b[0]) good.push({ mark: 'good', text: 'One brings the zoomies, the other the calm.' });
+  else if (a[0] === 'E') care.push({ mark: 'care', text: 'Two high-octane engines. Supervise the zoomies and take breaks.' });
+  if (a[1] === b[1]) good.push({ mark: 'good', text: 'They play the same way, so the game just works.' });
+  if (a[2] === 'O' && b[2] === 'O') good.push({ mark: 'good', text: 'Both love meeting new dogs, so the hello is easy.' });
+  if (a[2] === 'S' && b[2] === 'S') care.push({ mark: 'care', text: 'Both are picky about friends. Go slow with the intro.' });
+  if (a[3] !== b[3]) good.push({ mark: 'good', text: 'A bold one and a softie round each other out.' });
+  else if (a[3] === 'B') care.push({ mark: 'care', text: 'Two bold personalities. Give them room to sort out who leads the game.' });
+  return [...good, ...care];
+}
+
 export function dogtypeVibe(aCode: string, bCode: string): DogtypeVibe {
   const a = aCode.toUpperCase();
   const b = bCode.toUpperCase();
@@ -351,7 +373,7 @@ export function dogtypeCompat(aCode: string, bCode: string): DogtypeCompat | nul
 
   if (vibe === 'great') {
     const note = bothOutgoing
-      ? 'Two social butterflies — friends before the leashes are even off.'
+      ? 'Two outgoing dogs — friends before the leashes are even off.'
       : energyBalance
         ? 'One brings the zoomies, the other brings the calm. A lovely balance.'
         : samePlay
