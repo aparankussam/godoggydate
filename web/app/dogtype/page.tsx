@@ -33,9 +33,9 @@ export default function DogtypeIndexPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-12">
       <header className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose">The Dogtypes</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-brown">The Dogtypes</p>
         <h1 className="mt-2 font-display text-3xl text-brown sm:text-4xl">All 16 Dogtypes</h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-brown-mid">
+        <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-relaxed text-brown">
           Every dog lands on one of these — a playful personality read from four things you already
           know about them: their energy, how they play, how social they are, and their spirit. It’s a
           vibe, not a verdict.
@@ -47,7 +47,7 @@ export default function DogtypeIndexPage() {
           <li key={type.code}>
             <Link
               href={`/dogtype/${type.code}`}
-              className="flex items-start gap-3 rounded-xl border border-border bg-white/60 px-4 py-3.5 transition-colors hover:border-gold/60 hover:bg-white"
+              className="flex items-start gap-3 rounded-2xl border-2 border-brown bg-paper px-4 py-3.5 shadow-[0_4px_0_rgba(42,31,74,0.12)] transition-all hover:brightness-95"
             >
               <span className="text-3xl leading-none" aria-hidden="true">
                 {type.emoji}
@@ -62,9 +62,9 @@ export default function DogtypeIndexPage() {
         ))}
       </ul>
 
-      <p className="mt-8 text-center text-sm text-brown-mid">
+      <p className="mt-8 text-center text-sm font-semibold text-brown">
         Don’t know your dog’s type yet?{' '}
-        <Link href="/quiz?ref=dogtype" className="font-bold text-rose underline underline-offset-2">
+        <Link href="/quiz?ref=dogtype" className="font-black text-brown underline decoration-2 underline-offset-2">
           Take the 90-second quiz →
         </Link>
       </p>

@@ -19,7 +19,7 @@ const config: Config = {
         brown: '#2A1F4A',
         'brown-mid': '#4A3F6E',
         // Secondary text: passes WCAG AA on cream and cream-dark.
-        'brown-light': '#5E5380',
+        'brown-light': '#4D4373',
         border: '#E3D6BA',
         // "Sticker Book, grown up" palette
         // Pink as TEXT on paper must pass 4.5:1, so it is a deeper raspberry.

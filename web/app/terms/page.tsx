@@ -21,9 +21,9 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-cream">
-      <div className="px-6 py-10">
-      <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
+    <main className="min-h-screen">
+      <div className="px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-3xl card px-6 py-8 sm:px-10">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">Terms</p>
         <h1 className="mt-3 font-display text-4xl text-brown">Terms of Service</h1>
         <p className="mt-2 text-xs text-brown-light">Last updated: November 2026</p>
@@ -34,7 +34,7 @@ export default function TermsPage() {
         <section
           id="in-plain-english"
           aria-labelledby="plain-english-title"
-          className="mt-6 scroll-mt-6 rounded-2xl border border-border bg-cream-dark/30 px-5 py-4"
+          className="mt-6 scroll-mt-6 rounded-2xl border-2 border-brown bg-note px-5 py-4"
         >
           <h2 id="plain-english-title" className="font-display text-xl text-brown">In plain English</h2>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-6 text-brown-mid">
@@ -51,7 +51,7 @@ export default function TermsPage() {
           </p>
         </section>
 
-        <div className="mt-6 space-y-4 text-sm leading-7 text-brown-light">
+        <div className="mt-6 space-y-4 text-sm leading-7 text-brown-mid">
           <p>GoDoggyDate is operated by GoBots LLC, a Michigan limited liability company (&quot;GoBots&quot;), as an early-access service for discovering compatible dog playdates.</p>
 
           <p><strong className="text-brown">Eligibility:</strong> you must be at least 18 years old to create an account or use GoDoggyDate.</p>

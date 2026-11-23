@@ -65,7 +65,7 @@ export default function PublicPageSwitch({ uid, dogName, enabled }: Props) {
           <span
             aria-hidden="true"
             className={`relative block h-7 w-12 rounded-full transition-colors motion-reduce:transition-none ${
-              enabled ? 'bg-primary' : 'bg-brown-light/40'
+              enabled ? 'bg-brown' : 'bg-brown-light/40'
             }`}
           >
             <span

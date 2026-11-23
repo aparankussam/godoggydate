@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { PawCoin } from './StickerBits';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { trackEvent } from '../lib/analytics';
 import {
@@ -386,7 +387,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         aria-labelledby="auth-modal-title"
         tabIndex={-1}
         onKeyDown={trapTab}
-        className="bg-cream w-full max-w-sm max-h-full overflow-y-auto rounded-3xl px-8 py-8 flex flex-col items-center gap-4 shadow-2xl animate-fade-in-up focus:outline-none"
+        className="bg-paper border-2 border-brown w-full max-w-sm max-h-full overflow-y-auto rounded-3xl px-8 py-8 flex flex-col items-center gap-4 shadow-2xl animate-fade-in-up focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
@@ -399,7 +400,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           <span aria-hidden="true">×</span>
         </button>
 
-        <span className="text-5xl -mt-2">🐾</span>
+        <span className="-mt-2"><PawCoin size={56} /></span>
 
         <div className="text-center">
           <h2 id="auth-modal-title" className="font-display text-2xl text-brown mb-1">GoDoggyDate</h2>
@@ -411,7 +412,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         {inApp && (
           <div
             role="note"
-            className="w-full rounded-2xl border-2 border-primary/40 bg-white px-4 py-3 text-left text-xs leading-relaxed text-brown-mid"
+            className="w-full rounded-2xl border-2 border-brown bg-note px-4 py-3 text-left text-xs leading-relaxed text-brown-mid"
           >
             <p className="font-semibold text-brown">
               Open this page in {externalBrowser} to sign in
@@ -425,7 +426,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               {chromeIntentUrl && (
                 <a
                   href={chromeIntentUrl}
-                  className="inline-flex min-h-[40px] items-center rounded-full bg-primary px-4 text-xs font-bold text-brown"
+                  className="inline-flex min-h-[44px] items-center rounded-full border-2 border-brown bg-paper px-4 text-xs font-bold text-brown"
                 >
                   Open in Chrome
                 </a>
@@ -433,7 +434,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               <button
                 type="button"
                 onClick={copyPageLink}
-                className="inline-flex min-h-[40px] items-center rounded-full border border-border px-4 text-xs font-bold text-brown"
+                className="inline-flex min-h-[44px] items-center rounded-full border-2 border-brown bg-paper px-4 text-xs font-bold text-brown"
               >
                 {linkCopied ? 'Link copied ✓' : 'Copy link'}
               </button>
@@ -443,7 +444,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
 
         {/* The whole row is the tap target (44px tall); the box itself is large
             enough to see and hit on a phone. */}
-        <label className="w-full min-h-[44px] flex items-center gap-3 rounded-2xl border border-border bg-white px-3 py-2 text-xs leading-relaxed text-brown-mid cursor-pointer">
+        <label className="w-full min-h-[44px] flex items-center gap-3 rounded-2xl border-2 border-brown bg-cream-dark px-3 py-2 text-xs leading-relaxed text-brown-mid cursor-pointer">
           <input
             type="checkbox"
             checked={agreed}

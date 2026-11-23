@@ -20,9 +20,9 @@ import { shareOrDownloadCard, type ShareCardOptions } from '../lib/shareCard';
 export type StoryTheme = 'spark' | 'zen' | 'gold';
 
 const GRADIENTS: Record<StoryTheme, string> = {
-  spark: 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)',
-  zen: 'linear-gradient(160deg, #241A2E 0%, #4A3F6E 50%, #C98A5E 100%)',
-  gold: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #FF5C8D 100%)',
+  spark: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 45%, #FF5C8D 100%)',
+  zen: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 50%, #8FC9F2 100%)',
+  gold: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 50%, #F5B731 100%)',
 };
 
 interface Props {

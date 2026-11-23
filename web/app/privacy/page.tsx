@@ -20,13 +20,13 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-cream">
-      <div className="px-6 py-10">
-      <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
+    <main className="min-h-screen">
+      <div className="px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-3xl card px-6 py-8 sm:px-10">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">Privacy</p>
         <h1 className="mt-3 font-display text-4xl text-brown">Privacy Policy</h1>
         <p className="mt-2 text-xs text-brown-light">Last updated: November 2026</p>
-        <div className="mt-6 space-y-4 text-sm leading-7 text-brown-light">
+        <div className="mt-6 space-y-4 text-sm leading-7 text-brown-mid">
           <p>GoDoggyDate is operated by GoBots LLC, a Michigan limited liability company, and built to help dog owners find safer, more compatible local playdates.</p>
           <p><strong className="text-brown">What we collect:</strong> your sign-in details (name, email address, and account ID from Google or Apple); your dog&apos;s profile and photos; your ZIP code and approximate location (rounded to about 1 km); swipes, matches, chat messages, ratings, reminders, and reports; push notification tokens; and how you use the site.</p>
           <p><strong className="text-brown">What other people can see:</strong> your dog&apos;s profile, photos, and general area are visible to other members, and to anyone with the link to your dog&apos;s public page. We remove location metadata from photos uploaded on the website.</p>

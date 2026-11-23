@@ -21,7 +21,7 @@ export default function VibeTypeCard({ archetype }: Props) {
       type="button"
       onClick={() => setExpanded((v) => !v)}
       aria-expanded={expanded}
-      className="w-full text-left rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-primary/5 px-4 py-3 transition-colors hover:from-gold/15"
+      className="w-full text-left rounded-2xl border-2 border-brown bg-paper px-4 py-3 transition-all hover:brightness-95"
     >
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-1.5">
         ✨ Vibe Check · a playful AI read
@@ -36,7 +36,7 @@ export default function VibeTypeCard({ archetype }: Props) {
       </div>
 
       {expanded && (
-        <div className="mt-3 pt-3 border-t border-gold/20">
+        <div className="mt-3 pt-3 border-t border-border">
           <p className="text-sm text-brown-mid leading-relaxed">{archetype.description}</p>
         </div>
       )}

@@ -19,6 +19,7 @@ import { parseDogSlugToUid, toDogSlug } from '../../../lib/dogSlug';
 import { getRenderablePhotos, resolveHeroIndex } from '../../../lib/photos';
 import DogTradingCard from '../../../components/DogTradingCard';
 import ScaleToFit from '../../../components/ScaleToFit';
+import { PawCoin } from '../../../components/StickerBits';
 import type { SavedDogProfile } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -144,9 +145,9 @@ export default async function PublicDogPage({ params }: PageProps) {
   const stripPhotos = photos.filter((_, i) => i !== heroIdx).slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center px-5 py-10 gap-8">
-      <Link href="/" className="font-display text-2xl text-brown">
-        🐾 GoDoggyDate
+    <div className="min-h-screen flex flex-col items-center px-5 py-10 gap-8">
+      <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-2xl text-brown">
+        <PawCoin size={32} /> GoDoggyDate
       </Link>
 
       <h1 className="sr-only">{profile.name} on GoDoggyDate</h1>
@@ -162,20 +163,20 @@ export default async function PublicDogPage({ params }: PageProps) {
               key={i}
               src={url}
               alt={`${profile.name} photo ${i + 1} of ${stripPhotos.length}`}
-              className="w-20 h-20 rounded-2xl object-cover shrink-0 border border-border"
+              className="w-20 h-20 rounded-2xl object-cover shrink-0 border-2 border-brown"
             />
           ))}
         </div>
       )}
 
-      <div className="flex flex-col items-center gap-3 max-w-xs text-center">
-        <p className="text-brown-light text-sm">
+      <div className="card flex flex-col items-center gap-3 w-full max-w-[360px] px-5 py-5 text-center">
+        <p className="text-brown-mid font-semibold text-sm">
           {profile.name} is on GoDoggyDate — the playdate app for dog people. Got a dog too?
         </p>
-        <Link href="/quiz?ref=dog" className="btn-primary px-8 py-3 shadow-lg">
-          Find your dog&apos;s Dogtype 🐾
+        <Link href="/quiz?ref=dog" className="btn-primary px-8 py-3">
+          Find your dog&apos;s Dogtype
         </Link>
-        <Link href="/" className="text-xs text-brown-light underline underline-offset-2">
+        <Link href="/" className="inline-flex min-h-[44px] items-center text-sm font-bold text-brown underline underline-offset-2">
           What is GoDoggyDate?
         </Link>
       </div>

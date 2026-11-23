@@ -38,6 +38,7 @@ import {
 } from '../lib/progressSync';
 import BarkleResultCard from './BarkleResultCard';
 import ScaleToFit from './ScaleToFit';
+import { PawCoin, ShareIcon } from './StickerBits';
 
 type Status = 'playing' | 'won' | 'lost';
 
@@ -272,7 +273,7 @@ export default function BarkleGame() {
   if (!mounted || !puzzle) {
     return (
       <div className="card p-6 sm:p-8 max-w-xl mx-auto text-center">
-        <p className="text-5xl mb-3" aria-hidden="true">🐾</p>
+        <span className="mb-3 flex justify-center"><PawCoin size={48} /></span>
         <p className="text-brown-light">Fetching today&apos;s mystery breed…</p>
       </div>
     );
@@ -286,7 +287,7 @@ export default function BarkleGame() {
     <div className="max-w-xl mx-auto">
       {/* Header row */}
       <div className="flex items-center justify-between mb-4">
-        <span className="font-mono text-sm font-bold tracking-widest text-brown-light">
+        <span className="font-mono text-sm font-black tracking-widest text-brown">
           BARKLE #{puzzle.puzzleNumber}
         </span>
         <div className="flex items-center gap-1.5" aria-label={`${triesLeft} of ${MAX_TRIES} guesses left`}>
@@ -301,7 +302,7 @@ export default function BarkleGame() {
               : r.sameSize
               ? 'bg-gold-light'
               : 'bg-brown-light';
-            return <span key={i} className={`h-2.5 w-2.5 rounded-full ${cls}`} aria-hidden="true" />;
+            return <span key={i} className={`h-3 w-3 rounded-full border-[1.5px] border-brown ${cls}`} aria-hidden="true" />;
           })}
         </div>
       </div>
@@ -332,13 +333,13 @@ export default function BarkleGame() {
           {results.map((r, i) => (
             <li
               key={i}
-              className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3"
+              className="flex items-center justify-between rounded-2xl border-2 border-brown bg-paper px-4 py-3"
             >
               <span className="font-semibold text-brown flex items-center gap-2">
                 <span aria-hidden="true">{tileForGuess(r)}</span>
                 {r.matched?.name}
               </span>
-              <span className="text-xs font-semibold text-brown-light">
+              <span className="text-xs font-bold text-brown-mid">
                 {r.correct
                   ? 'Correct!'
                   : r.sameGroup
@@ -373,7 +374,7 @@ export default function BarkleGame() {
               autoComplete="off"
               autoCapitalize="words"
               maxLength={40}
-              className="flex-1 rounded-full border border-border bg-white px-5 py-3 text-brown placeholder:text-brown-light focus:border-primary focus:outline-none"
+              className="flex-1 min-h-[48px] rounded-full border-2 border-brown bg-paper px-5 py-3 text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown/40"
             />
             <button type="submit" className="btn-primary px-8">
               Guess
@@ -386,9 +387,9 @@ export default function BarkleGame() {
           </datalist>
           <div className="mt-2 min-h-[1.25rem] text-center">
             {error ? (
-              <span className="text-sm font-semibold text-primary-dark">{error}</span>
+              <span className="text-sm font-black text-brown">{error}</span>
             ) : (
-              <span className="text-sm text-brown-light">
+              <span className="text-sm font-semibold text-brown">
                 {triesLeft} {triesLeft === 1 ? 'guess' : 'guesses'} left · a new clue after each miss
               </span>
             )}
@@ -398,7 +399,7 @@ export default function BarkleGame() {
 
       {/* Legend */}
       {!finished && (
-        <p className="mt-3 text-center text-xs text-brown-light">
+        <p className="mt-3 text-center text-xs font-semibold text-brown">
           🟩 correct · 🟨 same breed group · 🟧 same size · ⬛ cold
         </p>
       )}
@@ -406,16 +407,8 @@ export default function BarkleGame() {
       {/* Result */}
       {finished && (
         <div className="mt-5">
-          <div
-            className="rounded-[1.75rem] text-white p-7 text-center animate-fade-in-up"
-            style={{
-              background:
-                status === 'won'
-                  ? 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)'
-                  : 'linear-gradient(160deg, #241A2E 0%, #4A3F6E 55%, #9B7560 100%)',
-            }}
-          >
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">
+          <div className="card text-brown p-7 text-center animate-fade-in-up">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-rose">
               {status === 'won'
                 ? `Solved in ${results.length}/${MAX_TRIES}`
                 : `Out of guesses — ${MAX_TRIES}/${MAX_TRIES}`}
@@ -424,7 +417,7 @@ export default function BarkleGame() {
               {breed.emoji}
             </div>
             <h2 className="mt-3 font-display text-3xl sm:text-4xl leading-tight">{breed.name}</h2>
-            <p className="mt-2 text-white/85 text-sm">
+            <p className="mt-2 text-brown-mid font-semibold text-sm">
               {breed.group} group · {breed.size} size
             </p>
             <div className="mt-4 font-mono text-2xl tracking-wide" aria-hidden="true">
@@ -443,7 +436,7 @@ export default function BarkleGame() {
                 won={status === 'won'}
               />
             </ScaleToFit>
-            <p className="mt-2 text-xs text-brown-light">Spoiler-free: the image never shows the breed.</p>
+            <p className="mt-2 text-xs font-semibold text-brown">Spoiler-free: the image never shows the breed.</p>
           </div>
 
           <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap items-stretch justify-center gap-3">
@@ -451,9 +444,9 @@ export default function BarkleGame() {
               type="button"
               onClick={shareImage}
               disabled={sharingImage}
-              className="btn-primary text-base disabled:opacity-60"
+              className="btn-primary inline-flex items-center justify-center gap-2 text-base disabled:opacity-60"
             >
-              {sharingImage ? 'Preparing…' : '📤 Share image'}
+              {sharingImage ? 'Preparing…' : <><ShareIcon size={20} /> Share image</>}
             </button>
             <button type="button" onClick={share} className="btn-secondary text-base">
               {copied ? 'Copied result!' : 'Share as text'}
@@ -464,8 +457,8 @@ export default function BarkleGame() {
           </div>
 
           {countdown && (
-            <p className="mt-4 text-center text-sm text-brown-light">
-              Next Barkle in <span className="font-mono font-semibold text-brown-mid">{countdown}</span>
+            <p className="mt-4 text-center text-sm font-semibold text-brown">
+              Next Barkle in <span className="font-mono font-black text-brown">{countdown}</span>
             </p>
           )}
         </div>
@@ -473,12 +466,12 @@ export default function BarkleGame() {
 
       {/* Signup CTA — same top-of-funnel move as the quiz */}
       <div className="card p-6 mt-8 text-center">
-        <p className="text-3xl mb-2" aria-hidden="true">🐾</p>
+        <span className="mb-2 flex justify-center"><PawCoin size={40} /></span>
         <h3 className="font-display text-xl text-brown mb-2">Love dogs this much?</h3>
         <p className="text-sm text-brown-mid mb-4">
           Build your dog&apos;s profile, get their daily card, and meet dogs who actually fit — free.
         </p>
-        <Link href="/app" className="btn-primary inline-block">
+        <Link href="/app" className="btn-secondary inline-block">
           Open GoDoggyDate
         </Link>
       </div>

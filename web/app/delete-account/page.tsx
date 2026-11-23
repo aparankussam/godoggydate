@@ -19,12 +19,12 @@ export const metadata: Metadata = {
 
 export default function DeleteAccountPage() {
   return (
-    <main className="min-h-screen bg-cream">
-      <div className="px-6 py-10">
-      <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
+    <main className="min-h-screen">
+      <div className="px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-3xl card px-6 py-8 sm:px-10">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">Account</p>
         <h1 className="mt-3 font-display text-4xl text-brown">Delete your account</h1>
-        <div className="mt-6 space-y-4 text-sm leading-7 text-brown-light">
+        <div className="mt-6 space-y-4 text-sm leading-7 text-brown-mid">
           <p><strong className="text-brown">In the app or on the website:</strong> open Profile, choose Delete account, and confirm. This takes effect immediately and can&apos;t be undone.</p>
           <p><strong className="text-brown">By email:</strong> if you can&apos;t sign in, email <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-rose underline underline-offset-2">godoggydate@gobotsai.com</a> from the address on your account. We respond within 30 days.</p>
           <p><strong className="text-brown">What gets deleted:</strong> your account, your dog&apos;s profile and photos, swipes, matches, and chats.</p>

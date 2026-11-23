@@ -42,10 +42,10 @@ interface Props {
 }
 
 // Warm parchment palette, kept as literal hex for faithful html2canvas capture.
-const PAPER = '#FBF3E2';
-const PAPER_EDGE = '#F2E6CC';
-const INK = '#2B2015';
-const INK_SOFT = '#8C7A5E';
+const PAPER = '#FFF9EC';
+const PAPER_EDGE = '#F3ECDC';
+const INK = '#2A1F4A';
+const INK_SOFT = '#5E5380';
 const RULE = '#E6D6B6';
 const WAX = '#B23A2E';
 const WAX_DARK = '#8E2B22';

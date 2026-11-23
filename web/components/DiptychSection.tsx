@@ -121,7 +121,7 @@ export default function DiptychSection({ savedProfile }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="card p-5">
       <div className="mb-3">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">National Dog Day 🐾</p>
         <h2 className="font-display text-xl text-brown leading-tight">Day 1 vs Day N</h2>
@@ -189,7 +189,7 @@ export default function DiptychSection({ savedProfile }: Props) {
           min={`${MIN_BIRTH_YEAR}-01-01`}
           max={maxDate}
           onChange={(e) => setDateValue(e.target.value)}
-          className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="w-full rounded-xl border-2 border-brown bg-paper px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-brown/40"
         />
         {dateValue && days === null && earliestDate && (
           <p className="mt-1.5 text-xs text-rose">
@@ -202,7 +202,7 @@ export default function DiptychSection({ savedProfile }: Props) {
 
       {/* Prompt until we have an honest number — no invented count. */}
       {!ready ? (
-        <p className="mt-4 rounded-xl bg-white/60 border border-border px-3.5 py-3 text-sm text-brown-mid leading-relaxed">
+        <p className="mt-4 rounded-xl bg-cream-dark border-2 border-brown px-3.5 py-3 text-sm text-brown-mid leading-relaxed">
           Add the date above to reveal your Day 1 &rarr; Day N card.
         </p>
       ) : (
@@ -224,7 +224,7 @@ export default function DiptychSection({ savedProfile }: Props) {
             type="button"
             onClick={handleShare}
             disabled={sharing}
-            className="btn-primary w-full mt-4 disabled:opacity-60"
+            className="btn-secondary w-full mt-4 disabled:opacity-60"
           >
             {sharing ? 'Preparing…' : `Share ${dogName}'s Day 1 vs Day ${days}`}
           </button>

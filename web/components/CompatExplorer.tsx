@@ -231,8 +231,8 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
   const lockedRemaining = matches.length - revealed;
 
   return (
-    <div className="mt-4 rounded-xl bg-white/60 border border-border px-3.5 py-4">
-      <p className="text-xs font-bold text-brown">Who does {dogName} get along with?</p>
+    <div className="mt-4 rounded-2xl bg-cream border-2 border-brown px-3.5 py-4">
+      <p className="font-display text-lg leading-tight text-brown">Who does {dogName} get along with?</p>
       <p className="mt-1 text-[11px] text-brown-light leading-snug">
         A playful vibe read from the types — not a score. Real matches are worked out dog-by-dog when you swipe.
       </p>
@@ -264,7 +264,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-brown leading-tight">{match.name}</p>
                       {rank?.isClearTop && (
-                        <p className="text-[11px] font-bold text-[#B0761A]">⭐ {dogName}&apos;s #1 easiest match</p>
+                        <p className="text-[11px] font-bold text-brown">{dogName}&apos;s #1 easiest match</p>
                       )}
                       <p className="text-[11px] font-semibold text-rose">
                         {vm.emoji} {vm.label}
@@ -301,7 +301,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
             // honest ways to earn the key that reveals the next one.
             return (
               <li key={match.code}>
-                <div className="rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 px-3 py-3">
+                <div className="rounded-lg border-2 border-dashed border-brown/40 bg-cream-dark px-3 py-3">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl leading-none" aria-hidden="true">🔒</span>
                     <div className="min-w-0 flex-1">
@@ -318,7 +318,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                     <a
                       href="/app/fun/snoot"
                       onClick={() => trackEvent('compat_explorer_unlock_boop_click', { code: dogtype.code })}
-                      className="flex min-h-[40px] flex-1 items-center justify-center rounded-full border border-primary/40 bg-white/70 px-3 py-2 text-center text-[12px] font-bold text-rose transition-colors hover:bg-white"
+                      className="flex min-h-[40px] flex-1 items-center justify-center rounded-full border-2 border-brown bg-cream px-3 py-2 text-center text-[12px] font-bold text-brown transition-colors hover:brightness-95"
                     >
                       🐽 Boop {dogName}
                       {boopsToNextKey !== null && (
@@ -329,7 +329,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                       type="button"
                       onClick={handleUnlockInvite}
                       disabled={sharing}
-                      className="min-h-[40px] flex-1 rounded-full bg-primary px-3 py-2 text-center text-[12px] font-bold text-brown transition-opacity hover:opacity-90 disabled:opacity-60"
+                      className="min-h-[44px] flex-1 rounded-full border-2 border-brown bg-cream shadow-[inset_0_-4px_0_#E3D6BA] px-3 py-2 text-center text-[12px] font-extrabold text-brown transition-all hover:brightness-95 disabled:opacity-60"
                     >
                       {sharing ? 'Preparing…' : '📤 Invite a friend to unlock'}
                     </button>
@@ -343,7 +343,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
           return (
             <li
               key={match.code}
-              className="rounded-lg border border-border bg-white/40 px-3 py-2.5 opacity-50"
+              className="rounded-lg border border-border bg-cream px-3 py-2.5 opacity-60"
               aria-hidden="true"
             >
               <div className="flex items-center gap-2">

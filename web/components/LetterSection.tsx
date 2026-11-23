@@ -89,7 +89,7 @@ export default function LetterSection({ savedProfile, userId }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="card p-5">
       <div className="mb-3">
         <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
           {milestone.emoji} {milestone.isActive ? `It's ${dogName}'s ${kindLabel}` : `${dogName}'s ${kindLabel} is ${when}`}
@@ -106,7 +106,7 @@ export default function LetterSection({ savedProfile, userId }: Props) {
           type="button"
           onClick={handleGenerate}
           disabled={busy}
-          className="btn-primary w-full disabled:opacity-60"
+          className="btn-secondary w-full disabled:opacity-60"
         >
           {busy ? 'Writing the letter…' : `Write ${dogName}'s letter`}
         </button>

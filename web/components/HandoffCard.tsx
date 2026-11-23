@@ -79,7 +79,7 @@ function TagList({ tags }: { tags: string[] }) {
       {tags.map((tag) => (
         <span
           key={tag}
-          className="rounded-full border border-border bg-white px-2.5 py-1 text-xs font-semibold text-brown"
+          className="rounded-full border-2 border-brown bg-paper px-2.5 py-1 text-xs font-bold text-brown"
         >
           {tag}
         </span>
@@ -121,11 +121,11 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
     // width it rendered at, doubled by its own scale: 2.
     <div
       ref={innerRef}
-      className="w-full max-w-[360px] rounded-[1.5rem] overflow-hidden border border-border bg-cream shadow-xl"
+      className="w-full max-w-[360px] rounded-[1.5rem] overflow-hidden border-2 border-brown bg-paper shadow-[0_10px_0_rgba(42,31,74,0.12)]"
     >
       {/* Identity */}
-      <div className="bg-white px-5 py-4 flex items-center gap-4">
-        <div className="w-16 h-16 rounded-[1.1rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center">
+      <div className="bg-cream-dark border-b-2 border-brown px-5 py-4 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-[1.1rem] overflow-hidden border-2 border-brown bg-sky shrink-0 flex items-center justify-center">
           {photo ? (
             // No crossOrigin, matching DogTradingCard: Firebase Storage isn't
             // CORS-configured for this origin, so requesting it as CORS makes
@@ -186,7 +186,7 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
             </p>
           </div>
         ) : vaccinated === true ? (
-          <div className="rounded-xl border border-border bg-white px-3 py-2.5">
+          <div className="rounded-xl border-2 border-brown bg-paper px-3 py-2.5">
             <p className="text-xs font-bold text-brown">Owner marked: vaccinated</p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
               Self-reported. No record was checked — ask for paperwork if you need it.
@@ -222,7 +222,7 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
       {/* The disclaimer is part of the image on purpose — this card gets
           screenshotted and forwarded, and it has to keep saying this after it
           leaves the app. */}
-      <div className="border-t border-border bg-white px-5 py-3.5">
+      <div className="border-t-2 border-brown bg-cream-dark px-5 py-3.5">
         <p className="text-[11px] leading-relaxed text-brown-light">
           GoDoggyDate does not verify any of this. Everything above is what {profile.name}&apos;s
           owner wrote about their own dog.

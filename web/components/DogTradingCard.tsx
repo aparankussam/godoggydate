@@ -48,7 +48,7 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
     <div
       ref={innerRef}
       className="relative w-[360px] aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
-      style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #FF5C8D 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 55%, #FF5C8D 100%)' }}
     >
       {/* Founding Member badge — "of {SIZE}" makes the scarcity legible on
           the card itself, not just on the profile page it's exported from. */}

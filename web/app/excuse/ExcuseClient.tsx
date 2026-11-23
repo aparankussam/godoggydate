@@ -18,6 +18,7 @@ import Link from 'next/link';
 import ExcuseNoteCard from '../../components/ExcuseNoteCard';
 import ScaleToFit from '../../components/ScaleToFit';
 import SiteFooter from '../../components/SiteFooter';
+import { PawCoin } from '../../components/StickerBits';
 import { shareOrDownloadCard } from '../../lib/shareCard';
 import { buildExcuseNote, EXCUSE_REASONS } from '../../../shared/excuseNote';
 
@@ -60,24 +61,24 @@ export default function ExcuseClient() {
   }
 
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
+      <nav className="sticky top-0 z-50 bg-sky/95 backdrop-blur-md border-b-2 border-brown">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
-          <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Sign up free</Link>
+          <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-xl sm:text-2xl text-brown whitespace-nowrap"><PawCoin size={30} /> GoDoggyDate</Link>
+          <Link href="/app" className="btn-secondary inline-flex min-h-[44px] items-center text-sm whitespace-nowrap px-4 py-2 sm:px-6">Sign up free</Link>
         </div>
       </nav>
 
       {/* Header */}
       <section className="max-w-2xl mx-auto px-6 pt-10 pb-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-brown-light">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-brown">
           The Dog Excuse Note
         </p>
         <h1 className="mt-2 font-display text-4xl sm:text-5xl text-brown leading-tight">
           Let your dog get you out of it.
         </h1>
-        <p className="mt-3 text-brown-mid">
+        <p className="mt-3 font-semibold text-brown">
           An official-looking (and unmistakably fake) note from your dog explaining why you
           simply cannot make it. No account needed.
         </p>
@@ -96,7 +97,7 @@ export default function ExcuseClient() {
                 onChange={(e) => setDogName(e.target.value)}
                 placeholder="Biscuit"
                 maxLength={40}
-                className="mt-1 w-full rounded-xl border border-border bg-cream px-3 py-2 text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="mt-1 w-full rounded-xl border-2 border-brown bg-paper px-3 py-2.5 text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown/40"
               />
             </label>
 
@@ -108,7 +109,7 @@ export default function ExcuseClient() {
                 onChange={(e) => setOwnerName(e.target.value)}
                 placeholder="Alex"
                 maxLength={40}
-                className="mt-1 w-full rounded-xl border border-border bg-cream px-3 py-2 text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="mt-1 w-full rounded-xl border-2 border-brown bg-paper px-3 py-2.5 text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown/40"
               />
             </label>
 
@@ -120,7 +121,7 @@ export default function ExcuseClient() {
                 onChange={(e) => setEvent(e.target.value)}
                 placeholder="the 9am standup"
                 maxLength={70}
-                className="mt-1 w-full rounded-xl border border-border bg-cream px-3 py-2 text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="mt-1 w-full rounded-xl border-2 border-brown bg-paper px-3 py-2.5 text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown/40"
               />
             </label>
 
@@ -135,10 +136,10 @@ export default function ExcuseClient() {
                       type="button"
                       onClick={() => setReasonId(r.id)}
                       className={
-                        'flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ' +
+                        'flex min-h-[44px] items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-sm transition ' +
                         (active
-                          ? 'border-primary bg-primary/10 text-brown font-bold'
-                          : 'border-border bg-cream text-brown-mid hover:border-primary/50')
+                          ? 'border-brown bg-brown text-paper font-bold'
+                          : 'border-brown bg-paper text-brown font-semibold hover:brightness-95')
                       }
                       aria-pressed={active}
                     >
@@ -168,12 +169,12 @@ export default function ExcuseClient() {
           </button>
 
           {done && (
-            <p className="mt-2 text-sm text-brown-mid text-center">
+            <p className="mt-2 text-sm font-bold text-brown text-center">
               {done === 'shared' ? 'Shared! 🐾' : 'Saved to your device 🐾'}
             </p>
           )}
 
-          <p className="mt-3 text-[11px] text-brown-light leading-snug text-center max-w-xs">
+          <p className="mt-3 text-xs font-semibold text-brown leading-snug text-center max-w-xs">
             It&apos;s a bit, obviously — the note is signed by a dog, stamped with a paw, and says
             right on it that it isn&apos;t a real document.
           </p>

@@ -14,6 +14,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SiteFooter from '../../../components/SiteFooter';
+import { PawCoin } from '../../../components/StickerBits';
 import {
   DOGTYPE_CODES,
   dogtypeByCode,
@@ -76,18 +77,14 @@ export default function CompatPage({ params }: PageProps) {
   const others = scored.filter((m) => m.vibe !== 'great').sort((a, b) => tierRank[a.vibe] - tierRank[b.vibe]);
   const matches = [...greats.slice(0, 4), ...others.slice(0, 2)];
 
-  const spark = type.code[0] === 'E';
-  const heroGradient = spark
-    ? 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)'
-    : 'linear-gradient(160deg, #241A2E 0%, #4A3F6E 50%, #C98A5E 100%)';
 
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
+      <nav className="sticky top-0 z-50 bg-sky/95 backdrop-blur-md border-b-2 border-brown">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
-          <Link href="/quiz?ref=compat" className="btn-primary text-sm whitespace-nowrap px-4 sm:px-6">
+          <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-xl sm:text-2xl text-brown whitespace-nowrap"><PawCoin size={30} /> GoDoggyDate</Link>
+          <Link href="/quiz?ref=compat" className="btn-secondary inline-flex min-h-[44px] items-center text-sm whitespace-nowrap px-4 py-2 sm:px-6">
             <span className="sm:hidden">Get yours</span>
             <span className="hidden sm:inline">Find your dog&apos;s Dogtype</span>
           </Link>
@@ -96,13 +93,13 @@ export default function CompatPage({ params }: PageProps) {
 
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-12 pb-8">
-        <div className="rounded-[2rem] overflow-hidden text-white p-8 sm:p-12" style={{ background: heroGradient }}>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/80">Compatibility</p>
+        <div className="card overflow-hidden text-brown p-8 sm:p-12">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose">Compatibility</p>
           <div className="mt-6 text-7xl sm:text-8xl leading-none" aria-hidden="true">{type.emoji}</div>
           <h1 className="mt-4 font-display text-4xl sm:text-6xl leading-tight">
             {type.name} — is YOUR dog compatible?
           </h1>
-          <p className="mt-3 text-lg sm:text-xl text-white/90 max-w-2xl leading-relaxed">
+          <p className="mt-3 text-lg sm:text-xl text-brown-mid max-w-2xl leading-relaxed">
             The <span className="font-semibold">{strip(type.name)}</span> is {type.tagline.replace(/[.!]$/, '')}.
             {' '}Would your dog and {aOrAn(type.name)} get along? Here&apos;s the playful read.
           </p>
@@ -110,7 +107,7 @@ export default function CompatPage({ params }: PageProps) {
             {type.axes.map((a) => (
               <span
                 key={a.key}
-                className="inline-flex items-center gap-1 rounded-full bg-cream border border-border px-2.5 py-1 text-xs font-semibold text-brown"
+                className="inline-flex items-center gap-1 rounded-full bg-paper border-2 border-brown px-2.5 py-1 text-xs font-extrabold text-brown"
               >
                 <span aria-hidden="true">{a.pole.emoji}</span> {a.pole.label}
               </span>
@@ -125,7 +122,7 @@ export default function CompatPage({ params }: PageProps) {
           <h2 className="font-display text-2xl text-brown mb-1">
             Types the {strip(type.name)} vibes with
           </h2>
-          <p className="text-sm text-brown-light mb-4">
+          <p className="text-sm font-semibold text-brown mb-4">
             A playful read from the four axes — labeled as a vibe, not a score. Real matches get
             worked out dog-by-dog in the app.
           </p>
@@ -136,7 +133,7 @@ export default function CompatPage({ params }: PageProps) {
                 <Link
                   key={t.code}
                   href={`/compat/${t.code}`}
-                  className="card p-4 rounded-2xl flex items-start gap-3 hover:border-primary/40 transition-colors"
+                  className="card p-4 rounded-2xl flex items-start gap-3 hover:brightness-95 transition-all"
                 >
                   <div className="text-3xl leading-none" aria-hidden="true">{t.emoji}</div>
                   <div className="min-w-0">
@@ -157,7 +154,7 @@ export default function CompatPage({ params }: PageProps) {
 
       {/* Honest note */}
       <section className="max-w-4xl mx-auto px-6 py-2">
-        <div className="card p-5 rounded-2xl bg-white">
+        <div className="card p-5 rounded-2xl">
           <p className="text-sm text-brown-mid leading-relaxed">
             <span className="font-semibold text-brown">The honest bit:</span> this is a playful vibe
             based on personality types, not a compatibility percentage. Two dogs of any types can be
@@ -171,10 +168,10 @@ export default function CompatPage({ params }: PageProps) {
       <section className="bg-brown py-16 mt-6">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <p className="text-5xl mb-4" aria-hidden="true">{type.emoji}</p>
-          <h2 className="font-display text-3xl text-white mb-3">
+          <h2 className="font-display text-3xl text-paper mb-3">
             Is your dog compatible? Find out.
           </h2>
-          <p className="text-white/70 mb-6">
+          <p className="text-paper/85 font-semibold mb-6">
             Answer 8 playful questions, get their Dogtype in about 90 seconds, then see
             how they vibe with {aOrAn(type.name)} — free, no signup.
           </p>
@@ -201,8 +198,8 @@ export default function CompatPage({ params }: PageProps) {
               <Link
                 key={code}
                 href={`/compat/${code}`}
-                className={`rounded-xl border p-3 text-center transition-colors ${
-                  active ? 'border-primary bg-primary/10' : 'border-border bg-white hover:border-primary/40'
+                className={`rounded-xl border-2 p-3 text-center transition-all ${
+                  active ? 'border-brown bg-gold-light' : 'border-brown bg-paper hover:brightness-95'
                 }`}
               >
                 <div className="text-2xl" aria-hidden="true">{t.emoji}</div>

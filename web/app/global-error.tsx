@@ -25,14 +25,25 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           justifyContent: 'center',
           padding: '4rem 1.5rem',
           textAlign: 'center',
-          background: '#FFF9EC',
+          background: '#8FC9F2',
           color: '#2A1F4A',
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily: 'Nunito, system-ui, sans-serif',
         }}
       >
-        <p style={{ fontSize: '3.5rem', margin: 0 }} aria-hidden="true">🐾</p>
-        <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '2rem', margin: '1rem 0 0.5rem' }}>Something went sideways</h1>
-        <p style={{ maxWidth: '28rem', color: '#4A3F6E', margin: 0 }}>
+        <div
+          style={{
+            background: '#FFF9EC',
+            border: '2px solid #2A1F4A',
+            borderRadius: '1.5rem',
+            boxShadow: '0 10px 0 rgba(42,31,74,0.12)',
+            padding: '2.5rem 1.5rem',
+            maxWidth: '28rem',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+        <h1 style={{ fontFamily: 'Chewy, system-ui, sans-serif', fontWeight: 400, fontSize: '2rem', margin: '0 0 0.5rem' }}>Something went sideways</h1>
+        <p style={{ color: '#4A3F6E', margin: 0 }}>
           GoDoggyDate hit a snag loading. Give it another go.
         </p>
         <button
@@ -41,10 +52,12 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           style={{
             marginTop: '2rem',
             background: '#FF5C8D',
-            color: '#fff',
-            fontWeight: 700,
-            border: 0,
+            color: '#2A1F4A',
+            fontWeight: 800,
+            border: '2.5px solid #2A1F4A',
+            boxShadow: 'inset 0 -6px 0 #D63A6B',
             borderRadius: '9999px',
+            minHeight: 48,
             padding: '0.75rem 1.5rem',
             fontSize: '1rem',
             cursor: 'pointer',
@@ -52,6 +65,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         >
           Try again
         </button>
+        </div>
       </body>
     </html>
   );

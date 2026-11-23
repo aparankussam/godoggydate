@@ -35,7 +35,7 @@ interface Props {
 // so html2canvas captures it faithfully — same rationale as WantedPosterWeb.
 const BROWN = '#2A1F4A';
 const BROWN_MID = '#4A3F6E';
-const BROWN_LIGHT = '#9B7560';
+const BROWN_LIGHT = '#5E5380';
 const PRIMARY = '#FF5C8D';
 const BORDER = '#E3D6BA';
 const CREAM = '#FFF9EC';

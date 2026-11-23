@@ -727,7 +727,7 @@ export default function ProfilePage() {
           {complete && (
             <button
               onClick={() => router.push('/app')}
-              className="btn-primary py-3 shadow-lg"
+              className="btn-primary py-3"
             >
               Start Swiping
             </button>
@@ -738,7 +738,7 @@ export default function ProfilePage() {
               shouldn't be the loudest button on their page. */}
           <button
               onClick={() => openEdit()}
-              className={householdOnly ? 'btn-secondary py-3' : complete ? 'btn-secondary py-3' : 'btn-primary py-3 shadow-lg'}
+              className={householdOnly ? 'btn-secondary py-3' : complete ? 'btn-secondary py-3' : 'btn-primary py-3'}
             >
             {savedProfile ? 'Edit Profile' : householdOnly ? 'Add a dog of your own' : 'Create Profile'}
           </button>

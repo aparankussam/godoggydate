@@ -25,16 +25,16 @@ const link = 'font-semibold text-rose underline underline-offset-2';
 
 export default function SupportPage() {
   return (
-    <main className="min-h-screen bg-cream">
-      <div className="px-6 py-10">
-        <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
+    <main className="min-h-screen">
+      <div className="px-4 py-10 sm:px-6">
+        <div className="mx-auto max-w-3xl card px-6 py-8 sm:px-10">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">Support</p>
           <h1 className="mt-3 font-display text-4xl text-brown">How can we help?</h1>
-          <p className="mt-3 text-sm leading-7 text-brown-light">
+          <p className="mt-3 text-sm leading-7 text-brown-mid">
             GoDoggyDate is a small, independent app. The quickest way to reach a person is email.
           </p>
 
-          <div className="mt-6 space-y-6 text-sm leading-7 text-brown-light">
+          <div className="mt-6 space-y-6 text-sm leading-7 text-brown-mid">
             <section aria-labelledby="support-contact">
               <h2 id="support-contact" className="font-display text-xl text-brown">Contact us</h2>
               <p className="mt-1">
