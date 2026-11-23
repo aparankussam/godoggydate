@@ -27,6 +27,7 @@ import { getVaccinationStatus, type SavedDogProfile } from '../../shared/profile
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 import { PawIcon, PrimaryButton, SecondaryButton, SkyBackground, StickerDog, Tape } from './sticker';
 import DogtypeRevealCard, { type RevealVariant } from './DogtypeRevealCard';
+import DogtypeSheet from './dogtype/DogtypeSheet';
 import { Dot, FIT_TONE_BG, fitShortLabel, fitTone } from './discover/DiscoverBits';
 
 export interface MatchReveal {
@@ -90,6 +91,7 @@ function MatchModalContent({
   const isBlocked = dog.compat.quality === 'blocked';
   const [acknowledged, setAcknowledged] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const theirPhotos = getRenderablePhotos(dog.photos);
   const theirHero = resolveHeroIndex(dog);
@@ -140,6 +142,7 @@ function MatchModalContent({
     <View style={styles.page}>
       <SkyBackground />
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         accessibilityViewIsModal
@@ -222,6 +225,8 @@ function MatchModalContent({
             otherCode={reveal.otherCode}
             discovered={reveal.discovered}
             variant={reveal.variant}
+            compact
+            onOpenMore={() => setSheetOpen(true)}
           />
         )}
 
@@ -279,11 +284,15 @@ function MatchModalContent({
             otherCode={reveal.otherCode}
             discovered={reveal.discovered}
             variant={reveal.variant}
+            compact
+            onOpenMore={() => setSheetOpen(true)}
           />
         )}
 
+      </ScrollView>
+
         {/* CTAs: exactly one pink */}
-        <View style={styles.ctas}>
+      <View style={styles.footer}>
           {isBlocked && !acknowledged ? (
             <PrimaryButton label="Got it, I’ve read this" onPress={() => setAcknowledged(true)} />
           ) : (
@@ -295,8 +304,19 @@ function MatchModalContent({
           )}
           {showPitch && <Text style={styles.pitch}>{getChatUnlockPitch()}</Text>}
           <SecondaryButton label="Keep swiping" onPress={onKeepSwiping} />
-        </View>
-      </ScrollView>
+      </View>
+
+      {reveal && (
+        <DogtypeSheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          code={reveal.otherCode}
+          ownCode={reveal.ownCode}
+          ownName={reveal.ownName}
+          matches={[]}
+          showMatches={false}
+        />
+      )}
     </View>
   );
 }
@@ -511,7 +531,15 @@ const styles = StyleSheet.create({
   mathBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   mathText: { fontFamily: fonts.black, fontSize: 12.5, color: colors.brownMid, textDecorationLine: 'underline' },
 
-  ctas: { marginTop: 18, gap: 12 },
+  footer: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 26,
+    gap: 10,
+    backgroundColor: colors.sky,
+    borderTopWidth: 2,
+    borderTopColor: colors.ink,
+  },
   pitch: {
     marginTop: -4,
     textAlign: 'center',

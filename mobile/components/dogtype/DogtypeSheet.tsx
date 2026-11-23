@@ -21,9 +21,11 @@ interface Props {
   matches: MatchItem[];
   /** "Discovered through Biscuit · Nov 23", when known. */
   discoveredLine?: string;
+  /** The match screen already is a match with this dog: skip the list. Default true. */
+  showMatches?: boolean;
 }
 
-export default function DogtypeSheet({ visible, onClose, code, ownCode, ownName, matches, discoveredLine }: Props) {
+export default function DogtypeSheet({ visible, onClose, code, ownCode, ownName, matches, discoveredLine, showMatches = true }: Props) {
   const type = code ? dogtypeByCode(code) : null;
   if (!type || !code) return null;
   const isOwn = code === ownCode;
@@ -72,6 +74,7 @@ export default function DogtypeSheet({ visible, onClose, code, ownCode, ownName,
             </View>
           )}
 
+          {showMatches && (
           <View style={styles.block}>
             <Text style={styles.blockTitle}>
               {matches.length > 0 ? `Your matches of this type (${matches.length})` : 'Your matches of this type'}
@@ -104,6 +107,7 @@ export default function DogtypeSheet({ visible, onClose, code, ownCode, ownName,
               ))
             )}
           </View>
+          )}
         </ScrollView>
         <Pressable style={styles.close} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
           <Text style={styles.closeText}>Close</Text>

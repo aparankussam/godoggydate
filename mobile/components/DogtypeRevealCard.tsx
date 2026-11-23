@@ -5,7 +5,7 @@
 // ever receives a type you've just met (or your own), never a hidden one.
 
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { trackEvent } from '../lib/analytics';
 import { colors, fonts } from '../constants/theme';
 import { dogtypeByCode, dogtypeCompat, dogtypeReasons } from '../../shared/dogtype';
@@ -21,6 +21,9 @@ interface Props {
   discovered: number;
   variant: RevealVariant;
   showTease?: boolean;
+  /** Short version for the match screen: one reason and a link to the full sheet. */
+  compact?: boolean;
+  onOpenMore?: () => void;
 }
 
 const EYEBROW: Record<RevealVariant, string> = {
@@ -29,7 +32,7 @@ const EYEBROW: Record<RevealVariant, string> = {
   same: 'Same Dogtype as yours',
 };
 
-export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true }: Props) {
+export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true, compact = false, onOpenMore }: Props) {
   useEffect(() => {
     trackEvent('dogtype_reveal_shown', { context: showTease ? 'modal' : 'sheet', variant });
   }, [showTease, variant]);
@@ -38,7 +41,7 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
   if (!type || !compat) return null;
   const reasons = dogtypeReasons(ownCode, otherCode);
   const hidden = Math.max(0, 16 - discovered);
-  const vibeLabel = compat.vibe === 'great' ? 'Great vibe' : compat.vibe === 'spicy' ? 'Spicy · take it slow' : 'Good potential';
+  const vibeLabel = `Personality vibe · ${compat.vibe === 'great' ? 'Great' : compat.vibe === 'spicy' ? 'Spicy, take it slow' : 'Good potential'}`;
   const headline = variant === 'same' ? `${otherName} is a ${type.name.replace(/^The /, '')} too` : type.name;
 
   return (
@@ -62,14 +65,14 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
           <Text style={styles.tagline}>{type.tagline}</Text>
         </View>
       </View>
-      <Text style={styles.blurb}>{type.blurb}</Text>
+      {!compact && <Text style={styles.blurb}>{type.blurb}</Text>}
 
       <View style={styles.rule} />
-      <Text style={styles.sectionTitle}>How they get along with {ownName}</Text>
+      {!compact && <Text style={styles.sectionTitle}>How they get along with {ownName}</Text>}
       <View style={[styles.vibe, compat.vibe === 'great' && { backgroundColor: colors.fit }]} accessibilityLabel={`Vibe: ${vibeLabel}`}>
         <Text style={styles.vibeText}>{vibeLabel}</Text>
       </View>
-      {reasons.map((r) => (
+      {(compact ? reasons.slice(0, 1) : reasons).map((r) => (
         <View key={r.text} style={styles.reasonRow}>
           <View style={[styles.mark, r.mark === 'good' ? { backgroundColor: colors.fit } : { backgroundColor: colors.amber }]}>
             <Text style={styles.markText}>{r.mark === 'good' ? '✓' : '!'}</Text>
@@ -77,6 +80,12 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
           <Text style={styles.reasonText}>{r.text}</Text>
         </View>
       ))}
+
+      {compact && onOpenMore && (
+        <Pressable style={styles.more} accessibilityRole="button" onPress={onOpenMore}>
+          <Text style={styles.moreText}>See how they get along with {ownName} ›</Text>
+        </Pressable>
+      )}
 
       {showTease && hidden > 0 && (
         <View style={styles.tease} accessible accessibilityLabel={`${hidden} Dogtypes still hidden. Each new match could uncover the next one.`}>
@@ -155,6 +164,8 @@ const styles = StyleSheet.create({
   },
   markText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
   reasonText: { flex: 1, fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
+  more: { minHeight: 40, justifyContent: 'center' },
+  moreText: { fontFamily: fonts.black, fontSize: 14, color: colors.rose },
   tease: { marginTop: 4, backgroundColor: colors.note, borderWidth: 2, borderColor: colors.ink, borderRadius: 18, padding: 14, gap: 8 },
   teaseTop: { flexDirection: 'row', alignItems: 'baseline' },
   teaseTitle: { flex: 1, fontFamily: fonts.display, fontSize: 19, color: colors.ink },
