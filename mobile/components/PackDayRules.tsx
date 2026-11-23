@@ -1,12 +1,14 @@
 // mobile/components/PackDayRules.tsx
-// The Pack Day house rules, shown verbatim from shared/packDay.ts, with the
-// "I'll follow these" toggle that hosting and joining both require. The
-// callables refuse without acceptedRules, so the toggle gates the button.
+// The Pack Day house rules, shown verbatim from shared/packDay.ts as a calm
+// slip, with the "I'll follow these" toggle that hosting and joining both
+// require. The callables refuse without acceptedRules, so the toggle gates the
+// button. Sits inside a paper card supplied by the screen.
 
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
-import { PACK_DAY_RULES } from '../../shared/packDay';
+import { colors, fonts } from '../constants/theme';
+import { RulesSlip } from './pack/flyer';
+import { Glyph, ink, paper } from './pack/kit';
 
 interface Props {
   accepted: boolean;
@@ -22,24 +24,17 @@ interface Props {
 export default function PackDayRules({ accepted, onChange, agreeLabel, footer, children }: Props) {
   return (
     <View style={styles.box}>
-      <Text style={styles.heading}>House rules</Text>
-      <View style={styles.list}>
-        {PACK_DAY_RULES.map((rule) => (
-          <View key={rule} style={styles.ruleRow}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.ruleText}>{rule}</Text>
-          </View>
-        ))}
-      </View>
+      <RulesSlip />
       <Pressable
         style={styles.agreeRow}
         onPress={() => onChange(!accepted)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: accepted }}
+        accessibilityLabel={agreeLabel}
         hitSlop={6}
       >
         <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
-          {accepted && <Text style={styles.checkboxMark}>✓</Text>}
+          {accepted && <Glyph name="check-bold" size={16} color={paper} />}
         </View>
         <Text style={styles.agreeText}>{agreeLabel}</Text>
       </Pressable>
@@ -50,33 +45,18 @@ export default function PackDayRules({ accepted, onChange, agreeLabel, footer, c
 }
 
 const styles = StyleSheet.create({
-  box: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  heading: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  list: { gap: 6 },
-  ruleRow: { flexDirection: 'row', gap: 8 },
-  bullet: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brownMid },
-  ruleText: { flex: 1, fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brownMid },
-  agreeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  box: { gap: 12 },
+  agreeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.brownLight,
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: ink,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
-    marginTop: 1,
+    backgroundColor: paper,
   },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkboxMark: { color: colors.white, fontSize: 14, fontFamily: fonts.bold },
-  agreeText: { flex: 1, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.brown },
+  checkboxChecked: { backgroundColor: ink },
+  agreeText: { flex: 1, fontFamily: fonts.black, fontSize: 15, lineHeight: 21, color: colors.ink },
 });

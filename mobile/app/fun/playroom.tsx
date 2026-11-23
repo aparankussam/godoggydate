@@ -9,8 +9,9 @@
 // an explicit tap, so an idle Playroom costs nothing.
 
 import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { colors, fonts } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, PinkButton, card, type GlyphName } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { trackEvent } from '../../lib/analytics';
 import RoastSection from '../../components/RoastSection';
@@ -20,18 +21,22 @@ import HumanReviewSection from '../../components/HumanReviewSection';
 import DogQuizSection from '../../components/DogQuizSection';
 import PlaqueCard from '../../components/PlaqueCard';
 
+const TOYS: { key: string; glyph: GlyphName; label: string; route: Href }[] = [
+  { key: 'snoot', glyph: 'gesture-tap', label: 'Snoot Boop', route: '/fun/snoot' },
+  { key: 'sticker-studio', glyph: 'sticker-emoji', label: 'Sticker Studio', route: '/fun/sticker-studio' },
+  { key: 'barkle', glyph: 'grid', label: 'Barkle', route: '/fun/barkle' },
+  { key: 'wanted', glyph: 'card-account-details-star', label: 'Wanted Poster', route: '/fun/wanted' },
+  { key: 'adventures', glyph: 'map-marker-path', label: 'Adventure Passport', route: '/fun/adventures' },
+  { key: 'excuse', glyph: 'note-edit', label: 'Excuse Note', route: '/fun/excuse' },
+];
+
 export default function PlayroomScreen() {
   const { user, profile } = useSession();
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>The Playroom 🎉</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <Gingham />
+      <BackHeader title="The Playroom" onBack={() => router.back()} />
 
       {profile && user ? (
         <ScrollView contentContainerStyle={styles.content}>
@@ -43,22 +48,15 @@ export default function PlayroomScreen() {
           {/* Quick-links to the standalone toys/games (mirrors web's Playroom
               chips). The generators below render inline on this screen. */}
           <View style={styles.quickLinks}>
-            {[
-              { key: 'snoot', emoji: '🐽', label: 'Snoot Boop', route: '/fun/snoot' },
-              { key: 'sticker-studio', emoji: '🎨', label: 'Sticker Studio', route: '/fun/sticker-studio' },
-              { key: 'barkle', emoji: '🟩', label: 'Barkle', route: '/fun/barkle' },
-              { key: 'wanted', emoji: '🤠', label: 'Wanted Poster', route: '/fun/wanted' },
-              { key: 'adventures', emoji: '🗺️', label: 'Adventure Passport', route: '/fun/adventures' },
-              { key: 'excuse', emoji: '📜', label: 'Excuse Note', route: '/fun/excuse' },
-            ].map((t) => (
+            {TOYS.map((t) => (
               <Pressable
                 key={t.key}
-                style={styles.quickLink}
+                style={({ pressed }) => [styles.quickLink, pressed && styles.pressed]}
                 accessibilityRole="button"
                 accessibilityLabel={t.label}
                 onPress={() => { trackEvent('fun_open', { feature: t.key }); router.push(t.route); }}
               >
-                <Text style={styles.quickLinkEmoji} accessibilityElementsHidden importantForAccessibility="no">{t.emoji}</Text>
+                <View style={styles.quickLinkIcon}><Glyph name={t.glyph} size={22} /></View>
                 <Text style={styles.quickLinkLabel}>{t.label}</Text>
               </Pressable>
             ))}
@@ -73,11 +71,9 @@ export default function PlayroomScreen() {
         </ScrollView>
       ) : (
         <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>🐶</Text>
+          <View style={styles.emptyIcon}><Glyph name="paw" size={40} /></View>
           <Text style={styles.emptyText}>Set up your dog&apos;s profile first — the Playroom is built from it.</Text>
-          <Pressable style={styles.primaryButton} onPress={() => router.replace('/(tabs)/profile')}>
-            <Text style={styles.primaryText}>Go to profile</Text>
-          </Pressable>
+          <PinkButton label="Go to profile" onPress={() => router.replace('/(tabs)/profile')} style={styles.primaryButton} />
         </View>
       )}
     </SafeAreaView>
@@ -85,36 +81,43 @@ export default function PlayroomScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  back: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary, width: 48 },
-  headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
-  content: { padding: 16, paddingBottom: 40, gap: 16 },
-  intro: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  container: { flex: 1, backgroundColor: colors.sky },
+  content: { padding: 16, paddingTop: 4, paddingBottom: 40, gap: 18 },
+  intro: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink, lineHeight: 21 },
   quickLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   quickLink: {
     flexBasis: '30%',
     flexGrow: 1,
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    ...card.paper,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     alignItems: 'center',
     gap: 6,
   },
-  quickLinkEmoji: { fontSize: 26 },
-  quickLinkLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown, textAlign: 'center' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
-  emptyEmoji: { fontSize: 52 },
-  emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.brownLight, textAlign: 'center', lineHeight: 21 },
-  primaryButton: { marginTop: 8, backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 28 },
-  primaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  pressed: { transform: [{ translateY: 1 }], opacity: 0.92 },
+  quickLinkIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.note,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLinkLabel: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, textAlign: 'center' },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  emptyIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink, textAlign: 'center', lineHeight: 21 },
+  primaryButton: { marginTop: 8, alignSelf: 'stretch' },
 });

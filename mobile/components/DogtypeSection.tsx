@@ -7,7 +7,8 @@
 
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { colors, fonts, radius, shadow, secondaryButton } from '../constants/theme';
+import { Glyph, poleGlyph } from './pack/kit';
 import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
 import { webUrl } from '../lib/webLinks';
@@ -83,7 +84,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>Dogtype</Text>
-          <Text style={styles.title}>{dogtype.emoji} {dogtype.name}</Text>
+          <Text style={styles.title}>{dogtype.name}</Text>
         </View>
       </View>
 
@@ -94,7 +95,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
       <View style={styles.traitChips}>
         {dogtype.axes.map((a) => (
           <View key={a.key} style={styles.traitChip}>
-            <Text style={styles.traitChipEmoji}>{a.pole.emoji}</Text>
+            <Glyph name={poleGlyph(a.pole.label)} size={16} />
             <Text style={styles.traitChipLabel}>{a.pole.label}</Text>
           </View>
         ))}
@@ -113,7 +114,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
         onPress={handleShare}
         disabled={sharing}
       >
-        <Text style={styles.shareText}>{sharing ? 'Preparing…' : `📤 Share ${dogName}'s Dogtype`}</Text>
+        <Text style={styles.shareText}>{sharing ? 'Preparing…' : `Share ${dogName}'s Dogtype`}</Text>
       </Pressable>
 
       <Pressable
@@ -123,7 +124,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
         accessibilityRole="button"
         accessibilityHint="Shares a tall image sized for Instagram, TikTok and Snapchat stories"
       >
-        <Text style={styles.storyText}>{sharingStory ? 'Preparing…' : '📱 Share as Story'}</Text>
+        <Text style={styles.storyText}>{sharingStory ? 'Preparing…' : 'Share as Story'}</Text>
       </Pressable>
 
       {/* "Plays well with" now lives in the CompatExplorer (tap-to-reveal +
@@ -138,7 +139,7 @@ export default function DogtypeSection({ savedProfile }: Props) {
           {dogtype.axes.map((a) => (
             <View key={a.key} style={styles.axisRow}>
               <Text style={styles.axisName}>{a.axis}</Text>
-              <Text style={styles.axisPole}>{a.pole.emoji} {a.pole.label}</Text>
+              <Text style={styles.axisPole}>{a.pole.label}</Text>
               <Text style={styles.axisOther}>over {a.other.label}</Text>
             </View>
           ))}
@@ -165,22 +166,21 @@ export default function DogtypeSection({ savedProfile }: Props) {
 const styles = StyleSheet.create({
   section: {
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: `${colors.gold}4D`, // ~30%
-    backgroundColor: `${colors.gold}14`, // ~8%
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     padding: 18,
     marginBottom: 16,
+    ...shadow.card,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   title: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginTop: 1 },
-  blurb: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  blurb: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
   traitChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   traitChip: {
     flexDirection: 'row',
@@ -188,13 +188,13 @@ const styles = StyleSheet.create({
     gap: 4,
     borderRadius: radius.full,
     backgroundColor: colors.cream,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   traitChipEmoji: { fontSize: 12 },
-  traitChipLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown },
+  traitChipLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown },
   cardScaleWrap: {
     height: 520, // 604 card height * 0.82 scale, leaving no dead space
     alignItems: 'center',
@@ -204,56 +204,56 @@ const styles = StyleSheet.create({
   },
   cardScale: { transform: [{ scale: 0.82 }], transformOrigin: 'top' },
   shareButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 4,
     ...shadow.button,
   },
-  shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  shareText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   storyButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
     paddingVertical: 13,
     alignItems: 'center',
     marginTop: 10,
   },
-  storyText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
+  storyText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
   // Far off to the side (as web does) rather than above: this section sits deep
   // in the profile's scroll content, where a negative top could land on screen.
   offscreen: { position: 'absolute', left: -10000, top: 0 },
   playsWith: {
     marginTop: 14,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.creamDark,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  playsWithTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.brown },
-  playsWithList: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownMid, marginTop: 4 },
-  playsWithNote: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 6, lineHeight: 15 },
+  playsWithTitle: { fontFamily: fonts.black, fontSize: 13, color: colors.brown },
+  playsWithList: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, marginTop: 4 },
+  playsWithNote: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 6, lineHeight: 15 },
   disclosureToggle: {
-    fontFamily: fonts.bold,
+    fontFamily: fonts.black,
     fontSize: 12,
-    color: colors.primary,
+    color: colors.rose,
     marginTop: 12,
   },
   axesList: { marginTop: 8, gap: 8 },
   axisRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   axisName: {
     width: 84,
-    fontFamily: fonts.bold,
-    fontSize: 10,
-    color: colors.brownLight,
+    fontFamily: fonts.black,
+    fontSize: 12,
+    color: colors.brownMid,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  axisPole: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
-  axisOther: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
-  axesNote: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, lineHeight: 15, marginTop: 2 },
+  axisPole: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
+  axisOther: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  axesNote: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, lineHeight: 15, marginTop: 2 },
 });

@@ -8,6 +8,7 @@ import { Alert, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text,
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, PinkButton, card } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
@@ -88,13 +89,8 @@ export default function AdventuresScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Adventure Passport</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <Gingham />
+      <BackHeader title="Adventure Passport" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.progressCard}>
@@ -117,16 +113,14 @@ export default function AdventuresScreen() {
                 <Text style={styles.questBlurb}>{a.blurb}</Text>
               </View>
               <View style={[styles.stampBtn, done && styles.stampBtnDone]}>
-                <Text style={[styles.stampBtnText, done && styles.stampBtnTextDone]}>{done ? '✓' : 'STAMP'}</Text>
+                {done ? <Glyph name="check-bold" size={16} color={colors.cream} /> : <Text style={styles.stampBtnText}>Stamp</Text>}
               </View>
             </Pressable>
           );
         })}
 
-        <Pressable style={[styles.shareButton, sharing && { opacity: 0.6 }]} onPress={sharePassport} disabled={sharing}>
-          <Text style={styles.shareText}>{sharing ? 'Rendering…' : '📤 Share the passport'}</Text>
-        </Pressable>
-        <Text style={styles.disclaimer}>Your own checklist — stamp a quest when you and {dogName} pull it off. 🐾</Text>
+        <PinkButton label={sharing ? 'Rendering…' : 'Share the passport'} icon="export-variant" onPress={sharePassport} busy={sharing} style={styles.shareButton} />
+        <Text style={styles.disclaimer}>Your own checklist — stamp a quest when you and {dogName} pull it off.</Text>
       </ScrollView>
 
       {/* "STAMPED!" toast */}
@@ -152,7 +146,7 @@ export default function AdventuresScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -160,72 +154,65 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  back: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary, width: 48 },
+  back: { fontFamily: fonts.bold, fontSize: 16, color: colors.rose, width: 48 },
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   content: { padding: 20, paddingBottom: 40, gap: 10 },
   progressCard: {
-    backgroundColor: colors.brown,
-    borderRadius: radius.xl,
+    ...card.paper,
     padding: 20,
-    marginBottom: 6,
-    ...shadow.card,
+    marginBottom: 8,
   },
-  progressBig: { fontFamily: fonts.display, fontSize: 44, color: colors.gold },
-  progressOf: { fontFamily: fonts.display, fontSize: 22, color: 'rgba(255,255,255,0.6)' },
-  progressLabel: { fontFamily: fonts.body, fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  progressTrack: { height: 8, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.15)', overflow: 'hidden', marginTop: 12 },
-  progressFill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.gold },
+  progressBig: { fontFamily: fonts.display, fontSize: 44, color: colors.ink },
+  progressOf: { fontFamily: fonts.display, fontSize: 22, color: colors.brownMid },
+  progressLabel: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, marginTop: 2 },
+  progressTrack: { height: 12, borderRadius: radius.full, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream, overflow: 'hidden', marginTop: 12 },
+  progressFill: { height: '100%', backgroundColor: colors.ink },
   quest: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.lg,
     padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
-  questDone: { backgroundColor: '#F1F8F2', borderColor: '#BFE3C6' },
+  questDone: { backgroundColor: colors.note },
   questEmojiWrap: {
     width: 46, height: 46, borderRadius: 23,
-    backgroundColor: colors.cream,
+    borderWidth: 2, borderColor: colors.ink,
+    backgroundColor: colors.note,
     alignItems: 'center', justifyContent: 'center',
   },
-  questEmojiWrapDone: { backgroundColor: '#DDF0E1' },
+  questEmojiWrapDone: { backgroundColor: colors.cream },
   questEmoji: { fontSize: 24 },
-  questTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
-  questTitleDone: { color: '#2C6E3F' },
-  questBlurb: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 1, lineHeight: 16 },
+  questTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.brown },
+  questTitleDone: { color: colors.ink },
+  questBlurb: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, marginTop: 1, lineHeight: 16 },
   stampBtn: {
+    minWidth: 64,
+    alignItems: 'center',
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.ink,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  stampBtnDone: { backgroundColor: '#2C6E3F', borderColor: '#2C6E3F' },
-  stampBtnText: { fontFamily: fonts.bold, fontSize: 11, color: colors.primary, letterSpacing: 0.5 },
-  stampBtnTextDone: { color: '#fff', fontSize: 14 },
-  shareButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 10,
-    ...shadow.button,
-  },
-  shareText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
-  disclaimer: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, textAlign: 'center', lineHeight: 17, marginTop: 2 },
+  stampBtnDone: { backgroundColor: colors.ink },
+  stampBtnText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  shareButton: { marginTop: 10 },
+  disclaimer: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center', lineHeight: 17, marginTop: 2 },
   toast: {
     position: 'absolute',
     top: '45%',
     alignSelf: 'center',
-    backgroundColor: colors.brown,
+    backgroundColor: colors.ink,
     borderRadius: radius.full,
     paddingHorizontal: 28,
     paddingVertical: 14,
     ...shadow.card,
   },
-  toastText: { fontFamily: fonts.display, fontSize: 22, color: colors.gold },
+  toastText: { fontFamily: fonts.display, fontSize: 22, color: colors.cream },
   offscreen: { position: 'absolute', top: -2000, left: 0 },
 });

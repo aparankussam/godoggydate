@@ -8,6 +8,7 @@
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, shadow } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { computeLifeStage } from '../../shared/lifeStage';
 import type { SavedDogProfile } from '../lib/profile';
 
@@ -29,12 +30,12 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
   if (!read) {
     return (
       <View style={styles.nudgeCard}>
-        <Text style={styles.nudgeTitle}>🎂 {name}&apos;s life stage</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="cake-variant" size={20} /><Text style={[styles.nudgeTitle, { flexShrink: 1 }]}>{name}&apos;s life stage</Text></View>
         <Text style={styles.nudgeBody}>
           Add {name}&apos;s birth year and we&apos;ll show where they are in their life, and what this stage needs.
         </Text>
         {onEditProfile && (
-          <Pressable onPress={onEditProfile}>
+          <Pressable onPress={onEditProfile} accessibilityRole="link" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
             <Text style={styles.nudgeLink}>Add birth year</Text>
           </Pressable>
         )}
@@ -54,7 +55,7 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
         <View style={styles.topRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.eyebrow}>Life stage</Text>
-            <Text style={styles.stage}>{read.stageEmoji} {read.stageLabel}</Text>
+            <Text style={styles.stage}>{read.stageLabel}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.age}>{yearsLabel}</Text>
@@ -95,54 +96,56 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
+    borderWidth: 2,
+    borderColor: colors.ink,
     overflow: 'hidden',
-    marginBottom: 16,
-    ...shadow.card,
+    marginBottom: 20,
   },
   body: { paddingHorizontal: 18, paddingVertical: 16 },
   topRow: { flexDirection: 'row', alignItems: 'flex-start' },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.4,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.brownMid,
   },
-  stage: { fontFamily: fonts.display, fontSize: 24, color: colors.brown, marginTop: 1 },
-  age: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
-  humanYears: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 1 },
-  blurb: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 8 },
+  stage: { fontFamily: fonts.display, fontSize: 28, color: colors.ink, marginTop: 1 },
+  age: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  humanYears: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 1 },
+  blurb: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 8 },
   track: {
-    height: 8,
+    height: 14,
     borderRadius: radius.full,
-    backgroundColor: colors.creamDark,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     overflow: 'hidden',
     marginTop: 12,
   },
-  fill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.gold },
-  note: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, lineHeight: 16, marginTop: 6 },
-  noteStrong: { fontFamily: fonts.bold, color: colors.brownMid },
+  fill: { height: '100%', backgroundColor: colors.ink },
+  note: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, lineHeight: 18, marginTop: 8 },
+  noteStrong: { fontFamily: fonts.black, color: colors.ink },
   focusRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: `${colors.creamDark}4D`,
+    borderTopWidth: 2,
+    borderTopColor: colors.ink,
+    backgroundColor: colors.creamDark,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
-  focusText: { fontFamily: fonts.body, fontSize: 12, color: colors.brownMid, lineHeight: 18 },
-  focusStrong: { fontFamily: fonts.bold, color: colors.brown },
+  focusText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink, lineHeight: 19 },
+  focusStrong: { fontFamily: fonts.black, color: colors.brown },
   nudgeCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
     paddingHorizontal: 18,
     paddingVertical: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    ...shadow.card,
   },
-  nudgeTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  nudgeBody: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, lineHeight: 18, marginTop: 4 },
-  nudgeLink: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginTop: 8 },
+  nudgeTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  nudgeBody: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
+  nudgeLink: { fontFamily: fonts.black, fontSize: 15, color: colors.ink, textDecorationLine: 'underline', marginTop: 8 },
 });

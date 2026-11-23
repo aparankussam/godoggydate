@@ -23,9 +23,10 @@ import {
   View,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { colors, fonts } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, Heading, Paper, PaperButton, PinkButton, Slip, type } from '../../components/pack/kit';
+import { FlyerFacts, GoingTokens, RulesSlip } from '../../components/pack/flyer';
 import { useSession } from '../../lib/session';
 import {
   cancelPackDay,
@@ -43,7 +44,6 @@ import { playdateSafetyUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
 import PackDayRules from '../../components/PackDayRules';
 import {
-  PACK_DAY_FORMATS,
   formatPackDayWhen,
   isPast,
   mapsSearchUrl,
@@ -192,31 +192,34 @@ export default function PackDayScreen() {
   }
 
   const header = (showReport: boolean) => (
-    <View style={styles.header}>
-      <Pressable style={styles.backBtn} onPress={goToList} accessibilityRole="button" accessibilityLabel="Back to Pack Days">
-        <Text style={styles.backText}>‹</Text>
-      </Pressable>
-      <Text style={styles.headerTitle} numberOfLines={1}>Pack Day</Text>
-      {showReport && (
-        <Pressable
-          style={styles.reportBtn}
-          onPress={handleReport}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Report or block the host"
-        >
-          <Text style={styles.reportBtnText}>Report</Text>
-        </Pressable>
-      )}
-    </View>
+    <BackHeader
+      title="Pack Day"
+      onBack={goToList}
+      backLabel="Back to Pack Days"
+      right={
+        showReport ? (
+          <Pressable
+            style={styles.reportBtn}
+            onPress={handleReport}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Report or block the host"
+          >
+            <Glyph name="flag" size={18} />
+            <Text style={styles.reportBtnText}>Report</Text>
+          </Pressable>
+        ) : undefined
+      }
+    />
   );
 
   if (sessionLoading || (user && loadState === 'loading')) {
     return (
       <SafeAreaView style={styles.container}>
+        <Gingham />
         {header(false)}
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.ink} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -225,13 +228,12 @@ export default function PackDayScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
+        <Gingham />
         {header(false)}
         <View style={styles.center}>
-          <Text style={styles.gateEmoji}>🌳</Text>
-          <Text style={styles.gateTitle}>Sign in to see this Pack Day</Text>
-          <Pressable style={styles.primaryBtn} onPress={() => router.replace('/welcome')}>
-            <Text style={styles.primaryBtnText}>Sign in or sign up</Text>
-          </Pressable>
+          <View style={styles.gateIcon}><Glyph name="tree" size={40} /></View>
+          <Heading size={26} style={styles.gateTitle}>Sign in to see this Pack Day</Heading>
+          <PinkButton label="Sign in or sign up" onPress={() => router.replace('/welcome')} style={styles.gateBtn} />
         </View>
       </SafeAreaView>
     );
@@ -240,26 +242,25 @@ export default function PackDayScreen() {
   if (loadState === 'missing' || loadState === 'error' || !event) {
     return (
       <SafeAreaView style={styles.container}>
+        <Gingham />
         {header(false)}
         <View style={styles.center}>
-          <Text style={styles.gateEmoji}>🐕</Text>
-          <Text style={styles.gateTitle}>
+          <View style={styles.gateIcon}><Glyph name={loadState === 'error' ? 'wifi-off' : 'tree'} size={40} /></View>
+          <Heading size={24} style={styles.gateTitle}>
             {loadState === 'error' ? 'We couldn’t load this Pack Day' : 'This Pack Day isn’t here anymore'}
-          </Text>
+          </Heading>
           {loadState === 'error' && (
-            <Pressable
-              style={[styles.secondaryBtn, styles.gateSecondary]}
+            <PaperButton
+              label="Try again"
+              icon="refresh"
+              style={[styles.gateBtn, styles.gateSecondary]}
               onPress={() => {
                 setLoadState('loading');
                 void reload();
               }}
-            >
-              <Text style={styles.secondaryBtnText}>Try again</Text>
-            </Pressable>
+            />
           )}
-          <Pressable style={styles.primaryBtn} onPress={() => router.replace('/(tabs)/pack')}>
-            <Text style={styles.primaryBtnText}>See Pack Days</Text>
-          </Pressable>
+          <PinkButton label="See Pack Days" onPress={() => router.replace('/(tabs)/pack')} style={styles.gateBtn} />
         </View>
       </SafeAreaView>
     );
@@ -271,300 +272,160 @@ export default function PackDayScreen() {
   const cancelled = event.status === 'cancelled';
   const over = isPast(event, Date.now());
   const live = !cancelled && !over;
-  const left = spotsLeft(event);
-  const format = PACK_DAY_FORMATS[event.format] ?? PACK_DAY_FORMATS['pack-walk'];
   const visibleAttendees = attendees.filter((a) => !blocked.has(a.uid));
   const dogName = profile?.name?.trim() || 'my dog';
+  const canJoin = live && !going;
 
   return (
     <SafeAreaView style={styles.container}>
+      <Gingham />
       {header(!isHost)}
 
       <ScrollView contentContainerStyle={styles.content}>
         {justCreated && isHost && live && (
-          <View style={[styles.banner, styles.bannerSuccess]}>
-            <Text style={styles.bannerSuccessText}>
-              Your Pack Day is live. Share the link with neighbors. Six dogs makes a great one. 🎉
-            </Text>
-          </View>
+          <Slip tone="ok" icon="party-popper">
+            Your Pack Day is live. Share the link with neighbors. Six dogs makes a great one.
+          </Slip>
         )}
-        {cancelled && (
-          <View style={[styles.banner, styles.bannerDanger]}>
-            <Text style={styles.bannerDangerText}>This Pack Day was cancelled.</Text>
-          </View>
-        )}
-        {!cancelled && over && (
-          <View style={[styles.banner, styles.bannerMuted]}>
-            <Text style={styles.bannerMutedText}>This Pack Day is over.</Text>
-          </View>
-        )}
+        {cancelled && <Slip icon="calendar-remove">This Pack Day was cancelled.</Slip>}
+        {!cancelled && over && <Slip icon="calendar-check">This Pack Day is over.</Slip>}
 
-        {/* ── Details ──────────────────────────────────────────────────── */}
-        <View style={styles.card}>
-          <LinearGradient
-            colors={[`${colors.primary}26`, `${colors.gold}26`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cardHead}
-          >
-            <Text style={styles.eyebrow}>
-              {event.official ? '⭐ Official · ' : ''}{format.emoji} {format.label}
-            </Text>
-            <Text style={styles.eventTitle}>{event.title}</Text>
-          </LinearGradient>
-          <View style={styles.cardBody}>
-            <Text style={styles.when}>📅 {formatPackDayWhen(event)} · {event.durationMinutes} min</Text>
-            <Text style={styles.where}>
-              📍 <Text style={styles.whereName}>{event.placeName}</Text>, {event.city}
-              {event.state ? `, ${event.state}` : ''}
-            </Text>
-            <Pressable
-              style={styles.mapBtn}
-              onPress={() => {
-                trackEvent('packday_map', { eventId });
-                openUrl(mapsSearchUrl(event), 'Maps');
-              }}
-              accessibilityRole="link"
-            >
-              <Text style={styles.mapBtnText}>Open in Maps ↗</Text>
-            </Pressable>
-            <Text style={styles.blurb}>{format.blurb}</Text>
-            {!!event.note && <Text style={styles.note}>“{event.note}”</Text>}
-            <Text style={styles.host}>Hosted by {event.hostDogName || 'a neighbor'}’s human</Text>
-          </View>
-        </View>
+        {/* ── The flyer ─────────────────────────────────────────────────── */}
+        <Paper tape style={styles.flyer}>
+          <FlyerFacts
+            event={event}
+            onMap={() => {
+              trackEvent('packday_map', { eventId });
+              openUrl(mapsSearchUrl(event), 'Maps');
+            }}
+          />
+          <GoingTokens capacity={event.capacity} count={event.attendeeUids.length} status={event.status} />
+          {!canJoin && <View style={styles.flyerRules}><RulesSlip /></View>}
+        </Paper>
 
-        {/* ── Who's going ──────────────────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>
-            {event.attendeeUids.length} of {event.capacity} dogs going
-            {left === 0 ? ' · Full' : live ? ` · ${left} spot${left === 1 ? '' : 's'} left` : ''}
-          </Text>
-          <View style={styles.attendeeGrid}>
-            {visibleAttendees.map((a) => (
-              <View key={a.uid} style={styles.attendee}>
-                {a.photo ? (
-                  <Image source={{ uri: a.photo }} style={styles.attendeePhoto} accessibilityLabel={a.name} />
-                ) : (
-                  <View style={[styles.attendeePhoto, styles.attendeeFallback]}>
-                    <Text style={styles.attendeeEmoji}>🐕</Text>
+        {/* ── Who's going (members only; a cancelled event shows no head count) ── */}
+        {!cancelled && visibleAttendees.length > 0 && (
+          <View style={styles.section}>
+            <Heading size={22}>Who’s going</Heading>
+            <View style={styles.attendeeGrid}>
+              {visibleAttendees.map((a) => (
+                <View key={a.uid} style={styles.attendee}>
+                  {a.photo ? (
+                    <Image source={{ uri: a.photo }} style={styles.attendeePhoto} accessibilityLabel={a.name} />
+                  ) : (
+                    <View style={[styles.attendeePhoto, styles.attendeeFallback]}>
+                      <Glyph name="paw" size={32} />
+                    </View>
+                  )}
+                  <View style={styles.attendeeNameRow}>
+                    {a.founding && <Glyph name="star" size={13} />}
+                    <Text style={styles.attendeeName} numberOfLines={1}>{a.name}</Text>
                   </View>
-                )}
-                <Text style={styles.attendeeName} numberOfLines={1}>
-                  {a.founding ? '⭐ ' : ''}{a.name}
-                </Text>
-              </View>
-            ))}
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* ── Actions ──────────────────────────────────────────────────── */}
-        {message && (
-          <View style={[styles.banner, styles.bannerOk]} accessibilityLiveRegion="polite">
-            <Text style={styles.bannerOkText}>{message}</Text>
-          </View>
-        )}
-        {error && (
-          <View style={[styles.banner, styles.bannerDanger]} accessibilityRole="alert">
-            <Text style={styles.bannerDangerText}>{error}</Text>
-          </View>
-        )}
+        {message && <Slip tone="ok" live>{message}</Slip>}
+        {error && <Slip tone="error">{error}</Slip>}
 
-        {live && !going && (
+        {canJoin && (
           !profileComplete ? (
-            <View style={styles.joinBox}>
-              <Text style={styles.joinText}>Add your dog’s profile to save a spot.</Text>
-              <Pressable style={styles.primaryBtn} onPress={() => router.push('/(tabs)/profile')}>
-                <Text style={styles.primaryBtnText}>Set up my dog</Text>
-              </Pressable>
-            </View>
-          ) : left === 0 ? (
-            <View style={styles.joinBox}>
-              <Text style={styles.joinFull}>This Pack Day is full.</Text>
-            </View>
+            <Paper style={styles.joinBox}>
+              <Text style={type.body}>Add your dog’s profile to save a spot.</Text>
+              <PinkButton label="Set up my dog" onPress={() => router.push('/(tabs)/profile')} />
+            </Paper>
+          ) : spotsLeft(event) === 0 ? (
+            <Paper style={styles.joinBox}>
+              <Text style={type.strong}>This Pack Day is full.</Text>
+            </Paper>
           ) : (
-            <PackDayRules
-              accepted={accepted}
-              onChange={setAccepted}
-              agreeLabel="I’ll follow these rules."
-              footer={
-                <Text style={styles.smallPrint}>
-                  GoDoggyDate doesn’t verify dogs or owners. Read the{' '}
-                  <Text style={styles.smallPrintLink} onPress={() => openUrl(playdateSafetyUrl(), 'the guide')}>
-                    first-meeting guide
+            <Paper style={styles.joinBox}>
+              <PackDayRules
+                accepted={accepted}
+                onChange={setAccepted}
+                agreeLabel="I’ll follow these rules."
+                footer={
+                  <Text style={styles.smallPrint}>
+                    GoDoggyDate doesn’t verify dogs or owners. Read the{' '}
+                    <Text style={styles.smallPrintLink} onPress={() => openUrl(playdateSafetyUrl(), 'the guide')}>
+                      first-meeting guide
+                    </Text>
+                    .
                   </Text>
-                  .
-                </Text>
-              }
-            >
-              <Pressable
-                style={[styles.primaryBtn, (busy || !accepted) && styles.disabled]}
-                onPress={handleJoin}
-                disabled={busy || !accepted}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: busy || !accepted }}
+                }
               >
-                <Text style={styles.primaryBtnText}>{busy ? 'Saving…' : `I’m in, ${dogName} too 🐾`}</Text>
-              </Pressable>
-            </PackDayRules>
+                <PinkButton
+                  label={busy ? 'Saving…' : `I’m in, ${dogName} too`}
+                  icon="paw"
+                  onPress={handleJoin}
+                  disabled={busy || !accepted}
+                />
+              </PackDayRules>
+            </Paper>
           )
         )}
 
-        <View style={styles.actionRow}>
-          {live && (
-            <Pressable style={styles.secondaryBtn} onPress={() => void handleShare()}>
-              <Text style={styles.secondaryBtnText}>Share 🔗</Text>
-            </Pressable>
-          )}
-          {live && going && (
-            <Pressable style={styles.secondaryBtn} onPress={() => void handleSaveTheDate()}>
-              <Text style={styles.secondaryBtnText}>Save the date 📅</Text>
-            </Pressable>
-          )}
-          {live && going && !isHost && (
-            <Pressable style={[styles.secondaryBtn, busy && styles.disabled]} onPress={handleLeave} disabled={busy}>
-              <Text style={styles.secondaryBtnText}>Can’t make it</Text>
-            </Pressable>
-          )}
-          {live && isHost && (
-            <Pressable style={[styles.dangerBtn, busy && styles.disabled]} onPress={handleCancel} disabled={busy}>
-              <Text style={styles.dangerBtnText}>Cancel Pack Day</Text>
-            </Pressable>
-          )}
-        </View>
+        {live && (
+          <View style={styles.actionRow}>
+            <PaperButton small label="Share" icon="export-variant" onPress={() => void handleShare()} style={styles.actionBtn} />
+            {going && (
+              <PaperButton small label="Save the date" icon="calendar-month" onPress={() => void handleSaveTheDate()} style={styles.actionBtn} />
+            )}
+            {going && !isHost && (
+              <PaperButton small label="Can’t make it" onPress={handleLeave} disabled={busy} style={styles.actionBtn} />
+            )}
+            {isHost && (
+              <PaperButton small label="Cancel Pack Day" icon="close" onPress={handleCancel} disabled={busy} style={styles.actionBtn} />
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  gateEmoji: { fontSize: 56, marginBottom: 12 },
-  gateTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginBottom: 16, textAlign: 'center' },
-  gateSecondary: { marginBottom: 10 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)', backgroundColor: colors.cream,
+  gateIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 28, color: colors.brownLight, marginTop: -2 },
-  headerTitle: { flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: colors.brown, marginLeft: 4 },
-  reportBtn: { paddingHorizontal: 8, paddingVertical: 6 },
-  reportBtnText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownLight },
-  content: { padding: 16, paddingBottom: 48, gap: 16 },
-  banner: { borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12 },
-  bannerSuccess: { backgroundColor: `${colors.primary}1A` },
-  bannerSuccessText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.brown },
-  bannerDanger: { backgroundColor: '#FEF2F2' },
-  bannerDangerText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: '#B91C1C' },
-  bannerMuted: { backgroundColor: colors.creamDark },
-  bannerMutedText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.brownMid },
-  bannerOk: { backgroundColor: '#F0FDF4' },
-  bannerOkText: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: '#166534' },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    ...shadow.card,
-  },
-  cardHead: { paddingHorizontal: 18, paddingVertical: 16 },
-  eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  eventTitle: { fontFamily: fonts.display, fontSize: 24, lineHeight: 29, color: colors.brown, marginTop: 4 },
-  cardBody: { paddingHorizontal: 18, paddingVertical: 16, gap: 10 },
-  when: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
-  where: { fontFamily: fonts.body, fontSize: 15, lineHeight: 21, color: colors.brown },
-  whereName: { fontFamily: fonts.semibold },
-  mapBtn: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    marginTop: -2,
-  },
-  mapBtnText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primary },
-  blurb: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brownMid },
-  note: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brown, fontStyle: 'italic' },
-  host: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
-  section: { gap: 10 },
-  sectionLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  attendeeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  gateTitle: { textAlign: 'center', marginBottom: 18 },
+  gateBtn: { alignSelf: 'stretch' },
+  gateSecondary: { marginBottom: 12 },
+  reportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: 6 },
+  reportBtnText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
+  content: { padding: 16, paddingTop: 8, paddingBottom: 48, gap: 18 },
+  flyer: { paddingHorizontal: 20, paddingBottom: 22 },
+  flyerRules: { marginTop: 18 },
+  section: { gap: 12 },
+  attendeeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   attendee: {
     width: '31%',
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
+    backgroundColor: colors.cream,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.ink,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  attendeePhoto: { width: '100%', height: 96, backgroundColor: colors.creamDark },
+  attendeePhoto: { width: '100%', height: 96, backgroundColor: colors.note },
   attendeeFallback: { alignItems: 'center', justifyContent: 'center' },
-  attendeeEmoji: { fontSize: 36 },
-  attendeeName: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.brown,
-    textAlign: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-  },
-  joinBox: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
-    gap: 12,
-  },
-  joinText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brownMid },
-  joinFull: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownMid },
-  smallPrint: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15, color: colors.brownLight },
-  smallPrintLink: { textDecorationLine: 'underline', color: colors.brownMid },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    alignItems: 'center',
-    ...shadow.button,
-  },
-  primaryBtnText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.full,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  secondaryBtnText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
-  dangerBtn: {
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    backgroundColor: colors.white,
-    borderRadius: radius.full,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  dangerBtnText: { fontFamily: fonts.semibold, fontSize: 14, color: '#B91C1C' },
-  disabled: { opacity: 0.6 },
+  attendeeNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 6 },
+  attendeeName: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, flexShrink: 1 },
+  joinBox: { gap: 12 },
+  smallPrint: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
+  smallPrintLink: { fontFamily: fonts.black, color: colors.ink, textDecorationLine: 'underline' },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  actionBtn: { flexGrow: 1 },
 });

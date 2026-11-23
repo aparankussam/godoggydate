@@ -8,7 +8,8 @@
 
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { colors, fonts, radius, shadow, secondaryButton } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { requestApology, CRIME_MAX_LEN, type Apology } from '../lib/apology';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
@@ -76,7 +77,7 @@ export default function ApologySection({ savedProfile }: Props) {
     <View style={styles.section}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Just for fun</Text>
-        <Text style={styles.title}>📝 {dogName}&apos;s Notes-App Apology</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="note-text" size={22} /><Text style={[styles.title, { flexShrink: 1 }]}>{dogName}&apos;s Notes-App Apology</Text></View>
         <Text style={styles.intro}>
           The celebrity non-apology, but it&apos;s a dog. Tell us what they did — {dogName} will issue a formal
           statement taking absolutely no responsibility.
@@ -129,7 +130,7 @@ export default function ApologySection({ savedProfile }: Props) {
             onPress={handleShare}
             disabled={sharing}
           >
-            <Text style={styles.secondaryText}>{sharing ? 'Preparing…' : `📤 Share ${dogName}'s statement`}</Text>
+            <Text style={styles.secondaryText}>{sharing ? 'Preparing…' : `Share ${dogName}'s statement`}</Text>
           </Pressable>
 
           <Text style={styles.disclaimer}>
@@ -145,32 +146,31 @@ export default function ApologySection({ savedProfile }: Props) {
 const styles = StyleSheet.create({
   section: {
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: `${colors.creamDark}4D`, // ~30%
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     padding: 18,
     marginBottom: 16,
+    ...shadow.card,
   },
   header: { marginBottom: 12 },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   title: { fontFamily: fonts.display, fontSize: 20, color: colors.brown, marginTop: 2 },
-  intro: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
-  label: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown, marginBottom: 6 },
+  intro: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
+  label: { fontFamily: fonts.black, fontSize: 12, color: colors.brown, marginBottom: 6 },
   input: {
     minHeight: 64,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     backgroundColor: colors.cream,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.brown,
     textAlignVertical: 'top',
@@ -181,32 +181,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 6,
   },
-  metaNote: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight },
-  metaCount: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight },
+  metaNote: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  metaCount: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
   primaryButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 12,
     ...shadow.button,
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  primaryText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   cardWrap: { alignItems: 'center', marginTop: 16 },
   secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2.5,
+    borderBottomWidth: 5,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
     paddingVertical: 13,
     alignItems: 'center',
     marginTop: 12,
   },
-  secondaryText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
+  secondaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
   disclaimer: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
     lineHeight: 16,
     textAlign: 'center',
     marginTop: 8,

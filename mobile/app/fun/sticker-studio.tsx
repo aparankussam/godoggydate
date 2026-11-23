@@ -17,6 +17,7 @@ import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, PaperButton, PinkButton } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { getHeroPhoto, getRenderablePhotos } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
@@ -159,11 +160,8 @@ export default function StickerStudioScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}><Text style={styles.back}>‹ Back</Text></Pressable>
-        <Text style={styles.headerTitle}>Sticker Studio</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <Gingham />
+      <BackHeader title="Sticker Studio" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Canvas */}
@@ -171,7 +169,7 @@ export default function StickerStudioScreen() {
           {photoUri ? (
             <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} />
           ) : (
-            <View style={[StyleSheet.absoluteFill, styles.canvasEmpty]}><Text style={{ fontSize: 72 }}>🐕</Text></View>
+            <View style={[StyleSheet.absoluteFill, styles.canvasEmpty]}><Glyph name="paw" size={72} /></View>
           )}
           {placed.map((p) => (
             <DraggableSticker key={p.key} emoji={p.emoji} startX={p.startX} startY={p.startY} onRemove={() => removePlaced(p.key)} />
@@ -208,7 +206,7 @@ export default function StickerStudioScreen() {
               accessibilityRole="button"
               accessibilityLabel="Choose a photo from your library"
             >
-              <Text style={styles.photoAddText}>+</Text>
+              <Glyph name="plus" size={28} />
             </Pressable>
           </View>
         </View>
@@ -216,11 +214,9 @@ export default function StickerStudioScreen() {
         {/* Sticker tray */}
         {stickers.length === 0 ? (
           <View style={styles.locked}>
-            <Text style={styles.lockedEmoji}>🔒</Text>
+            <Glyph name="lock" size={40} />
             <Text style={styles.lockedText}>Boop {dogName}&apos;s snoot to earn your first stickers — the first two unlock at 10 boops.</Text>
-            <Pressable style={styles.primaryButton} onPress={goBoop}>
-              <Text style={styles.primaryText}>Go boop 🐽</Text>
-            </Pressable>
+            <PinkButton label="Go boop" icon="gesture-tap" onPress={goBoop} style={styles.lockedBtn} />
           </View>
         ) : (
           <>
@@ -245,7 +241,7 @@ export default function StickerStudioScreen() {
                     accessible
                     accessibilityLabel={`Locked sticker. Unlocks at ${s.unlockAt.toLocaleString()} boops`}
                   >
-                    <Text style={[styles.trayEmoji, styles.trayEmojiLocked]}>🔒</Text>
+                    <Glyph name="lock" size={22} color={colors.brownMid} />
                     <Text style={styles.trayUnlockAt}>{s.unlockAt.toLocaleString()}</Text>
                   </View>
                 ),
@@ -263,54 +259,52 @@ export default function StickerStudioScreen() {
 
             <View style={styles.actions}>
               {placed.length > 0 && (
-                <Pressable style={[styles.secondaryButton, styles.clearButton]} onPress={() => setPlaced([])}>
-                  <Text style={styles.secondaryText}>Clear</Text>
-                </Pressable>
+                <PaperButton label="Clear" icon="eraser" onPress={() => setPlaced([])} style={styles.clearButton} />
               )}
-              <Pressable
-                style={[styles.primaryButton, styles.shareButton, sharing && { opacity: 0.6 }]}
+              <PinkButton
+                label={sharing ? 'Rendering…' : 'Share your masterpiece'}
+                icon="export-variant"
                 onPress={handleShare}
-                disabled={sharing}
-              >
-                <Text style={styles.primaryText}>{sharing ? 'Rendering…' : '📤 Share your masterpiece'}</Text>
-              </Pressable>
+                busy={sharing}
+                style={styles.shareButton}
+              />
             </View>
           </>
         )}
 
-        <Text style={styles.footnote}>Stickers are genuinely earned by your own boops — no shortcuts, no fabricated stats. 🐾</Text>
+        <Text style={styles.footnote}>Stickers are genuinely earned by your own boops — no shortcuts, no fabricated stats.</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  back: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary, width: 48 },
+  back: { fontFamily: fonts.bold, fontSize: 16, color: colors.rose, width: 48 },
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   content: { padding: 20, paddingBottom: 40, alignItems: 'center', gap: 14 },
-  canvas: { width: CANVAS, height: CANVAS, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.creamDark, ...shadow.card },
+  canvas: { width: CANVAS, height: CANVAS, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.note, borderWidth: 2, borderColor: colors.ink },
   canvasEmpty: { alignItems: 'center', justifyContent: 'center' },
   canvasBrand: { position: 'absolute', bottom: 8, right: 10 },
-  canvasBrandText: { fontFamily: fonts.body, fontSize: 9, color: 'rgba(255,255,255,0.85)' },
+  canvasBrandText: { fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   placed: { position: 'absolute', width: STICKER, height: STICKER, alignItems: 'center', justifyContent: 'center' },
   placedEmoji: { fontSize: 52 },
-  hint: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, textAlign: 'center' },
-  trayLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, alignSelf: 'flex-start', textTransform: 'uppercase', letterSpacing: 1 },
+  hint: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center' },
+  trayLabel: { fontFamily: fonts.display, fontSize: 20, color: colors.ink, alignSelf: 'flex-start' },
   tray: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-  trayItem: { width: 62, height: 72, borderRadius: 16, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  trayItemLocked: { backgroundColor: `${colors.creamDark}99`, opacity: 0.7 },
+  trayItem: { width: 62, height: 72, borderRadius: 16, backgroundColor: colors.cream, borderWidth: 2, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  trayItemLocked: { backgroundColor: colors.creamDark, opacity: 0.8 },
   trayEmoji: { fontSize: 30 },
   trayEmojiLocked: { fontSize: 24 },
-  trayName: { fontFamily: fonts.body, fontSize: 9, color: colors.brownLight },
-  trayUnlockAt: { fontFamily: fonts.bold, fontSize: 10, color: colors.brownLight },
-  nextLine: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, textAlign: 'center' },
-  nextLink: { fontFamily: fonts.bold, color: colors.primary },
+  trayName: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  trayUnlockAt: { fontFamily: fonts.black, fontSize: 12, color: colors.brownMid },
+  nextLine: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center' },
+  nextLink: { fontFamily: fonts.black, color: colors.ink, textDecorationLine: 'underline' },
   photoSection: { alignSelf: 'stretch', gap: 6 },
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  photoThumb: { width: 52, height: 52, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.border },
-  photoThumbSelected: { borderColor: colors.primary },
+  photoThumb: { width: 52, height: 52, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: colors.ink },
+  photoThumbSelected: { borderWidth: 4 },
   photoThumbImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   photoAdd: {
     width: 52,
@@ -318,20 +312,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: colors.border,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoAddText: { fontFamily: fonts.semibold, fontSize: 22, color: colors.brownLight },
+  photoAddText: { fontFamily: fonts.bold, fontSize: 22, color: colors.brownMid },
   actions: { flexDirection: 'row', gap: 10, alignSelf: 'stretch' },
-  secondaryButton: { flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, borderRadius: radius.full, paddingVertical: 13, alignItems: 'center' },
-  clearButton: { flex: 0, paddingHorizontal: 22, justifyContent: 'center' },
-  secondaryText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
+  secondaryButton: { flex: 1, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream, borderRadius: radius.full, paddingVertical: 13, alignItems: 'center' },
+  clearButton: { paddingHorizontal: 18 },
+  secondaryText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
   primaryButton: { backgroundColor: colors.primary, borderRadius: radius.full, paddingVertical: 15, alignItems: 'center', alignSelf: 'stretch', ...shadow.button },
   shareButton: { flex: 1, paddingHorizontal: 12 },
-  primaryText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
-  footnote: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, textAlign: 'center', lineHeight: 16, paddingHorizontal: 16 },
-  locked: { alignItems: 'center', gap: 10, paddingVertical: 20 },
+  primaryText: { fontFamily: fonts.black, fontSize: 16, color: colors.white },
+  footnote: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center', lineHeight: 16, paddingHorizontal: 16 },
+  locked: { alignItems: 'center', gap: 10, padding: 18, alignSelf: 'stretch', backgroundColor: colors.cream, borderRadius: 24, borderWidth: 2, borderColor: colors.ink },
+  lockedBtn: { alignSelf: 'stretch', marginTop: 4 },
   lockedEmoji: { fontSize: 44 },
-  lockedText: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight, textAlign: 'center', lineHeight: 20 },
+  lockedText: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink, textAlign: 'center', lineHeight: 20 },
 });

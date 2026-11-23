@@ -6,6 +6,7 @@
 
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius } from '../constants/theme';
+import { stripEmoji } from './pack/kit';
 import type { SavedDogProfile } from '../lib/profile';
 import { getVaccinationStatus } from '../../shared/profile';
 
@@ -73,7 +74,7 @@ export default function ProfileDetailsCard({ profile }: { profile: SavedDogProfi
         <Text style={styles.rowLabel}>Temperament</Text>
         <View style={styles.chips}>
           {temperament.map((item) => (
-            <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
+            <View key={item} style={styles.chip}><Text style={styles.chipText}>{stripEmoji(item)}</Text></View>
           ))}
         </View>
       </View>
@@ -83,7 +84,7 @@ export default function ProfileDetailsCard({ profile }: { profile: SavedDogProfi
         <Text style={styles.rowLabel}>Play style</Text>
         <View style={styles.chips}>
           {playStyles.map((item) => (
-            <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
+            <View key={item} style={styles.chip}><Text style={styles.chipText}>{stripEmoji(item)}</Text></View>
           ))}
         </View>
       </View>
@@ -101,11 +102,11 @@ export default function ProfileDetailsCard({ profile }: { profile: SavedDogProfi
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    marginBottom: 20,
     overflow: 'hidden',
   },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
@@ -117,11 +118,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  rowLabel: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight },
+  rowLabel: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid },
   rowValue: {
     flexShrink: 1,
     textAlign: 'right',
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.brown,
   },
@@ -129,11 +130,11 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     backgroundColor: colors.cream,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  chipText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brownMid },
+  chipText: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
 });

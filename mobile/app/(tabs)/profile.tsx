@@ -19,7 +19,8 @@ import HandoffCard from '../../components/HandoffCard';
 import DiptychSection, { shouldShowDiptych } from '../../components/DiptychSection';
 import DogTradingCard from '../../components/DogTradingCard';
 import VibeTypeCard from '../../components/VibeTypeCard';
-import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { colors, fonts } from '../../constants/theme';
+import { Gingham, Glyph, Heading, PaperButton, PinkButton, card as paperCard, stripEmoji } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
@@ -332,7 +333,8 @@ export default function ProfileTab() {
   if (sessionLoading) {
     return (
       <SafeAreaView style={styles.gateContainer}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <Gingham />
+        <ActivityIndicator color={colors.ink} size="large" />
       </SafeAreaView>
     );
   }
@@ -340,6 +342,7 @@ export default function ProfileTab() {
   if (!user) {
     return (
       <SafeAreaView style={styles.gateContainer}>
+        <Gingham />
         <Text style={styles.gateTitle}>Sign in to view your profile</Text>
         <Text style={styles.gateBody}>
           Start a session from the welcome screen to see your dog's profile.
@@ -399,6 +402,7 @@ export default function ProfileTab() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Gingham />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.content}
@@ -456,7 +460,7 @@ export default function ProfileTab() {
                   >
                     <Image source={{ uri: url }} style={styles.photoStripImage} />
                     {i === currentCover && (
-                      <View style={styles.coverBadge}><Text style={styles.coverBadgeText}>★</Text></View>
+                      <View style={styles.coverBadge}><Glyph name="star" size={13} color={colors.cream} /></View>
                     )}
                   </Pressable>
                 ))}
@@ -470,28 +474,31 @@ export default function ProfileTab() {
               activeIsCover ? (
                 <View style={styles.coverRow}>
                   {photos.length > 1 && (
-                    <Text style={styles.coverHint}>★ This is {profile.name}&apos;s cover photo</Text>
+                    <View style={styles.coverHintRow}>
+                      <Glyph name="star" size={15} />
+                      <Text style={styles.coverHint}>This is {profile.name}&apos;s cover photo</Text>
+                    </View>
                   )}
-                  <Pressable
+                  <PaperButton
+                    small
+                    icon="crop"
+                    label="Adjust the crop"
                     disabled={savingCover}
                     onPress={() => setCoverSheetOpen(true)}
-                    style={[styles.coverButton, savingCover && { opacity: 0.6 }]}
-                    accessibilityRole="button"
+                    style={styles.coverButton}
                     accessibilityLabel="Adjust what part of the cover photo shows on cards"
-                  >
-                    <Text style={styles.coverButtonText}>✥ Adjust the crop</Text>
-                  </Pressable>
+                  />
                 </View>
               ) : (
-                <Pressable
+                <PaperButton
+                  small
+                  icon="star"
+                  label={savingCover ? 'Saving…' : 'Make this the cover photo'}
                   disabled={savingCover}
                   onPress={() => handleMakeCover(safeActive)}
-                  style={[styles.coverButton, savingCover && { opacity: 0.6 }]}
-                  accessibilityRole="button"
+                  style={styles.coverButton}
                   accessibilityLabel={`Make photo ${safeActive + 1} the cover photo`}
-                >
-                  <Text style={styles.coverButtonText}>{savingCover ? 'Saving…' : '⭐ Make this the cover photo'}</Text>
-                </Pressable>
+                />
               )
             )}
             {/* Vibe Check generates a named archetype and a bio in the dog's
@@ -500,18 +507,24 @@ export default function ProfileTab() {
                 the one screen an owner actually looks at their own dog's
                 profile. */}
             {profile.ai?.vibeCheck?.archetype.name && (
-              <Text style={styles.archetype}>✨ {profile.ai.vibeCheck.archetype.name}</Text>
+              <View style={styles.archetypeRow}>
+                <Glyph name="star-four-points" size={14} color={colors.rose} />
+                <Text style={styles.archetype}>{profile.ai.vibeCheck.archetype.name}</Text>
+              </View>
             )}
             <Text style={styles.name}>{profile.name}</Text>
             <Text style={styles.meta}>
               {[profile.breed, profile.age, profile.sex, profile.location].filter(Boolean).join(' · ')}
             </Text>
-            <Text style={styles.badge}>
-              {profileComplete ? 'Ready for mobile discover' : 'Profile still needs a few details'}
-            </Text>
+            <View style={styles.badgeRow}>
+              <Glyph name={profileComplete ? 'check-circle' : 'progress-pencil'} size={16} />
+              <Text style={styles.badge}>
+                {profileComplete ? 'Ready for mobile discover' : 'Profile still needs a few details'}
+              </Text>
+            </View>
             {profile.ai?.vibeCheck?.bio && (
               <>
-                <Text style={styles.vibeBioLabel}>✨ Written by AI from their photos</Text>
+                <Text style={styles.vibeBioLabel}>Written by AI from their photos</Text>
                 <Text style={styles.vibeBio}>“{profile.ai.vibeCheck.bio}”</Text>
               </>
             )}
@@ -534,13 +547,15 @@ export default function ProfileTab() {
               <View style={styles.statusBadgeRow}>
                 {(typeof profile.foundingPackNumber === 'number' || pro.isFounding) && (
                   <View style={styles.memberBadge}>
-                    <Text style={styles.memberBadgeText}>{foundingBadgeLabel(profile.foundingPackNumber)}</Text>
+                    <Glyph name="star" size={14} color={colors.cream} />
+                    <Text style={styles.memberBadgeText}>{stripEmoji(foundingBadgeLabel(profile.foundingPackNumber))}</Text>
                   </View>
                 )}
                 {(profile.ratingCount ?? 0) > 0 && (
                   <View style={styles.trustBadge}>
+                    <Glyph name="paw" size={14} />
                     <Text style={styles.trustBadgeText}>
-                      🐾 {Math.round((profile.meetAgainRate ?? 0) * 100)}% would meet again
+                      {Math.round((profile.meetAgainRate ?? 0) * 100)}% would meet again
                       <Text style={styles.trustBadgeSubtext}>
                         {' '}({profile.ratingCount} playdate{profile.ratingCount === 1 ? '' : 's'})
                       </Text>
@@ -549,7 +564,8 @@ export default function ProfileTab() {
                 )}
                 {bestFriendName && (
                   <View style={styles.bestFriendBadge}>
-                    <Text style={styles.bestFriendBadgeText}>⭐ Best Friends with {bestFriendName}</Text>
+                    <Glyph name="star" size={14} />
+                    <Text style={styles.bestFriendBadgeText}>Best Friends with {bestFriendName}</Text>
                   </View>
                 )}
               </View>
@@ -568,7 +584,7 @@ export default function ProfileTab() {
         {/* ── The Gen-Z viral layer: identity → invite → daily → life ──────── */}
         {user && profile && (
           <>
-            <Text style={styles.sectionLabel}>✨ {profile.name}&apos;s world</Text>
+            <Heading size={24} style={styles.sectionLabel}>{profile.name}&apos;s world</Heading>
             <Pressable
               style={styles.revealCta}
               accessibilityRole="button"
@@ -579,8 +595,12 @@ export default function ProfileTab() {
                 router.push('/dogtype-reveal');
               }}
             >
-              <Text style={styles.revealCtaText}>✨ Reveal {profile.name}&apos;s Dogtype</Text>
-              <Text style={styles.revealCtaSub}>A shareable card, read from their real profile</Text>
+              <View style={styles.revealIcon}><Glyph name="star-four-points" size={22} /></View>
+              <View style={styles.revealBody}>
+                <Text style={styles.revealCtaText}>Reveal {profile.name}&apos;s Dogtype</Text>
+                <Text style={styles.revealCtaSub}>A shareable card, read from their real profile</Text>
+              </View>
+              <Glyph name="chevron-right" size={26} />
             </Pressable>
             <DogtypeSection savedProfile={profile} />
             {/* C5: stickers unlocked by booping; renders nothing until one is. */}
@@ -599,18 +619,26 @@ export default function ProfileTab() {
               accessibilityLabel="Open the Playroom — roasts, a letter in their voice, Wanted poster, Snoot Boop, Barkle and more"
               onPress={() => { trackEvent('fun_open', { feature: 'playroom' }); router.push('/fun/playroom'); }}
             >
-              <Text style={styles.playroomEyebrow}>THE PLAYROOM 🎉</Text>
-              <Text style={styles.playroomTitle}>Playful cards &amp; games</Text>
+              <View style={styles.playroomHead}>
+                <View style={styles.revealIcon}><Glyph name="puzzle" size={20} /></View>
+                <View style={styles.revealBody}>
+                  <Text style={styles.playroomEyebrow}>The Playroom</Text>
+                  <Text style={styles.playroomTitle}>Playful cards and games</Text>
+                </View>
+              </View>
               <Text style={styles.playroomDesc}>
                 Roasts, a letter in {profile.name?.trim() || 'your dog'}’s voice, a Wanted poster, Snoot Boop,
                 the daily Barkle puzzle, and more — all built from their profile.
               </Text>
-              <Text style={styles.playroomCta}>Open the Playroom →</Text>
+              <View style={styles.playroomCtaRow}>
+                <Text style={styles.playroomCta}>Open the Playroom</Text>
+                <Glyph name="chevron-right" size={20} />
+              </View>
             </Pressable>
           </>
         )}
 
-        {user && profile && <Text style={styles.sectionLabel}>🗓️ Care &amp; household</Text>}
+        {user && profile && <Heading size={24} style={styles.sectionLabel}>Care and household</Heading>}
         {user && profile && <PushPermissionCard />}
         {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
 
@@ -618,23 +646,19 @@ export default function ProfileTab() {
             profile, as on web: it has nothing to do with swiping. */}
         {user && profile && (
           <View style={styles.handoffSection}>
-            <Text style={styles.tradingCardLabel}>Handoff card</Text>
+            <Heading size={22}>Handoff card</Heading>
             <Text style={styles.handoffIntro}>
               One image for a sitter, walker, or groomer — only what you told us, marked as yours rather
               than ours.
             </Text>
             <HandoffCard ref={handoffRef} profile={profile} reminders={reminders} />
-            <Pressable
-              style={[styles.secondaryButton, sharingHandoff && { opacity: 0.6 }]}
-              accessibilityRole="button"
+            <PaperButton
+              icon="export-variant"
+              label={sharingHandoff ? 'Rendering…' : 'Share this card'}
               accessibilityLabel={`Share ${profile.name}'s care sheet`}
               onPress={handleShareHandoff}
               disabled={sharingHandoff}
-            >
-              <Text style={styles.secondaryText}>
-                {sharingHandoff ? 'Rendering…' : '📤 Share this card'}
-              </Text>
-            </Pressable>
+            />
           </View>
         )}
 
@@ -657,21 +681,17 @@ export default function ProfileTab() {
 
         {profileComplete && (
           <View style={styles.tradingCardSection}>
-            <Text style={styles.tradingCardLabel}>Your dog&apos;s card</Text>
+            <Heading size={22}>Your dog&apos;s card</Heading>
             <View style={styles.tradingCardWrap}>
               <DogTradingCard ref={cardRef} profile={profile} />
             </View>
-            <Pressable
-              style={[styles.secondaryButton, sharingCard && { opacity: 0.6 }]}
-              accessibilityRole="button"
+            <PaperButton
+              icon="export-variant"
+              label={sharingCard ? 'Rendering…' : 'Share this card'}
               accessibilityLabel="Share this card"
               onPress={handleShareCard}
               disabled={sharingCard}
-            >
-              <Text style={styles.secondaryText}>
-                {sharingCard ? 'Rendering…' : '📤 Share this card'}
-              </Text>
-            </Pressable>
+            />
             {/* Mirrors web's "View <name>'s public page →" link under the card. */}
             <Pressable
               style={styles.publicPageLink}
@@ -679,12 +699,13 @@ export default function ProfileTab() {
               accessibilityLabel={`View ${profile.name}'s public page`}
               onPress={() => openWebLink(dogPageUrl(profile.name ?? '', user.uid))}
             >
-              <Text style={styles.publicPageText}>View {profile.name}&apos;s public page →</Text>
+              <Text style={styles.publicPageText}>View {profile.name}&apos;s public page</Text>
+              <Glyph name="chevron-right" size={18} />
             </Pressable>
           </View>
         )}
 
-        <Text style={styles.sectionLabel}>Account</Text>
+        <Heading size={24} style={styles.sectionLabel}>Account</Heading>
         {/* Which account this is — guests have no email, so no row. */}
         {user.email ? (
           <View style={styles.accountRow}>
@@ -692,21 +713,17 @@ export default function ProfileTab() {
             <Text style={styles.accountEmail} numberOfLines={1} ellipsizeMode="middle">{user.email}</Text>
           </View>
         ) : null}
-        <Pressable style={styles.primaryButton} accessibilityRole="button" accessibilityLabel="Edit profile" onPress={() => openEditor()}>
-          <Text style={styles.primaryText}>Edit profile</Text>
-        </Pressable>
+        {/* The screen's ONE pink action. */}
+        <PinkButton label="Edit profile" icon="pencil" onPress={() => openEditor()} style={styles.primaryButton} />
 
-        <Pressable
-          style={styles.secondaryButton}
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
+        <PaperButton
+          label="Sign out"
+          icon="logout"
           onPress={async () => {
             await signOutUser();
             router.replace('/welcome');
           }}
-        >
-          <Text style={styles.secondaryText}>Sign out</Text>
-        </Pressable>
+        />
 
         <Pressable
           style={styles.deleteButton}
@@ -716,7 +733,7 @@ export default function ProfileTab() {
           disabled={deleting}
         >
           {deleting ? (
-            <ActivityIndicator color={colors.brownLight} />
+            <ActivityIndicator color={colors.ink} />
           ) : (
             <Text style={styles.deleteText}>Delete account</Text>
           )}
@@ -749,74 +766,74 @@ export default function ProfileTab() {
   );
 }
 
+const ink = colors.ink;
+const softInk = colors.brownMid;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 20, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: colors.sky },
+  content: { padding: 16, paddingBottom: 48 },
   gateContainer: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sky,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
   },
   gateTitle: {
     fontFamily: fonts.display,
-    fontSize: 24,
-    color: colors.brown,
+    fontSize: 26,
+    color: ink,
     marginBottom: 10,
     textAlign: 'center',
   },
   gateBody: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: colors.brownLight,
+    color: ink,
     textAlign: 'center',
     lineHeight: 22,
   },
   title: {
     fontFamily: fonts.display,
     fontSize: 30,
-    color: colors.brown,
-    marginBottom: 8,
+    lineHeight: 34,
+    color: ink,
+    marginTop: 4,
+    marginBottom: 4,
   },
   subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownLight,
-    lineHeight: 20,
-    marginBottom: 20,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: ink,
+    lineHeight: 21,
+    marginBottom: 18,
   },
   sectionLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginTop: 8,
+    marginTop: 14,
     marginBottom: 12,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
+    ...paperCard.paper,
     overflow: 'hidden',
-    marginBottom: 16,
-    ...shadow.card,
+    marginBottom: 20,
   },
-  hero: { width: '100%', height: 280, backgroundColor: colors.creamDark },
+  hero: { width: '100%', height: 280, backgroundColor: colors.creamDark, borderBottomWidth: 2, borderBottomColor: ink },
   cardBody: { padding: 18 },
   photoStrip: { marginBottom: 14 },
   photoStripItem: {
     width: 84,
     height: 84,
-    borderRadius: radius.md,
-    marginRight: 8,
+    borderRadius: 14,
+    marginRight: 10,
     backgroundColor: colors.creamDark,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: ink,
+    opacity: 0.85,
   },
   photoStripItemActive: {
-    borderColor: colors.primary,
+    borderWidth: 4,
+    opacity: 1,
   },
   photoStripImage: {
     width: '100%',
@@ -826,69 +843,57 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  coverBadgeText: { color: colors.white, fontSize: 12, fontWeight: '700', lineHeight: 14 },
-  coverHint: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginBottom: 8 },
+  coverHintRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  coverHint: { fontFamily: fonts.bold, fontSize: 13, color: softInk },
   coverRow: { marginBottom: 4 },
   coverButton: {
     alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  coverButtonText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primary },
+  archetypeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
   archetype: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-    marginBottom: 2,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
+    letterSpacing: 0.3,
   },
   name: {
     fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.brown,
+    fontSize: 38,
+    lineHeight: 42,
+    color: ink,
   },
   meta: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownLight,
-    marginTop: 6,
+    fontFamily: fonts.black,
+    fontSize: 15,
+    color: softInk,
+    marginTop: 4,
   },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
   badge: {
-    marginTop: 12,
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.primaryDark,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: ink,
   },
   vibeBioLabel: {
-    marginTop: 10,
-    fontFamily: fonts.body,
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.brownLight,
+    marginTop: 12,
+    fontFamily: fonts.black,
+    fontSize: 12,
+    color: softInk,
   },
   vibeBio: {
     marginTop: 3,
-    fontFamily: fonts.body,
-    fontStyle: 'italic',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownMid,
+    fontFamily: fonts.hand,
+    fontSize: 21,
+    lineHeight: 25,
+    color: ink,
   },
   vibeTypeCardWrap: { marginTop: 12 },
   statusBadgeRow: {
@@ -898,163 +903,161 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   memberBadge: {
-    backgroundColor: colors.brown,
-    borderRadius: radius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: ink,
+    borderWidth: 2,
+    borderColor: ink,
+    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
   memberBadgeText: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
+    fontFamily: fonts.black,
+    fontSize: 12.5,
     color: colors.cream,
   },
   trustBadge: {
-    backgroundColor: 'rgba(34,139,34,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(34,139,34,0.25)',
-    borderRadius: radius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: ink,
+    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
   trustBadgeText: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: '#1a5c1a',
+    fontFamily: fonts.black,
+    fontSize: 12.5,
+    color: ink,
   },
   trustBadgeSubtext: {
-    fontFamily: fonts.body,
-    fontWeight: '400',
-    color: '#2d7a2d',
+    fontFamily: fonts.bold,
+    color: softInk,
   },
   bestFriendBadge: {
-    backgroundColor: `${colors.gold}26`, // ~15% opacity
-    borderWidth: 1,
-    borderColor: `${colors.gold}66`, // ~40% opacity
-    borderRadius: radius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: ink,
+    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
   bestFriendBadgeText: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.brown,
+    fontFamily: fonts.black,
+    fontSize: 12.5,
+    color: ink,
   },
   primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 10,
-    ...shadow.button,
-  },
-  primaryText: {
-    fontFamily: fonts.bold,
-    fontSize: 16,
-    color: colors.white,
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  secondaryText: {
-    fontFamily: fonts.semibold,
-    fontSize: 16,
-    color: colors.brown,
+    marginBottom: 12,
   },
   revealCta: {
-    backgroundColor: colors.brown,
-    borderRadius: radius.xl,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginBottom: 16,
+    ...paperCard.paper,
+    flexDirection: 'row',
     alignItems: 'center',
-    ...shadow.card,
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
-  revealCtaText: { fontFamily: fonts.display, fontSize: 19, color: colors.gold },
-  revealCtaSub: { fontFamily: fonts.body, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
+  revealIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: ink,
+    backgroundColor: colors.note,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  revealBody: { flex: 1, minWidth: 0 },
+  revealCtaText: { fontFamily: fonts.display, fontSize: 21, lineHeight: 24, color: ink },
+  revealCtaSub: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: softInk, marginTop: 2 },
   playroomCard: {
-    marginBottom: 16,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    ...paperCard.paper,
+    marginBottom: 20,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    gap: 4,
+    gap: 6,
   },
+  playroomHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   playroomEyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: colors.primary,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: softInk,
   },
-  playroomTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.brown },
-  playroomDesc: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: colors.brownMid, marginTop: 2 },
-  playroomCta: { fontFamily: fonts.semibold, fontSize: 14, color: colors.primary, marginTop: 8 },
+  playroomTitle: { fontFamily: fonts.display, fontSize: 21, lineHeight: 24, color: ink },
+  playroomDesc: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: ink, marginTop: 4 },
+  playroomCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 6 },
+  playroomCta: { fontFamily: fonts.black, fontSize: 15, color: ink, textDecorationLine: 'underline' },
   tradingCardSection: {
     // Not alignItems:'center' — that made every child shrink to its own
     // content width, so "Share this card" rendered as a narrow pill directly
     // above the full-width "Edit profile" button. The wrapper below centers
     // the card itself; buttons stay full-width like every other action.
     gap: 12,
-    marginBottom: 16,
-  },
-  tradingCardLabel: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.brown,
+    marginTop: 8,
+    marginBottom: 20,
   },
   tradingCardWrap: {
     alignItems: 'center',
   },
   handoffSection: {
     gap: 12,
-    marginBottom: 16,
+    marginTop: 8,
+    marginBottom: 20,
   },
   handoffIntro: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.brownLight,
-    marginTop: -6,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: ink,
+    marginTop: -4,
   },
   accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: ink,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  accountLabel: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight },
-  accountEmail: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
+  accountLabel: { fontFamily: fonts.black, fontSize: 14, color: softInk },
+  accountEmail: { flexShrink: 1, fontFamily: fonts.black, fontSize: 14, color: ink },
   publicPageLink: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    justifyContent: 'center',
+    minHeight: 44,
   },
   publicPageText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.brownLight,
+    fontFamily: fonts.black,
+    fontSize: 15,
+    color: ink,
+    textDecorationLine: 'underline',
   },
   deleteButton: {
     alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 8,
+    justifyContent: 'center',
+    minHeight: 48,
+    marginTop: 10,
   },
   deleteText: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.black,
     fontSize: 14,
-    color: colors.brownLight,
+    color: ink,
+    textDecorationLine: 'underline',
   },
   legalRow: {
     flexDirection: 'row',
@@ -1064,13 +1067,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   legalLink: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: ink,
     textDecorationLine: 'underline',
+    paddingVertical: 10,
   },
   legalDivider: {
-    fontSize: 12,
-    color: colors.brownLight,
+    fontSize: 13,
+    color: ink,
   },
 });

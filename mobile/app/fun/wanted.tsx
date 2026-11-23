@@ -4,11 +4,12 @@
 // real profile (shared/wanted.ts). Pure fun, no network, no AI.
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, PaperButton, PinkButton } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
@@ -82,7 +83,7 @@ export default function WantedScreen() {
 
   function changeMugshot() {
     Alert.alert('New mugshot', `Give ${dogName} a fresh mugshot for the poster`, [
-      { text: '📸 Take a photo', onPress: () => pickFrom('camera') },
+      { text: 'Take a photo', onPress: () => pickFrom('camera') },
       { text: '🖼 Choose from library', onPress: () => pickFrom('library') },
       { text: 'Cancel', style: 'cancel' },
     ]);
@@ -102,13 +103,12 @@ export default function WantedScreen() {
   if (!poster) {
     return (
       <SafeAreaView style={styles.container}>
+      <Gingham />
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyEmoji}>🤠</Text>
+          <View style={styles.emptyIcon}><Glyph name="card-account-details-star" size={40} /></View>
           <Text style={styles.emptyTitle}>No outlaw yet</Text>
           <Text style={styles.emptyBody}>Create {dogName === 'Your dog' ? 'your dog' : dogName}&apos;s profile first, then come collect the bounty.</Text>
-          <Pressable style={styles.primaryButton} onPress={() => router.replace('/(tabs)/profile')}>
-            <Text style={styles.primaryText}>Back to profile</Text>
-          </Pressable>
+          <PinkButton label="Back to profile" onPress={() => router.replace('/(tabs)/profile')} style={styles.stretch} />
         </View>
       </SafeAreaView>
     );
@@ -116,27 +116,24 @@ export default function WantedScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Wanted Poster</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <Gingham />
+      <BackHeader title="Wanted Poster" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Animated.View style={{ transform: [{ scale: stamp }] }}>
           <WantedPosterCard ref={cardRef} poster={poster} dogName={dogName} photoUrl={photoUri} />
         </Animated.View>
 
-        <Pressable style={styles.secondaryButton} onPress={changeMugshot}>
-          <Text style={styles.secondaryText}>📸 Change the mugshot</Text>
-        </Pressable>
-        <Pressable style={[styles.primaryButton, sharing && { opacity: 0.6 }]} onPress={handleShare} disabled={sharing}>
-          <Text style={styles.primaryText}>{sharing ? 'Printing…' : `📤 Share ${dogName}'s poster`}</Text>
-        </Pressable>
+        <PaperButton label="Change the mugshot" icon="camera" onPress={changeMugshot} style={styles.stretch} />
+        <PinkButton
+          label={sharing ? 'Printing…' : `Share ${dogName}'s poster`}
+          icon="export-variant"
+          onPress={handleShare}
+          busy={sharing}
+          style={styles.stretch}
+        />
         <Text style={styles.disclaimer}>
-          Charges are built from {dogName}&apos;s real profile — with a few playful frontier extras. 🤠
+          Charges are built from {dogName}&apos;s real profile — with a few playful frontier extras.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -144,7 +141,7 @@ export default function WantedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,20 +149,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  back: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary, width: 48 },
+  back: { fontFamily: fonts.bold, fontSize: 16, color: colors.rose, width: 48 },
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   content: { padding: 20, paddingBottom: 40, alignItems: 'center', gap: 12 },
   secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     alignSelf: 'stretch',
     marginTop: 6,
   },
-  secondaryText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
+  secondaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
   primaryButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.full,
@@ -174,10 +171,14 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     ...shadow.button,
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
-  disclaimer: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, textAlign: 'center', lineHeight: 17, marginTop: 4 },
+  primaryText: { fontFamily: fonts.black, fontSize: 16, color: colors.white },
+  disclaimer: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center', lineHeight: 17, marginTop: 4 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
-  emptyEmoji: { fontSize: 56 },
+  stretch: { alignSelf: 'stretch' },
+  emptyIcon: {
+    width: 76, height: 76, borderRadius: 38, borderWidth: 2, borderColor: colors.ink,
+    backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  },
   emptyTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.brown },
-  emptyBody: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
+  emptyBody: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
 });

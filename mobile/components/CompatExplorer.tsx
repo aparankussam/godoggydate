@@ -23,7 +23,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { colors, fonts, radius, shadow, secondaryButton } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { fetchDogtypeCounts, type DogtypeCounts } from '../lib/dogtypeCounts';
@@ -275,7 +276,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
   function rankLabel(match: Dogtype): string | null {
     const r = rankByCode.get(match.code);
     if (!r) return null;
-    if (r.isClearTop) return `⭐ ${dogName}’s #1 easiest match`;
+    if (r.isClearTop) return `${dogName}’s #1 easiest match`;
     return null;
   }
 
@@ -344,7 +345,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                 // honest ways to earn the key that reveals the next one.
                 <View style={styles.lockedLure}>
                   <View style={styles.lureHeader}>
-                    <Text style={styles.lureLock}>🔒</Text>
+                    <Glyph name="lock" size={30} />
                     <View style={styles.lureHeaderText}>
                       <Text style={styles.lureTitle}>
                         {lockedRemaining} more great {lockedRemaining === 1 ? 'vibe' : 'vibes'} for {dogName}
@@ -357,7 +358,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                   <View style={styles.lureRow}>
                     <Pressable style={styles.lureBoopBtn} onPress={openSnoot} accessibilityRole="button">
                       <Text style={styles.lureBoopText}>
-                        🐽 Boop {dogName}
+                        Boop {dogName}
                         {boopsToNextKey !== null ? ` (${boopsToNextKey} to a key)` : ''}
                       </Text>
                     </Pressable>
@@ -367,7 +368,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                       disabled={sharing}
                       accessibilityRole="button"
                     >
-                      <Text style={styles.lureInviteText}>{sharing ? 'Preparing…' : '📤 Invite to unlock'}</Text>
+                      <Text style={styles.lureInviteText}>{sharing ? 'Preparing…' : 'Invite to unlock'}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -415,7 +416,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                         accessibilityRole="button"
                       >
                         <Text style={styles.shareText}>
-                          {sharing ? 'Preparing…' : `🐾 Invite a ${bareName(other.name)} →`}
+                          {sharing ? 'Preparing…' : `Invite a ${bareName(other.name)} →`}
                         </Text>
                       </Pressable>
                       <Text style={styles.inviteMicro}>
@@ -430,7 +431,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                         disabled={sharing}
                         accessibilityRole="button"
                       >
-                        <Text style={styles.shareText}>{sharing ? 'Preparing…' : '📤 Share this match'}</Text>
+                        <Text style={styles.shareText}>{sharing ? 'Preparing…' : 'Share this match'}</Text>
                       </Pressable>
                       <Pressable
                         onPress={() => handleInvite(other, compat)}
@@ -438,7 +439,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                         accessibilityRole="button"
                       >
                         <Text style={styles.inviteNudge}>
-                          🐾 Know another {bareName(other.name)}? Invite them
+                          Know another {bareName(other.name)}? Invite them
                         </Text>
                       </Pressable>
                     </>
@@ -471,7 +472,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
 
       {allRevealed && (
         <View style={styles.closer}>
-          <Text style={styles.closerText}>That’s all {dogName}’s best matches 🎉</Text>
+          <Text style={styles.closerText}>That’s all {dogName}’s best matches.</Text>
           <Pressable style={styles.cta} onPress={handleCta} accessibilityRole="button">
             <Text style={styles.ctaText}>See {dogName}’s compatibility page →</Text>
           </Pressable>
@@ -531,9 +532,7 @@ function RevealCard({ state, index, total, match, vibe, density, rankLabel, isEx
             <Text style={styles.cardName}>{match.name}</Text>
             {rankLabel && <Text style={styles.rankLabel}>{rankLabel}</Text>}
             <View style={styles.vibePill}>
-              <Text style={styles.vibePillText}>
-                {meta.emoji} {meta.label}
-              </Text>
+              <Text style={styles.vibePillText}>{meta.label}</Text>
             </View>
             <Text style={styles.densityMain}>{density.main}</Text>
             {density.sub && <Text style={styles.densitySub}>{density.sub}</Text>}
@@ -549,7 +548,7 @@ function RevealCard({ state, index, total, match, vibe, density, rankLabel, isEx
   // locked — further down the deck, not yet unlockable.
   return (
     <View style={[styles.card, styles.cardLocked]} accessible={false}>
-      <Text style={[styles.cardEmoji, styles.lockedGlyph]}>🔒</Text>
+      <View style={styles.lockedGlyphWrap}><Glyph name="lock" size={26} color={colors.brownMid} /></View>
       <View style={styles.cardBody}>
         <Text style={styles.lockedText}>Locked</Text>
         <Text style={styles.nextSub}>
@@ -563,22 +562,21 @@ function RevealCard({ state, index, total, match, vibe, density, rankLabel, isEx
 const styles = StyleSheet.create({
   section: {
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: `${colors.primary}33`, // ~20%
-    backgroundColor: `${colors.primary}0D`, // ~5%
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     padding: 18,
     marginBottom: 16,
+    ...shadow.card,
   },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   title: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginTop: 2 },
-  subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.brownMid, marginTop: 4, lineHeight: 18 },
-  persistentDisclaimer: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 6, lineHeight: 15 },
+  subtitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, marginTop: 4, lineHeight: 18 },
+  persistentDisclaimer: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 6, lineHeight: 15 },
   deck: { marginTop: 14, gap: 10 },
   slot: { gap: 10 },
   card: {
@@ -591,46 +589,47 @@ const styles = StyleSheet.create({
     minHeight: 84,
   },
   cardRevealed: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.ink,
     ...shadow.card,
   },
-  cardExpanded: { borderColor: colors.primary, borderWidth: 2 },
+  cardExpanded: { borderColor: colors.ink, borderWidth: 2 },
   cardNext: {
-    backgroundColor: `${colors.gold}1F`, // ~12%
-    borderWidth: 1.5,
-    borderColor: colors.gold,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderStyle: 'dashed',
   },
   cardLocked: {
-    backgroundColor: 'rgba(255,255,255,0.35)',
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.creamDark,
+    borderWidth: 2,
+    borderColor: colors.ink,
     opacity: 0.55,
   },
   cardEmoji: { fontSize: 40, width: 48, textAlign: 'center' },
   lockedGlyph: { opacity: 0.5 },
+  lockedGlyphWrap: { width: 44, alignItems: 'center' },
   cardBody: { flex: 1 },
   cardName: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   vibePill: {
     alignSelf: 'flex-start',
-    backgroundColor: `${colors.gold}26`, // ~15%
+    backgroundColor: colors.creamDark,
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 3,
     marginTop: 4,
   },
-  vibePillText: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownMid },
-  rankLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.gold, marginTop: 4 },
-  densityMain: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown, marginTop: 8 },
-  densitySub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 1 },
-  expandHint: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginTop: 8 },
-  nextSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 2 },
-  lockedText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brownLight },
+  vibePillText: { fontFamily: fonts.black, fontSize: 12, color: colors.brownMid },
+  rankLabel: { fontFamily: fonts.black, fontSize: 12.5, color: colors.ink, marginTop: 4 },
+  densityMain: { fontFamily: fonts.bold, fontSize: 13, color: colors.brown, marginTop: 8 },
+  densitySub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 1 },
+  expandHint: { fontFamily: fonts.black, fontSize: 12, color: colors.rose, marginTop: 8 },
+  nextSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 2 },
+  lockedText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brownMid },
   detail: { alignItems: 'stretch' },
   typeBlurb: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontStyle: 'italic',
     fontSize: 13,
     lineHeight: 19,
@@ -639,31 +638,31 @@ const styles = StyleSheet.create({
   },
   detailCardWrap: { alignItems: 'center', marginBottom: 12 },
   shareButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     ...shadow.button,
   },
-  shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  shareText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   inviteMicro: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
     textAlign: 'center',
     marginTop: 8,
   },
   inviteNudge: {
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.primary,
+    color: colors.rose,
     textAlign: 'center',
     marginTop: 12,
   },
   typeLink: {
-    fontFamily: fonts.bold,
+    fontFamily: fonts.black,
     fontSize: 12,
-    color: colors.primary,
+    color: colors.rose,
     textAlign: 'center',
     marginTop: 14,
   },
@@ -671,42 +670,40 @@ const styles = StyleSheet.create({
   // Locked-match lure
   lockedLure: {
     borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderStyle: 'dashed',
-    backgroundColor: `${colors.primary}0D`, // ~5%
+    backgroundColor: colors.creamDark,
     paddingVertical: 14,
     paddingHorizontal: 14,
   },
   lureHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   lureLock: { fontSize: 30, width: 40, textAlign: 'center' },
   lureHeaderText: { flex: 1 },
-  lureTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
-  lureSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 2, lineHeight: 16 },
+  lureTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.brown },
+  lureSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 2, lineHeight: 16 },
   lureRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   lureBoopBtn: {
     flex: 1,
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: `${colors.primary}66`,
-    backgroundColor: colors.white,
+    ...secondaryButton,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  lureBoopText: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, textAlign: 'center' },
+  lureBoopText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, textAlign: 'center' },
   lureInviteBtn: {
     flex: 1,
     borderRadius: radius.full,
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     paddingVertical: 10,
     alignItems: 'center',
     ...shadow.button,
   },
-  lureInviteText: { fontFamily: fonts.bold, fontSize: 12, color: colors.white, textAlign: 'center' },
+  lureInviteText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, textAlign: 'center' },
   browseAll: {
-    fontFamily: fonts.bold,
+    fontFamily: fonts.black,
     fontSize: 12,
-    color: colors.primary,
+    color: colors.rose,
     marginTop: 12,
   },
   // Laid out at natural size but off-screen + invisible, so react-native-view-shot
@@ -714,9 +711,9 @@ const styles = StyleSheet.create({
   hiddenCapture: { position: 'absolute', left: -9999, top: 0 },
 
   closer: { marginTop: 16, alignItems: 'center' },
-  closerText: { fontFamily: fonts.display, fontSize: 16, color: colors.brown, textAlign: 'center' },
+  closerText: { fontFamily: fonts.display, fontSize: 19, color: colors.brown, textAlign: 'center' },
   cta: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     paddingHorizontal: 22,
@@ -725,11 +722,11 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     ...shadow.button,
   },
-  ctaText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  ctaText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   disclaimer: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
     textAlign: 'center',
     marginTop: 10,
     lineHeight: 15,

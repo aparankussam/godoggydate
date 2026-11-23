@@ -20,7 +20,8 @@ import { forwardRef, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { colors, fonts, radius, shadow, secondaryButton } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import type { SavedDogProfile } from '../lib/profile';
@@ -174,7 +175,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
   return (
     <View style={styles.section}>
       <View style={styles.headerBlock}>
-        <Text style={styles.eyebrow}>Pass the phone 📱</Text>
+        <Text style={styles.eyebrow}>Pass the phone</Text>
         <Text style={styles.title}>Who actually knows {dogName}?</Text>
         <Text style={styles.lede}>
           Ten questions about {dogName}. You set the real answers, then hand the phone around — friends and
@@ -217,7 +218,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
         <View>
           <View style={styles.stepHeader}>
             <Text style={styles.stepLabel}>Answer key · {stepIdx + 1} of {total}</Text>
-            <Text style={styles.ownerOnly}>🔒 owner only</Text>
+            <Text style={styles.ownerOnly}>owner only</Text>
           </View>
           <ProgressBar current={stepIdx} total={total} />
           <Text style={styles.prompt}>
@@ -254,7 +255,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {phase === 'lobby' && (
         <View>
           <View style={styles.infoTile}>
-            <Text style={styles.infoTileTitle}>🔒 Answer key locked in ({total} answers)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="lock" size={18} /><Text style={[styles.infoTileTitle, { flexShrink: 1 }]}>Answer key locked in ({total} answers)</Text></View>
             <Text style={styles.infoTileSub}>
               Hand the phone to a friend or family member. They’ll answer the same {total} questions — no peeking
               at your answers.
@@ -294,7 +295,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {phase === 'play' && currentQuestion && (
         <View>
           <View style={styles.passTile}>
-            <Text style={styles.passText}>📱 Pass to {activeGuest} — no peeking!</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="cellphone" size={20} /><Text style={[styles.passText, { flexShrink: 1 }]}>Pass to {activeGuest} — no peeking!</Text></View>
           </View>
           <View style={styles.stepHeader}>
             <Text style={styles.stepLabel}>Question {stepIdx + 1} of {total}</Text>
@@ -350,7 +351,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
               if (!q) return null;
               return (
                 <View key={pq.questionId} style={styles.reviewRow}>
-                  <Text style={styles.reviewMark}>{pq.correct ? '✅' : '❌'}</Text>
+                  <Glyph name={pq.correct ? 'check-circle' : 'close-circle'} size={20} color={pq.correct ? colors.success : colors.danger} />
                   <Text style={styles.reviewText}>
                     <Text style={styles.reviewEmoji}>{q.emoji} </Text>
                     {pq.correct ? (
@@ -387,7 +388,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
               onPress={handleShare}
               disabled={sharing}
             >
-              <Text style={styles.secondaryText}>{sharing ? 'Preparing…' : '📤 Share the scoreboard'}</Text>
+              <Text style={styles.secondaryText}>{sharing ? 'Preparing…' : 'Share the scoreboard'}</Text>
             </Pressable>
           </View>
         </View>
@@ -410,12 +411,12 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
 function Scoreboard({ entries, dogName }: { entries: DogQuizScoreboardEntry[]; dogName: string }) {
   return (
     <View style={styles.standings}>
-      <Text style={styles.standingsTitle}>Who knows {dogName} best 🏆</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="trophy" size={20} /><Text style={[styles.standingsTitle, { flexShrink: 1 }]}>Who knows {dogName} best</Text></View>
       <View style={{ marginTop: 8, gap: 6 }}>
         {entries.map((e, i) => (
           <View key={e.id} style={styles.standingsRow}>
             <View style={styles.standingsNameWrap}>
-              <Text style={styles.standingsRank}>{i === 0 ? '🥇' : `${i + 1}.`}</Text>
+              {i === 0 ? <Glyph name="medal" size={18} /> : <Text style={styles.standingsRank}>{`${i + 1}.`}</Text>}
               <Text style={styles.standingsName} numberOfLines={1}>
                 {e.name}
               </Text>
@@ -492,103 +493,103 @@ const SHARE_CARD_WIDTH = 300;
 const styles = StyleSheet.create({
   section: {
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: `${colors.gold}4D`, // ~30%
-    backgroundColor: `${colors.gold}14`, // ~8%
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     padding: 18,
     marginBottom: 16,
+    ...shadow.card,
   },
   headerBlock: { marginBottom: 14 },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.6,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   title: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginTop: 2, lineHeight: 26 },
-  lede: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
+  lede: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
 
   // Buttons
   primaryButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     ...shadow.button,
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  primaryText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   secondaryButton: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.cream,
+    borderWidth: 2.5,
+    borderBottomWidth: 5,
+    borderColor: colors.ink,
     borderRadius: radius.full,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  secondaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
-  fineprint: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, lineHeight: 15, marginTop: 12 },
+  secondaryText: { fontFamily: fonts.black, fontSize: 15, color: colors.brown },
+  fineprint: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, lineHeight: 15, marginTop: 12 },
 
   // Step header + progress
   stepHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   stepLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
+    fontFamily: fonts.black,
+    fontSize: 12,
+    color: colors.rose,
     textTransform: 'uppercase',
     letterSpacing: 1.6,
   },
-  ownerOnly: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownLight },
+  ownerOnly: { fontFamily: fonts.black, fontSize: 12, color: colors.brownMid },
   progressTrack: { height: 6, borderRadius: radius.full, backgroundColor: 'rgba(42,31,74,0.10)', overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.primary },
+  progressFill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.ink },
   prompt: { fontFamily: fonts.display, fontSize: 18, color: colors.brown, lineHeight: 24, marginTop: 12 },
 
   // Options
   options: { marginTop: 12, gap: 8 },
   option: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
   optionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: `${colors.primary}1A`, // ~10%
+    borderColor: colors.ink,
+    backgroundColor: colors.note,
   },
-  optionText: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid },
-  optionTextSelected: { fontFamily: fonts.bold, color: colors.brown },
-  backLink: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary, marginTop: 12 },
+  optionText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid },
+  optionTextSelected: { fontFamily: fonts.black, color: colors.brown },
+  backLink: { fontFamily: fonts.black, fontSize: 12, color: colors.rose, marginTop: 12 },
 
   // Lobby
   infoTile: {
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  infoTileTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  infoTileSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, lineHeight: 16, marginTop: 2 },
-  inputLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown, marginTop: 16, marginBottom: 6 },
+  infoTileTitle: { fontFamily: fonts.black, fontSize: 14, color: colors.brown },
+  infoTileSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, lineHeight: 16, marginTop: 2 },
+  inputLabel: { fontFamily: fonts.black, fontSize: 12, color: colors.brown, marginTop: 16, marginBottom: 6 },
   inputRow: { flexDirection: 'row', gap: 8 },
   input: {
     flex: 1,
     minWidth: 0,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.brown,
   },
   goButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.md,
     paddingHorizontal: 18,
     alignItems: 'center',
@@ -596,62 +597,62 @@ const styles = StyleSheet.create({
     ...shadow.button,
   },
   goButtonDisabled: { opacity: 0.5 },
-  goText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
-  redoLink: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownLight, marginTop: 16 },
+  goText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  redoLink: { fontFamily: fonts.black, fontSize: 12, color: colors.brownMid, marginTop: 16 },
 
   // Play
   passTile: {
     borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     backgroundColor: 'rgba(42,31,74,0.05)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
   },
-  passText: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown },
+  passText: { fontFamily: fonts.black, fontSize: 12, color: colors.brown },
 
   // Result
   resultCard: {
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: `${colors.gold}66`, // ~40%
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     paddingHorizontal: 16,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  resultWho: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  resultScore: { fontFamily: fonts.display, fontSize: 52, lineHeight: 56, color: colors.primary, marginTop: 2 },
-  resultScoreDenom: { fontFamily: fonts.display, fontSize: 26, color: colors.brownLight },
-  resultVerdict: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown, marginTop: 2 },
-  resultNote: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 4, textAlign: 'center' },
+  resultWho: { fontFamily: fonts.black, fontSize: 14, color: colors.brown },
+  resultScore: { fontFamily: fonts.display, fontSize: 52, lineHeight: 56, color: colors.rose, marginTop: 2 },
+  resultScoreDenom: { fontFamily: fonts.display, fontSize: 26, color: colors.brownMid },
+  resultVerdict: { fontFamily: fonts.black, fontSize: 14, color: colors.brown, marginTop: 2 },
+  resultNote: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 4, textAlign: 'center' },
 
   // Review list
   review: { marginTop: 12, gap: 6 },
   reviewRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   reviewMark: { fontSize: 12, marginTop: 1 },
-  reviewText: { flex: 1, fontFamily: fonts.body, fontSize: 12, color: colors.brownMid, lineHeight: 17 },
-  reviewEmoji: { fontFamily: fonts.bold, color: colors.brown },
-  reviewStrong: { fontFamily: fonts.bold, color: colors.brown },
+  reviewText: { flex: 1, fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, lineHeight: 17 },
+  reviewEmoji: { fontFamily: fonts.black, color: colors.brown },
+  reviewStrong: { fontFamily: fonts.black, color: colors.brown },
 
   // On-page standings
   standings: {
     marginTop: 16,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  standingsTitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.brown },
+  standingsTitle: { fontFamily: fonts.black, fontSize: 13, color: colors.brown },
   standingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   standingsNameWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 },
-  standingsRank: { width: 20, fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
-  standingsName: { flex: 1, fontFamily: fonts.body, fontSize: 14, color: colors.brown },
-  standingsScore: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown, marginLeft: 8 },
-  standingsScoreDenom: { fontFamily: fonts.body, color: colors.brownLight },
+  standingsRank: { width: 20, fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  standingsName: { flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
+  standingsScore: { fontFamily: fonts.black, fontSize: 14, color: colors.brown, marginLeft: 8 },
+  standingsScoreDenom: { fontFamily: fonts.bold, color: colors.brownMid },
 
   // Capturable share card
   cardWrap: { alignItems: 'center', marginTop: 16 },
@@ -659,30 +660,28 @@ const styles = StyleSheet.create({
     width: SHARE_CARD_WIDTH,
     borderRadius: radius.lg,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     paddingHorizontal: 22,
     paddingTop: 22,
     paddingBottom: 18,
     backgroundColor: colors.cream,
   },
   shareEyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   shareTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, lineHeight: 26, marginTop: 4 },
-  shareSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 2 },
+  shareSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 2 },
   shareRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
@@ -690,10 +689,10 @@ const styles = StyleSheet.create({
   shareRowNameWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 },
   shareMedal: { fontSize: 14, width: 22 },
   shareName: { flex: 1, fontFamily: fonts.display, fontSize: 18, color: colors.brown },
-  shareNameLeader: { color: colors.white },
-  shareScore: { fontFamily: fonts.display, fontSize: 19, color: colors.primary, marginLeft: 8 },
-  shareScoreLeader: { color: colors.white },
-  shareScoreDenom: { fontFamily: fonts.display, fontSize: 13, color: colors.brownLight },
+  shareNameLeader: { color: colors.cream },
+  shareScore: { fontFamily: fonts.display, fontSize: 19, color: colors.rose, marginLeft: 8 },
+  shareScoreLeader: { color: colors.cream },
+  shareScoreDenom: { fontFamily: fonts.display, fontSize: 13, color: colors.brownMid },
   shareScoreDenomLeader: { color: '#FFF3DA' },
   shareFooter: {
     flexDirection: 'row',
@@ -702,8 +701,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.creamDark,
   },
   shareBrand: { fontFamily: fonts.display, fontSize: 14, color: colors.brown },
-  shareUrl: { fontFamily: fonts.body, fontSize: 10, color: colors.brownMid },
+  shareUrl: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
 });

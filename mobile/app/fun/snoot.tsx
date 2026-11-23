@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import type { AudioPlayer } from 'expo-audio';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, PaperButton, PinkButton } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
@@ -269,7 +270,7 @@ export default function SnootScreen() {
       `${dogName}'s snoot`,
       {
         // Web's caption and link.
-        caption: `I've booped ${dogName}'s snoot ${state.allTime.toLocaleString()} times 🐽 Boop your own dog on GoDoggyDate.`,
+        caption: `I've booped ${dogName}'s snoot ${state.allTime.toLocaleString()} times Boop your own dog on GoDoggyDate.`,
         url: webUrl('/'),
       },
     );
@@ -287,18 +288,12 @@ export default function SnootScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#FFF9EC', '#F3ECDC']} style={StyleSheet.absoluteFill} />
+      <Gingham />
 
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Snoot Boop</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <BackHeader title="Snoot Boop" onBack={() => router.back()} />
 
       <View style={styles.body}>
-        <Text style={styles.prompt}>Boop the snoot 👆</Text>
+        <Text style={styles.prompt}>Boop the snoot</Text>
 
         <View style={styles.stage}>
           {/* Confetti burst overlay */}
@@ -345,7 +340,7 @@ export default function SnootScreen() {
         {/* Milestone title */}
         <Animated.View style={{ transform: [{ scale: celebrate.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) }] }}>
           {title ? (
-            <Text style={styles.milestoneTitle}>{title.emoji} {title.title}</Text>
+            <Text style={styles.milestoneTitle}>{title.title}</Text>
           ) : (
             <Text style={styles.milestoneTitleMuted}>Boop to earn your first title…</Text>
           )}
@@ -366,36 +361,40 @@ export default function SnootScreen() {
 
         {next && (
           <Text style={styles.nextLine}>
-            {(next.count - state.allTime).toLocaleString()} more boop{next.count - state.allTime === 1 ? '' : 's'} to {next.emoji} {next.title}
+            {(next.count - state.allTime).toLocaleString()} more boop{next.count - state.allTime === 1 ? '' : 's'} to {next.title}
           </Text>
         )}
 
         {/* Zoomies energy meter */}
         <View style={styles.energyWrap}>
           <View style={styles.energyHead}>
-            <Text style={styles.energyLabel}>⚡ Zoomies</Text>
+            <View style={styles.energyLabelRow}><Glyph name="lightning-bolt" size={15} /><Text style={styles.energyLabel}>Zoomies</Text></View>
             <Text style={styles.energyVal}>{energy}/{MAX_ENERGY}</Text>
           </View>
           <View style={styles.energyTrack}>
-            <View style={[styles.energyFill, { width: `${energyPct}%`, backgroundColor: outOfZoomies ? colors.brownLight : colors.primary }]} />
+            <View style={[styles.energyFill, { width: `${energyPct}%`, backgroundColor: outOfZoomies ? colors.brownMid : colors.ink }]} />
           </View>
           {outOfZoomies && (
-            <Text style={styles.energyNote}>🥱 {dogName} needs a breather — zoomies refill over time.</Text>
+            <Text style={styles.energyNote}>{dogName} needs a breather — zoomies refill over time.</Text>
           )}
         </View>
 
         <View style={styles.snootActions}>
-          <Pressable
-            style={[styles.shareButton, (sharing || state.allTime === 0) && { opacity: 0.6 }]}
+          <PinkButton
+            label={sharing ? 'Rendering…' : 'Share count'}
+            icon="export-variant"
             onPress={shareBadge}
-            disabled={sharing || state.allTime === 0}
-          >
-            <Text style={styles.shareText}>{sharing ? 'Rendering…' : '📤 Share count'}</Text>
-          </Pressable>
+            busy={sharing}
+            disabled={state.allTime === 0}
+            style={styles.actionBtn}
+          />
           {stickerCount > 0 && (
-            <Pressable style={styles.studioButton} onPress={() => router.push('/fun/sticker-studio')}>
-              <Text style={styles.studioText}>🎨 Sticker Studio · {stickerCount}</Text>
-            </Pressable>
+            <PaperButton
+              label={`Sticker Studio · ${stickerCount}`}
+              icon="sticker-emoji"
+              onPress={() => router.push('/fun/sticker-studio')}
+              style={styles.actionBtn}
+            />
           )}
         </View>
       </View>
@@ -421,7 +420,7 @@ export default function SnootScreen() {
 const SNOOT = 240;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -429,42 +428,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  back: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary, width: 48 },
+  back: { fontFamily: fonts.bold, fontSize: 16, color: colors.rose, width: 48 },
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 18 },
-  prompt: { fontFamily: fonts.display, fontSize: 22, color: colors.brownMid },
+  prompt: { fontFamily: fonts.display, fontSize: 26, color: colors.ink },
   stage: { width: SNOOT + 40, height: SNOOT + 40, alignItems: 'center', justifyContent: 'center' },
   confetti: { position: 'absolute', fontSize: 30, zIndex: 5 },
   snoot: {
     width: SNOOT,
     height: SNOOT,
     borderRadius: SNOOT / 2,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: colors.white,
+    borderWidth: 3,
+    borderColor: colors.ink,
     ...shadow.card,
   },
   snootPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
   snootEmoji: { fontSize: 120 },
-  milestoneTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.primaryDark },
-  milestoneTitleMuted: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight },
+  milestoneTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
+  milestoneTitleMuted: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink },
   counters: { flexDirection: 'row', alignItems: 'center', gap: 22 },
   counter: { alignItems: 'center' },
-  counterNum: { fontFamily: fonts.display, fontSize: 34, color: colors.brown },
-  counterLabel: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownLight, textTransform: 'uppercase', letterSpacing: 1 },
-  counterDivider: { width: 1, height: 40, backgroundColor: colors.border },
-  nextLine: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight, textAlign: 'center' },
+  counterNum: { fontFamily: fonts.display, fontSize: 36, color: colors.ink },
+  counterLabel: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  counterDivider: { width: 2, height: 40, backgroundColor: colors.ink, opacity: 0.3 },
+  nextLine: { fontFamily: fonts.bold, fontSize: 14, color: colors.ink, textAlign: 'center' },
   energyWrap: { alignSelf: 'stretch', gap: 6 },
   energyHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  energyLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
-  energyVal: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
-  energyTrack: { height: 8, borderRadius: 999, backgroundColor: colors.creamDark, overflow: 'hidden' },
-  energyFill: { height: '100%', borderRadius: 999 },
-  energyNote: { fontFamily: fonts.body, fontSize: 12, color: colors.brownMid, textAlign: 'center', marginTop: 2 },
-  snootActions: { flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' },
+  energyLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  energyLabel: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  energyVal: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  energyTrack: { height: 14, borderRadius: 999, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream, overflow: 'hidden' },
+  energyFill: { height: '100%' },
+  energyNote: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center', marginTop: 2 },
+  snootActions: { flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', alignSelf: 'stretch' },
+  actionBtn: { flexGrow: 1 },
   shareButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.full,
@@ -473,16 +474,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadow.button,
   },
-  shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  shareText: { fontFamily: fonts.black, fontSize: 15, color: colors.white },
   studioButton: {
-    borderWidth: 1,
-    borderColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.full,
     paddingVertical: 14,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
-  studioText: { fontFamily: fonts.bold, fontSize: 14, color: colors.primary },
+  studioText: { fontFamily: fonts.black, fontSize: 14, color: colors.rose },
   // Off-screen render for the share badge — laid out but not visible.
   offscreen: { position: 'absolute', top: -1000, left: 0 },
   badge: {
@@ -497,8 +498,8 @@ const styles = StyleSheet.create({
   badgePhoto: { width: 120, height: 120, borderRadius: 60, borderWidth: 3, borderColor: 'rgba(255,255,255,0.35)' },
   badgeEmoji: { fontSize: 96 },
   badgeCount: { fontFamily: fonts.display, fontSize: 68, color: '#fff', marginTop: 12 },
-  badgeLabel: { fontFamily: fonts.bold, fontSize: 13, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: -4 },
-  badgeName: { fontFamily: fonts.semibold, fontSize: 15, color: 'rgba(255,255,255,0.92)', marginTop: 14, textAlign: 'center' },
+  badgeLabel: { fontFamily: fonts.black, fontSize: 13, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: -4 },
+  badgeName: { fontFamily: fonts.bold, fontSize: 15, color: 'rgba(255,255,255,0.92)', marginTop: 14, textAlign: 'center' },
   badgeFooter: {
     position: 'absolute',
     bottom: 18,
@@ -511,5 +512,5 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   badgeBrand: { fontFamily: fonts.display, fontSize: 13, color: '#fff' },
-  badgeUrl: { fontFamily: fonts.body, fontSize: 10, color: 'rgba(255,255,255,0.6)' },
+  badgeUrl: { fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
 });

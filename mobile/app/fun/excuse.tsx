@@ -15,6 +15,7 @@ import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { BackHeader, Gingham, PinkButton, card } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { captureAndShare } from '../../lib/shareCard';
 import { webUrl } from '../../lib/webLinks';
@@ -59,13 +60,8 @@ export default function ExcuseScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Excuse Note</Text>
-        <View style={{ width: 48 }} />
-      </View>
+      <Gingham />
+      <BackHeader title="Excuse Note" onBack={() => router.back()} />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -138,9 +134,6 @@ export default function ExcuseScreen() {
                     accessibilityState={{ selected: active }}
                     accessibilityLabel={r.label}
                   >
-                    <Text style={styles.reasonEmoji} accessibilityElementsHidden importantForAccessibility="no">
-                      {r.emoji}
-                    </Text>
                     <Text style={[styles.reasonLabel, active && styles.reasonLabelActive]}>{r.label}</Text>
                   </Pressable>
                 );
@@ -156,14 +149,7 @@ export default function ExcuseScreen() {
           </View>
         </View>
 
-        <Pressable
-          style={[styles.primaryButton, sharing && { opacity: 0.6 }]}
-          onPress={handleShare}
-          disabled={sharing}
-          accessibilityRole="button"
-        >
-          <Text style={styles.primaryText}>{sharing ? 'Preparing…' : '📤 Share the note'}</Text>
-        </Pressable>
+        <PinkButton label={sharing ? 'Preparing…' : 'Share the note'} icon="export-variant" onPress={handleShare} busy={sharing} />
 
         <Text style={styles.disclaimer}>
           It&apos;s a bit, obviously — the note is signed by a dog, stamped with a paw, and says right on it that it
@@ -175,7 +161,7 @@ export default function ExcuseScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -183,36 +169,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  back: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary, width: 48 },
+  back: { fontFamily: fonts.bold, fontSize: 16, color: colors.rose, width: 48 },
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   content: { padding: 16, paddingBottom: 40, gap: 16 },
   intro: { alignItems: 'center', paddingHorizontal: 8 },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 2.4,
+    fontFamily: fonts.black,
+    fontSize: 14,
+    color: colors.ink,
   },
   title: { fontFamily: fonts.display, fontSize: 28, lineHeight: 33, color: colors.brown, textAlign: 'center', marginTop: 6 },
-  lede: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brownMid, textAlign: 'center', marginTop: 8 },
+  lede: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 21, color: colors.ink, textAlign: 'center', marginTop: 8 },
   form: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...card.paper,
     padding: 18,
     gap: 14,
   },
-  label: { fontFamily: fonts.bold, fontSize: 13, color: colors.brown, marginBottom: 6 },
+  label: { fontFamily: fonts.black, fontSize: 13, color: colors.brown, marginBottom: 6 },
   input: {
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.white,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.brown,
   },
@@ -222,16 +203,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     backgroundColor: colors.cream,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  reasonActive: { borderColor: colors.primary, backgroundColor: '#FDE4DA' },
-  reasonEmoji: { fontSize: 14 },
-  reasonLabel: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brownMid },
-  reasonLabelActive: { fontFamily: fonts.bold, color: colors.primaryDark },
+  reasonActive: { backgroundColor: colors.ink },
+  reasonLabel: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink },
+  reasonLabelActive: { color: colors.cream },
   preview: { alignItems: 'center' },
   // The shadow sits on a wrapper so it stays out of the captured image.
   cardShadow: { backgroundColor: '#FBF3E4', ...shadow.card },
@@ -242,12 +222,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...shadow.button,
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
+  primaryText: { fontFamily: fonts.black, fontSize: 16, color: colors.white },
   disclaimer: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
     textAlign: 'center',
     paddingHorizontal: 16,
   },

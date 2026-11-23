@@ -11,7 +11,8 @@
 
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, secondaryButton } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { startProCheckout, openProPortal, isProConfigured, canOfferInAppPurchase } from '../lib/pro';
 import { trackEvent } from '../lib/analytics';
 import {
@@ -33,7 +34,7 @@ interface Props {
 // No Pro-exclusive feature ships yet (everything built so far is free for
 // everyone), so we don't pretend otherwise. The honest value today is a
 // permanent founding spot and first access, at a price locked for life.
-const LIVE_BENEFIT = '🚀  First access to every Pro feature as it ships — at the founding price, locked for life';
+const LIVE_BENEFIT = 'First access to every Pro feature as it ships — at the founding price, locked for life';
 const COMING_BENEFITS =
   'Coming to Pro as they land: a card in your dog’s voice, your dog’s saved story (Year in Dog), life-stage checklists, and the Legacy Vault.';
 
@@ -74,7 +75,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   if (isPro && (isFounding || source === 'founding')) {
     return (
       <View style={[styles.card, styles.foundingCard]}>
-        <Text style={styles.foundingTitle}>⭐ Founding Member — Pro for life</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="star" size={20} /><Text style={[styles.foundingTitle, { flexShrink: 1 }]}>Founding Member — Pro for life</Text></View>
         <Text style={styles.foundingBody}>
           You were here first, so Pro is yours forever — everything we add to Pro, at no extra cost.
           Thank you for backing this early.
@@ -87,7 +88,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   if (isPro && source === 'subscription') {
     return (
       <View style={[styles.card, styles.activeCard]}>
-        <Text style={styles.activeTitle}>🐾 goDoggyDate Pro — active</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="paw" size={20} /><Text style={[styles.activeTitle, { flexShrink: 1 }]}>goDoggyDate Pro — active</Text></View>
         <Text style={styles.activeBody}>
           Thanks for going Pro. You get first access to everything we add to Pro, as it ships.
         </Text>
@@ -115,7 +116,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
 
         {!configured ? (
           <View style={styles.comingSoon}>
-            <Text style={styles.comingSoonTitle}>Coming soon 🐾</Text>
+            <Text style={styles.comingSoonTitle}>Coming soon</Text>
             <Text style={styles.comingSoonBody}>
               Pro is almost ready. Keep enjoying Dogtype, life stage, milestones, and the Playroom — all free.
             </Text>
@@ -124,7 +125,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
           // iOS: no in-app digital-goods sale (Guideline 3.1.1). Informational,
           // no purchase button and no steering link.
           <View style={styles.comingSoon}>
-            <Text style={styles.comingSoonTitle}>Pro is managed on the web 🐾</Text>
+            <Text style={styles.comingSoonTitle}>Pro is managed on the web</Text>
             <Text style={styles.comingSoonBody}>
               Your dog’s Dogtype, life stage, milestones, and the Playroom are all free right here. Pro
               membership is handled on the goDoggyDate website.
@@ -159,7 +160,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
 
             <Pressable style={[styles.ctaButton, busy && { opacity: 0.6 }]} onPress={handleSubscribe} disabled={busy}>
               {busy ? (
-                <ActivityIndicator color={colors.white} />
+                <ActivityIndicator color={colors.ink} />
               ) : (
                 <Text style={styles.ctaText}>
                   {PRO_TRIAL_DAYS > 0 ? `Start ${PRO_TRIAL_DAYS}-day free trial` : 'Go Pro'}
@@ -182,52 +183,47 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.xl, overflow: 'hidden', marginBottom: 16 },
-  error: { fontFamily: fonts.body, fontSize: 12, color: colors.danger, marginTop: 8 },
+  card: { borderRadius: 24, overflow: 'hidden', marginBottom: 20, borderWidth: 2, borderColor: colors.ink },
+  error: { fontFamily: fonts.bold, fontSize: 12, color: colors.danger, marginTop: 8 },
 
   foundingCard: {
-    borderWidth: 1,
-    borderColor: `${colors.gold}66`,
-    backgroundColor: `${colors.gold}1A`,
+    backgroundColor: colors.cream,
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
-  foundingTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  foundingBody: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, lineHeight: 18, marginTop: 4 },
+  foundingTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  foundingBody: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 18, marginTop: 4 },
 
   activeCard: {
-    borderWidth: 1,
-    borderColor: `${colors.primary}4D`,
-    backgroundColor: `${colors.primary}0D`,
+    backgroundColor: colors.cream,
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
-  activeTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  activeBody: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, lineHeight: 18, marginTop: 4 },
+  activeTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  activeBody: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 18, marginTop: 4 },
   manageButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2.5,
+    borderBottomWidth: 5,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
     paddingVertical: 11,
     alignItems: 'center',
     marginTop: 12,
   },
-  manageText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
+  manageText: { fontFamily: fonts.black, fontSize: 15, color: colors.brown },
 
-  upsellCard: { borderWidth: 1, borderColor: `${colors.primary}4D`, backgroundColor: colors.white },
-  upsellHeader: { backgroundColor: `${colors.primary}14`, paddingHorizontal: 18, paddingVertical: 14 },
+  upsellCard: { backgroundColor: colors.cream },
+  upsellHeader: { backgroundColor: colors.note, borderBottomWidth: 2, borderBottomColor: colors.ink, paddingHorizontal: 18, paddingVertical: 14 },
   upsellEyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.6,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   upsellTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.brown, marginTop: 2 },
   upsellBody: { paddingHorizontal: 18, paddingVertical: 16 },
-  benefit: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
-  coming: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, lineHeight: 16, marginTop: 8 },
+  benefit: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  coming: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, lineHeight: 16, marginTop: 8 },
   comingSoon: {
     marginTop: 16,
     borderRadius: radius.md,
@@ -236,11 +232,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  comingSoonTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
+  comingSoonTitle: { fontFamily: fonts.black, fontSize: 14, color: colors.brown },
   comingSoonBody: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.brownLight,
+    color: colors.brownMid,
     lineHeight: 17,
     marginTop: 2,
     textAlign: 'center',
@@ -249,33 +245,35 @@ const styles = StyleSheet.create({
   tierOption: {
     flex: 1,
     borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  tierOptionActive: { borderColor: colors.primary, backgroundColor: `${colors.primary}14` },
-  tierPrice: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  tierSub: { fontFamily: fonts.body, fontSize: 10, color: colors.brownLight, marginTop: 1 },
+  tierOptionActive: { borderWidth: 3.5, backgroundColor: colors.note },
+  tierPrice: { fontFamily: fonts.black, fontSize: 14, color: colors.brown },
+  tierSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 1 },
   saveBadge: {
     position: 'absolute',
     top: -9,
     right: 8,
-    backgroundColor: colors.gold,
+    backgroundColor: colors.kraft,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
     borderRadius: radius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  saveBadgeText: { fontFamily: fonts.bold, fontSize: 9, color: colors.brown },
+  saveBadgeText: { fontFamily: fonts.black, fontSize: 12, color: colors.brown },
   ctaButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 12,
   },
-  ctaText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
-  fineprint: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, textAlign: 'center', marginTop: 8 },
+  ctaText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  fineprint: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, textAlign: 'center', marginTop: 8 },
 });
