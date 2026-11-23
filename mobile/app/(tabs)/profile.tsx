@@ -23,13 +23,14 @@ import { Gingham, Glyph, Heading, PaperButton, card as paperCard, stripEmoji } f
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
+import { loadRevealed, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
 import { useProEntitlement } from '../../lib/useProEntitlement';
 import { onReminders } from '../../lib/reminders';
 import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
 import PushPermissionCard from '../../components/PushPermissionCard';
-import DogtypeSection from '../../components/DogtypeSection';
+import DogtypeGlimpseCard from '../../components/dogtype/DogtypeGlimpseCard';
 import DogtypeCollection from '../../components/DogtypeCollection';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
@@ -94,6 +95,8 @@ export default function ProfileTab() {
   const [activePhoto, setActivePhoto] = useState(0);
   const [section, setSection] = useState<ProfileSection>(initialSection);
   const [sheet, setSheet] = useState<'share' | 'settings' | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const menuY = useRef(0);
   useEffect(() => {
     if (tabParam === 'about' || tabParam === 'dates' || tabParam === 'dogtype' || tabParam === 'care') setSection(tabParam);
   }, [tabParam]);
@@ -110,6 +113,13 @@ export default function ProfileTab() {
   const handoffRef = useRef<View>(null);
   // Lets an upsell nudge scroll straight to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid) return undefined;
+    const load = () => void loadRevealed(uid).then(setRevealed);
+    load();
+    return onDiscoveriesChange(load);
+  }, [user?.uid]);
   const proYRef = useRef(0);
 
   // Open the profile on the owner's cover pick (or AI hero), once, when it loads.
@@ -513,11 +523,19 @@ export default function ProfileTab() {
               {[profile.breed, profile.age, profile.sex, profile.location].filter(Boolean).join(' · ')}
             </Text>
             <View style={styles.statusBadgeRow}>
-              {ownType && (
-                <View style={styles.typeChip}>
+              {ownType && revealed && (
+                <Pressable
+                  style={styles.typeChip}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${ownType.name}. Open the Dogtype section`}
+                  onPress={() => {
+                    setSection('dogtype');
+                    scrollRef.current?.scrollTo({ y: menuY.current, animated: true });
+                  }}
+                >
                   <Glyph name="star-four-points" size={13} color={colors.rose} />
                   <Text style={styles.typeChipText}>{ownType.name}</Text>
-                </View>
+                </Pressable>
               )}
                 {(typeof profile.foundingPackNumber === 'number' || pro.isFounding) && (
                   <View style={styles.memberBadge}>
@@ -552,7 +570,7 @@ export default function ProfileTab() {
           </View>
         </View>
 
-        <View style={styles.sectionMenu} accessibilityRole="tablist">
+        <View style={styles.sectionMenu} accessibilityRole="tablist" onLayout={(e) => { menuY.current = e.nativeEvent.layout.y; }}>
           {(['about', 'dates', 'dogtype', 'care'] as const).map((key) => (
             <Pressable
               key={key}
@@ -596,24 +614,7 @@ export default function ProfileTab() {
 
         {section === 'dogtype' && (
           <>
-            <Pressable
-              style={styles.revealCta}
-              accessibilityRole="button"
-              accessibilityLabel={`Reveal ${profile.name}'s Dogtype`}
-              accessibilityHint="Opens a shareable identity card"
-              onPress={() => {
-                trackEvent('dogtype_reveal_cta');
-                router.push('/dogtype-reveal');
-              }}
-            >
-              <View style={styles.revealIcon}><Glyph name="star-four-points" size={22} /></View>
-              <View style={styles.revealBody}>
-                <Text style={styles.revealCtaText}>Reveal {profile.name}&apos;s Dogtype</Text>
-                <Text style={styles.revealCtaSub}>A shareable card, read from their real profile</Text>
-              </View>
-              <Glyph name="chevron-right" size={26} />
-            </Pressable>
-            <DogtypeSection savedProfile={profile} />
+            <DogtypeGlimpseCard savedProfile={profile} userId={user.uid} />
             <DogtypeCollection savedProfile={profile} userId={user.uid} />
             <EarnedStickers dogId={user.uid} />
           </>

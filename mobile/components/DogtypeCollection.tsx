@@ -1,19 +1,27 @@
 // mobile/components/DogtypeCollection.tsx
-// "N of 16 Dogtypes discovered". Names show only for your own dog's type and
-// the types of dogs you've matched. Every other tile is an identical "?" that
-// carries no type data at all (it is not even handed one).
+// "N of 16 Dogtypes discovered", two rows to start. Names show only for types
+// you've met (matches, or a Pack Day you went to) and, once you have watched the
+// reveal, your own dog's type. Every other tile is an identical "?" that is not
+// handed any type data. Tapping a discovered tile opens the full read in a sheet.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
 import { colors, fonts } from '../constants/theme';
-import { PrimaryButton, SecondaryButton } from './sticker';
-import { getFirebase } from '../lib/firebase';
+import { PrimaryButton } from './sticker';
+import DogtypeSheet from './dogtype/DogtypeSheet';
+import { fetchMatches, type MatchItem } from '../lib/matches';
 import { trackEvent } from '../lib/analytics';
-import { discoverOwnType, loadDiscoveries, onDiscoveriesChange } from '../lib/dogtypeDiscovery';
-import { computeDogtype, dogtypeByCode, dogtypeCompat, dogtypeReasons } from '../../shared/dogtype';
-import { discoveredOrder, type DogtypeLedger } from '../../shared/progress';
+import {
+  discoverOwnType,
+  loadDiscoveries,
+  loadDogSnapshots,
+  loadRevealed,
+  matchedDogsOfCode,
+  onDiscoveriesChange,
+} from '../lib/dogtypeDiscovery';
+import { computeDogtype, dogtypeByCode } from '../../shared/dogtype';
+import { discoveredOrder, matchedDogsOfType, type DogtypeDogMap, type DogtypeLedger } from '../../shared/progress';
 import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
@@ -22,6 +30,7 @@ interface Props {
 }
 
 const TOTAL = 16;
+const COMPACT = 8;
 
 function whenLabel(at: number): string {
   return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -32,45 +41,54 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
   const ownCode = own?.code ?? '';
   const dogName = savedProfile.name?.trim() || 'Your dog';
   const [ledger, setLedger] = useState<DogtypeLedger>({});
-  const [picked, setPicked] = useState<string | 'hidden' | null>(null);
-  const [matchExists, setMatchExists] = useState(false);
+  const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
+  const [revealed, setRevealed] = useState(false);
+  const [items, setItems] = useState<MatchItem[]>([]);
+  const [showAll, setShowAll] = useState(false);
+  const [sheetCode, setSheetCode] = useState<string | null>(null);
+  const [hiddenNote, setHiddenNote] = useState(false);
 
   useEffect(() => {
     if (!userId) return undefined;
     if (ownCode) void discoverOwnType(userId, ownCode);
-    const load = () => void loadDiscoveries(userId).then(setLedger);
+    const load = () => {
+      void loadDiscoveries(userId).then(setLedger);
+      void loadDogSnapshots(userId).then(setSnapshots);
+      void loadRevealed(userId).then(setRevealed);
+    };
     load();
     return onDiscoveriesChange(load);
   }, [userId, ownCode]);
 
-  const codes = useMemo(() => discoveredOrder(ledger, ownCode), [ledger, ownCode]);
-  const found = codes.length;
-  const hiddenCount = Math.max(0, TOTAL - found);
-  const entry = picked && picked !== 'hidden' ? ledger[picked] : undefined;
-  const matchId = entry?.dogId ? [userId, entry.dogId].sort().join('_') : null;
-
   useEffect(() => {
-    setMatchExists(false);
-    if (!matchId) return;
     let cancelled = false;
-    getDoc(doc(getFirebase().db, 'matches', matchId))
-      .then((s) => !cancelled && setMatchExists(s.exists()))
-      .catch(() => {});
+    if (userId) fetchMatches(userId).then((m) => !cancelled && setItems(m)).catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [matchId]);
+  }, [userId]);
+
+  // Until the owner has watched their own reveal, their own type stays a "?".
+  const codes = useMemo(
+    () => discoveredOrder(ledger, ownCode).filter((c) => c !== ownCode || revealed),
+    [ledger, ownCode, revealed],
+  );
+  const found = codes.length;
+  const hiddenCount = Math.max(0, TOTAL - found);
+  const tiles: (string | null)[] = [...codes, ...Array.from({ length: hiddenCount }, () => null)];
+  const visible = showAll ? tiles : tiles.slice(0, COMPACT);
 
   if (!own) return null;
 
-  function pick(next: string | 'hidden') {
-    setPicked((cur) => (cur === next ? null : next));
-    trackEvent('dogtype_tile_tap', { discovered: next !== 'hidden' });
-  }
-
-  const pickedType = picked && picked !== 'hidden' ? dogtypeByCode(picked) : null;
-  const compat = pickedType && picked !== ownCode ? dogtypeCompat(ownCode, pickedType.code) : null;
-  const firstReason = pickedType && picked !== ownCode ? dogtypeReasons(ownCode, pickedType.code)[0] : undefined;
+  const entry = sheetCode ? ledger[sheetCode] : undefined;
+  const discoveredLine =
+    sheetCode && sheetCode !== ownCode
+      ? entry?.dogName
+        ? `Discovered through ${entry.dogName} · ${whenLabel(entry.at)}`
+        : entry
+          ? `Discovered ${whenLabel(entry.at)}`
+          : undefined
+      : undefined;
 
   return (
     <View style={styles.wrap}>
@@ -89,76 +107,77 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
         </View>
 
         <View style={styles.grid}>
-          {codes.map((code) => {
+          {visible.map((code, i) => {
+            if (code === null) {
+              return (
+                <Pressable
+                  key={`h${i}`}
+                  onPress={() => {
+                    setHiddenNote((v) => !v);
+                    trackEvent('dogtype_tile_tap', { discovered: false });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Hidden Dogtype"
+                  style={[styles.tile, styles.tileHidden]}
+                >
+                  <Text style={styles.tileQ}>?</Text>
+                </Pressable>
+              );
+            }
             const t = dogtypeByCode(code);
             if (!t) return null;
-            const on = picked === code;
+            const count = matchedDogsOfType(snapshots, code).length;
             return (
               <Pressable
                 key={code}
-                onPress={() => pick(code)}
+                onPress={() => {
+                  setSheetCode(code);
+                  trackEvent('dogtype_tile_tap', { discovered: true });
+                  trackEvent('dogtype_sheet_open');
+                }}
                 accessibilityRole="button"
-                accessibilityLabel={`${t.name}${code === ownCode ? `, ${dogName}'s type` : ''}`}
-                accessibilityState={{ selected: on }}
-                style={[styles.tile, styles.tileOn, code === ownCode ? styles.tileOwn : styles.tileMet, on && styles.tilePicked]}
+                accessibilityLabel={`${t.name}${code === ownCode ? `, ${dogName}'s type` : ''}${count > 1 ? `, ${count} matches` : ''}`}
+                style={[styles.tile, styles.tileOn, code === ownCode ? styles.tileOwn : styles.tileMet]}
               >
                 <Text style={styles.tileEmoji}>{t.emoji}</Text>
                 <Text style={styles.tileName} numberOfLines={2}>
                   {t.name.replace(/^The /, '')}
                 </Text>
+                {count > 1 && (
+                  <View style={styles.count}><Text style={styles.countText}>×{count}</Text></View>
+                )}
               </Pressable>
             );
           })}
-          {Array.from({ length: hiddenCount }, (_, i) => (
-            <Pressable
-              key={`h${i}`}
-              onPress={() => pick('hidden')}
-              accessibilityRole="button"
-              accessibilityLabel="Hidden Dogtype"
-              style={[styles.tile, styles.tileHidden]}
-            >
-              <Text style={styles.tileQ}>?</Text>
-            </Pressable>
-          ))}
         </View>
 
-        {picked === 'hidden' && (
-          <View style={[styles.panel, styles.panelHidden]}>
-            <Text style={styles.panelTitle}>Still hidden</Text>
-            <Text style={styles.panelBody}>Match with a dog of this type and it’s yours to see. No hints, no peeking.</Text>
+        {hiddenNote && (
+          <View style={styles.hiddenPanel}>
+            <Text style={styles.hiddenTitle}>Still hidden</Text>
+            <Text style={styles.hiddenBody}>Match with a dog of this type and it’s yours to see. No hints, no peeking.</Text>
           </View>
         )}
-        {pickedType && picked !== 'hidden' && (
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>{pickedType.name}</Text>
-            <Text style={styles.panelMeta}>
-              {picked === ownCode
-                ? `That’s ${dogName}`
-                : entry?.dogName
-                  ? `Discovered through ${entry.dogName} · ${whenLabel(entry.at)}`
-                  : `Discovered ${whenLabel(entry?.at ?? Date.now())}`}
-            </Text>
-            {picked === ownCode ? (
-              <Text style={styles.panelBody}>{pickedType.blurb}</Text>
-            ) : (
-              <>
-                {compat && <Text style={styles.panelVibe}>With {dogName}: {compat.headline.toLowerCase()}</Text>}
-                {firstReason && <Text style={styles.panelBody}>{firstReason.text}</Text>}
-                {matchExists && matchId && entry?.dogName && (
-                  <SecondaryButton
-                    label={`Open chat with ${entry.dogName}`}
-                    onPress={() => router.push({ pathname: '/chat/[matchId]', params: { matchId, name: entry.dogName ?? '' } })}
-                  />
-                )}
-              </>
-            )}
-          </View>
+
+        {tiles.length > COMPACT && (
+          <Pressable style={styles.toggle} accessibilityRole="button" onPress={() => setShowAll((v) => !v)}>
+            <Text style={styles.toggleText}>{showAll ? 'Show fewer ▲' : `Show all ${TOTAL} ▼`}</Text>
+          </Pressable>
         )}
       </View>
 
       {hiddenCount > 0 && (
         <PrimaryButton label={`Keep swiping · ${hiddenCount} to find`} onPress={() => router.push('/(tabs)/discover')} />
       )}
+
+      <DogtypeSheet
+        visible={sheetCode !== null}
+        onClose={() => setSheetCode(null)}
+        code={sheetCode}
+        ownCode={ownCode}
+        ownName={dogName}
+        matches={sheetCode ? matchedDogsOfCode(items, snapshots, sheetCode) : []}
+        discoveredLine={discoveredLine}
+      />
     </View>
   );
 }
@@ -183,19 +202,19 @@ const styles = StyleSheet.create({
   bar: { height: 10, borderRadius: 999, backgroundColor: colors.border, overflow: 'hidden' },
   barFill: { height: 10, borderRadius: 999, backgroundColor: colors.ink },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tile: { width: '23%', height: 96, borderRadius: 14, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 2 },
+  tile: { width: '23%', height: 78, borderRadius: 14, alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 2 },
   tileOn: { borderWidth: 2, borderColor: colors.ink },
   tileOwn: { backgroundColor: colors.goldLight },
   tileMet: { backgroundColor: colors.note },
-  tilePicked: { borderWidth: 3 },
   tileHidden: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.brownMid },
-  tileEmoji: { fontSize: 26 },
-  tileName: { fontFamily: fonts.black, fontSize: 11, lineHeight: 13, textAlign: 'center', color: colors.ink },
-  tileQ: { fontFamily: fonts.display, fontSize: 30, color: colors.brownMid },
-  panel: { borderWidth: 2, borderColor: colors.ink, borderRadius: 16, padding: 14, gap: 8, backgroundColor: colors.white },
-  panelHidden: { borderStyle: 'dashed', borderColor: colors.brownMid, backgroundColor: 'transparent' },
-  panelTitle: { fontFamily: fonts.display, fontSize: 21, lineHeight: 25, color: colors.ink },
-  panelMeta: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brownMid },
-  panelVibe: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
-  panelBody: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.ink },
+  tileEmoji: { fontSize: 24 },
+  tileName: { fontFamily: fonts.black, fontSize: 10.5, lineHeight: 12, textAlign: 'center', color: colors.ink },
+  tileQ: { fontFamily: fonts.display, fontSize: 26, color: colors.brownMid },
+  count: { position: 'absolute', top: 3, right: 4, backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 5 },
+  countText: { fontFamily: fonts.black, fontSize: 10, color: colors.paper },
+  hiddenPanel: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.brownMid, borderRadius: 16, padding: 12, gap: 4 },
+  hiddenTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.ink },
+  hiddenBody: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.ink },
+  toggle: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
+  toggleText: { fontFamily: fonts.black, fontSize: 14, color: colors.rose },
 });
