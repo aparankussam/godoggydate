@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { computeDogtype, describeTypeChange } from '../../shared/dogtype';
 import {
   ActivityIndicator,
   Alert,
@@ -631,6 +632,25 @@ export default function ProfileEditor({
       Alert.alert('Please rephrase', CONTENT_FILTER_MESSAGE);
       focusFirstInvalid(filtered.errors, filtered.promptIndex);
       return;
+    }
+
+    // Editing can change the dog's Dogtype (it is read from energy, play style, sociability and
+    // temperament). Say so before saving, so a new type is never a surprise.
+    if (initialProfile) {
+      const change = describeTypeChange(
+        computeDogtype(initialProfile)?.code,
+        computeDogtype({ energyLevel, playStyles, behaviorFlags, notGoodWith, temperament })?.code,
+      );
+      if (change.changed) {
+        const dogLabel = name.trim() || initialProfile.name || 'your dog';
+        const ok = await new Promise<boolean>((resolve) =>
+          Alert.alert('Change the Dogtype?', change.message!.replace('{name}', dogLabel), [
+            { text: 'Keep editing', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Save anyway', onPress: () => resolve(true) },
+          ], { cancelable: true, onDismiss: () => resolve(false) }),
+        );
+        if (!ok) return;
+      }
     }
 
     setUploading(true);

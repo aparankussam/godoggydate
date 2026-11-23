@@ -18,7 +18,7 @@ export default function VibeTypeCard({ archetype }: Props) {
 
   return (
     <Pressable onPress={() => setExpanded((v) => !v)} style={styles.card}>
-      <Text style={styles.eyebrow}>Vibe Check · a playful AI read</Text>
+      <Text style={styles.eyebrow}>Vibe Check · a photo read, just for fun</Text>
       <View style={styles.row}>
         <Glyph name="star-four-points" size={22} />
         <View style={styles.info}>
