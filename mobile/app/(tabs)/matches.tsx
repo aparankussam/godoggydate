@@ -20,9 +20,8 @@ import {
   type MatchItem,
 } from '../../lib/matches';
 import { useSession } from '../../lib/session';
-import { loadDiscoveries, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
-import { computeDogtype } from '../../../shared/dogtype';
-import type { DogtypeLedger } from '../../../shared/progress';
+import { effectiveCode, loadDiscoveries, loadDogSnapshots, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
+import type { DogtypeDogMap, DogtypeLedger } from '../../../shared/progress';
 
 function previewLine(match: MatchItem, selfUid: string): string {
   if (!match.chatUnlocked) return 'Open chat to send the first hello';
@@ -35,9 +34,13 @@ export default function MatchesTab() {
   const { user, loading: sessionLoading } = useSession();
   const uid = user?.uid;
   const [ledger, setLedger] = useState<DogtypeLedger>({});
+  const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
   useEffect(() => {
     if (!uid) return undefined;
-    const load = () => void loadDiscoveries(uid).then(setLedger);
+    const load = () => {
+      void loadDiscoveries(uid).then(setLedger);
+      void loadDogSnapshots(uid).then(setSnapshots);
+    };
     load();
     return onDiscoveriesChange(load);
   }, [uid]);
@@ -222,7 +225,7 @@ export default function MatchesTab() {
                         </Text>
                       )}
                       {(() => {
-                        const code = match.dog.profile ? computeDogtype(match.dog.profile)?.code : undefined;
+                        const code = effectiveCode(snapshots, match.dog.id, match.dog.profile) ?? undefined;
                         const e = code ? ledger[code] : undefined;
                         const newType = !!e && e.dogId === match.dog.id && !e.seen;
                         return newType || match.isNew ? (

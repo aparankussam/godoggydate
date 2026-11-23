@@ -21,9 +21,9 @@ import { getRenderablePhotos } from '../../lib/photos';
 import { Ionicons } from '@expo/vector-icons';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import DogtypeRevealCard from '../../components/DogtypeRevealCard';
-import { loadDiscoveries, markDiscoverySeen, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
-import { computeDogtype } from '../../../shared/dogtype';
-import { discoveredOrder, type DogtypeLedger } from '../../../shared/progress';
+import { effectiveCode, loadDiscoveries, loadDogSnapshots, markDiscoverySeen, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
+import { computeDogtype, dogtypeByCode } from '../../../shared/dogtype';
+import { discoveredOrder, type DogtypeDogMap, type DogtypeLedger } from '../../../shared/progress';
 import { PrimaryButton, SkyBackground, StickerDog, Tape } from '../../components/sticker';
 import { colors, fonts } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
@@ -54,6 +54,7 @@ export default function MatchedDogProfileScreen() {
   const resolvedMatchId = Array.isArray(matchId) ? matchId[0] : matchId;
   const { user, profile: ownProfile, loading: sessionLoading } = useSession();
   const [ledger, setLedger] = useState<DogtypeLedger>({});
+  const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
 
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
@@ -113,12 +114,17 @@ export default function MatchedDogProfileScreen() {
   const uid = user?.uid ?? null;
   useEffect(() => {
     if (!uid) return undefined;
-    const load = () => void loadDiscoveries(uid).then(setLedger);
+    const load = () => {
+      void loadDiscoveries(uid).then(setLedger);
+      void loadDogSnapshots(uid).then(setSnapshots);
+    };
     load();
     return onDiscoveriesChange(load);
   }, [uid]);
   const ownType = ownProfile ? computeDogtype(ownProfile) : null;
-  const otherType = profile ? computeDogtype(profile) : null;
+  // The type this dog had when we first saw it, not whatever its owner edited it into since.
+  const otherCode = profile && otherUserId ? effectiveCode(snapshots, otherUserId, profile) : null;
+  const otherType = otherCode ? dogtypeByCode(otherCode) : null;
   const entry = otherType ? ledger[otherType.code] : undefined;
   const entryUnseen = !!entry && entry.dogId !== null && entry.dogId === otherUserId && !entry.seen;
   // Latch: marking it seen must not flip this card back to "met" while it's on screen.

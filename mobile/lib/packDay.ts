@@ -5,6 +5,7 @@
 // see firebase/functions/src/packDay.ts. Formats, limits, rules and display
 // helpers live in shared/packDay.ts; this file never forks them.
 
+import { computeDogtype } from '../../shared/dogtype';
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -124,6 +125,8 @@ export interface PackDayAttendee {
   name: string;
   photo: string | null;
   founding: boolean;
+  /** The attendee dog's Dogtype code, when it can be read. */
+  dogtypeCode: string | null;
 }
 
 /** Each attendee's dog name and cover photo. Mirrors loadAttendees in
@@ -141,6 +144,7 @@ export async function loadPackDayAttendees(event: PackDay, foundingUids: string[
           name: dog.name?.trim() || 'A dog',
           photo: getHeroPhoto(dog.photos, resolveHeroIndex(dog)),
           founding: foundingUids.includes(uid),
+          dogtypeCode: computeDogtype(dog)?.code ?? null,
         };
       } catch {
         return null;
