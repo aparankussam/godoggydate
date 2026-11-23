@@ -10,14 +10,15 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, fonts, radius } from '../../constants/theme';
+import { PawCoin, SecondaryButton, StickerDog } from '../../components/sticker';
 import { useSession } from '../../lib/session';
 import { onReminders } from '../../lib/reminders';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
@@ -42,7 +43,7 @@ function DogSummary({ dog }: { dog: HouseholdDog }) {
         <Image source={{ uri: photo }} style={styles.dogPhoto} accessibilityIgnoresInvertColors />
       ) : (
         <View style={[styles.dogPhoto, styles.dogPhotoEmpty]}>
-          <Text style={styles.dogPhotoEmoji}>🐕</Text>
+          <StickerDog size={58} label={`${dog.profile.name || 'Household dog'}, no photo yet`} />
         </View>
       )}
       <View style={styles.dogText}>
@@ -102,7 +103,7 @@ export default function HouseholdScreen() {
   if (loading || !user) {
     return (
       <SafeAreaView style={styles.gateContainer}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.ink} size="large" />
       </SafeAreaView>
     );
   }
@@ -118,15 +119,18 @@ export default function HouseholdScreen() {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.ink} />
         }
       >
-        <Text style={styles.title}>Your household</Text>
+        <View style={styles.header}>
+          <PawCoin size={30} />
+          <Text style={styles.title} accessibilityRole="header">Your household</Text>
+        </View>
 
         {householdDogs.length > 0 ? (
           <>
             <Text style={styles.subtitle}>
-              {intro} You can see and complete their reminders — no dog of your own required.
+              {intro} You can see and complete their reminders, no dog of your own required.
             </Text>
             {householdDogs.map((dog) => (
               <View key={dog.dogId}>
@@ -146,12 +150,11 @@ export default function HouseholdScreen() {
         )}
 
         <View style={styles.actions}>
-          <Pressable style={styles.secondaryButton} onPress={() => router.push('/onboarding')}>
-            <Text style={styles.secondaryText}>
-              {profile ? 'Finish your own dog’s profile' : 'Add a dog of your own'}
-            </Text>
-          </Pressable>
-          <Pressable style={styles.signOutButton} onPress={handleSignOut} hitSlop={8}>
+          <SecondaryButton
+            label={profile ? 'Finish your own dog’s profile' : 'Add a dog of your own'}
+            onPress={() => router.push('/onboarding')}
+          />
+          <Pressable style={styles.signOutButton} onPress={handleSignOut} hitSlop={8} accessibilityRole="button">
             <Text style={styles.signOutText}>Sign out</Text>
           </Pressable>
         </View>
@@ -161,70 +164,69 @@ export default function HouseholdScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 20, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: colors.sky },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 },
   gateContainer: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sky,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
   },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   title: {
     fontFamily: fonts.display,
-    fontSize: 30,
-    color: colors.brown,
-    marginBottom: 8,
+    fontSize: 28,
+    lineHeight: 34,
+    color: colors.ink,
   },
   subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 14.5,
+    color: colors.ink,
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   dogCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
+    backgroundColor: colors.paper,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.ink,
     padding: 14,
     marginBottom: 12,
-    ...shadow.card,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 4,
   },
   dogPhoto: {
     width: 72,
     height: 72,
     borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
     backgroundColor: colors.creamDark,
   },
-  dogPhotoEmpty: { alignItems: 'center', justifyContent: 'center' },
-  dogPhotoEmoji: { fontSize: 30 },
+  dogPhotoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.note },
   dogText: { flex: 1 },
-  dogName: { fontFamily: fonts.display, fontSize: 22, color: colors.brown },
-  dogDetails: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight, marginTop: 2 },
+  dogName: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28, color: colors.ink },
+  dogDetails: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink, marginTop: 2 },
   emptyCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.paper,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.ink,
     padding: 16,
     gap: 8,
     marginBottom: 16,
   },
-  emptyTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
-  emptyBody: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: colors.brownLight, marginBottom: 4 },
+  emptyTitle: { fontFamily: fonts.display, fontSize: 21, lineHeight: 25, color: colors.ink },
+  emptyBody: { fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 19, color: colors.brownMid, marginBottom: 4 },
   actions: { gap: 12, marginTop: 8, alignItems: 'stretch' },
-  secondaryButton: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.full,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  secondaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
-  signOutButton: { alignSelf: 'center', paddingVertical: 8 },
-  signOutText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownLight },
+  signOutButton: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
+  signOutText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
 });

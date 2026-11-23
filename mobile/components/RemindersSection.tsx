@@ -7,7 +7,8 @@
 // except a truly arbitrary date, which falls back to typed month/day/year).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, secondaryButton } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { REMINDER_PRESETS, completeReminder, createReminder, deleteReminder } from '../lib/reminders';
 import type { Reminder, ReminderType } from '../../shared/types';
 import { reminderDueLabel } from '../../shared/dates';
@@ -235,7 +236,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           {preset.recurrenceDays && (
             <Pressable style={styles.repeatsRow} onPress={() => setRepeats((v) => !v)}>
               <View style={[styles.checkbox, repeats && styles.checkboxChecked]}>
-                {repeats && <Text style={styles.checkboxMark}>✓</Text>}
+                {repeats && <Glyph name="check-bold" size={13} color={colors.cream} />}
               </View>
               <Text style={styles.repeatsText}>Repeats</Text>
             </Pressable>
@@ -270,14 +271,14 @@ export default function RemindersSection({ dogId, reminders }: Props) {
                 style={[styles.celebrateOverlay, { opacity: celebrateOpacity }]}
                 pointerEvents="none"
               >
-                <Text style={styles.celebrateText}>🔥 🐾 🔥</Text>
+                <Glyph name="paw" size={30} />
               </Animated.View>
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>{r.label}</Text>
               <Text style={[styles.rowDue, due.urgent && styles.rowDueUrgent]}>
                 {due.text}{r.recurrenceDays ? ' · repeats' : ''}
-                {hasStreak && <Text style={styles.streakText}>  🔥 {r.currentStreak} in a row</Text>}
+                {hasStreak && <Text style={styles.streakText}>  · {r.currentStreak} in a row</Text>}
               </Text>
             </View>
             <Pressable
@@ -299,12 +300,12 @@ export default function RemindersSection({ dogId, reminders }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
     overflow: 'hidden',
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
   },
   header: {
     flexDirection: 'row',
@@ -312,80 +313,80 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.creamDark,
   },
-  title: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  subtitle: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 2 },
-  addLink: { fontFamily: fonts.bold, fontSize: 13, color: colors.primary },
+  title: { fontFamily: fonts.black, fontSize: 14, color: colors.brown },
+  subtitle: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 2 },
+  addLink: { fontFamily: fonts.black, fontSize: 13, color: colors.rose },
   addForm: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.creamDark,
     backgroundColor: colors.creamDark,
     gap: 10,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   presetChip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  presetChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  presetChipText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown },
-  presetChipTextActive: { color: colors.white },
+  presetChipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  presetChipText: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown },
+  presetChipTextActive: { color: colors.cream },
   input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.md,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.brown,
   },
-  helpText: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight },
+  helpText: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
   dateRow: { flexDirection: 'row', gap: 8 },
   dateInput: { width: 56, textAlign: 'center' },
   dateInputYear: { width: 76, textAlign: 'center' },
-  customDateLink: { fontFamily: fonts.semibold, fontSize: 12, color: colors.primaryDark, textDecorationLine: 'underline' },
+  customDateLink: { fontFamily: fonts.bold, fontSize: 12, color: colors.rose, textDecorationLine: 'underline' },
   repeatsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkbox: {
-    width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white,
+    width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: colors.ink,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream,
   },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkboxMark: { color: colors.white, fontSize: 12, fontFamily: fonts.bold },
-  repeatsText: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight },
-  errorText: { fontFamily: fonts.body, fontSize: 12, color: '#DC2626' },
-  submitBtn: { backgroundColor: colors.primary, borderRadius: radius.full, paddingVertical: 11, alignItems: 'center' },
-  submitText: { fontFamily: fonts.bold, fontSize: 14, color: colors.white },
+  checkboxChecked: { backgroundColor: colors.ink, borderColor: colors.ink },
+  checkboxMark: { color: colors.cream, fontSize: 12, fontFamily: fonts.black },
+  repeatsText: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid },
+  errorText: { fontFamily: fonts.bold, fontSize: 12, color: colors.danger },
+  submitBtn: { ...secondaryButton, borderRadius: radius.full, paddingVertical: 11, alignItems: 'center' },
+  submitText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
   empty: { padding: 20, alignItems: 'center' },
-  emptyText: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight, textAlign: 'center' },
+  emptyText: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, textAlign: 'center' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.creamDark,
     position: 'relative', overflow: 'hidden',
   },
-  rowLabel: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown },
-  rowDue: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 2 },
-  rowDueUrgent: { color: '#DC2626', fontFamily: fonts.semibold },
-  streakText: { fontFamily: fonts.bold, color: '#B45309' },
+  rowLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.brown },
+  rowDue: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 2 },
+  rowDueUrgent: { color: colors.danger, fontFamily: fonts.black },
+  streakText: { fontFamily: fonts.black, color: colors.ink },
   celebrateOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,251,235,0.92)', zIndex: 10,
+    backgroundColor: 'rgba(255,249,236,0.94)', zIndex: 10,
   },
   celebrateText: { fontSize: 20 },
   doneBtn: {
-    backgroundColor: '#E2F2E9', borderWidth: 1, borderColor: '#BBE3CC',
+    backgroundColor: colors.cream, borderWidth: 2, borderColor: colors.ink, borderBottomWidth: 4,
     borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 7,
   },
-  doneBtnText: { fontFamily: fonts.bold, fontSize: 11, color: '#1F7A4D' },
+  doneBtnText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   deleteBtn: { paddingHorizontal: 4 },
-  deleteBtnText: { fontSize: 18, color: colors.brownLight },
+  deleteBtnText: { fontSize: 18, color: colors.brownMid },
 });

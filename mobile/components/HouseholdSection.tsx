@@ -10,7 +10,9 @@
 // and the join screen.
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, radius } from '../constants/theme';
+import { PrimaryButton, SecondaryButton } from './sticker';
 import {
   acceptHouseholdInvite,
   createHouseholdInvite,
@@ -26,9 +28,12 @@ interface JoinFormProps {
   /** Shows a Cancel link next to the button when provided. */
   onCancel?: () => void;
   submitLabel?: string;
+  /** Render the submit as the screen's one pink action (only where nothing
+   *  else on the screen is pink, e.g. the join screen). Paper otherwise. */
+  primary?: boolean;
 }
 
-export function HouseholdJoinForm({ initialCode, onJoined, onCancel, submitLabel = 'Join household' }: JoinFormProps) {
+export function HouseholdJoinForm({ initialCode, onJoined, onCancel, submitLabel = 'Join household', primary = false }: JoinFormProps) {
   const [joinCode, setJoinCode] = useState(normalizeInviteCode(initialCode));
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -57,7 +62,7 @@ export function HouseholdJoinForm({ initialCode, onJoined, onCancel, submitLabel
         value={joinCode}
         onChangeText={(v) => setJoinCode(normalizeInviteCode(v))}
         placeholder="Invite code"
-        placeholderTextColor={colors.brownLight}
+        placeholderTextColor="#8E87A8"
         autoCapitalize="characters"
         autoCorrect={false}
         maxLength={6}
@@ -68,11 +73,23 @@ export function HouseholdJoinForm({ initialCode, onJoined, onCancel, submitLabel
       />
       {joinError && <Text style={styles.errorText}>{joinError}</Text>}
       <View style={styles.joinActions}>
-        <Pressable style={[styles.submitBtn, joining && { opacity: 0.6 }]} onPress={handleJoin} disabled={joining}>
-          <Text style={styles.submitText}>{joining ? 'Joining…' : submitLabel}</Text>
-        </Pressable>
+        {primary ? (
+          <PrimaryButton
+            label={joining ? 'Joining…' : submitLabel}
+            onPress={handleJoin}
+            disabled={joining}
+            style={styles.submitBtn}
+          />
+        ) : (
+          <SecondaryButton
+            label={joining ? 'Joining…' : submitLabel}
+            onPress={handleJoin}
+            disabled={joining}
+            style={styles.submitBtn}
+          />
+        )}
         {onCancel && (
-          <Pressable onPress={onCancel} hitSlop={8}>
+          <Pressable onPress={onCancel} hitSlop={8} accessibilityRole="button" style={styles.cancelHit}>
             <Text style={styles.cancelLink}>Cancel</Text>
           </Pressable>
         )}
@@ -145,8 +162,15 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
           {memberIds.map((uid) => (
             <View key={uid} style={styles.memberRow}>
               <Text style={styles.memberName} numberOfLines={1}>{memberNames?.[uid] ?? 'Household member'}</Text>
-              <Pressable onPress={() => handleRemove(uid)} disabled={busyUid === uid} hitSlop={8}>
-                <Text style={[styles.removeText, busyUid === uid && { opacity: 0.5 }]}>Remove</Text>
+              <Pressable
+                onPress={() => handleRemove(uid)}
+                disabled={busyUid === uid}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${memberNames?.[uid] ?? 'household member'}`}
+                style={[styles.removeBtn, busyUid === uid && { opacity: 0.5 }]}
+              >
+                <Text style={styles.removeText}>Remove</Text>
               </Pressable>
             </View>
           ))}
@@ -158,27 +182,26 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
           <View style={styles.codeBox}>
             <Text style={styles.codeLabel}>Share this code — it expires in 7 days:</Text>
             <Text style={styles.codeText}>{invite.code}</Text>
-            <Pressable style={styles.secondaryBtn} onPress={handleShare}>
-              <Text style={styles.secondaryBtnText}>📤 Share invite</Text>
-            </Pressable>
+            <SecondaryButton
+              label="Share invite"
+              icon={<Ionicons name="share-outline" size={18} color={colors.ink} />}
+              onPress={handleShare}
+            />
           </View>
         ) : (
-          <Pressable
-            style={[styles.secondaryBtn, (inviting || memberIds.length >= 3) && { opacity: 0.5 }]}
+          <SecondaryButton
+            label={inviting ? 'Creating…' : memberIds.length >= 3 ? 'Household is full (4 max)' : 'Invite someone'}
+            icon={inviting || memberIds.length >= 3 ? undefined : <Ionicons name="person-add" size={17} color={colors.ink} />}
             onPress={handleInvite}
             disabled={inviting || memberIds.length >= 3}
-          >
-            <Text style={styles.secondaryBtnText}>
-              {inviting ? 'Creating…' : memberIds.length >= 3 ? 'Household is full (4 max)' : '+ Invite someone'}
-            </Text>
-          </Pressable>
+          />
         )}
         {inviteError && <Text style={styles.errorText}>{inviteError}</Text>}
       </View>
 
       <View style={styles.section}>
         {joined ? (
-          <Text style={styles.joinedText}>You&apos;re in this household 🐾</Text>
+          <Text style={styles.joinedText}>You&apos;re in this household.</Text>
         ) : showJoin ? (
           <HouseholdJoinForm
             onJoined={() => {
@@ -188,7 +211,7 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
             onCancel={() => setShowJoin(false)}
           />
         ) : (
-          <Pressable onPress={() => setShowJoin(true)}>
+          <Pressable onPress={() => setShowJoin(true)} accessibilityRole="button" style={styles.joinLinkHit}>
             <Text style={styles.joinLink}>Have an invite code?</Text>
           </Pressable>
         )}
@@ -199,84 +222,85 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    overflow: 'hidden',
+    backgroundColor: colors.paper,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.ink,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 4,
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.creamDark,
   },
-  title: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  subtitle: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 2 },
+  title: { fontFamily: fonts.display, fontSize: 22, lineHeight: 26, color: colors.ink },
+  subtitle: { fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid, marginTop: 2 },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.creamDark,
   },
-  memberName: { flex: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.brown },
-  removeText: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
+  memberName: { flex: 1, fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  removeBtn: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+  },
+  removeText: { fontFamily: fonts.black, fontSize: 12.5, color: colors.ink },
   section: { padding: 16, gap: 8 },
   codeBox: {
     borderRadius: radius.md,
-    backgroundColor: colors.creamDark,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.note,
+    borderWidth: 2,
+    borderColor: colors.ink,
     padding: 14,
     gap: 8,
   },
-  codeLabel: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, textAlign: 'center' },
+  codeLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.brownMid, textAlign: 'center' },
   codeText: {
-    fontFamily: fonts.bold,
-    fontSize: 26,
+    fontFamily: fonts.black,
+    fontSize: 28,
     letterSpacing: 4,
-    color: colors.brown,
+    color: colors.ink,
     textAlign: 'center',
     paddingVertical: 4,
   },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.full,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  secondaryBtnText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown },
-  errorText: { fontFamily: fonts.body, fontSize: 12, color: '#DC2626' },
-  joinLink: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primaryDark, textDecorationLine: 'underline' },
-  joinedText: { fontFamily: fonts.semibold, fontSize: 13, color: '#1a5c1a' },
-  joinForm: { gap: 8 },
+  errorText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger },
+  joinLinkHit: { alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' },
+  joinLink: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink, textDecorationLine: 'underline' },
+  joinedText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  joinForm: { gap: 10 },
   joinInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontFamily: fonts.bold,
-    fontSize: 18,
+    fontFamily: fonts.black,
+    fontSize: 20,
     letterSpacing: 3,
     textAlign: 'center',
-    color: colors.brown,
+    color: colors.ink,
   },
   joinActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  submitBtn: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  submitText: { fontFamily: fonts.bold, fontSize: 14, color: colors.white },
-  cancelLink: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brownLight },
+  submitBtn: { flex: 1 },
+  cancelHit: { minHeight: 44, justifyContent: 'center' },
+  cancelLink: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
 });

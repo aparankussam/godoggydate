@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts } from '../constants/theme';
 import { completeReminder, onReminders } from '../lib/reminders';
 import { isProfileComplete, type SavedDogProfile } from '../lib/profile';
 import { trackEvent } from '../lib/analytics';
@@ -174,7 +174,7 @@ export default function TodayPanel({ dogId, profile, variant, onOpenReminders }:
     ? done.streak !== null && done.streak >= 2
       // Only a real streak (2+ consecutive on-time completions of THIS
       // reminder) is worth saying out loud.
-      ? `${done.label} done · 🔥 ${done.streak} in a row`
+      ? `${done.label} done · ${done.streak} in a row`
       : `${done.label} done.`
     : null;
 
@@ -313,103 +313,117 @@ export default function TodayPanel({ dogId, profile, variant, onOpenReminders }:
 }
 
 const styles = StyleSheet.create({
-  // Full panel — same card language as RemindersSection on the profile tab.
+  // Full panel — paper card, ink outline, hard flat shadow ("Sticker Book").
   card: {
     width: '100%',
-    maxWidth: 360,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.paper,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: colors.ink,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginTop: 18,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 6,
   },
-  title: { fontFamily: fonts.bold, fontWeight: '700', fontSize: 14, color: colors.brown },
-  headerLink: { fontFamily: fonts.bold, fontWeight: '700', fontSize: 12, color: colors.primary },
+  title: { fontFamily: fonts.display, fontSize: 22, lineHeight: 26, color: colors.ink },
+  headerLink: {
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.ink,
+    textDecorationLine: 'underline',
+    paddingVertical: 10,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: 1.5,
+    borderStyle: 'dashed',
+    borderTopColor: 'rgba(42,31,74,0.35)',
   },
   rowMain: { flex: 1, minWidth: 0 },
-  rowLabel: { fontFamily: fonts.semibold, fontWeight: '600', fontSize: 13, color: colors.brown },
-  rowDue: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 2 },
-  rowDueUrgent: { fontFamily: fonts.semibold, fontWeight: '600', color: '#DC2626' },
-  muted: { flex: 1, fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, lineHeight: 17 },
-  nextUpLabel: { fontFamily: fonts.semibold, fontWeight: '600', color: colors.brownMid },
+  rowLabel: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  rowDue: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.brownMid, marginTop: 2 },
+  rowDueUrgent: { fontFamily: fonts.black, color: colors.ink },
+  muted: { flex: 1, fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, lineHeight: 18 },
+  nextUpLabel: { fontFamily: fonts.black, color: colors.ink },
   promptRow: {
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 2,
-    backgroundColor: 'rgba(245,183,49,0.10)',
   },
-  promptTitle: { fontFamily: fonts.semibold, fontWeight: '600', fontSize: 13, color: colors.brown },
-  promptBody: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.brownLight },
+  promptTitle: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  promptBody: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
   promptCta: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 12,
-    color: colors.primary,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
     textDecorationLine: 'underline',
-    marginTop: 6,
+    paddingVertical: 8,
   },
-  foundingLabel: { fontFamily: fonts.bold, fontWeight: '700', color: colors.brown },
-  doneLine: { flex: 1, fontFamily: fonts.semibold, fontWeight: '600', fontSize: 12, color: '#1F7A4D' },
-  errorLine: { flex: 1, fontFamily: fonts.body, fontSize: 12, color: '#DC2626' },
+  foundingLabel: { fontFamily: fonts.black, color: colors.ink },
+  doneLine: { flex: 1, fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  errorLine: { flex: 1, fontFamily: fonts.black, fontSize: 13, color: colors.ink },
   footer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: 'rgba(245,230,211,0.35)',
+    borderTopWidth: 1.5,
+    borderStyle: 'dashed',
+    borderTopColor: 'rgba(42,31,74,0.35)',
   },
   footerLink: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 12,
-    color: colors.brownMid,
+    fontFamily: fonts.bold,
+    fontSize: 12.5,
+    color: colors.ink,
     textDecorationLine: 'underline',
   },
 
-  // Done button — matches RemindersSection.
+  // Done button — a small paper button with a hard edge.
   doneBtn: {
-    backgroundColor: '#E2F2E9',
-    borderWidth: 1,
-    borderColor: '#BBE3CC',
-    borderRadius: radius.full,
+    minHeight: 36,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderBottomWidth: 4,
+    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
   },
   doneBtnBusy: { opacity: 0.5 },
-  doneBtnText: { fontFamily: fonts.bold, fontWeight: '700', fontSize: 11, color: '#1F7A4D' },
+  doneBtnText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
 
-  // Strip — one line above a live deck.
+  // Strip — one calm line above a live deck.
   strip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 4,
-    paddingLeft: 14,
-    paddingRight: 8,
-    paddingVertical: 7,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(245,183,49,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(180,83,9,0.25)',
+    marginHorizontal: 14,
+    marginTop: 2,
+    marginBottom: 6,
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderLeftWidth: 6,
   },
-  stripText: { flex: 1, fontFamily: fonts.body, fontSize: 12, color: colors.brown },
-  stripDue: { fontFamily: fonts.bold, fontWeight: '700' },
+  stripText: { flex: 1, fontFamily: fonts.bold, fontSize: 13, color: colors.ink },
+  stripDue: { fontFamily: fonts.black },
 });

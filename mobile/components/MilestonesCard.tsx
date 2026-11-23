@@ -8,7 +8,8 @@
 import { forwardRef, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, secondaryButton, shadow } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { computeMilestones, type Milestone } from '../../shared/milestones';
 import { captureAndShare } from '../lib/shareCard';
 import { dogPageUrl } from '../lib/webLinks';
@@ -25,7 +26,7 @@ const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string
   ({ milestone, dogName }, ref) => (
     <View ref={ref} collapsable={false} style={styles.celebrate}>
       <LinearGradient
-        colors={['#B45309', '#E8633A', '#F5B731']}
+        colors={['#B45309', '#FF5C8D', '#F5B731']}
         locations={[0, 0.55, 1]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
@@ -82,11 +83,11 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   if (celebrating) {
     return (
       <View style={styles.section}>
-        <Text style={styles.todayLabel}>🎉 Today</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="party-popper" size={18} /><Text style={styles.todayLabel}>Today</Text></View>
         <CelebrationCard ref={cardRef} milestone={celebrating} dogName={dogName} />
         <Pressable style={[styles.shareButton, sharing && { opacity: 0.6 }]} onPress={handleShare} disabled={sharing}>
           <Text style={styles.shareText}>
-            {sharing ? 'Rendering…' : `📤 Share ${dogName}'s ${celebrating.kind === 'birthday' ? 'birthday' : 'day'}`}
+            {sharing ? 'Rendering…' : `Share ${dogName}'s ${celebrating.kind === 'birthday' ? 'birthday' : 'day'}`}
           </Text>
         </Pressable>
         {active.length > 1 && (
@@ -115,20 +116,19 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
     padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     gap: 12,
+    ...shadow.card,
   },
   todayLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.6,
+    fontFamily: fonts.black,
+    fontSize: 14,
+    color: colors.ink,
   },
   celebrate: {
     borderRadius: radius.lg,
@@ -138,10 +138,10 @@ const styles = StyleSheet.create({
   },
   celebrateEmoji: { fontSize: 48 },
   celebrateTitle: { fontFamily: fonts.display, fontSize: 24, color: '#fff', marginTop: 8, textAlign: 'center' },
-  celebrateSubtitle: { fontFamily: fonts.body, fontSize: 14, color: 'rgba(255,255,255,0.9)', marginTop: 4, textAlign: 'center' },
+  celebrateSubtitle: { fontFamily: fonts.bold, fontSize: 14, color: 'rgba(255,255,255,0.9)', marginTop: 4, textAlign: 'center' },
   celebrateFooter: {
-    fontFamily: fonts.body,
-    fontSize: 11,
+    fontFamily: fonts.bold,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.7)',
     marginTop: 16,
     paddingTop: 12,
@@ -151,31 +151,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   shareButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
-  more: { textAlign: 'center', fontFamily: fonts.body, fontSize: 11, color: colors.brownLight },
+  shareText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  more: { textAlign: 'center', fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
   countdownCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
     paddingHorizontal: 18,
     paddingVertical: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    ...shadow.card,
   },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.4,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.brownMid,
   },
   countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   countdownEmoji: { fontSize: 26 },
-  countdownTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
-  countdownSub: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 1 },
+  countdownTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.brown },
+  countdownSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 1 },
 });

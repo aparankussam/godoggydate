@@ -18,7 +18,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, secondaryButton, shadow } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { useSession } from '../lib/session';
 import {
   PUSH_PERMISSION_REASON,
@@ -86,7 +87,7 @@ export default function PushPermissionCard({ style }: Props) {
         accessibilityRole="button"
         accessibilityHint="Opens Settings so you can allow notifications"
       >
-        <Text style={styles.emoji}>🔕</Text>
+        <Glyph name="bell-off" size={26} />
         <View style={styles.body}>
           <Text style={styles.offTitle}>Notifications are off — open Settings</Text>
           <Text style={styles.text}>{PUSH_PERMISSION_REASON} Turn on Allow Notifications for GoDoggyDate.</Text>
@@ -98,7 +99,7 @@ export default function PushPermissionCard({ style }: Props) {
   return (
     <View style={[styles.card, style]}>
       <View style={styles.row}>
-        <Text style={styles.emoji}>🔔</Text>
+        <Glyph name="bell-ring" size={26} />
         <View style={styles.body}>
           <Text style={styles.title}>Turn on notifications</Text>
           <Text style={styles.text}>{PUSH_PERMISSION_REASON}</Text>
@@ -118,13 +119,14 @@ export default function PushPermissionCard({ style }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     padding: 16,
     marginBottom: 16,
     gap: 12,
+    ...shadow.card,
   },
   offCard: {
     flexDirection: 'row',
@@ -134,15 +136,17 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   emoji: { fontSize: 22, lineHeight: 26 },
   body: { flex: 1, gap: 2 },
-  title: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  offTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.primaryDark },
-  text: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.brownLight },
+  title: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  offTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  text: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 19, color: colors.brownMid },
   button: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
-    paddingVertical: 11,
+    paddingVertical: 12,
+    minHeight: 50,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   buttonBusy: { opacity: 0.6 },
-  buttonText: { fontFamily: fonts.bold, fontSize: 14, color: colors.white },
+  buttonText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
 });

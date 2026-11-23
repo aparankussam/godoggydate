@@ -1,6 +1,9 @@
 import { forwardRef } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts } from '../constants/theme';
+import { StickerDog } from './sticker';
 
 interface Props {
   dogName: string;
@@ -33,23 +36,33 @@ const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, 
 
   return (
     <View ref={ref} style={styles.card}>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>Playdate Confirmed</Text>
-      </View>
-      <Text style={styles.pawEmoji}>🎾</Text>
-
       {renderablePhoto ? (
         <Image source={{ uri: renderablePhoto }} style={styles.photo} />
       ) : (
         <View style={[styles.photo, styles.photoFallback]}>
-          <Text style={{ fontSize: 64 }}>🐕</Text>
+          <StickerDog size={140} label={`A drawn sticker dog standing in for ${dogName}`} />
         </View>
       )}
-      <View style={styles.overlay} />
+      <LinearGradient
+        colors={['rgba(42,31,74,0)', 'rgba(42,31,74,0.5)', 'rgba(42,31,74,0.95)']}
+        locations={[0.25, 0.6, 1]}
+        style={styles.overlay}
+        pointerEvents="none"
+      />
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>Playdate · Confirmed</Text>
+      </View>
+      <View style={styles.ball} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Ionicons name="tennisball" size={20} color={colors.ink} />
+      </View>
 
       <View style={styles.infoPanel}>
         {clampedStars !== null && clampedStars > 0 && (
-          <Text style={styles.stars}>{'⭐'.repeat(clampedStars)}</Text>
+          <View style={styles.stars} accessibilityLabel={`${clampedStars} out of 5 stars`}>
+            {Array.from({ length: clampedStars }).map((_, i) => (
+              <Ionicons key={i} name="star" size={24} color={colors.paper} />
+            ))}
+          </View>
         )}
         <Text style={styles.name}>Playdate with {dogName}</Text>
         {dogBreed && <Text style={styles.breed}>{dogBreed}</Text>}
@@ -74,30 +87,47 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: radius.xl,
+    borderRadius: 28,
     overflow: 'hidden',
-    backgroundColor: colors.primaryDark,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.ink,
   },
   badge: {
     position: 'absolute',
     top: 20,
     left: 20,
     zIndex: 10,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
-  badgeText: { color: colors.gold, fontSize: 10, fontFamily: fonts.bold, textTransform: 'uppercase', letterSpacing: 1 },
-  pawEmoji: { position: 'absolute', top: 20, right: 20, zIndex: 10, fontSize: 22 },
+  badgeText: { color: colors.ink, fontSize: 12.5, fontFamily: fonts.black },
+  ball: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   photo: { ...StyleSheet.absoluteFillObject, resizeMode: 'cover' },
-  photoFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(45,26,14,0.55)' },
+  photoFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.note },
+  overlay: { ...StyleSheet.absoluteFillObject },
   infoPanel: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 24, paddingTop: 40 },
-  stars: { fontSize: 24, marginBottom: 6 },
-  name: { color: '#fff', fontFamily: fonts.display, fontSize: 26 },
-  breed: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 2 },
-  tagline: { color: 'rgba(255,255,255,0.85)', fontFamily: fonts.semibold, fontSize: 13, marginTop: 10 },
+  stars: { flexDirection: 'row', gap: 2, marginBottom: 6 },
+  name: { color: colors.paper, fontFamily: fonts.display, fontSize: 30, lineHeight: 34 },
+  breed: { color: 'rgba(255,249,236,0.85)', fontFamily: fonts.bold, fontSize: 12.5, marginTop: 2 },
+  tagline: { color: 'rgba(255,249,236,0.9)', fontFamily: fonts.bold, fontSize: 14, marginTop: 10 },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -105,8 +135,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
+    borderTopColor: 'rgba(255,249,236,0.2)',
   },
-  brand: { color: '#fff', fontFamily: fonts.display, fontSize: 13 },
-  brandUrl: { color: 'rgba(255,255,255,0.5)', fontSize: 10 },
+  brand: { color: colors.paper, fontFamily: fonts.display, fontSize: 18 },
+  brandUrl: { color: 'rgba(255,249,236,0.75)', fontFamily: fonts.bold, fontSize: 12 },
 });

@@ -17,7 +17,8 @@
 import { forwardRef, useRef, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { colors, fonts, radius, shadow, secondaryButton } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { getHeroPhoto } from '../lib/photos';
 import { resolveHeroIndex } from '../lib/coverPhoto';
 import { captureAndShare } from '../lib/shareCard';
@@ -148,7 +149,7 @@ export default function PlaqueCard({ savedProfile }: Props) {
   return (
     <View style={styles.section}>
       <Text style={styles.eyebrow}>Just for fun</Text>
-      <Text style={styles.sectionTitle}>🏆 Employee of the Month</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="trophy" size={22} /><Text style={[styles.sectionTitle, { flexShrink: 1 }]}>Employee of the Month</Text></View>
       <Text style={styles.sectionBlurb}>
         {dogName}&apos;s official (and entirely ceremonial) office plaque — a straight-faced job title picked from
         their Dogtype, plus some very serious performance highlights. Updates each month.
@@ -166,7 +167,7 @@ export default function PlaqueCard({ savedProfile }: Props) {
         accessibilityRole="button"
         accessibilityLabel={`Share ${dogName}'s plaque`}
       >
-        <Text style={styles.shareText}>{sharing ? 'Preparing…' : `📤 Share ${dogName}'s plaque`}</Text>
+        <Text style={styles.shareText}>{sharing ? 'Preparing…' : `Share ${dogName}'s plaque`}</Text>
       </Pressable>
 
       <Text style={styles.disclaimer}>
@@ -182,21 +183,20 @@ const CARD_WIDTH = 320;
 const styles = StyleSheet.create({
   section: {
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: `${colors.gold}4D`, // ~30%
-    backgroundColor: `${colors.gold}14`, // ~8%
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     padding: 18,
     marginBottom: 16,
+    ...shadow.card,
   },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   sectionTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, marginTop: 1 },
-  sectionBlurb: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
+  sectionBlurb: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
   cardWrap: { alignItems: 'center', marginTop: 14 },
 
   // ── The capturable plate ───────────────────────────────────────────────────
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   inner: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#7A5C22',
     borderRadius: 2,
     paddingHorizontal: 20,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
-  month: { fontFamily: fonts.body, fontSize: 10, color: '#B9A578', letterSpacing: 2, marginTop: 4 },
+  month: { fontFamily: fonts.bold, fontSize: 12, color: '#B9A578', letterSpacing: 2, marginTop: 4 },
   medallion: {
     width: 118,
     height: 118,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   nameplateTitle: {
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.bold,
     fontSize: 12.5,
     color: BRASS_INK_SOFT,
     letterSpacing: 0.3,
@@ -279,20 +279,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   highlightsLabel: {
-    fontFamily: fonts.body,
-    fontSize: 9,
+    fontFamily: fonts.bold,
+    fontSize: 12,
     color: '#B9A578',
     letterSpacing: 2,
     marginTop: 16,
     alignSelf: 'flex-start',
   },
   highlights: { alignSelf: 'stretch', marginTop: 6, gap: 4 },
-  highlight: { fontFamily: fonts.body, fontSize: 11.5, color: ENGRAVE, lineHeight: 16 },
+  highlight: { fontFamily: fonts.bold, fontSize: 12, color: ENGRAVE, lineHeight: 16 },
   highlightStar: { color: '#D8B25C' },
   ceremonial: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontStyle: 'italic',
-    fontSize: 9.5,
+    fontSize: 12,
     color: '#9C8A5F',
     letterSpacing: 0.4,
     marginTop: 16,
@@ -309,22 +309,22 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(201,162,75,0.4)',
   },
   brand: { fontFamily: fonts.display, fontSize: 12, color: ENGRAVE },
-  url: { fontFamily: fonts.body, fontSize: 9.5, color: '#9C8A5F' },
+  url: { fontFamily: fonts.bold, fontSize: 12, color: '#9C8A5F' },
 
   // ── Section share button + disclaimer ──────────────────────────────────────
   shareButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 16,
     ...shadow.button,
   },
-  shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  shareText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   disclaimer: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
     lineHeight: 15,
     textAlign: 'center',
     marginTop: 10,

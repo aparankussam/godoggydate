@@ -26,7 +26,7 @@ const PAPER = '#FFFDF9';
 const INK = '#1F1B16';
 const INK_SOFT = '#8A8378';
 const RULE = '#ECE6DA';
-const ACCENT = '#E8633A'; // brand primary-ish, for the paw + brand mark
+const ACCENT = '#FF5C8D'; // brand primary-ish, for the paw + brand mark
 
 const ApologyCard = forwardRef<View, Props>(function ApologyCard(
   { statement, signOff, dogName, dateLabel },

@@ -25,7 +25,7 @@ const PAPER = '#FFFDF9';
 const INK = '#1F1B16';
 const INK_SOFT = '#8A8378';
 const RULE = '#ECE6DA';
-const ACCENT = '#E8633A';
+const ACCENT = '#FF5C8D';
 const BUBBLE_BG = '#F1EADC'; // received-style bubble (the dog is texting you)
 const BUBBLE_INK = '#2A2620';
 

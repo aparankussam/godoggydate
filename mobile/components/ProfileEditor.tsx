@@ -11,7 +11,9 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { PrimaryButton } from './sticker';
+import { colors, fonts, radius } from '../constants/theme';
 import { uploadDogPhoto } from '../lib/storage';
 import { clampCoverFocus, DEFAULT_COVER_FOCUS } from '../lib/coverPhoto';
 import CoverPhotoEditor from './CoverPhotoEditor';
@@ -41,6 +43,9 @@ import {
   toAdoptionDateIso,
   toIsoDate,
 } from '../../shared/dates';
+
+// Placeholder text: clearly lighter than typed ink so empty fields read empty.
+const PLACEHOLDER = '#8E87A8';
 
 const AGE_OPTIONS = [
   { value: 'puppy', label: 'Puppy' },
@@ -736,7 +741,8 @@ export default function ProfileEditor({
           accessibilityRole="button"
           accessibilityLabel="Back to profile without saving"
         >
-          <Text style={styles.cancelText}>← Back</Text>
+          <Ionicons name="chevron-back" size={18} color={colors.ink} />
+          <Text style={styles.cancelText}>Back</Text>
         </Pressable>
       )}
       <Text style={styles.title}>
@@ -755,7 +761,7 @@ export default function ProfileEditor({
       </Text>
 
       {/* Progress — mirrors the bar at the top of web's DogProfileForm. */}
-      <View style={styles.progressWrap}>
+      <View style={[styles.card, styles.progressWrap]}>
         <View style={styles.progressRow}>
           <Text style={styles.progressCount}>{completedCount}/{PROGRESS_SECTIONS} sections complete</Text>
           <Text style={[styles.progressStatus, complete && styles.progressStatusDone]}>
@@ -772,27 +778,33 @@ export default function ProfileEditor({
           <View
             style={[
               styles.progressFill,
-              { width: `${progressPct}%`, backgroundColor: complete ? colors.success : colors.primary },
+              { width: `${progressPct}%`, backgroundColor: complete ? colors.ink : colors.primary },
             ]}
           />
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>Photos</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle} accessibilityRole="header">Photos</Text>
         <Text style={styles.helper}>Add at least 3 photos. You can upload up to 6.</Text>
         <View style={styles.photoGrid}>
           {photos.map((photo) => (
             <View key={photo.id} style={styles.photoWrap}>
               <Image source={{ uri: photo.uri }} style={styles.photo} />
-              <Pressable style={styles.removePhoto} onPress={() => removePhoto(photo.id)}>
-                <Text style={styles.removePhotoText}>×</Text>
+              <Pressable
+                style={styles.removePhoto}
+                onPress={() => removePhoto(photo.id)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Remove photo"
+              >
+                <Ionicons name="close" size={16} color={colors.paper} />
               </Pressable>
             </View>
           ))}
           {photos.length < 6 && (
-            <Pressable style={styles.addPhoto} onPress={pickPhoto}>
-              <Text style={styles.addPhotoPlus}>+</Text>
+            <Pressable style={styles.addPhoto} onPress={pickPhoto} accessibilityRole="button" accessibilityLabel="Add photo">
+              <Ionicons name="add-circle" size={30} color={colors.ink} />
               <Text style={styles.addPhotoText}>Add photo</Text>
             </Pressable>
           )}
@@ -805,7 +817,7 @@ export default function ProfileEditor({
         {photos.length > 0 && (
           <View style={styles.coverCard}>
             <Text style={styles.coverLabel}>
-              🖼 Cover photo <Text style={styles.coverLabelSub}>— what shows on your card</Text>
+              Cover photo <Text style={styles.coverLabelSub}>— what shows on your card</Text>
             </Text>
             <CoverPhotoEditor
               photos={photos.map((photo) => photo.uri)}
@@ -837,14 +849,18 @@ export default function ProfileEditor({
           >
             {vibeChecking ? (
               <View style={styles.vibeBusyRow}>
-                <ActivityIndicator color={colors.brown} size="small" />
+                <ActivityIndicator color={colors.ink} size="small" />
                 <Text style={styles.vibeButtonText}>Reading the photos…</Text>
               </View>
             ) : (
-              <Text style={styles.vibeButtonText}>
-                {initialProfile?.ai?.vibeCheck ? '✨ Redo the Vibe Check' : '✨ Fill this in from the photos'}
-              </Text>
+              <View style={styles.vibeBusyRow}>
+                <Ionicons name="sparkles" size={17} color={colors.ink} />
+                <Text style={styles.vibeButtonText}>
+                  {initialProfile?.ai?.vibeCheck ? 'Redo the Vibe Check' : 'Fill this in from the photos'}
+                </Text>
+              </View>
             )}
+            <View pointerEvents="none" style={styles.vibeEdge} />
           </Pressable>
         )}
         {vibeCheckError ? <Text style={styles.error}>{vibeCheckError}</Text> : null}
@@ -864,12 +880,14 @@ export default function ProfileEditor({
         )}
       </View>
 
+      <View style={styles.card}>
+      <Text style={styles.cardTitle} accessibilityRole="header">The basics</Text>
       <Field label="Dog’s name" error={errors.name}>
         <TextInput
           ref={nameRef}
           style={styles.input}
           placeholder="Kaju"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={name}
           onChangeText={setName}
           maxLength={PROFILE_TEXT_LIMITS.name}
@@ -885,7 +903,7 @@ export default function ProfileEditor({
           ref={breedRef}
           style={styles.input}
           placeholder="e.g. Golden Retriever, Dachshund Mix"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={breed}
           onChangeText={setBreed}
           onFocus={() => setBreedFocused(true)}
@@ -980,10 +998,14 @@ export default function ProfileEditor({
           ))}
         </View>
         <View style={styles.energyLabels}>
-          <Text style={styles.energyLabelText}>Chill 🧘</Text>
-          <Text style={styles.energyLabelText}>Energetic ⚡</Text>
+          <Text style={styles.energyLabelText}>Chill</Text>
+          <Text style={styles.energyLabelText}>Energetic</Text>
         </View>
       </Field>
+      </View>
+
+      <View style={styles.card}>
+      <Text style={styles.cardTitle} accessibilityRole="header">Personality</Text>
 
       <Field label="Temperament (pick any)" error={errors.personality}>
         <View style={styles.wrap}>
@@ -1011,14 +1033,16 @@ export default function ProfileEditor({
         </View>
       </Field>
 
+      </View>
+
       {/* Safety — the only inputs the matching engine's detectUnsafePairings()
           reads. Grouped under one heading like web's form, which is also where
           the Today panel's "Open the Safety section" nudge lands. */}
       <View
-        style={styles.safetyCard}
+        style={styles.card}
         onLayout={(event) => sectionLaidOut('safety', event.nativeEvent.layout.y)}
       >
-        <Text style={styles.safetyTitle}>Safety</Text>
+        <Text style={styles.cardTitle} accessibilityRole="header">Safety</Text>
         <Text style={styles.helper}>
           Only what you tell us here can warn another owner before a meetup. Skip anything that
           doesn’t apply.
@@ -1053,12 +1077,14 @@ export default function ProfileEditor({
         </View>
       </View>
 
+      <View style={styles.card}>
+      <Text style={styles.cardTitle} accessibilityRole="header">Location</Text>
       <Field label="ZIP code">
         <TextInput
           ref={zipRef}
           style={styles.input}
           placeholder="48084"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={zip}
           onChangeText={setZip}
           // numbers-and-punctuation is iOS-only (Android would show the full
@@ -1080,7 +1106,7 @@ export default function ProfileEditor({
           ref={cityRef}
           style={styles.input}
           placeholder="Troy"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={city}
           onChangeText={setCity}
           maxLength={PROFILE_TEXT_LIMITS.city}
@@ -1097,7 +1123,7 @@ export default function ProfileEditor({
           ref={stateRef}
           style={styles.input}
           placeholder="MI"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={usState}
           // Letters only: digits, spaces and emoji are dropped as they arrive.
           onChangeText={(value: string) => setUsState(normalizeStateInput(value))}
@@ -1109,10 +1135,12 @@ export default function ProfileEditor({
           returnKeyType="done"
         />
       </Field>
+      </View>
 
       {/* The 3 prompts web asks (DogProfileForm.tsx "About your dog"). */}
-      <View style={styles.field}>
-        <Text style={styles.label}>About your dog (optional)</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle} accessibilityRole="header">About your dog</Text>
+        <Text style={styles.helper}>Optional. Your answers show on your dog&apos;s card.</Text>
         {prompts.map((item, index) => (
           <View key={item.prompt} style={styles.promptItem}>
             <Text style={styles.subLabel}>{item.prompt}</Text>
@@ -1120,7 +1148,7 @@ export default function ProfileEditor({
               ref={(input) => { promptRefs.current[index] = input; }}
               style={styles.input}
               placeholder="Your answer…"
-              placeholderTextColor={colors.brownLight}
+              placeholderTextColor={PLACEHOLDER}
               value={item.answer}
               onChangeText={(text) => setPromptAnswer(index, text)}
               maxLength={PROFILE_TEXT_LIMITS.promptAnswer}
@@ -1134,10 +1162,10 @@ export default function ProfileEditor({
       {/* Birthday & milestones — powers Life Stage + the birthday/Gotcha Day
           celebration cards. All optional; none gate discovery. */}
       <View
-        style={styles.vaccinationCard}
+        style={styles.card}
         onLayout={(event) => sectionLaidOut('birthday', event.nativeEvent.layout.y)}
       >
-        <Text style={styles.label}>🎂 Birthday &amp; milestones</Text>
+        <Text style={styles.cardTitle} accessibilityRole="header">Birthday &amp; milestones</Text>
         <Text style={styles.helper}>
           Optional — unlocks {name.trim() || 'your dog'}&apos;s life stage plus birthday and Gotcha Day celebrations.
         </Text>
@@ -1146,7 +1174,7 @@ export default function ProfileEditor({
         <TextInput
           style={[styles.input, errors.birthDate && styles.inputError]}
           placeholder="MM/DD/YYYY"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={birthDate}
           // DATE_KEYBOARD: digits-and-punctuation on iOS, a plain digit pad on
           // Android (numbers-and-punctuation is iOS-only and would fall back to
@@ -1162,7 +1190,7 @@ export default function ProfileEditor({
         <TextInput
           style={[styles.input, errors.adoptionDate && styles.inputError]}
           placeholder="MM/DD/YYYY"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={adoptionDate}
           onChangeText={(t) => setAdoptionDate(maskUsDateInput(t))}
           keyboardType={DATE_KEYBOARD}
@@ -1183,8 +1211,8 @@ export default function ProfileEditor({
           never asked for, and the swipe card rendered that default as a green
           ✓. The date is the real artifact — read off the certificate, and the
           one boarding, daycare, groomers and landlords all ask for. */}
-      <View style={styles.vaccinationCard}>
-        <Text style={styles.label}>Vaccination</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle} accessibilityRole="header">Vaccination</Text>
         <Text style={styles.helper}>
           Nobody verifies any of this. Other owners see it attributed to you, exactly as you enter it.
         </Text>
@@ -1193,7 +1221,7 @@ export default function ProfileEditor({
         <TextInput
           style={[styles.input, errors.rabiesExpiry && styles.inputError]}
           placeholder="MM/DD/YYYY"
-          placeholderTextColor={colors.brownLight}
+          placeholderTextColor={PLACEHOLDER}
           value={rabiesExpiry}
           onChangeText={(t) => setRabiesExpiry(maskUsDateInput(t))}
           keyboardType={DATE_KEYBOARD}
@@ -1247,17 +1275,12 @@ export default function ProfileEditor({
         </View>
       )}
 
-      <Pressable
-        style={[styles.submitButton, (saving || uploading) && styles.submitButtonDisabled]}
+      <PrimaryButton
+        label={submitLabel}
         onPress={handleSubmit}
-        disabled={saving || uploading}
-      >
-        {saving || uploading ? (
-          <ActivityIndicator color={colors.white} />
-        ) : (
-          <Text style={styles.submitText}>{submitLabel}</Text>
-        )}
-      </Pressable>
+        loading={saving || uploading}
+        style={styles.submitButton}
+      />
     </ScrollView>
   );
 }
@@ -1290,247 +1313,279 @@ function ChoiceChip({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.chipPressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 20, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: colors.sky },
+  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48 },
   title: {
     fontFamily: fonts.display,
     fontSize: 30,
-    color: colors.brown,
-    marginBottom: 8,
+    lineHeight: 34,
+    color: colors.ink,
+    marginBottom: 4,
   },
   subtitle: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.brownLight,
+    color: colors.brownMid,
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  section: { marginBottom: 18 },
-  field: { marginBottom: 18 },
-  cancelLink: { alignSelf: 'flex-start', paddingVertical: 4, marginBottom: 10 },
-  cancelText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brownLight },
-  coverCard: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: `${colors.cream}80`,
-    borderRadius: radius.lg,
-    padding: 12,
-  },
-  coverLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brownMid, marginBottom: 10 },
-  coverLabelSub: { fontFamily: fonts.body, color: colors.brownLight },
-  safetyCard: {
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    backgroundColor: 'rgba(255,251,235,0.6)',
-    borderRadius: radius.lg,
+  // Paper card: one per form section (web .card).
+  card: {
+    backgroundColor: colors.paper,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.ink,
     padding: 16,
     marginBottom: 18,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 4,
   },
-  safetyTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown, marginBottom: 4 },
+  cardTitle: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    lineHeight: 26,
+    color: colors.ink,
+    marginBottom: 6,
+  },
+  field: { marginBottom: 16 },
+  cancelLink: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 36,
+    paddingRight: 14,
+    paddingLeft: 8,
+    marginBottom: 10,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: radius.full,
+  },
+  cancelText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  coverCard: {
+    marginTop: 16,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(42,31,74,0.4)',
+    backgroundColor: colors.creamDark,
+    borderRadius: radius.md,
+    padding: 12,
+  },
+  coverLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, marginBottom: 10 },
+  coverLabelSub: { fontFamily: fonts.semibold, color: colors.brownMid },
   subLabelSpaced: { marginTop: 14 },
-  progressWrap: { marginBottom: 20 },
+  progressWrap: { paddingVertical: 12, paddingHorizontal: 14 },
   progressRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  progressCount: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
-  progressStatus: { fontFamily: fonts.semibold, fontSize: 12, color: colors.primary },
-  progressStatusDone: { color: colors.success },
+  progressCount: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  progressStatus: { fontFamily: fonts.bold, fontSize: 12, color: colors.rose },
+  progressStatusDone: { color: colors.ink },
   progressTrack: {
-    height: 8,
+    height: 14,
     borderRadius: radius.full,
-    backgroundColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.creamDark,
     overflow: 'hidden',
   },
   progressFill: { height: '100%', borderRadius: radius.full },
   vibeButton: {
     marginTop: 14,
-    borderWidth: 1,
-    borderColor: `${colors.gold}80`, // ~50%
-    backgroundColor: `${colors.gold}1A`, // ~10%
-    borderRadius: radius.md,
-    paddingVertical: 13,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    borderRadius: radius.full,
+    overflow: 'hidden',
+    minHeight: 50,
+    paddingTop: 10,
+    paddingBottom: 14,
     paddingHorizontal: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
+  vibeEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 5, backgroundColor: colors.border },
   vibeButtonBusy: { opacity: 0.7 },
   vibeBusyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  vibeButtonText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
+  vibeButtonText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   vibeResult: {
     marginTop: 14,
-    borderWidth: 1,
-    borderColor: `${colors.gold}66`, // ~40%
-    backgroundColor: `${colors.gold}1A`,
-    borderRadius: radius.lg,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.note,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   vibeArchetype: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-    color: colors.brownMid,
+    fontFamily: fonts.display,
+    fontSize: 20,
+    lineHeight: 24,
+    color: colors.ink,
   },
-  vibeBio: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brown, marginTop: 4 },
-  vibeDescription: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.brownLight, marginTop: 8 },
-  vibeNote: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 8 },
+  vibeBio: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink, marginTop: 4 },
+  vibeDescription: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.brownMid, marginTop: 8 },
+  vibeNote: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 8 },
   suggestions: { marginTop: 8 },
   suggestionChip: {
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.creamDark,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
   },
-  suggestionText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown },
+  suggestionText: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink },
   energyTrack: { flexDirection: 'row', gap: 4 },
   energyStep: {
     flex: 1,
     height: 32,
     borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
   },
-  energyStepActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  energyStepActive: { backgroundColor: colors.ink },
   energyLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  energyLabelText: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
-  promptItem: { marginBottom: 10 },
+  energyLabelText: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  promptItem: { marginBottom: 12 },
   missingCard: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.creamDark,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 18,
     gap: 2,
   },
-  missingTitle: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownMid, marginBottom: 4 },
-  missingItem: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, lineHeight: 18 },
+  missingTitle: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, marginBottom: 4 },
+  missingItem: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, lineHeight: 20 },
   label: {
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.brownMid,
+    color: colors.ink,
     marginBottom: 8,
   },
   helper: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
+    fontFamily: fonts.semibold,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: colors.brownMid,
     marginBottom: 10,
   },
   input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontFamily: fonts.body,
+    paddingVertical: 12,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    color: colors.brown,
+    color: colors.ink,
   },
-  inputError: { borderColor: colors.primary },
+  inputError: { borderColor: colors.danger, borderWidth: 2.5 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    minHeight: 40,
+    justifyContent: 'center',
   },
   chipActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#FDE4DA',
+    backgroundColor: colors.ink,
   },
+  chipPressed: { opacity: 0.85 },
   chipText: {
-    fontFamily: fonts.semibold,
-    color: colors.brown,
-    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: colors.ink,
+    fontSize: 13.5,
   },
-  chipTextActive: { color: colors.primaryDark },
+  chipTextActive: { color: colors.paper },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   photoWrap: { position: 'relative' },
-  photo: { width: 92, height: 92, borderRadius: radius.md, backgroundColor: colors.creamDark },
+  photo: {
+    width: 92,
+    height: 92,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.creamDark,
+  },
   addPhoto: {
     width: 92,
     height: 92,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
-  },
-  addPhotoPlus: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.primary,
+    gap: 2,
+    backgroundColor: colors.note,
   },
   addPhotoText: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.black,
     fontSize: 12,
-    color: colors.brownLight,
+    color: colors.ink,
   },
   removePhoto: {
     position: 'absolute',
     top: -6,
     right: -6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.brown,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: colors.paper,
+    backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removePhotoText: {
-    color: colors.white,
-    fontSize: 16,
-    lineHeight: 18,
-  },
   error: {
     marginTop: 6,
-    fontFamily: fonts.body,
-    fontSize: 12,
+    fontFamily: fonts.bold,
+    fontSize: 12.5,
     color: colors.danger,
   },
   orText: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.brownLight,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.brownMid,
     textAlign: 'center',
-    marginBottom: 18,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  vaccinationCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    padding: 16,
-    marginBottom: 24,
+    marginTop: -4,
+    marginBottom: 10,
   },
   subLabel: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.brownMid,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
     marginTop: 6,
     marginBottom: 8,
   },
@@ -1540,25 +1595,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamDark,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontFamily: fonts.body,
-    fontSize: 12,
+    fontFamily: fonts.bold,
+    fontSize: 13,
     color: colors.brownMid,
   },
   previewValue: {
-    fontFamily: fonts.semibold,
-    color: colors.brown,
+    fontFamily: fonts.black,
+    color: colors.ink,
   },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadow.button,
-  },
-  submitButtonDisabled: { opacity: 0.7 },
-  submitText: {
-    fontFamily: fonts.bold,
-    fontSize: 16,
-    color: colors.white,
-  },
+  submitButton: { marginTop: 4 },
 });

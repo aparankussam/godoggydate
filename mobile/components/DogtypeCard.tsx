@@ -22,8 +22,8 @@ interface Props {
 function gradientFor(code: string): [string, string, string] {
   const spark = code[0] === 'E';
   return spark
-    ? ['#7A2E0E', '#E8633A', '#F5B731']
-    : ['#241A2E', '#5C3D2E', '#C98A5E'];
+    ? ['#7A2E0E', '#FF5C8D', '#F5B731']
+    : ['#241A2E', '#4A3F6E', '#C98A5E'];
 }
 
 const DogtypeCard = forwardRef<View, Props>(({ dogtype, dogName, photoUrl }, ref) => {

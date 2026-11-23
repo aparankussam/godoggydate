@@ -22,7 +22,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, secondaryButton, shadow } from '../constants/theme';
 import type { SavedDogProfile } from '../lib/profile';
 import { getRenderablePhotos } from '../lib/photos';
 import { focusForPhoto, resolveHeroIndex } from '../lib/coverPhoto';
@@ -127,7 +127,7 @@ export default function DiptychSection({ savedProfile }: Props) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.eyebrow}>National Dog Day 🐾</Text>
+      <Text style={styles.eyebrow}>National Dog Day</Text>
       <Text style={styles.title}>Day 1 vs Day N</Text>
       <Text style={styles.intro}>
         Two of your own photos, then vs now, with the real number of days since your earliest one. Pick the first
@@ -215,7 +215,7 @@ export default function DiptychSection({ savedProfile }: Props) {
             accessibilityRole="button"
             accessibilityLabel={`Share ${dogName}'s Day 1 vs Day ${days}`}
           >
-            <Text style={styles.shareText}>{sharing ? 'Rendering…' : `📤 Share ${dogName}'s Day 1 vs Day ${days}`}</Text>
+            <Text style={styles.shareText}>{sharing ? 'Rendering…' : `Share ${dogName}'s Day 1 vs Day ${days}`}</Text>
           </Pressable>
         </>
       )}
@@ -229,23 +229,22 @@ export default function DiptychSection({ savedProfile }: Props) {
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
     padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    ...shadow.card,
   },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.6,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   title: { fontFamily: fonts.display, fontSize: 20, color: colors.brown, marginTop: 1 },
-  intro: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
-  pickerLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown, marginTop: 14, marginBottom: 8 },
+  intro: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20, marginTop: 4 },
+  pickerLabel: { fontFamily: fonts.black, fontSize: 12, color: colors.brown, marginTop: 14, marginBottom: 8 },
   strip: { flexGrow: 0 },
   thumb: {
     width: 64,
@@ -257,43 +256,43 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  thumbActive: { borderColor: colors.primary },
+  thumbActive: { borderColor: colors.ink },
   thumbImage: { width: '100%', height: '100%' },
   input: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.brown,
   },
-  warn: { fontFamily: fonts.semibold, fontSize: 12, color: colors.primary, marginTop: 8 },
+  warn: { fontFamily: fonts.bold, fontSize: 12, color: colors.rose, marginTop: 8 },
   promptBox: {
     marginTop: 16,
     backgroundColor: colors.cream,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  promptText: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  promptText: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
   cardWrap: { alignItems: 'center', marginTop: 16 },
   shareButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 13,
     alignItems: 'center',
     marginTop: 14,
   },
-  shareText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  shareText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   disclaimer: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
     lineHeight: 16,
     textAlign: 'center',
     marginTop: 10,

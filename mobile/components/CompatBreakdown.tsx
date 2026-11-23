@@ -5,7 +5,7 @@
 // mobile, same gap as web had.
 
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts } from '../constants/theme';
 import type { CompatibilityResult } from '../../shared/types';
 
 /** The seven axes calculateCompatibility() scores, with their max weights.
@@ -59,14 +59,16 @@ export default function CompatBreakdown({ breakdown, score }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // "Sticker Book": calm paper, soft-ink bars. No pink (pink is the action colour).
   card: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.creamDark,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(42,31,74,0.3)',
+    backgroundColor: colors.paper,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    gap: 8,
+    marginBottom: 8,
+    gap: 7,
   },
   row: { gap: 3 },
   rowHeader: {
@@ -74,16 +76,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   axisLabel: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
   },
   axisValue: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
   },
   barTrack: {
     height: 6,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.brownMid,
   },
   totalRow: {
     flexDirection: 'row',
@@ -105,15 +105,13 @@ const styles = StyleSheet.create({
   },
   penaltyRow: { borderTopWidth: 1 },
   penaltyLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: '#DC2626',
+    fontFamily: fonts.black,
+    fontSize: 12,
+    color: '#B42318',
   },
   totalLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 12,
-    color: colors.brown,
+    fontFamily: fonts.black,
+    fontSize: 12.5,
+    color: colors.ink,
   },
 });

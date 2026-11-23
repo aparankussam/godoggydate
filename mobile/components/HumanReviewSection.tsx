@@ -17,7 +17,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { loadHumanReview, onProgressChange, saveHumanReview } from '../lib/progressSync';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, secondaryButton, shadow } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import { requestHumanReview, type HumanReview } from '../lib/humanReview';
 import { captureAndShare } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
@@ -145,7 +146,7 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
     <View style={styles.section}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>Just for fun</Text>
-        <Text style={styles.title}>⭐ My Human: A Review</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="star" size={22} /><Text style={[styles.title, { flexShrink: 1 }]}>My Human: A Review</Text></View>
         <Text style={styles.intro}>
           {dogName} would like to review their human — deadpan star rating, honest pros, and a few gentle notes
           for improvement. A quarterly keepsake, written by AI in {dogName}&apos;s voice.
@@ -211,7 +212,7 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
             onPress={handleShare}
             disabled={sharing}
           >
-            <Text style={styles.secondaryText}>{sharing ? 'Preparing…' : `📤 Share ${dogName}'s review`}</Text>
+            <Text style={styles.secondaryText}>{sharing ? 'Preparing…' : `Share ${dogName}'s review`}</Text>
           </Pressable>
 
           {onCooldown && nextDueMs !== null && (
@@ -233,64 +234,64 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
 const styles = StyleSheet.create({
   section: {
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: `${colors.creamDark}4D`, // ~30%
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     padding: 18,
     marginBottom: 16,
     gap: 12,
+    ...shadow.card,
   },
   header: { gap: 4 },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.6,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   title: { fontFamily: fonts.display, fontSize: 20, color: colors.brown, lineHeight: 24 },
-  intro: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  intro: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
   noteBlock: { gap: 6 },
-  noteLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown },
-  noteOptional: { fontFamily: fonts.body, color: colors.brownLight },
+  noteLabel: { fontFamily: fonts.black, fontSize: 12, color: colors.brown },
+  noteOptional: { fontFamily: fonts.bold, color: colors.brownMid },
   noteInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     backgroundColor: colors.cream,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.brown,
     minHeight: 64,
     textAlignVertical: 'top',
   },
   noteFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  noteHint: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight },
-  noteCount: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight },
+  noteHint: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
+  noteCount: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
   primaryButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  primaryText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
   secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2.5,
+    borderBottomWidth: 5,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  secondaryText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
-  error: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primary, textAlign: 'center' },
+  secondaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
+  error: { fontFamily: fonts.bold, fontSize: 13, color: colors.rose, textAlign: 'center' },
   cardWrap: { alignItems: 'center', marginTop: 4 },
   cadenceNote: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
     lineHeight: 15,
     textAlign: 'center',
   },

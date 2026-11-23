@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, shadow } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import type { DogArchetype } from '../../shared/types';
 
 interface Props {
@@ -17,9 +18,9 @@ export default function VibeTypeCard({ archetype }: Props) {
 
   return (
     <Pressable onPress={() => setExpanded((v) => !v)} style={styles.card}>
-      <Text style={styles.eyebrow}>✨ VIBE CHECK · A PLAYFUL AI READ</Text>
+      <Text style={styles.eyebrow}>Vibe Check · a playful AI read</Text>
       <View style={styles.row}>
-        <Text style={styles.sparkle} aria-hidden>✨</Text>
+        <Glyph name="star-four-points" size={22} />
         <View style={styles.info}>
           <Text style={styles.name}>{archetype.name}</Text>
           <Text style={styles.hint}>Tap to see why</Text>
@@ -39,31 +40,32 @@ export default function VibeTypeCard({ archetype }: Props) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(212,160,23,0.3)',
-    backgroundColor: 'rgba(212,160,23,0.08)',
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    ...shadow.card,
   },
   eyebrow: {
-    fontFamily: fonts.body,
-    fontSize: 9,
+    fontFamily: fonts.bold,
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
-    color: colors.brownLight,
+    color: colors.brownMid,
     marginBottom: 6,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sparkle: { fontSize: 22 },
   info: { flex: 1 },
-  name: { fontFamily: fonts.display, fontSize: 17, color: colors.brown },
-  hint: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight, marginTop: 1 },
-  chevron: { fontSize: 12, color: colors.brownLight },
+  name: { fontFamily: fonts.display, fontSize: 19, color: colors.brown },
+  hint: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 1 },
+  chevron: { fontSize: 12, color: colors.brownMid },
   expanded: {
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(212,160,23,0.2)',
   },
-  description: { fontFamily: fonts.body, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
+  description: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid, lineHeight: 20 },
 });

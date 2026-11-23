@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, shadow } from '../constants/theme';
 import { loadBoopAllTime, STICKERS, unlockedStickers } from '../lib/boops';
 import { onProgressChange } from '../lib/progressSync';
 import { trackEvent } from '../lib/analytics';
@@ -113,44 +113,43 @@ export default function EarnedStickers({ dogId }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginBottom: 16,
+    ...shadow.card,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerText: { flex: 1 },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    color: colors.primary,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
-  subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.brownMid, marginTop: 2 },
+  subtitle: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, marginTop: 2 },
   useButton: {
-    borderWidth: 1,
-    borderColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.full,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
-  useButtonText: { fontFamily: fonts.bold, fontSize: 12, color: colors.primary },
+  useButtonText: { fontFamily: fonts.black, fontSize: 12, color: colors.rose },
   stickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   sticker: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: `${colors.creamDark}80`,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stickerEmoji: { fontSize: 22 },
-  next: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, marginTop: 10, lineHeight: 17 },
-  nextLink: { fontFamily: fonts.bold, color: colors.primary },
+  next: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 10, lineHeight: 17 },
+  nextLink: { fontFamily: fonts.black, color: colors.rose },
 });

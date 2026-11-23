@@ -31,9 +31,9 @@ const STAGE = '#241014'; // deep brick-red house
 const STAGE_2 = '#3A1A18';
 const STAGE_DEEP = '#180A0D';
 const SPOT = '#F5B731'; // spotlight gold
-const CREAM = '#FDF6EE';
+const CREAM = '#FFF9EC';
 const CREAM_SOFT = '#E9D9C6';
-const PRIMARY = '#E8633A';
+const PRIMARY = '#FF5C8D';
 const INK_SOFT = 'rgba(253,246,238,0.62)';
 
 const RoastCard = forwardRef<View, Props>(function RoastCard({ dogName, lines, compliment }, ref) {

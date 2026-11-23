@@ -23,7 +23,8 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { colors, fonts } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, Heading, Paper, PinkButton, Slip, type GlyphName } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import {
   createPackDay,
@@ -74,14 +75,16 @@ function goBack() {
   else router.replace('/(tabs)/pack');
 }
 
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function Chip({ label, active, onPress, icon }: { label: string; active: boolean; onPress: () => void; icon?: GlyphName }) {
   return (
     <Pressable
       onPress={onPress}
       style={[styles.chip, active && styles.chipActive]}
       accessibilityRole="radio"
       accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
     >
+      {icon && <Glyph name={icon} size={16} color={active ? colors.cream : colors.ink} />}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -162,7 +165,8 @@ export default function NewPackDayScreen() {
   if (sessionLoading) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
+        <Gingham />
+        <ActivityIndicator color={colors.ink} size="large" />
       </SafeAreaView>
     );
   }
@@ -170,14 +174,14 @@ export default function NewPackDayScreen() {
   if (!user || !profileComplete) {
     return (
       <SafeAreaView style={styles.center}>
-        <Text style={styles.gateEmoji}>🐶</Text>
-        <Text style={styles.gateTitle}>{user ? 'Add your dog first' : 'Sign in to host a Pack Day'}</Text>
-        <Pressable
-          style={styles.submitBtn}
+        <Gingham />
+        <View style={styles.gateIcon}><Glyph name="paw" size={40} /></View>
+        <Heading size={26} style={styles.gateTitle}>{user ? 'Add your dog first' : 'Sign in to host a Pack Day'}</Heading>
+        <PinkButton
+          label={user ? 'Set up my dog' : 'Sign in or sign up'}
           onPress={() => (user ? router.replace('/(tabs)/profile') : router.replace('/welcome'))}
-        >
-          <Text style={styles.submitText}>{user ? 'Set up my dog' : 'Sign in or sign up'}</Text>
-        </Pressable>
+          style={styles.gateBtn}
+        />
       </SafeAreaView>
     );
   }
@@ -186,154 +190,164 @@ export default function NewPackDayScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={goBack} accessibilityRole="button" accessibilityLabel="Back to Pack Days">
-          <Text style={styles.backText}>‹</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Host a Pack Day</Text>
-      </View>
+      <Gingham />
+      <BackHeader title="Host a Pack Day" onBack={goBack} backLabel="Back to Pack Days" />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.field}>
-            <Text style={styles.label}>Title</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              maxLength={PACK_DAY_LIMITS.maxTitleLength}
-              placeholder="Saturday morning loop"
-              placeholderTextColor={colors.brownLight}
-              returnKeyType="done"
-            />
-          </View>
+          <Text style={styles.intro}>
+            Pick a public place and a time. Neighbors with dogs can see it and save a spot.
+          </Text>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Format</Text>
-            <View style={styles.chipRow}>
-              {PACK_DAY_FORMAT_KEYS.map((key) => (
-                <Chip
-                  key={key}
-                  label={`${PACK_DAY_FORMATS[key].emoji} ${PACK_DAY_FORMATS[key].label}`}
-                  active={format === key}
-                  onPress={() => setFormat(key)}
-                />
-              ))}
+          <Paper tape style={styles.card}>
+            <Heading size={22}>What</Heading>
+            <View style={styles.field}>
+              <Text style={styles.label}>Title</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                maxLength={PACK_DAY_LIMITS.maxTitleLength}
+                placeholder="Saturday morning loop"
+                placeholderTextColor={colors.brownLight}
+                returnKeyType="done"
+                accessibilityLabel="Title"
+              />
             </View>
-            <Text style={styles.help}>{selectedFormat.blurb}</Text>
-          </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Date</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dayRow}
-            >
-              {days.map((d) => (
-                <Chip key={d.value} label={d.label} active={date === d.value} onPress={() => setDate(d.value)} />
-              ))}
-            </ScrollView>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Start time</Text>
-            <View style={styles.chipRow}>
-              {HOURS.map((h) => (
-                <Chip key={h} label={hourLabel(h)} active={hour === h} onPress={() => setHour(h)} />
-              ))}
+            <View style={styles.field}>
+              <Text style={styles.label}>Format</Text>
+              <View style={styles.chipRow}>
+                {PACK_DAY_FORMAT_KEYS.map((key) => (
+                  <Chip
+                    key={key}
+                    label={PACK_DAY_FORMATS[key].label}
+                    icon="tree"
+                    active={format === key}
+                    onPress={() => setFormat(key)}
+                  />
+                ))}
+              </View>
+              <Text style={styles.help}>{selectedFormat.blurb}</Text>
             </View>
-            <View style={[styles.chipRow, styles.minuteRow]}>
-              {MINUTES.map((m) => (
-                <Chip key={m} label={`:${String(m).padStart(2, '0')}`} active={minute === m} onPress={() => setMinute(m)} />
-              ))}
+          </Paper>
+
+          <Paper style={styles.card}>
+            <Heading size={22}>When</Heading>
+            <View style={styles.field}>
+              <Text style={styles.label}>Date</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dayRow}
+              >
+                {days.map((d) => (
+                  <Chip key={d.value} label={d.label} active={date === d.value} onPress={() => setDate(d.value)} />
+                ))}
+              </ScrollView>
             </View>
-          </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>How long</Text>
-            <View style={styles.chipRow}>
-              {PACK_DAY_LIMITS.durationOptions.map((m) => (
-                <Chip key={m} label={`${m} min`} active={duration === m} onPress={() => setDuration(m)} />
-              ))}
+            <View style={styles.field}>
+              <Text style={styles.label}>Start time</Text>
+              <View style={styles.chipRow}>
+                {HOURS.map((h) => (
+                  <Chip key={h} label={hourLabel(h)} active={hour === h} onPress={() => setHour(h)} />
+                ))}
+              </View>
+              <View style={[styles.chipRow, styles.minuteRow]}>
+                {MINUTES.map((m) => (
+                  <Chip key={m} label={`:${String(m).padStart(2, '0')}`} active={minute === m} onPress={() => setMinute(m)} />
+                ))}
+              </View>
             </View>
-          </View>
 
-          <View style={styles.whenPreview}>
-            <Text style={styles.whenPreviewText}>
-              {date
-                ? `📅 ${formatPackDayWhen({ localDate: date, localTime: time })} · ${duration} min`
-                : '📅 Pick a day above'}
-            </Text>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Max dogs</Text>
-            <View style={styles.chipRow}>
-              {CAPACITIES.map((n) => (
-                <Chip key={n} label={String(n)} active={capacity === n} onPress={() => setCapacity(n)} />
-              ))}
+            <View style={styles.field}>
+              <Text style={styles.label}>How long</Text>
+              <View style={styles.chipRow}>
+                {PACK_DAY_LIMITS.durationOptions.map((m) => (
+                  <Chip key={m} label={`${m} min`} active={duration === m} onPress={() => setDuration(m)} />
+                ))}
+              </View>
             </View>
-          </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Where</Text>
-            <TextInput
-              style={styles.input}
-              value={placeName}
-              onChangeText={setPlaceName}
-              maxLength={PACK_DAY_LIMITS.maxPlaceLength}
-              placeholder="Cedar Park, main entrance"
-              placeholderTextColor={colors.brownLight}
-              returnKeyType="done"
-            />
-            <Text style={styles.help}>
-              A park, trail or other public spot. Never your home address. Meets in {profile?.city || 'your city'}.
-            </Text>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>
-              Note <Text style={styles.labelOptional}>(optional)</Text>
-            </Text>
-            <TextInput
-              style={[styles.input, styles.inputMultiline]}
-              value={note}
-              onChangeText={setNote}
-              maxLength={PACK_DAY_LIMITS.maxNoteLength}
-              placeholder="Where to park, which gate, bring water…"
-              placeholderTextColor={colors.brownLight}
-              multiline
-              textAlignVertical="top"
-            />
-            <Text style={styles.help}>No links or phone numbers. Members who match after you meet can message each other in the app.</Text>
-          </View>
-
-          <PackDayRules
-            accepted={accepted}
-            onChange={setAccepted}
-            agreeLabel="I’ll follow these rules and remind people who join."
-            footer={
-              <Text style={styles.smallPrint}>
-                GoDoggyDate doesn’t verify dogs or owners, and the host isn’t responsible for other people’s dogs.
+            <View style={styles.whenPreview}>
+              <Glyph name="calendar-month" size={22} />
+              <Text style={styles.whenPreviewText}>
+                {date
+                  ? `${formatPackDayWhen({ localDate: date, localTime: time })} · ${duration} min`
+                  : 'Pick a day above'}
               </Text>
-            }
-          />
-
-          {error && (
-            <View style={styles.errorBox} accessibilityRole="alert">
-              <Text style={styles.errorText}>{error}</Text>
             </View>
-          )}
+          </Paper>
 
-          <Pressable
-            style={[styles.submitBtn, styles.submitFull, busy && styles.disabled]}
+          <Paper style={styles.card}>
+            <Heading size={22}>Where and how many</Heading>
+            <View style={styles.field}>
+              <Text style={styles.label}>Max dogs</Text>
+              <View style={styles.chipRow}>
+                {CAPACITIES.map((n) => (
+                  <Chip key={n} label={String(n)} active={capacity === n} onPress={() => setCapacity(n)} />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Where</Text>
+              <TextInput
+                style={styles.input}
+                value={placeName}
+                onChangeText={setPlaceName}
+                maxLength={PACK_DAY_LIMITS.maxPlaceLength}
+                placeholder="Cedar Park, main entrance"
+                placeholderTextColor={colors.brownLight}
+                returnKeyType="done"
+                accessibilityLabel="Where"
+              />
+              <Text style={styles.help}>
+                A park, trail or other public spot. Never your home address. Meets in {profile?.city || 'your city'}.
+              </Text>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>
+                Note <Text style={styles.labelOptional}>(optional)</Text>
+              </Text>
+              <TextInput
+                style={[styles.input, styles.inputMultiline]}
+                value={note}
+                onChangeText={setNote}
+                maxLength={PACK_DAY_LIMITS.maxNoteLength}
+                placeholder="Where to park, which gate, bring water…"
+                placeholderTextColor={colors.brownLight}
+                multiline
+                textAlignVertical="top"
+                accessibilityLabel="Note, optional"
+              />
+              <Text style={styles.help}>No links or phone numbers. Members who match after you meet can message each other in the app.</Text>
+            </View>
+          </Paper>
+
+          <Paper style={styles.card}>
+            <PackDayRules
+              accepted={accepted}
+              onChange={setAccepted}
+              agreeLabel="I’ll follow these rules and remind people who join."
+              footer={
+                <Text style={styles.smallPrint}>
+                  GoDoggyDate doesn’t verify dogs or owners, and the host isn’t responsible for other people’s dogs.
+                </Text>
+              }
+            />
+          </Paper>
+
+          {error && <Slip tone="error">{error}</Slip>}
+
+          <PinkButton
+            label={busy ? 'Creating…' : 'Create Pack Day'}
+            icon="tree"
             onPress={() => void handleSubmit()}
             disabled={busy}
-            accessibilityRole="button"
-          >
-            <Text style={styles.submitText}>{busy ? 'Creating…' : 'Create Pack Day'}</Text>
-          </Pressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -341,67 +355,69 @@ export default function NewPackDayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  center: { flex: 1, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  gateEmoji: { fontSize: 56, marginBottom: 12 },
-  gateTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.brown, marginBottom: 16, textAlign: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)', backgroundColor: colors.cream,
-  },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backText: { fontSize: 28, color: colors.brownLight, marginTop: -2 },
-  headerTitle: { flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: colors.brown, marginLeft: 4 },
-  content: { padding: 18, paddingBottom: 48, gap: 20 },
-  field: { gap: 8 },
-  label: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
-  labelOptional: { fontFamily: fonts.body, color: colors.brownLight },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.brown,
-  },
-  inputMultiline: { minHeight: 88 },
-  help: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.brownLight },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  minuteRow: { marginTop: 2 },
-  dayRow: { gap: 6, paddingRight: 18 },
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.full,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown },
-  chipTextActive: { color: colors.white },
-  whenPreview: {
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  whenPreviewText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
-  smallPrint: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15, color: colors.brownLight },
-  errorBox: { backgroundColor: '#FEF2F2', borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12 },
-  errorText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: '#B91C1C' },
-  submitBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
+  container: { flex: 1, backgroundColor: colors.sky },
+  center: { flex: 1, backgroundColor: colors.sky, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  gateIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     alignItems: 'center',
-    ...shadow.button,
+    justifyContent: 'center',
+    marginBottom: 14,
   },
-  submitFull: { alignSelf: 'stretch', paddingVertical: 16 },
-  submitText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
-  disabled: { opacity: 0.6 },
+  gateTitle: { textAlign: 'center', marginBottom: 18 },
+  gateBtn: { alignSelf: 'stretch' },
+  content: { padding: 16, paddingTop: 4, paddingBottom: 48, gap: 20 },
+  intro: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 21, color: colors.ink },
+  card: { gap: 16 },
+  field: { gap: 8 },
+  label: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  labelOptional: { fontFamily: fonts.bold, color: colors.brownMid },
+  input: {
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    color: colors.ink,
+  },
+  inputMultiline: { minHeight: 92 },
+  help: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  minuteRow: { marginTop: 2 },
+  dayRow: { gap: 8, paddingRight: 18, paddingVertical: 2 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 40,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+  },
+  chipActive: { backgroundColor: colors.ink },
+  chipText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  chipTextActive: { color: colors.cream },
+  whenPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.creamDark,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.ink,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  whenPreviewText: { flex: 1, fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  smallPrint: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
 });

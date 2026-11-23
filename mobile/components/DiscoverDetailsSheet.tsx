@@ -1,40 +1,45 @@
 // mobile/components/DiscoverDetailsSheet.tsx
-// The "ℹ" details sheet for the top Discover card. Mirrors the details sheet in
-// web/components/SwipeStack.tsx: photo gallery, the dog's Vibe Check bio and
-// breed read, a stat grid (fit score, distance, energy, vaccination), the
-// "why you'll click" card, neighbourhood, member since, temperament, play style
-// and prompts. The "Woof!" like button is mobile-only (web D2).
+// Details for the top Discover card: richer but calm. Mirrors the Details
+// overlay in web/components/SwipeStack.tsx: the photo with the next one as a
+// taped mini polaroid, name + place ticket + facts, the dog's Vibe Check bio,
+// the expanded fit panel ("Compatible on what owners shared"), the owner's
+// prompt answers as sticky notes, Plays / Is chips, energy and member-since, and
+// the full trust block. Pass and WOOF stay reachable at the bottom.
 
 import { useState } from 'react';
 import { Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts } from '../constants/theme';
 import CompatBreakdown from './CompatBreakdown';
-import { QUALITY_RING_COLORS } from './SwipeCard';
 import type { DiscoverDog } from '../lib/discover';
 import { focusForPhoto, resolveHeroIndex } from '../lib/coverPhoto';
+import { getRenderablePhotos } from '../lib/photos';
 import { breedConfidencePhrase } from '../lib/vibeCheck';
 import { CoverImage } from './CoverPhotoEditor';
 import { formatUsMonthYear } from '../../shared/dates';
+import { PawIcon, SkyBackground, StickerDog, Tape } from './sticker';
+import {
+  Dot,
+  FitSticker,
+  LimitsBlock,
+  PlaceTicket,
+  energyWord,
+  factsLine,
+  fitTone,
+  placeLabel,
+  plain,
+  vaccinationLine,
+} from './discover/DiscoverBits';
 
 interface Props {
   dog: DiscoverDog | null;
   onClose: () => void;
-  /** Likes this dog (the mobile-only "Woof!" button). */
+  /** WOOFs at this dog. */
   onLike: () => void;
+  /** Passes on this dog. */
+  onPass?: () => void;
   /** Opens the report/block sheet for this dog. */
   onReport?: () => void;
-}
-
-const AGE_LABELS: Record<DiscoverDog['age'], string> = {
-  puppy: 'Puppy',
-  adult: 'Adult',
-  senior: 'Senior',
-};
-
-function getEnergyLabel(energyLevel: number): string {
-  if (energyLevel >= 75) return 'High energy';
-  if (energyLevel <= 35) return 'Mellow';
-  return 'Balanced';
 }
 
 function formatMemberSince(timestamp?: number): string | null {
@@ -42,12 +47,14 @@ function formatMemberSince(timestamp?: number): string | null {
   return formatUsMonthYear(new Date(timestamp));
 }
 
-function openingPhotoIndex(dog: DiscoverDog): number {
+function openingPhotoIndex(dog: DiscoverDog, count: number): number {
   const hero = resolveHeroIndex(dog);
-  return typeof hero === 'number' && hero >= 0 && hero < dog.photos.length ? hero : 0;
+  return typeof hero === 'number' && hero >= 0 && hero < count ? hero : 0;
 }
 
-export default function DiscoverDetailsSheet({ dog, onClose, onLike, onReport }: Props) {
+const microcopyPlain = (t: string) => plain(t);
+
+export default function DiscoverDetailsSheet({ dog, onClose, onLike, onPass, onReport }: Props) {
   return (
     <Modal
       visible={dog !== null}
@@ -57,7 +64,14 @@ export default function DiscoverDetailsSheet({ dog, onClose, onLike, onReport }:
       onDismiss={onClose}
     >
       {dog && (
-        <DetailsBody key={dog.id} dog={dog} onClose={onClose} onLike={onLike} onReport={onReport} />
+        <DetailsBody
+          key={dog.id}
+          dog={dog}
+          onClose={onClose}
+          onLike={onLike}
+          onPass={onPass}
+          onReport={onReport}
+        />
       )}
     </Modal>
   );
@@ -65,525 +79,477 @@ export default function DiscoverDetailsSheet({ dog, onClose, onLike, onReport }:
 
 // Keyed by dog id in the parent, so the photo and "show the math" state start
 // fresh for each dog.
-function DetailsBody({ dog, onClose, onLike, onReport }: Props & { dog: DiscoverDog }) {
-  const [photoIndex, setPhotoIndex] = useState(() => openingPhotoIndex(dog));
+function DetailsBody({ dog, onClose, onLike, onPass, onReport }: Props & { dog: DiscoverDog }) {
+  const photos = getRenderablePhotos(dog.photos);
+  const [photoIndex, setPhotoIndex] = useState(() => openingPhotoIndex(dog, photos.length));
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  const photos = dog.photos;
-  const activeIndex = Math.min(photoIndex, photos.length - 1);
+  const activeIndex = Math.min(photoIndex, Math.max(0, photos.length - 1));
   const activePhoto = photos[activeIndex] ?? null;
+  const nextPhoto = photos.length > 1 ? photos[(activeIndex + 1) % photos.length] : null;
   // The owner's focal point, while the gallery shows their cover.
-  const activeFocus = focusForPhoto(dog, activeIndex, openingPhotoIndex(dog));
+  const activeFocus = focusForPhoto(dog, activeIndex, openingPhotoIndex(dog, photos.length));
   const vibeCheck = dog.ai?.vibeCheck;
   const memberSince = formatMemberSince(dog.createdAt);
   const hasScore = dog.compat.score > 0;
-  const ringColor = QUALITY_RING_COLORS[dog.compat.quality] ?? colors.primary;
-
-  const stats: { label: string; value: string }[] = [
-    // Not a "%": the score isn't a percentage of anything measured, and
-    // labelling it one primes people to read it as a probability.
-    { label: 'Fit score', value: hasScore ? `${dog.compat.score}` : '—' },
-    {
-      label: 'Distance',
-      value:
-        typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0
-          ? `${dog.distanceMiles.toFixed(1)} mi`
-          : dog.neighbourhood ?? 'Not shared',
-    },
-    { label: 'Energy', value: `${getEnergyLabel(dog.energyLevel)} · ${dog.energyLevel}%` },
-    // `false` is an explicit "no" from the owner, not an absence of
-    // information — collapsing it into "Unknown" would hide the one health
-    // answer that flips the pairing's quality tier.
-    {
-      label: 'Vaccinated',
-      value:
-        dog.vaccinated === true ? 'Marked yes' : dog.vaccinated === false ? 'Marked no ⚠' : 'Not stated',
-    },
-  ];
+  const tone = fitTone(dog.compat);
+  const prompts = dog.prompts.filter((p) => p.answer?.trim());
+  const chipGroups = [
+    { label: 'Plays', items: dog.playStyles },
+    { label: 'Is', items: dog.temperament },
+  ].filter((g) => g.items.length > 0);
 
   return (
     <SafeAreaView style={styles.container}>
+      <SkyBackground />
       <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.name} numberOfLines={1}>{dog.name}</Text>
-          <Text style={styles.headerMeta}>
-            {[dog.breed, AGE_LABELS[dog.age], dog.sex === 'M' ? 'Male' : 'Female', dog.size]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        </View>
-        <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close details">
-          <Text style={styles.close}>✕</Text>
+        <Pressable
+          onPress={onClose}
+          style={styles.headerBtnHit}
+          accessibilityRole="button"
+          accessibilityLabel="Back to the card"
+        >
+          <View style={styles.headerBtn}>
+            <Ionicons name="chevron-back" size={20} color={colors.ink} />
+          </View>
         </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.body}>
-        {/* Photo gallery — the active photo full width, thumbnails below. */}
-        {activePhoto && (
-          <View style={styles.gallery}>
-            <CoverImage
-              uri={activePhoto}
-              focus={activeFocus}
-              style={styles.galleryHero}
-              accessibilityLabel={dog.name}
-            />
-            {photos.length > 1 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.thumbRow}
-              >
-                {photos.map((uri, i) => (
-                  <Pressable
-                    key={`${uri}-${i}`}
-                    onPress={() => setPhotoIndex(i)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View photo ${i + 1} of ${dog.name}`}
-                    accessibilityState={{ selected: i === photoIndex }}
-                  >
-                    <Image source={{ uri }} style={[styles.thumb, i === photoIndex && styles.thumbActive]} />
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        )}
-
-        {/* Vibe Check bio + breed read — the dog's own voice, written at
-            onboarding. Renders nothing for dogs without a Vibe Check. */}
-        {vibeCheck && (vibeCheck.bio || vibeCheck.breedGuess) ? (
-          <View style={styles.vibeCard}>
-            {vibeCheck.bio ? (
-              <>
-                <Text style={styles.aiLabel}>✨ Written by AI from their photos</Text>
-                <Text style={styles.vibeBio}>“{vibeCheck.bio}”</Text>
-              </>
-            ) : null}
-            {vibeCheck.breedGuess ? (
-              <Text style={styles.breedGuess}>
-                🔍 AI&apos;s read: {vibeCheck.breedGuess.name} · {breedConfidencePhrase(vibeCheck.breedGuess.confidence)}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        <View style={styles.statGrid}>
-          {stats.map((stat) => (
-            <View key={stat.label} style={styles.statCard}>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-              <Text style={styles.statValue}>{stat.value}</Text>
-            </View>
-          ))}
-        </View>
-
-        {hasScore && (
-          <View style={styles.compatCard}>
-            <View style={styles.compatHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.compatEyebrow}>Why you&apos;ll click</Text>
-                <Text style={styles.compatTitle}>{dog.compat.label}</Text>
-                {dog.compat.microcopy ? (
-                  <Text style={styles.compatMicrocopy}>{dog.compat.microcopy}</Text>
-                ) : null}
-              </View>
-              {/* Ring colour signals compat.quality, so a blocked pairing and
-                  a perfect one don't look identically inviting. */}
-              <View style={[styles.compatScoreRing, { borderColor: ringColor }]}>
-                <Text style={styles.compatScoreText}>{dog.compat.score}</Text>
-              </View>
-            </View>
-            {dog.compat.reasons.slice(0, 3).map((reason) => (
-              <Text key={reason} style={styles.compatReason}>
-                <Text style={styles.compatReasonBullet}>• </Text>
-                {reason}
-              </Text>
-            ))}
-            {/* All warnings, not just the first — a second safety flag
-                silently dropped is exactly the detail an owner needs before
-                agreeing to a meetup. */}
-            {dog.compat.warnings.length > 0 ? (
-              <View style={styles.compatWarningBox}>
-                <Text style={styles.compatWarningLabel}>Worth knowing</Text>
-                {dog.compat.warnings.map((warning) => (
-                  <Text key={warning} style={styles.compatWarningText}>{warning}</Text>
-                ))}
-              </View>
-            ) : null}
-            <Pressable
-              onPress={() => setShowBreakdown((v) => !v)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showBreakdown }}
-            >
-              <Text style={styles.compatShowMath}>{showBreakdown ? 'Hide the math' : 'Show the math'}</Text>
-            </Pressable>
-            {showBreakdown && (
-              <View style={{ marginTop: 8 }}>
-                <CompatBreakdown breakdown={dog.compat.breakdown} score={dog.compat.score} />
-              </View>
-            )}
-          </View>
-        )}
-
-        {dog.neighbourhood ? (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Neighbourhood</Text>
-            <Text style={styles.infoValue}>{dog.neighbourhood}</Text>
-          </View>
-        ) : null}
-
-        {memberSince ? (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Member since</Text>
-            <Text style={styles.infoValue}>{memberSince}</Text>
-          </View>
-        ) : null}
-
-        {dog.temperament.length > 0 && (
-          <>
-            <Text style={styles.section}>Personality</Text>
-            <View style={styles.tags}>
-              {dog.temperament.map((trait) => (
-                <View key={trait} style={styles.tag}>
-                  <Text style={styles.tagText}>{trait}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        {dog.playStyles.length > 0 && (
-          <>
-            <Text style={styles.section}>Play style</Text>
-            <View style={styles.tags}>
-              {dog.playStyles.map((style) => (
-                <View key={style} style={styles.tag}>
-                  <Text style={styles.tagText}>{style}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-
-        {dog.prompts.length > 0 && (
-          <View style={styles.prompts}>
-            {dog.prompts.map((prompt) => (
-              <View key={prompt.prompt} style={styles.infoCard}>
-                <Text style={styles.infoLabel}>{prompt.prompt}</Text>
-                <Text style={styles.promptAnswer}>{prompt.answer}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={{ height: 28 }} />
-        <Pressable style={styles.likeBtn} onPress={onLike} accessibilityRole="button">
-          <Text style={styles.likeBtnText}>Woof! 🐾</Text>
-        </Pressable>
-
+        <Text style={styles.headerName} numberOfLines={1} accessibilityRole="header">
+          {dog.name}
+        </Text>
+        {/* Reading the full profile is exactly when you'd want to report or block. */}
         {onReport && (
-          <Pressable style={styles.reportLink} onPress={onReport} hitSlop={8} accessibilityRole="button">
-            <Text style={styles.reportLinkText}>Report or block {dog.name}</Text>
+          <Pressable
+            onPress={onReport}
+            style={styles.headerBtnHit}
+            accessibilityRole="button"
+            accessibilityLabel={`Report or block ${dog.name}`}
+          >
+            <View style={styles.headerBtn}>
+              <Ionicons name="ellipsis-horizontal" size={20} color={colors.ink} />
+            </View>
           </Pressable>
         )}
-      </ScrollView>
+      </View>
+
+      <View style={styles.cardWrap}>
+        <View style={styles.card}>
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            {/* Hero photo + the next photo as a mini polaroid */}
+            <View style={styles.hero}>
+              {activePhoto ? (
+                <CoverImage
+                  uri={activePhoto}
+                  focus={activeFocus}
+                  style={StyleSheet.absoluteFill}
+                  accessibilityLabel={`${dog.name}, photo ${activeIndex + 1}`}
+                />
+              ) : (
+                <View style={styles.heroEmpty}>
+                  <StickerDog size={80} label={`No photo of ${dog.name} yet`} />
+                  <Text style={styles.heroEmptyText}>No photo yet</Text>
+                </View>
+              )}
+              {photos.length > 1 && (
+                <View
+                  style={styles.counter}
+                  accessible
+                  accessibilityLabel={`Photo ${activeIndex + 1} of ${photos.length}`}
+                >
+                  <Text style={styles.counterText}>
+                    {activeIndex + 1} / {photos.length}
+                  </Text>
+                </View>
+              )}
+              {nextPhoto && (
+                <Pressable
+                  onPress={() => setPhotoIndex((i) => (i + 1) % photos.length)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Show the next photo of ${dog.name}`}
+                  style={styles.nextPolaroid}
+                >
+                  <Tape width={36} height={12} angle={-5} style={{ top: -7, left: 22 }} />
+                  <View style={styles.nextPhoto}>
+                    <Image source={{ uri: nextPhoto }} style={StyleSheet.absoluteFill} />
+                  </View>
+                  <Text style={styles.nextText}>Next photo</Text>
+                </Pressable>
+              )}
+            </View>
+
+            <View style={styles.body}>
+              {/* Name, place, facts */}
+              <View>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {dog.name}
+                  </Text>
+                  <PlaceTicket text={placeLabel(dog)} style={styles.nameTicket} />
+                </View>
+                <Text style={styles.facts}>{factsLine(dog)}</Text>
+              </View>
+
+              {/* Vibe Check bio + breed read: the dog's own voice, written at onboarding. */}
+              {vibeCheck && (vibeCheck.bio || vibeCheck.breedGuess) ? (
+                <View style={styles.vibe}>
+                  {vibeCheck.bio ? (
+                    <>
+                      <Text style={styles.vibeSmall}>Written by AI from their photos</Text>
+                      <Text style={styles.vibeBio}>“{vibeCheck.bio}”</Text>
+                    </>
+                  ) : null}
+                  {vibeCheck.breedGuess ? (
+                    <Text style={styles.vibeSmall}>
+                      AI&apos;s read: {vibeCheck.breedGuess.name} ·{' '}
+                      {breedConfidencePhrase(vibeCheck.breedGuess.confidence)}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* Expanded fit panel */}
+              {hasScore && (
+                <View style={styles.fitPanel} accessibilityLabel="Fit with your dog">
+                  <View style={styles.fitRow}>
+                    <FitSticker compat={dog.compat} size={76} />
+                    <View style={styles.fitText}>
+                      <Text style={styles.fitEyebrow}>
+                        What lines up <Text style={styles.fitEyebrowSoft}>· Fit with your dog</Text>
+                      </Text>
+                      {dog.compat.reasons.length > 0 ? (
+                        dog.compat.reasons.slice(0, 4).map((reason) => (
+                          <View key={reason} style={styles.reason}>
+                            <Dot />
+                            <Text style={styles.reasonText}>{plain(reason)}</Text>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.reasonText}>{dog.compat.label}</Text>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.fitFoot}>
+                    {tone === 'green' && (dog.compat.limits?.cautionCount ?? 0) === 0
+                      ? 'Compatible on what owners shared.'
+                      : microcopyPlain(dog.compat.microcopy)}
+                  </Text>
+                  <Pressable
+                    onPress={() => setShowBreakdown((v) => !v)}
+                    style={styles.mathBtn}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showBreakdown }}
+                  >
+                    <Text style={styles.mathText}>{showBreakdown ? 'Hide the math' : 'Show the math'}</Text>
+                  </Pressable>
+                  {showBreakdown && (
+                    <CompatBreakdown breakdown={dog.compat.breakdown} score={dog.compat.score} />
+                  )}
+                </View>
+              )}
+
+              {/* Prompts as sticky notes, in the owner's own words */}
+              {prompts.length > 0 && (
+                <View style={styles.notes} accessibilityLabel={`${dog.name}’s answers`}>
+                  {prompts.map((prompt, i) => (
+                    <View
+                      key={prompt.prompt}
+                      style={[styles.note, { transform: [{ rotate: `${[-0.7, 0.6, -0.5][i % 3]}deg` }] }]}
+                    >
+                      <Tape
+                        width={46}
+                        height={14}
+                        angle={i % 2 === 0 ? -4 : 4}
+                        style={i % 2 === 0 ? { top: -8, left: 32 } : { top: -8, right: 36 }}
+                      />
+                      <Text style={styles.noteLabel}>{prompt.prompt}</Text>
+                      <Text style={styles.noteAnswer}>{prompt.answer}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Plays / Is */}
+              {chipGroups.length > 0 && (
+                <View style={styles.chipGroups}>
+                  {chipGroups.map((g) => (
+                    <View key={g.label} style={styles.chipGroup}>
+                      <Text style={styles.chipGroupLabel}>{g.label}</Text>
+                      <View style={styles.chips}>
+                        {g.items.map((item) => (
+                          <View key={item} style={styles.chip}>
+                            <Text style={styles.chipText}>{plain(item)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <Text style={styles.energy}>
+                Energy: <Text style={styles.energyStrong}>{energyWord(dog.energyLevel)}</Text>
+                {memberSince ? (
+                  <>
+                    {' · Member since '}
+                    <Text style={styles.energyStrong}>{memberSince}</Text>
+                  </>
+                ) : null}
+              </Text>
+
+              {/* Calm trust block: the owner's words, labelled as such */}
+              <View style={styles.trust} accessibilityLabel={`What ${dog.name}’s owner shared`}>
+                <Text style={styles.trustStrong}>{vaccinationLine(dog)}</Text>
+                <View style={{ marginTop: 6 }}>
+                  <LimitsBlock compat={dog.compat} ownerName={dog.name} />
+                </View>
+                <Text style={styles.trustSmall}>
+                  From {dog.name}’s owner. GoDoggyDate doesn’t verify breed, vaccination, temperament, or the
+                  limits owners list.
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.helper}>It’s a match when you both say WOOF. Then propose a playdate.</Text>
+        <View style={styles.footerRow}>
+          {onPass && (
+            <Pressable
+              onPress={onPass}
+              style={({ pressed }) => [styles.passBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Pass on ${dog.name}`}
+            >
+              <View pointerEvents="none" style={styles.passEdge} />
+              <Ionicons name="close" size={24} color={colors.ink} style={{ marginBottom: -1 }} />
+              <Text style={styles.passText}>Pass</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={onLike}
+            style={({ pressed }) => [styles.woofBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`WOOF at ${dog.name}`}
+          >
+            <View pointerEvents="none" style={styles.woofEdge} />
+            <PawIcon size={27} />
+            <Text style={styles.woofText}>WOOF</Text>
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    minHeight: 54,
   },
-  headerText: { flex: 1 },
-  name: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.brown,
-  },
-  headerMeta: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownLight,
-    marginTop: 2,
-  },
-  close: {
-    fontSize: 20,
-    color: colors.brownLight,
-    padding: 4,
-  },
-  body: { padding: 20 },
-  gallery: {
-    marginHorizontal: -20,
-    marginTop: -20,
-    marginBottom: 4,
-  },
-  galleryHero: {
-    width: '100%',
-    height: 240,
-    backgroundColor: colors.creamDark,
-  },
-  thumbRow: {
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
-  thumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.creamDark,
-  },
-  thumbActive: {
+  headerBtnHit: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  vibeCard: {
-    marginTop: 16,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(245,183,49,0.3)',
-    backgroundColor: 'rgba(245,183,49,0.06)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  aiLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 10,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.3,
-    marginBottom: 4,
-  },
-  vibeBio: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 21,
-    fontStyle: 'italic',
-    color: colors.brownMid,
-  },
-  breedGuess: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
-    marginTop: 8,
-  },
-  statGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 16,
-  },
-  statCard: {
-    flexBasis: '46%',
-    flexGrow: 1,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  statLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  statValue: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 15,
-    color: colors.brown,
-    marginTop: 4,
-  },
-  compatCard: {
-    marginTop: 16,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(232,99,58,0.25)',
-    backgroundColor: colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  compatHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  compatEyebrow: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  compatTitle: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 16,
-    color: colors.brown,
-    marginTop: 6,
-  },
-  compatMicrocopy: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
-    marginTop: 2,
-  },
-  compatScoreRing: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
+    borderColor: colors.ink,
+    borderBottomWidth: 4,
+    backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  compatScoreText: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 16,
-    color: colors.primary,
+  headerName: { flex: 1, fontFamily: fonts.display, fontSize: 26, lineHeight: 32, color: colors.ink },
+
+  cardWrap: { flex: 1, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 6 },
+  card: {
+    flex: 1,
+    backgroundColor: colors.paper,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    overflow: 'hidden',
   },
-  compatReason: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brown,
-    lineHeight: 21,
-    marginTop: 10,
+  scroll: { paddingBottom: 16 },
+
+  hero: {
+    height: 190,
+    backgroundColor: '#5B4A3A',
+    borderBottomWidth: 2,
+    borderBottomColor: colors.ink,
   },
-  compatReasonBullet: {
-    color: colors.primary,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
+  heroEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.note },
+  heroEmptyText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  counter: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
-  compatWarningBox: {
-    marginTop: 14,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(180,83,9,0.08)',
+  counterText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 15, color: colors.ink },
+  nextPolaroid: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    width: 88,
+    padding: 5,
+    paddingBottom: 3,
+    backgroundColor: colors.paper,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
+    transform: [{ rotate: '5deg' }],
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  nextPhoto: {
+    height: 58,
+    borderRadius: 3,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
+    backgroundColor: '#E9E6E2',
+    overflow: 'hidden',
+  },
+  nextText: { textAlign: 'center', fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.ink, marginTop: 1 },
+
+  body: { paddingHorizontal: 14, paddingTop: 12, gap: 14 },
+  nameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  name: { flexShrink: 1, fontFamily: fonts.display, fontSize: 32, lineHeight: 38, color: colors.ink },
+  nameTicket: { flexShrink: 1 },
+  facts: { marginTop: 4, fontFamily: fonts.black, fontSize: 14.5, lineHeight: 19, color: colors.ink },
+
+  vibe: {
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(42,31,74,0.3)',
     paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  compatWarningLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  compatWarningText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brown,
-    marginTop: 4,
-    lineHeight: 20,
-  },
-  compatShowMath: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 12,
-    color: colors.primary,
-    marginTop: 12,
-    textDecorationLine: 'underline',
-  },
-  infoCard: {
-    marginTop: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  infoLabel: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 11,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  infoValue: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.brown,
-    marginTop: 4,
-  },
-  promptAnswer: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.brown,
-    marginTop: 4,
-  },
-  prompts: {
-    marginTop: 8,
-  },
-  section: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 12,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: {
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  tagText: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 14,
-    color: colors.brownMid,
+  vibeBio: { fontFamily: fonts.bold, fontStyle: 'italic', fontSize: 14, lineHeight: 19, color: colors.brownMid },
+  vibeSmall: { marginVertical: 2, fontFamily: fonts.bold, fontSize: 12, lineHeight: 16, color: colors.brownMid },
+
+  fitPanel: {
+    backgroundColor: colors.creamDark,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
-  likeBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadow.button,
+  fitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fitText: { flex: 1, minWidth: 0 },
+  fitEyebrow: { fontFamily: fonts.black, fontSize: 12.5, lineHeight: 16, color: colors.brownMid, marginBottom: 2 },
+  fitEyebrowSoft: { fontFamily: fonts.bold },
+  reason: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  reasonText: { flex: 1, fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
+  fitFoot: { marginTop: 8, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid },
+  mathBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  mathText: { fontFamily: fonts.black, fontSize: 13, color: colors.rose, textDecorationLine: 'underline' },
+
+  notes: { gap: 12, paddingTop: 4 },
+  note: {
+    marginHorizontal: 2,
+    backgroundColor: colors.note,
+    borderRadius: 3,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  likeBtnText: {
+  noteLabel: { fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 16, color: colors.brownMid },
+  noteAnswer: { fontFamily: fonts.hand, fontSize: 24, lineHeight: 27, color: colors.ink, marginTop: 2 },
+
+  chipGroups: { gap: 8 },
+  chipGroup: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  chipGroupLabel: { width: 40, paddingTop: 6, fontFamily: fonts.black, fontSize: 12.5, color: colors.brownMid },
+  chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderBottomWidth: 3,
+    backgroundColor: colors.paper,
+    paddingHorizontal: 11,
+    paddingVertical: 3,
+  },
+  chipText: { fontFamily: fonts.black, fontSize: 13, lineHeight: 18, color: colors.ink },
+
+  energy: { fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 18, color: colors.brownMid },
+  energyStrong: { fontFamily: fonts.black, color: colors.ink },
+
+  trust: {
+    backgroundColor: colors.creamDark,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.ink,
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 4,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  trustStrong: { fontFamily: fonts.black, fontSize: 14, lineHeight: 19, color: colors.ink },
+  trustSmall: { marginTop: 8, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid },
+
+  footer: { paddingHorizontal: 14, paddingBottom: 10 },
+  helper: {
+    textAlign: 'center',
     fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 17,
-    color: '#fff',
+    fontSize: 12.5,
+    lineHeight: 16,
+    color: colors.ink,
+    marginBottom: 6,
   },
-  reportLink: {
-    alignSelf: 'center',
-    marginTop: 18,
-    marginBottom: 12,
-    paddingVertical: 6,
+  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  passBtn: {
+    width: 66,
+    height: 54,
+    borderRadius: 18,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 5,
+    overflow: 'hidden',
   },
-  reportLinkText: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 13,
-    color: colors.brownLight,
-    textDecorationLine: 'underline',
+  passEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 5, backgroundColor: colors.border },
+  passText: { fontFamily: fonts.black, fontSize: 12.5, lineHeight: 15, color: colors.ink },
+  woofBtn: {
+    flex: 1,
+    height: 54,
+    borderRadius: 999,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingBottom: 6,
+    overflow: 'hidden',
   },
+  woofEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6, backgroundColor: colors.primaryDark },
+  woofText: { fontFamily: fonts.display, fontSize: 31, lineHeight: 36, letterSpacing: 1, color: colors.ink },
+  pressed: { transform: [{ translateY: 1 }], opacity: 0.94 },
 });

@@ -27,7 +27,8 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { colors, fonts, radius } from '../../constants/theme';
+import { BackHeader, Gingham, Glyph, PaperButton, PinkButton, card } from '../../components/pack/kit';
 import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
 import { loadBarkleGuesses, onProgressChange, saveBarkleGuesses } from '../../lib/progressSync';
@@ -226,9 +227,10 @@ export default function BarkleScreen() {
   if (!puzzle) {
     return (
       <SafeAreaView style={styles.container}>
+        <Gingham />
         <Header />
         <View style={styles.loadingWrap}>
-          <Text style={styles.loadingEmoji}>🐾</Text>
+          <Glyph name="paw" size={44} />
           <Text style={styles.loadingText}>Fetching today&apos;s mystery breed…</Text>
         </View>
       </SafeAreaView>
@@ -240,13 +242,14 @@ export default function BarkleScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Gingham />
       <Header />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >
-        <Text style={styles.kicker}>THE DAILY DOG GAME</Text>
+        <Text style={styles.kicker}>The daily dog game</Text>
         <Text style={styles.h1}>Barkle</Text>
         <Text style={styles.intro}>
           Guess today&apos;s mystery breed in six tries. A fresh clue after every miss — no account, no spoilers.
@@ -258,15 +261,17 @@ export default function BarkleScreen() {
           <View style={styles.pips} accessibilityLabel={`${triesLeft} of ${MAX_TRIES} guesses left`}>
             {Array.from({ length: MAX_TRIES }).map((_, i) => {
               const r = results[i];
+              // Same meaning as the share tiles: green correct, yellow same
+              // group, orange same size, dark cold; paper = not played yet.
               const bg = !r
-                ? colors.creamDark
+                ? colors.cream
                 : r.correct
-                ? colors.primary
+                ? colors.fit
                 : r.sameGroup
-                ? colors.gold
+                ? colors.amber
                 : r.sameSize
-                ? colors.goldLight
-                : colors.brownLight;
+                ? colors.amberSpine
+                : colors.ink;
               return <View key={i} style={[styles.pip, { backgroundColor: bg }]} />;
             })}
           </View>
@@ -275,7 +280,7 @@ export default function BarkleScreen() {
         {/* Clues */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>
-            {finished ? 'THE CLUES WERE' : `CLUE ${cluesShown} OF ${breed.clues.length}`}
+            {finished ? 'The clues were' : `Clue ${cluesShown} of ${breed.clues.length}`}
           </Text>
           {clues.map((clue, i) => {
             const isNewest = i === clues.length - 1 && !finished;
@@ -342,14 +347,7 @@ export default function BarkleScreen() {
               </View>
             )}
 
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => submit(input)}
-              accessibilityRole="button"
-              accessibilityLabel="Submit guess"
-            >
-              <Text style={styles.primaryText}>Guess</Text>
-            </Pressable>
+            <PinkButton label="Guess" onPress={() => submit(input)} accessibilityLabel="Submit guess" style={styles.primaryButton} />
 
             <Text style={[styles.hint, error ? styles.hintError : null]}>
               {error
@@ -385,23 +383,20 @@ export default function BarkleScreen() {
               />
             </View>
 
-            <Pressable
-              style={[styles.primaryButton, sharing && { opacity: 0.6 }]}
+            <PinkButton
+              label={sharing ? 'Rendering…' : 'Share result'}
+              icon="export-variant"
               onPress={handleShareImage}
-              disabled={sharing}
-              accessibilityRole="button"
+              busy={sharing}
               accessibilityLabel="Share result image"
-            >
-              <Text style={styles.primaryText}>{sharing ? 'Rendering…' : '📤 Share result'}</Text>
-            </Pressable>
-            <Pressable
-              style={styles.secondaryButton}
+              style={styles.primaryButton}
+            />
+            <PaperButton
+              label="Copy as text"
               onPress={handleShareText}
-              accessibilityRole="button"
               accessibilityLabel="Share result as text"
-            >
-              <Text style={styles.secondaryText}>Copy as text</Text>
-            </Pressable>
+              style={styles.secondaryButton}
+            />
 
             {countdown ? (
               <Text style={styles.countdown}>
@@ -412,7 +407,7 @@ export default function BarkleScreen() {
         )}
 
         <Text style={styles.footerNote}>
-          One breed a day, the same for everyone in the world. Just for fun. 🐾
+          One breed a day, the same for everyone in the world. Just for fun.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -421,18 +416,12 @@ export default function BarkleScreen() {
 
 function Header() {
   return (
-    <View style={styles.header}>
-      <Pressable onPress={() => router.back()} hitSlop={12}>
-        <Text style={styles.back}>‹ Back</Text>
-      </Pressable>
-      <Text style={styles.headerTitle}>Barkle</Text>
-      <View style={{ width: 48 }} />
-    </View>
+    <BackHeader title="Barkle" onBack={() => router.back()} />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -440,34 +429,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  back: { fontFamily: fonts.semibold, fontSize: 16, color: colors.primary, width: 48 },
+  back: { fontFamily: fonts.bold, fontSize: 16, color: colors.rose, width: 48 },
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   content: { padding: 20, paddingBottom: 48 },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 },
   loadingEmoji: { fontSize: 52 },
-  loadingText: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight },
+  loadingText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
 
   kicker: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    letterSpacing: 3,
-    color: colors.brownLight,
+    fontFamily: fonts.black,
+    fontSize: 14,
+    color: colors.ink,
     textAlign: 'center',
   },
   h1: {
     fontFamily: fonts.display,
-    fontSize: 40,
-    color: colors.brown,
+    fontSize: 42,
+    color: colors.ink,
     textAlign: 'center',
     marginTop: 4,
   },
   intro: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownMid,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.ink,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
     marginTop: 8,
     marginBottom: 20,
   },
@@ -478,113 +466,88 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  puzzleNo: { fontFamily: fonts.bold, fontSize: 13, letterSpacing: 2, color: colors.brownLight },
+  puzzleNo: { fontFamily: fonts.black, fontSize: 14, letterSpacing: 1, color: colors.ink },
   pips: { flexDirection: 'row', gap: 6 },
-  pip: { height: 10, width: 10, borderRadius: 5 },
+  pip: { height: 16, width: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.ink },
 
   card: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...card.paper,
     padding: 18,
   },
   cardLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    letterSpacing: 2,
-    color: colors.brownLight,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.brownMid,
     marginBottom: 12,
   },
   clueRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  clueNum: { fontFamily: fonts.display, fontSize: 15, color: colors.primary },
-  clueText: { flex: 1, fontFamily: fonts.body, fontSize: 15, color: colors.brownMid, lineHeight: 21 },
+  clueNum: { fontFamily: fonts.black, fontSize: 15, lineHeight: 21, color: colors.ink },
+  clueText: { flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.ink, lineHeight: 21 },
 
   guessList: { marginTop: 14, gap: 8 },
   guessRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.md,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  guessName: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown, flex: 1 },
-  guessTag: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brownLight },
+  guessName: { fontFamily: fonts.black, fontSize: 15, color: colors.brown, flex: 1 },
+  guessTag: { fontFamily: fonts.black, fontSize: 13, color: colors.brownMid },
 
   inputBlock: { marginTop: 16 },
   input: {
     backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.full,
     paddingHorizontal: 20,
     paddingVertical: 14,
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 16,
     color: colors.brown,
   },
   suggestions: {
     marginTop: 8,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.md,
     overflow: 'hidden',
   },
   suggestion: { paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  suggestionText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 12,
-    ...shadow.button,
-  },
-  primaryText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
-  hint: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight, textAlign: 'center', marginTop: 12 },
-  hintError: { fontFamily: fonts.semibold, color: colors.primaryDark },
-  legend: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight, textAlign: 'center', marginTop: 8 },
+  suggestionText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
+  primaryButton: { marginTop: 12, alignSelf: 'stretch' },
+  hint: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center', marginTop: 12 },
+  hintError: { fontFamily: fonts.black, color: colors.ink },
+  legend: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center', marginTop: 8 },
 
   resultBlock: { marginTop: 20, alignItems: 'center' },
   reveal: {
+    ...card.paper,
     alignSelf: 'stretch',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
     paddingVertical: 20,
     marginBottom: 18,
   },
-  revealLabel: { fontFamily: fonts.bold, fontSize: 11, letterSpacing: 2, color: colors.brownLight },
+  revealLabel: { fontFamily: fonts.black, fontSize: 14, color: colors.brownMid },
   revealEmoji: { fontSize: 60, marginTop: 8 },
   revealName: { fontFamily: fonts.display, fontSize: 28, color: colors.brown, marginTop: 6, textAlign: 'center' },
-  revealMeta: { fontFamily: fonts.body, fontSize: 13, color: colors.brownMid, marginTop: 4 },
+  revealMeta: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, marginTop: 4 },
   shareCardWrap: { marginBottom: 18 },
 
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: radius.full,
-    paddingVertical: 14,
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    marginTop: 10,
-  },
-  secondaryText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
-  countdown: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight, marginTop: 16, textAlign: 'center' },
-  countdownMono: { fontFamily: fonts.bold, color: colors.brownMid },
+  secondaryButton: { alignSelf: 'stretch', marginTop: 10 },
+  countdown: { fontFamily: fonts.bold, fontSize: 14, color: colors.ink, marginTop: 16, textAlign: 'center' },
+  countdownMono: { fontFamily: fonts.black, color: colors.ink },
 
   footerNote: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 28,

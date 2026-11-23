@@ -10,7 +10,8 @@
 
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts, radius, secondaryButton, shadow } from '../constants/theme';
+import { Glyph } from './pack/kit';
 import {
   requestLetter,
   pickLetterMilestone,
@@ -100,10 +101,9 @@ export default function LetterSection({ savedProfile, userId }: Props) {
     <View style={styles.section}>
       <View style={styles.head}>
         <Text style={styles.eyebrow}>
-          {milestone.emoji}{' '}
           {milestone.isActive ? `It's ${dogName}'s ${kindLabel}` : `${dogName}'s ${kindLabel} is ${when}`}
         </Text>
-        <Text style={styles.title}>💌 The {kindLabel} Letter</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Glyph name="email-heart-outline" size={22} /><Text style={[styles.title, { flexShrink: 1 }]}>The {kindLabel} Letter</Text></View>
         <Text style={styles.blurb}>
           A warm keepsake letter from {dogName} for{' '}
           {milestone.kind === 'gotcha' ? 'the day they came home' : 'their birthday'} — written by AI from the
@@ -169,7 +169,7 @@ export default function LetterSection({ savedProfile, userId }: Props) {
             disabled={sharing}
           >
             <Text style={styles.secondaryText}>
-              {sharing ? 'Rendering…' : `📤 Share ${dogName}'s letter`}
+              {sharing ? 'Rendering…' : `Share ${dogName}'s letter`}
             </Text>
           </Pressable>
 
@@ -190,32 +190,31 @@ export default function LetterSection({ savedProfile, userId }: Props) {
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     borderRadius: radius.xl,
     padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.ink,
     gap: 12,
+    ...shadow.card,
   },
   head: { gap: 4 },
   eyebrow: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.rose,
   },
   title: { fontFamily: fonts.display, fontSize: 20, color: colors.brown, marginTop: 1 },
-  blurb: { fontFamily: fonts.body, fontSize: 13, color: colors.brownMid, lineHeight: 19, marginTop: 2 },
+  blurb: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, lineHeight: 19, marginTop: 2 },
   primaryButton: {
-    backgroundColor: colors.primary,
+    ...secondaryButton,
     borderRadius: radius.full,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
-  error: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primary, textAlign: 'center' },
+  primaryText: { fontFamily: fonts.black, fontSize: 15, color: colors.ink },
+  error: { fontFamily: fonts.bold, fontSize: 13, color: colors.rose, textAlign: 'center' },
   cardFrame: {
     borderRadius: radius.lg,
     overflow: 'hidden',
@@ -228,18 +227,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderWidth: 2.5,
+    borderBottomWidth: 5,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     borderRadius: radius.full,
     paddingVertical: 13,
     alignItems: 'center',
   },
-  secondaryText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.brown },
+  secondaryText: { fontFamily: fonts.bold, fontSize: 15, color: colors.brown },
   footnote: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.brownMid,
     lineHeight: 15,
     textAlign: 'center',
   },

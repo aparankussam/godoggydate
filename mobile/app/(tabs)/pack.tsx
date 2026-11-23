@@ -7,7 +7,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -16,7 +15,8 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { colors, fonts } from '../../constants/theme';
+import { Gingham, Glyph, Heading, Paper, PaperButton, PinkButton, Slip, type } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { listUpcomingPackDays } from '../../lib/packDay';
 import { getBlockedUserIds } from '../../lib/blocks';
@@ -88,7 +88,8 @@ export default function PackDaysTab() {
   if (sessionLoading) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
+        <Gingham />
+        <ActivityIndicator color={colors.ink} size="large" />
       </SafeAreaView>
     );
   }
@@ -96,33 +97,31 @@ export default function PackDaysTab() {
   if (!user) {
     return (
       <SafeAreaView style={styles.center}>
-        <Text style={styles.gateEmoji}>🌳</Text>
-        <Text style={styles.gateTitle}>Sign in to find a Pack Day</Text>
-        <Pressable style={styles.primaryBtn} onPress={() => router.replace('/welcome')}>
-          <Text style={styles.primaryBtnText}>Sign in or sign up</Text>
-        </Pressable>
+        <Gingham />
+        <View style={styles.gateIcon}><Glyph name="tree" size={40} /></View>
+        <Heading size={26} style={styles.gateTitle}>Sign in to find a Pack Day</Heading>
+        <PinkButton label="Sign in or sign up" onPress={() => router.replace('/welcome')} style={styles.gateBtn} />
       </SafeAreaView>
     );
   }
 
   const canHost = profileComplete;
+  const anyEvents = mine.length + nearby.length + elsewhere.length > 0;
 
   return (
     <SafeAreaView style={styles.container}>
+      <Gingham />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.ink} />}
       >
         <View style={styles.headerRow}>
-          <Text style={styles.title}>🌳 Pack Days</Text>
-          {canHost && (
-            <Pressable
-              style={({ pressed }) => [styles.headerBtn, pressed && styles.pressed]}
-              onPress={handleHost}
-              accessibilityRole="button"
-            >
-              <Text style={styles.headerBtnText}>Start a Pack Day</Text>
-            </Pressable>
+          <View style={styles.titleRow}>
+            <View style={styles.titleBadge}><Glyph name="tree" size={18} /></View>
+            <Text style={styles.title} accessibilityRole="header">Pack Days</Text>
+          </View>
+          {canHost && anyEvents && (
+            <PaperButton small label="Host one" icon="plus" onPress={handleHost} accessibilityLabel="Host a Pack Day" />
           )}
         </View>
         <Text style={styles.subtitle}>
@@ -131,33 +130,29 @@ export default function PackDaysTab() {
         </Text>
 
         {!canHost && events && (
-          <View style={styles.setupCard}>
-            <Text style={styles.setupTitle}>Add your dog to join in</Text>
-            <Text style={styles.setupBody}>Finish your dog’s profile to RSVP or host a Pack Day.</Text>
-            <Pressable style={styles.primaryBtn} onPress={() => router.push('/(tabs)/profile')}>
-              <Text style={styles.primaryBtnText}>Set up my dog</Text>
-            </Pressable>
-          </View>
+          <Paper style={styles.setupCard}>
+            <Heading size={24} style={styles.centerText}>Add your dog to join in</Heading>
+            <Text style={[type.soft, styles.centerText, styles.setupBody]}>Finish your dog’s profile to RSVP or host a Pack Day.</Text>
+            <PinkButton label="Set up my dog" onPress={() => router.push('/(tabs)/profile')} />
+          </Paper>
         )}
 
         {error && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Pressable style={styles.retryBtn} onPress={() => setReloadToken((t) => t + 1)}>
-              <Text style={styles.retryBtnText}>Retry</Text>
-            </Pressable>
-          </View>
+          <Slip tone="error" style={styles.block}>
+            <Text style={type.body}>{error}</Text>
+            <PaperButton small label="Retry" icon="refresh" onPress={() => setReloadToken((t) => t + 1)} style={styles.retryBtn} />
+          </Slip>
         )}
 
         {!events && !error && (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.ink} size="large" />
           </View>
         )}
 
         {mine.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Yours</Text>
+            <Heading size={22} style={styles.sectionLabel}>Yours</Heading>
             {mine.map((e) => (
               <PackDayCard key={e.id} event={e} badge={e.hostUid === user.uid ? 'hosting' : 'going'} />
             ))}
@@ -166,23 +161,19 @@ export default function PackDaysTab() {
 
         {events && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>
+            <Heading size={22} style={styles.sectionLabel}>
               {profile?.city ? `Coming up in ${profile.city}` : 'Coming up'}
-            </Text>
+            </Heading>
             {nearby.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyEmoji}>🦮</Text>
-                <Text style={styles.emptyTitle}>Nothing on the calendar yet</Text>
-                <Text style={styles.emptyBody}>
+              <Paper style={styles.emptyCard}>
+                <Glyph name="tree" size={40} />
+                <Heading size={24} style={[styles.centerText, styles.emptyTitle]}>Nothing on the calendar yet</Heading>
+                <Text style={[type.soft, styles.centerText]}>
                   Pick your usual park and a Saturday morning, and host the first one. Six dogs is a great
                   Pack Day.
                 </Text>
-                {canHost && (
-                  <Pressable style={[styles.primaryBtn, styles.emptyBtn]} onPress={handleHost}>
-                    <Text style={styles.primaryBtnText}>Host a Pack Day</Text>
-                  </Pressable>
-                )}
-              </View>
+                {canHost && <PinkButton label="Host a Pack Day" icon="tree" onPress={handleHost} style={styles.emptyBtn} />}
+              </Paper>
             ) : (
               nearby.map((e) => <PackDayCard key={e.id} event={e} />)
             )}
@@ -191,7 +182,7 @@ export default function PackDaysTab() {
 
         {elsewhere.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Other cities</Text>
+            <Heading size={22} style={styles.sectionLabel}>Other cities</Heading>
             {elsewhere.map((e) => <PackDayCard key={e.id} event={e} />)}
           </View>
         )}
@@ -201,10 +192,10 @@ export default function PackDaysTab() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   center: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sky,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
@@ -215,107 +206,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    paddingHorizontal: 4,
+    minHeight: 52,
   },
-  title: { fontFamily: fonts.display, fontSize: 30, color: colors.brown, flexShrink: 1 },
-  headerBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  headerBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
-  pressed: { opacity: 0.75 },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownMid,
-    marginTop: 6,
-    marginBottom: 18,
-    paddingHorizontal: 4,
-  },
-  setupCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 20,
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  titleBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
     alignItems: 'center',
-    marginBottom: 18,
+    justifyContent: 'center',
+    transform: [{ rotate: '-8deg' }],
   },
-  setupTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.brown, textAlign: 'center' },
-  setupBody: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownMid,
-    textAlign: 'center',
-    marginTop: 4,
+  title: { fontFamily: fonts.display, fontSize: 30, lineHeight: 34, color: colors.ink, flexShrink: 1 },
+  subtitle: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    lineHeight: 21,
+    color: colors.ink,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  centerText: { textAlign: 'center' },
+  setupCard: { alignItems: 'stretch', marginBottom: 22, gap: 4 },
+  setupBody: { marginBottom: 12 },
+  block: { marginBottom: 20 },
+  retryBtn: { alignSelf: 'flex-start', marginTop: 10 },
+  loadingBox: { paddingVertical: 64, alignItems: 'center' },
+  section: { marginBottom: 14 },
+  sectionLabel: { marginBottom: 12 },
+  emptyCard: { alignItems: 'center', gap: 6 },
+  emptyTitle: { marginTop: 4 },
+  emptyBtn: { marginTop: 12, alignSelf: 'stretch' },
+  gateIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 14,
   },
-  errorBox: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: radius.md,
-    padding: 14,
-    marginBottom: 18,
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  errorText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: '#B91C1C' },
-  retryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  retryBtnText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
-  loadingBox: { paddingVertical: 64, alignItems: 'center' },
-  section: { marginBottom: 18 },
-  sectionLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.brownLight,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 10,
-    paddingHorizontal: 4,
-  },
-  emptyCard: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    padding: 24,
-    alignItems: 'center',
-  },
-  emptyEmoji: { fontSize: 40 },
-  emptyTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.brown, marginTop: 8, textAlign: 'center' },
-  emptyBody: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownMid,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  emptyBtn: { marginTop: 16 },
-  gateEmoji: { fontSize: 56, marginBottom: 12 },
-  gateTitle: {
-    fontFamily: fonts.display,
-    fontSize: 24,
-    color: colors.brown,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    alignItems: 'center',
-    ...shadow.button,
-  },
-  primaryBtnText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
+  gateTitle: { textAlign: 'center', marginBottom: 18 },
+  gateBtn: { alignSelf: 'stretch' },
 });

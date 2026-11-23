@@ -24,8 +24,8 @@ interface Props {
 
 // Same palettes as web's StoryShareCard themes (solid gradients only).
 const GRADIENTS = {
-  spark: { colors: ['#7A2E0E', '#E8633A', '#F5B731'] as const, locations: [0, 0.55, 1] as const },
-  zen: { colors: ['#241A2E', '#5C3D2E', '#C98A5E'] as const, locations: [0, 0.5, 1] as const },
+  spark: { colors: ['#7A2E0E', '#FF5C8D', '#F5B731'] as const, locations: [0, 0.55, 1] as const },
+  zen: { colors: ['#241A2E', '#4A3F6E', '#C98A5E'] as const, locations: [0, 0.5, 1] as const },
 };
 
 const DogtypeStoryCard = forwardRef<View, Props>(function DogtypeStoryCard({ dogtype, dogName, photoUrl }, ref) {
@@ -51,7 +51,7 @@ const DogtypeStoryCard = forwardRef<View, Props>(function DogtypeStoryCard({ dog
 
       {/* Readability scrim — dark at the bottom so the text always contrasts. */}
       <LinearGradient
-        colors={['rgba(45,26,14,0.96)', 'rgba(45,26,14,0.7)', 'rgba(45,26,14,0.08)', 'rgba(45,26,14,0)']}
+        colors={['rgba(42,31,74,0.96)', 'rgba(42,31,74,0.7)', 'rgba(42,31,74,0.08)', 'rgba(42,31,74,0)']}
         locations={[0, 0.3, 0.58, 0.74]}
         start={{ x: 0, y: 1 }}
         end={{ x: 0, y: 0 }}
