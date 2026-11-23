@@ -24,6 +24,7 @@ import { PrimaryButton, SkyBackground, StickerDog, Tape } from '../../components
 import { colors, fonts } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
 import { foundingBadgeLabel } from '../../../shared/founding';
+import { temperamentLabel } from '../../../shared/temperament';
 
 // Mirrors mobile/components/SwipeCard.tsx's heroIndexFor — the photo this
 // screen should open on: the owner's cover pick (or AI hero), clamped to the
@@ -243,7 +244,7 @@ export default function MatchedDogProfileScreen() {
             <View style={styles.tagSection}>
               <Text style={styles.sectionLabel}>Temperament</Text>
               <View style={styles.tagRow}>
-                {profile.temperament!.map((t) => (
+                {profile.temperament!.map(temperamentLabel).map((t) => (
                   <View key={t} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
                 ))}
               </View>

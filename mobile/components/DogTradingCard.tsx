@@ -7,6 +7,7 @@ import { breedConfidencePhrase } from '../lib/vibeCheck';
 import { FOUNDING_PACK_SIZE } from '../../shared/utils/stripe';
 import type { SavedDogProfile } from '../lib/profile';
 import { resolveHeroIndex } from '../lib/coverPhoto';
+import { temperamentLabel } from '../../shared/temperament';
 
 interface Props {
   profile: SavedDogProfile;
@@ -35,7 +36,7 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
   // ignored in favor of whichever photo happened to be uploaded first.
   const photo = getHeroPhoto(profile.photos, resolveHeroIndex(profile));
   const energy = Math.max(0, Math.min(100, profile.energyLevel ?? 50));
-  const tags = [...(profile.playStyles ?? []), ...(profile.temperament ?? [])].slice(0, 3);
+  const tags = [...(profile.playStyles ?? []), ...(profile.temperament ?? []).map(temperamentLabel)].slice(0, 3);
 
   return (
     <View ref={ref} style={styles.card}>

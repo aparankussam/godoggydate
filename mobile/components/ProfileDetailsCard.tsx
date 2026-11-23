@@ -9,6 +9,7 @@ import { colors, fonts, radius } from '../constants/theme';
 import { stripEmoji } from './pack/kit';
 import type { SavedDogProfile } from '../lib/profile';
 import { getVaccinationStatus } from '../../shared/profile';
+import { temperamentLabel } from '../../shared/temperament';
 
 const SIZE_LABELS: Record<string, string> = {
   S: 'Small',
@@ -57,7 +58,7 @@ export default function ProfileDetailsCard({ profile }: { profile: SavedDogProfi
     { label: 'Vaccination', value: vaccination.tone === 'unstated' ? undefined : vaccination.label },
   ];
   const visibleRows = rows.filter((row) => row.value);
-  const temperament = (profile.temperament ?? []).filter(Boolean);
+  const temperament = (profile.temperament ?? []).filter(Boolean).map(temperamentLabel);
   const playStyles = (Array.isArray(profile.playStyles) ? profile.playStyles : []).filter(Boolean);
 
   if (visibleRows.length === 0 && temperament.length === 0 && playStyles.length === 0) return null;

@@ -43,6 +43,7 @@ import {
   toAdoptionDateIso,
   toIsoDate,
 } from '../../shared/dates';
+import { temperamentLabel } from '../../shared/temperament';
 
 // Placeholder text: clearly lighter than typed ink so empty fields read empty.
 const PLACEHOLDER = '#8E87A8';
@@ -68,7 +69,7 @@ const SIZE_OPTIONS = [
 // Same lists as web/components/DogProfileForm.tsx.
 const TEMPERAMENT_OPTIONS: readonly string[] = [
   'Friendly 😊', 'Playful 🎮', 'Gentle 🕊️', 'Energetic ⚡',
-  'Calm 🧘', 'Independent 🦅', 'Social butterfly 🦋', 'Shy at first 🙈',
+  'Calm 🧘', 'Independent 🦅', 'Loves every dog 🎉', 'Shy at first 🙈',
 ];
 
 const PLAY_STYLE_OPTIONS = [
@@ -214,7 +215,7 @@ export default function ProfileEditor({
   const [sex, setSex] = useState<SavedDogProfile['sex'] | ''>(initialProfile?.sex ?? '');
   const [size, setSize] = useState<SavedDogProfile['size']>(initialProfile?.size ?? 'M');
   const [energyLevel, setEnergyLevel] = useState(initialProfile?.energyLevel ?? 60);
-  const [temperament, setTemperament] = useState<string[]>(initialProfile?.temperament ?? []);
+  const [temperament, setTemperament] = useState<string[]>((initialProfile?.temperament ?? []).map(temperamentLabel));
   const [playStyles, setPlayStyles] = useState<string[]>(initialProfile?.playStyles ?? []);
   // The 3 web prompts, answered or not. Matched by prompt text, as web does.
   const [prompts, setPrompts] = useState(

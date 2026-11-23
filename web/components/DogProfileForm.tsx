@@ -27,6 +27,7 @@ import { BREEDS } from '../../shared/types/breeds';
 import { checkContent, CONTENT_FILTER_MESSAGE } from '../../shared/contentFilter';
 import { PROFILE_TEXT_LIMITS } from '../../shared/profileInput';
 import CoverPhotoEditor from './CoverPhotoEditor';
+import { temperamentLabel } from '../../shared/temperament';
 
 const SIZES: { value: 'S' | 'M' | 'L' | 'XL'; label: string }[] = [
   { value: 'S', label: 'Small' },
@@ -43,7 +44,7 @@ const AGE_OPTIONS: { value: 'puppy' | 'adult' | 'senior'; label: string; sub: st
 
 const TEMPERAMENT_OPTIONS = [
   'Friendly 😊', 'Playful 🎮', 'Gentle 🕊️', 'Energetic ⚡',
-  'Calm 🧘', 'Independent 🦅', 'Social butterfly 🦋', 'Shy at first 🙈',
+  'Calm 🧘', 'Independent 🦅', 'Loves every dog 🎉', 'Shy at first 🙈',
 ];
 
 const PLAY_STYLE_OPTIONS = [
@@ -398,7 +399,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       setEnergyLevel(initialProfile.energyLevel);
       setEnergySource('saved');
     }
-    setTemperament(initialProfile.temperament ?? []);
+    setTemperament((initialProfile.temperament ?? []).map(temperamentLabel));
     setPlayStyles(initialProfile.playStyles ?? []);
     setNotGoodWith(initialProfile.notGoodWith ?? []);
     setBehaviorFlags(initialProfile.behaviorFlags ?? []);
