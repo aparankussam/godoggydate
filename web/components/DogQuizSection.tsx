@@ -41,13 +41,13 @@ interface Props {
 // On-brand palette baked as inline hex (no oklch / backdrop-blur) so
 // html2canvas captures the scoreboard card faithfully — same rationale as
 // DiptychCard / WantedPosterWeb.
-const BROWN = '#2D1A0E';
-const BROWN_MID = '#5C3D2E';
+const BROWN = '#2A1F4A';
+const BROWN_MID = '#4A3F6E';
 const BROWN_LIGHT = '#9B7560';
-const PRIMARY = '#E8633A';
+const PRIMARY = '#FF5C8D';
 const GOLD = '#D9A441';
-const BORDER = '#EAD9C8';
-const CREAM = '#FDF6EE';
+const BORDER = '#E3D6BA';
+const CREAM = '#FFF9EC';
 
 type Phase = 'intro' | 'setup' | 'lobby' | 'play' | 'result';
 
@@ -181,9 +181,9 @@ export default function DogQuizSection({ savedProfile }: Props) {
   const currentQuestion = DOG_QUIZ_QUESTIONS[stepIdx];
 
   return (
-    <section className="rounded-2xl border border-gold/30 bg-gradient-to-br from-primary/5 to-gold/10 p-5">
+    <section className="card p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Pass the phone 📱</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Pass the phone 📱</p>
         <h2 className="font-display text-xl text-brown leading-tight">Who actually knows {dogName}?</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Ten questions about {dogName}. You set the real answers, then hand the phone around — friends and
@@ -195,12 +195,12 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {phase === 'intro' && (
         <>
           {!keyLocked ? (
-            <button type="button" onClick={startSetup} className="btn-primary w-full">
+            <button type="button" onClick={startSetup} className="btn-secondary w-full">
               Set {dogName}’s answer key →
             </button>
           ) : (
             <div className="flex flex-col gap-2">
-              <button type="button" onClick={() => { feedback.pop(); setPhase('lobby'); }} className="btn-primary w-full">
+              <button type="button" onClick={() => { feedback.pop(); setPhase('lobby'); }} className="btn-secondary w-full">
                 Start the game →
               </button>
               <button type="button" onClick={redoKey} className="btn-secondary w-full">
@@ -219,7 +219,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {phase === 'setup' && currentQuestion && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
               Answer key · {stepIdx + 1} of {total}
             </p>
             <span className="text-[11px] font-bold text-brown-light">🔒 owner only</span>
@@ -236,10 +236,10 @@ export default function DogQuizSection({ savedProfile }: Props) {
                   key={opt.id}
                   type="button"
                   onClick={() => pickSetupAnswer(opt.id)}
-                  className={`w-full text-left rounded-xl border px-3.5 py-2.5 text-sm transition-all ${
+                  className={`w-full text-left rounded-xl border-2 px-3.5 py-2.5 text-sm transition-all ${
                     selected
-                      ? 'border-primary bg-primary/10 text-brown font-semibold ring-2 ring-primary/25'
-                      : 'border-border bg-white text-brown-mid hover:border-primary/50'
+                      ? 'border-brown bg-brown text-paper font-semibold'
+                      : 'border-brown bg-paper text-brown hover:brightness-95'
                   }`}
                 >
                   {opt.label}
@@ -251,7 +251,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
             <button
               type="button"
               onClick={() => { feedback.tap(); setStepIdx((i) => Math.max(0, i - 1)); }}
-              className="mt-3 text-xs font-bold text-primary underline underline-offset-2"
+              className="mt-3 text-xs font-bold text-rose underline underline-offset-2"
             >
               ← Back
             </button>
@@ -262,7 +262,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {/* ── Lobby: pass the phone to the next guest ───────────────────────── */}
       {phase === 'lobby' && (
         <div>
-          <div className="rounded-xl bg-white/70 border border-border px-3.5 py-3">
+          <div className="rounded-xl bg-cream-dark border-2 border-brown px-3.5 py-3">
             <p className="text-sm font-bold text-brown">🔒 Answer key locked in ({total} answers)</p>
             <p className="mt-0.5 text-xs text-brown-light leading-snug">
               Hand the phone to a friend or family member. They’ll answer the same {total} questions — no peeking
@@ -284,13 +284,13 @@ export default function DogQuizSection({ savedProfile }: Props) {
               placeholder="e.g. Mom, Dad, Alex"
               onChange={(e) => setGuestName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') startGuest(); }}
-              className="flex-1 min-w-0 rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="flex-1 min-w-0 rounded-xl border-2 border-brown bg-paper px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-brown/40"
             />
             <button
               type="button"
               onClick={startGuest}
               disabled={!guestName.trim()}
-              className="btn-primary px-4 shrink-0 disabled:opacity-50"
+              className="btn-secondary px-4 shrink-0 disabled:opacity-50"
             >
               Go →
             </button>
@@ -315,7 +315,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
             </p>
           </div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
               Question {stepIdx + 1} of {total}
             </p>
             <span className="text-[11px] font-bold text-brown-light">{activeGuest}’s guesses</span>
@@ -332,10 +332,10 @@ export default function DogQuizSection({ savedProfile }: Props) {
                   key={opt.id}
                   type="button"
                   onClick={() => pickGuessAnswer(opt.id)}
-                  className={`w-full text-left rounded-xl border px-3.5 py-2.5 text-sm transition-all ${
+                  className={`w-full text-left rounded-xl border-2 px-3.5 py-2.5 text-sm transition-all ${
                     selected
-                      ? 'border-primary bg-primary/10 text-brown font-semibold ring-2 ring-primary/25'
-                      : 'border-border bg-white text-brown-mid hover:border-primary/50'
+                      ? 'border-brown bg-brown text-paper font-semibold'
+                      : 'border-brown bg-paper text-brown hover:brightness-95'
                   }`}
                 >
                   {opt.label}
@@ -349,7 +349,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {/* ── Result: the guest's score + review + scoreboard ───────────────── */}
       {phase === 'result' && lastScore && (
         <div>
-          <div className="rounded-2xl border border-gold/40 bg-white/70 px-4 py-4 text-center">
+          <div className="rounded-2xl border-2 border-brown bg-cream-dark px-4 py-4 text-center">
             <p className="text-sm font-bold text-brown">{activeGuest} scored</p>
             <p className="font-display leading-none mt-1" style={{ fontSize: 52, color: PRIMARY }}>
               {lastScore.correct}
@@ -395,7 +395,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
           {ranked.length > 0 && <Scoreboard entries={ranked} dogName={dogName} />}
 
           <div className="mt-4 flex flex-col gap-2">
-            <button type="button" onClick={nextGuest} className="btn-primary w-full">
+            <button type="button" onClick={nextGuest} className="btn-secondary w-full">
               Next player →
             </button>
             <button
@@ -433,7 +433,7 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
 // ── On-page scoreboard (the live standings) ───────────────────────────────────
 function Scoreboard({ entries, dogName }: { entries: DogQuizScoreboardEntry[]; dogName: string }) {
   return (
-    <div className="mt-4 rounded-xl bg-white/70 border border-border px-3.5 py-3">
+    <div className="mt-4 rounded-xl bg-cream-dark border-2 border-brown px-3.5 py-3">
       <p className="text-xs font-bold text-brown">
         Who knows {dogName} best 🏆
       </p>

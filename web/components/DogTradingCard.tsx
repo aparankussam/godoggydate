@@ -22,6 +22,12 @@ function energyLabel(level: number): string {
   return 'Balanced';
 }
 
+// 'M' next to a breed and age reads as Male, so the card spells the size out.
+const SIZE_WORDS: Record<string, string> = { S: 'Small', M: 'Medium', L: 'Large', XL: 'XL' };
+function sizeLabel(size: string | undefined): string | undefined {
+  return size ? SIZE_WORDS[size] ?? size : undefined;
+}
+
 function locationLabel(profile: SavedDogProfile): string {
   if (profile.city && profile.state) return `${profile.city}, ${profile.state}`;
   if (profile.location && !/^\d{5}(-\d{4})?$/.test(profile.location)) return profile.location;
@@ -42,7 +48,7 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
     <div
       ref={innerRef}
       className="relative w-[360px] aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
-      style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #E8633A 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 55%, #FF5C8D 100%)' }}
     >
       {/* Founding Member badge — "of {SIZE}" makes the scarcity legible on
           the card itself, not just on the profile page it's exported from. */}
@@ -85,7 +91,7 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
         )}
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(to top, rgba(45,26,14,0.95) 0%, rgba(45,26,14,0.55) 35%, rgba(45,26,14,0.05) 60%, transparent 75%)' }}
+          style={{ background: 'linear-gradient(to top, rgba(42,31,74,0.95) 0%, rgba(42,31,74,0.55) 35%, rgba(42,31,74,0.05) 60%, transparent 75%)' }}
         />
       </div>
 
@@ -101,7 +107,7 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
         )}
         <h3 className="font-display text-4xl text-white leading-tight">{profile.name}</h3>
         <p className="mt-1 text-white/85 text-sm font-semibold">
-          {[profile.breed, profile.age, profile.size].filter(Boolean).join(' · ')}
+          {[profile.breed, profile.age, sizeLabel(profile.size)].filter(Boolean).join(' · ')}
         </p>
         <p className="mt-0.5 text-white/65 text-xs">{locationLabel(profile)}</p>
         {/* Mutt Meter — the breed guess Vibe Check already makes, framed

@@ -8,10 +8,12 @@ import {
   signInWithRedirect,
   getRedirectResult,
   signInWithCredential,
+  getAdditionalUserInfo,
   browserPopupRedirectResolver,
   signOut as _signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
+import type { UserCredential } from 'firebase/auth';
 import { deleteField, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
 import {
@@ -27,6 +29,9 @@ export type { User } from 'firebase/auth';
 export { onAuthStateChanged };
 export type { SavedDogProfile } from '../../shared/profile';
 export { isProfileComplete, toFullProfile } from '../../shared/profile';
+
+/** Fired on `window` after saveUserDogProfile commits (AppLayoutShell listens). */
+export const PROFILE_SAVED_EVENT = 'gdd:profile-saved';
 
 function stripUndefined<T>(value: T): T {
   if (Array.isArray(value)) {
@@ -47,15 +52,26 @@ function stripUndefined<T>(value: T): T {
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-export async function signInWithGoogle(): Promise<void> {
-  const { auth } = getFirebase();
-  await signInWithPopup(auth, new GoogleAuthProvider(), browserPopupRedirectResolver);
+/** What a sign-in tells the caller: was this account created just now? */
+export interface SignInResult {
+  isNewUser: boolean;
 }
 
-export async function signInWithGoogleIdToken(idToken: string): Promise<void> {
+function toSignInResult(cred: UserCredential): SignInResult {
+  return { isNewUser: getAdditionalUserInfo(cred)?.isNewUser === true };
+}
+
+export async function signInWithGoogle(): Promise<SignInResult> {
+  const { auth } = getFirebase();
+  return toSignInResult(
+    await signInWithPopup(auth, new GoogleAuthProvider(), browserPopupRedirectResolver),
+  );
+}
+
+export async function signInWithGoogleIdToken(idToken: string): Promise<SignInResult> {
   const { auth } = getFirebase();
   const credential = GoogleAuthProvider.credential(idToken);
-  await signInWithCredential(auth, credential);
+  return toSignInResult(await signInWithCredential(auth, credential));
 }
 
 // ── Sign in with Apple ────────────────────────────────────────────────────────
@@ -106,11 +122,12 @@ export function hasPendingRedirectSignIn(): boolean {
  * the page is navigating to Apple, and completeRedirectSignIn() finishes the
  * job when it comes back.
  */
-export async function signInWithApple(): Promise<void> {
+export async function signInWithApple(): Promise<SignInResult> {
   const { auth } = getFirebase();
   try {
-    await signInWithPopup(auth, appleProvider(), browserPopupRedirectResolver);
-    return;
+    return toSignInResult(
+      await signInWithPopup(auth, appleProvider(), browserPopupRedirectResolver),
+    );
   } catch (error) {
     const code = (error as { code?: string }).code ?? '';
     if (!POPUP_UNAVAILABLE_CODES.has(code)) throw error;
@@ -122,19 +139,24 @@ export async function signInWithApple(): Promise<void> {
     setPendingRedirect(null);
     throw error;
   }
+  // Unreachable in practice: the page navigates away above.
+  return { isNewUser: false };
 }
 
 /**
- * Finishes a redirect sign-in that signInWithApple started. Resolves 'apple'
- * when someone just came back signed in, null when there was nothing to
- * finish. Rejects with the Firebase error if Apple sent them back with one.
+ * Finishes a redirect sign-in that signInWithApple started. Resolves with
+ * { method: 'apple', isNewUser } when someone just came back signed in, null
+ * when there was nothing to finish. Rejects with the Firebase error if Apple
+ * sent them back with one.
  */
-export async function completeRedirectSignIn(): Promise<'apple' | null> {
+export async function completeRedirectSignIn(): Promise<
+  ({ method: 'apple' } & SignInResult) | null
+> {
   if (!hasPendingRedirectSignIn()) return null;
   setPendingRedirect(null);
   const { auth } = getFirebase();
   const result = await getRedirectResult(auth, browserPopupRedirectResolver);
-  return result ? 'apple' : null;
+  return result ? { method: 'apple', ...toSignInResult(result) } : null;
 }
 
 export async function signOutUser(): Promise<void> {
@@ -206,4 +228,11 @@ export async function saveUserDogProfile(
   );
 
   await batch.commit();
+
+  // Tell the app shell the saved profile changed. It reads the profile once at
+  // sign-in to decide whether to show the navigation, so without this a brand
+  // new user who saves their first profile had no nav until a manual reload.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(PROFILE_SAVED_EVENT));
+  }
 }

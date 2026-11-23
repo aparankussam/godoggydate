@@ -20,6 +20,20 @@ export function toDogSlug(name: string, uid: string): string {
   return `${kebabName(name)}-${uid}`;
 }
 
+/**
+ * Absolute URL of a dog's public page, or undefined when the owner switched the
+ * page off (dogs/{uid}.publicPage === false). Share flows pass the result as
+ * `publicUrl`, so a card never points people at a page that now says "not found".
+ */
+export function publicDogUrl(
+  origin: string,
+  name: string,
+  uid: string,
+  publicPage?: boolean,
+): string | undefined {
+  return publicPage === false ? undefined : `${origin}/d/${toDogSlug(name, uid)}`;
+}
+
 // Real Firebase Auth UIDs are 28 characters; generous upper bound to allow
 // for future format changes without accepting arbitrary-length input.
 const MAX_UID_LENGTH = 64;

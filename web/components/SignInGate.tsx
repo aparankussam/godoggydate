@@ -9,25 +9,29 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import AuthModal from './AuthModal';
+import { PawCoin } from './StickerBits';
 
 interface Props {
   title: string;
+  /** Kept for callers; the gate now shows the drawn paw coin instead of an emoji. */
   emoji?: string;
 }
 
-export default function SignInGate({ title, emoji }: Props) {
+export default function SignInGate({ title }: Props) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-24">
+      <div className="card flex w-full max-w-sm flex-col items-center gap-4 px-6 py-8 text-center">
       <AuthModal isOpen={open} onClose={() => setOpen(false)} />
-      {emoji && <span className="text-6xl" aria-hidden="true">{emoji}</span>}
+      <PawCoin size={56} />
       <h1 className="font-display text-2xl text-brown">{title}</h1>
       <button type="button" onClick={() => setOpen(true)} className="btn-primary px-8 py-3">
         Sign in
       </button>
-      <Link href="/app" className="py-2 text-sm font-semibold text-brown-light underline underline-offset-2">
+      <Link href="/app" className="inline-flex min-h-[44px] items-center text-sm font-bold text-brown underline underline-offset-2">
         Go to Discover
       </Link>
+      </div>
     </div>
   );
 }

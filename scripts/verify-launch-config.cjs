@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { findUndocumentedEnvVars } = require('./launch-config-lib.cjs');
 
 const repoRoot = path.resolve(__dirname, '..');
 const checks = [];
@@ -63,6 +64,15 @@ record(
   envExample.includes('NEXT_PUBLIC_APP_URL='),
   'Web app origin env var is documented',
   'Expected NEXT_PUBLIC_APP_URL in .env.example',
+);
+
+const undocumentedEnv = findUndocumentedEnvVars(repoRoot);
+record(
+  undocumentedEnv.length === 0,
+  'Every env var the code reads is documented in .env.example',
+  `Add these to .env.example (with a comment saying what they are and whether they are optional): ${undocumentedEnv
+    .map((entry) => `${entry.name} (read in ${entry.files[0]}${entry.files.length > 1 ? ` +${entry.files.length - 1} more` : ''})`)
+    .join('; ')}`,
 );
 
 const productionLikeRun =

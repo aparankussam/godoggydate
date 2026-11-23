@@ -9,24 +9,34 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: '#E8633A',
-        'primary-light': '#F0896A',
-        'primary-dark': '#C44E27',
+        primary: '#FF5C8D',
+        'primary-light': '#FF8FB0',
+        'primary-dark': '#D63A6B',
         gold: '#F5B731',
         'gold-light': '#FAD56A',
-        cream: '#FDF6EE',
-        'cream-dark': '#F5E6D3',
-        brown: '#2D1A0E',
-        'brown-mid': '#5C3D2E',
-        // Secondary text. Was #9B7560 (3.8:1 on cream, 3.4:1 on cream-dark), which
-        // fails WCAG AA for the small body copy it is used for; this is 5.3:1 / 4.6:1.
-        'brown-light': '#80604B',
-        border: '#EAD9C8',
+        cream: '#FFF9EC',
+        'cream-dark': '#F3ECDC',
+        brown: '#2A1F4A',
+        'brown-mid': '#4A3F6E',
+        // Secondary text: passes WCAG AA on cream and cream-dark.
+        'brown-light': '#4D4373',
+        border: '#E3D6BA',
+        // "Sticker Book, grown up" palette
+        // Pink as TEXT on paper must pass 4.5:1, so it is a deeper raspberry.
+        rose: '#B8214F',
+        sky: '#8FC9F2',
+        ink: '#2A1F4A',
+        paper: '#FFF9EC',
+        kraft: '#E6CFA6',
+        fit: '#6FDB9C',
+        note: '#DCEEFB',
+        amber: { DEFAULT: '#FFC56B', spine: '#E8820C' },
         // Tailwind's red-500 is 3.8:1 on white; as error text it needs red-600.
         red: { 500: '#DC2626' },
       },
       fontFamily: {
-        display: ['var(--font-fraunces)', 'Georgia', 'serif'],
+        display: ['var(--font-chewy)', 'Nunito', 'system-ui', 'sans-serif'],
+        hand: ['var(--font-caveat)', 'cursive'],
         body: ['var(--font-nunito)', 'system-ui', 'sans-serif'],
       },
       borderRadius: {

@@ -38,7 +38,7 @@ export default function CoverPhotoEditor({ photos, coverIndex, focusX, focusY, o
     <div>
       <div
         ref={boxRef}
-        className="relative mx-auto aspect-[3/4] w-full max-w-[220px] cursor-crosshair touch-none select-none overflow-hidden rounded-2xl border border-border bg-cream-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="relative mx-auto aspect-[3/4] w-full max-w-[220px] cursor-crosshair touch-none select-none overflow-hidden rounded-2xl border-2 border-ink bg-cream-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         onPointerDown={(e) => {
           dragging.current = true;
           (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -101,7 +101,7 @@ export default function CoverPhotoEditor({ photos, coverIndex, focusX, focusY, o
               aria-label={`Use photo ${i + 1} as cover`}
               aria-pressed={i === idx}
               className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                i === idx ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
+                i === idx ? 'border-ink ring-2 ring-primary' : 'border-ink/30 opacity-80 hover:opacity-100'
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

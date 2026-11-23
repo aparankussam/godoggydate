@@ -8,28 +8,28 @@
 // single constant line about meeting in public, shown identically to every
 // match from the first message onward. Meanwhile the profile form promises the
 // owner, verbatim: "Only what you tell us here can warn another owner before a
-// meetup." For four of the behaviour flags that promise was kept by no code
-// path at all — nothing read them, anywhere.
-//
-// It also fixes an asymmetry: MatchModal's warnings only ever render for
-// whoever swiped SECOND. The first swiper never saw a safety warning at any
-// point. This card is the only surface where BOTH owners get the same
+// meetup." This card is the one place where BOTH owners get the same
 // information, at the same time, and can go back and re-read it.
 //
-// HARD CONSTRAINT — there are exactly three real safety inputs here:
-// behaviorFlags, notGoodWith, and vaccinated. DogProfile also declares
-// boundaries, allergies, specialNeeds and vetChecked, but shared/profile.ts's
-// toFullProfile() hardcodes all four to empty/false for every real dog — no
-// form on either platform collects them. Rendering a section for any of them
-// would show a permanently empty block, or worse, print "not vet checked" as a
-// claim about a dog nobody ever asked. Do not add a fourth field here without
-// first confirming a form actually collects it.
+// It is open by default and short: four plain steps, the last being what the
+// OTHER owner asked for, each declared limit once and in their name ("Moose's
+// owner prefers no puppies"). It used to start collapsed ("Read"), speak in
+// abstractions, and report "9 things to know" because a limit was counted once as
+// a flag and again as a "crossing".
+//
+// HARD CONSTRAINT: there are exactly three real safety inputs here: behaviorFlags,
+// notGoodWith and vaccinated. DogProfile also declares boundaries, allergies,
+// specialNeeds and vetChecked, but shared/profile.ts's toFullProfile() hardcodes
+// all four to empty/false for every real dog; no form on either platform collects
+// them. Rendering a section for any of them would show a permanently empty block,
+// or worse, print "not vet checked" as a claim about a dog nobody asked. Do not
+// add a fourth field here without first confirming a form actually collects it.
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { SavedDogProfile } from '../../shared/profile';
 import { toFullProfile } from '../../shared/profile';
-import { detectUnsafePairings } from '../../shared/utils/matchingEngine';
+import { analyzeLimits, describeLimits } from '../../shared/utils/matchingEngine';
 import { formatPlaydateWhen } from '../../shared/playdates';
 
 interface Props {
@@ -37,170 +37,183 @@ interface Props {
   otherProfile: SavedDogProfile;
   myProfile: SavedDogProfile | null;
   playdate: { date: string; time?: string; place: string };
+  /** The other owner's first name, from the match document (never from a public profile). */
+  ownerFirstName?: string | null;
+  /** Folded to its header for now (the message box has focus and the keyboard is up), without losing the open/closed choice. */
+  compact?: boolean;
 }
 
-// Verbatim, in the owner's own selected words — quoting the chip they tapped is
-// quoting them. But the two lists must stay LABELLED SEPARATELY: a notGoodWith
-// value is a bare noun ("small dogs", "puppies"), so under a neutral heading it
-// reads as a preference FOR that thing rather than against it.
-function declaredFlags(p: SavedDogProfile | null): string[] {
-  return p?.behaviorFlags ?? [];
-}
-function declaredNotGoodWith(p: SavedDogProfile | null): string[] {
-  return p?.notGoodWith ?? [];
-}
-function declaredCount(p: SavedDogProfile | null): number {
-  return declaredFlags(p).length + declaredNotGoodWith(p).length;
+/** One declared limit, as the engine words it (owner-named), and whether the other dog trips it. */
+export interface LimitLine {
+  id: string;
+  text: string;
+  severity: 'caution' | 'note' | 'declared';
+  /** Why it applies, e.g. "Waffles is small". */
+  detail?: string;
 }
 
-export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, playdate }: Props) {
-  const [open, setOpen] = useState(false);
+/**
+ * Every declared limit between two dogs, each once, split by whose it is. The same
+ * analysis the Discover card and the compatibility score use (analyzeLimits), so
+ * this card and the score cannot tell different stories. Without your own profile
+ * (still loading) only the other owner's limits can be listed, and none are marked.
+ */
+export function playdateLimitLines(
+  myProfile: SavedDogProfile | null,
+  otherProfile: SavedDogProfile | null,
+): { theirs: LimitLine[]; yours: LimitLine[] } {
+  if (!otherProfile) return { theirs: [], yours: [] };
+  if (!myProfile) {
+    return {
+      theirs: describeLimits(otherProfile).map((text, i) => ({ id: `theirs:${i}`, text, severity: 'declared' as const })),
+      yours: [],
+    };
+  }
+  const analysis = analyzeLimits(
+    toFullProfile(myProfile, 'me'),
+    toFullProfile(otherProfile, 'them'),
+    { viewerAll: true },
+  );
+  const line = (i: (typeof analysis.items)[number]): LimitLine => ({ id: i.id, text: i.text, severity: i.severity, detail: i.detail });
+  return {
+    theirs: analysis.items.filter((i) => i.side === 'theirs').map(line),
+    yours: analysis.items.filter((i) => i.side === 'yours').map(line),
+  };
+}
 
-  const crossings = useMemo(() => {
-    if (!myProfile) return [];
-    const mine = toFullProfile(myProfile, 'me');
-    const theirs = toFullProfile(otherProfile, 'them');
-    // Both directions, deduped — the same union calculateCompatibility() scores
-    // from, so the card and the score can never tell different stories.
-    return [...new Set([
-      ...detectUnsafePairings(mine, theirs),
-      ...detectUnsafePairings(theirs, mine),
-    ])];
-  }, [myProfile, otherProfile]);
+/**
+ * The limits that CROSS between these two dogs (either owner's, tripped by the
+ * other dog): what the "before you accept" sheet lists. Empty means nothing to warn about.
+ */
+export function playdateConflicts(
+  myProfile: SavedDogProfile | null,
+  otherProfile: SavedDogProfile | null,
+): LimitLine[] {
+  const { theirs, yours } = playdateLimitLines(myProfile, otherProfile);
+  return [...theirs, ...yours].filter((l) => l.severity === 'caution');
+}
 
-  const theirFlags = declaredFlags(otherProfile);
-  const theirNotGoodWith = declaredNotGoodWith(otherProfile);
-  const myFlags = declaredFlags(myProfile);
-  const myNotGoodWith = declaredNotGoodWith(myProfile);
+export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, playdate, ownerFirstName, compact = false }: Props) {
+  const [openChoice, setOpen] = useState(true);
+  const open = openChoice && !compact;
+
+  const { theirs: theirLimits, yours: myLimits } = useMemo(
+    () => playdateLimitLines(myProfile, otherProfile),
+    [myProfile, otherProfile],
+  );
   const unvaccinated = otherProfile.vaccinated === false;
-
-  const itemCount = crossings.length + declaredCount(otherProfile) + (unvaccinated ? 1 : 0);
+  const flagged = theirLimits.length > 0 || unvaccinated;
 
   const whenWhere = `${formatPlaydateWhen(playdate)} · ${playdate.place}`;
 
   return (
-    <div className="shrink-0 border-t border-border bg-white px-4 py-3 w-full lg:max-w-3xl lg:mx-auto">
+    <section
+      aria-label={`Before you meet ${dogName}`}
+      className="shrink-0 border-t-2 border-brown bg-cream-dark px-4 py-2 w-full lg:max-w-3xl lg:mx-auto"
+    >
       <button
-        onClick={() => setOpen((v) => !v)}
+        type="button"
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 text-left"
+        className="flex min-h-[44px] w-full items-center justify-between gap-3 text-left"
       >
-        <span className="text-sm font-bold text-brown">
-          {itemCount > 0 ? '⚠️' : '🐾'} Before you meet {dogName}
-          {itemCount > 0 && (
-            <span className="ml-1.5 font-semibold text-brown-light">
-              · {itemCount} {itemCount === 1 ? 'thing' : 'things'} to know
-            </span>
-          )}
+        <span className="min-w-0 text-[15px] font-black text-brown [overflow-wrap:anywhere]">
+          Before you meet {dogName}
+          {ownerFirstName && <>{' '}<span className="font-extrabold text-brown-mid">· with <bdi>{ownerFirstName}</bdi></span></>}
         </span>
-        <span className="shrink-0 text-xs font-bold text-primary">
-          {open ? 'Hide' : 'Read'} {open ? '↑' : '↓'}
+        <span className="shrink-0 text-xs font-black text-brown-mid underline underline-offset-2">
+          {open ? 'Hide' : 'Show'}
         </span>
       </button>
 
       {open && (
-        // Capped and scrollable: opened on a phone with a few declared flags it
-        // used to take the whole screen — the thread collapsed to a sliver and the
-        // message box was pushed off the bottom.
-        <div className="mt-3 max-h-[35dvh] space-y-3 overflow-y-auto">
-          <p className="text-xs font-semibold text-brown-light [overflow-wrap:anywhere]">{whenWhere}</p>
+        // Capped and scrollable: on a phone the thread must keep room to breathe
+        // and the message box must stay on screen.
+        <div className="mt-1 max-h-[24dvh] space-y-2 overflow-y-auto">
+          <p className="text-sm font-extrabold text-brown-mid [overflow-wrap:anywhere]">{whenWhere}</p>
 
-          {/* What crosses between these two specific dogs. */}
-          {crossings.length > 0 && (
-            <div className="rounded-[1.25rem] border border-amber-300 bg-amber-50 px-3 py-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-900">
-                Where your two dogs cross
-              </p>
-              <ul className="mt-1.5 space-y-1">
-                {crossings.map((c) => (
-                  <li key={c} className="text-sm leading-relaxed text-amber-950">• {c}</li>
+          <ul className="space-y-1.5 text-sm font-bold leading-snug text-brown">
+            <li className="flex gap-2"><span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />Meet somewhere public, like a dog park.</li>
+            <li className="flex gap-2"><span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />Keep leashes on until both dogs are calm.</li>
+            <li className="flex gap-2"><span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />Introduce them slowly. A short sniff first, then see how it goes.</li>
+            <li className="flex gap-2">
+              <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />
+              <div className="min-w-0 flex-1">
+                {flagged ? (
+                  <>
+                    <span className="font-black">What the other owner asked for:</span>
+                    <ul className="mt-1 space-y-1">
+                      {theirLimits.map((limit) => (
+                        <li
+                          key={limit.id}
+                          className={`rounded-xl px-2.5 py-1.5 text-sm leading-snug [overflow-wrap:anywhere] ${
+                            limit.severity === 'caution'
+                              ? 'border-2 border-amber bg-cream font-black text-brown'
+                              : 'bg-cream text-brown'
+                          }`}
+                        >
+                          {limit.text}
+                          {limit.severity === 'caution' && limit.detail && (
+                            <span className="font-normal">. {limit.detail}.</span>
+                          )}
+                        </li>
+                      ))}
+                      {unvaccinated && (
+                        <li className="rounded-xl border-2 border-amber bg-cream px-2.5 py-1.5 text-sm font-black leading-snug text-brown [overflow-wrap:anywhere]">
+                          {dogName}&apos;s owner marked {dogName} as not currently vaccinated.
+                        </li>
+                      )}
+                    </ul>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-black">What the other owner asked for:</span>{' '}
+                    <span className="text-brown-mid">
+                      nothing. That means nothing was flagged, not that anything was checked.
+                    </span>
+                  </>
+                )}
+              </div>
+            </li>
+          </ul>
+
+          {/* The mirror: what the other owner can see about your dog. It's what
+              makes the card a mutual disclosure rather than a dossier. */}
+          <div className="rounded-xl border-2 border-border bg-cream px-3 py-2">
+            <p className="text-xs font-black text-brown-mid">
+              What {dogName}&apos;s owner sees about {myProfile?.name ?? 'your dog'}
+            </p>
+            {myLimits.length > 0 ? (
+              <ul className="mt-1 space-y-0.5 text-sm font-bold leading-snug text-brown">
+                {myLimits.map((limit) => (
+                  <li key={limit.id} className={`[overflow-wrap:anywhere] ${limit.severity === 'caution' ? 'font-black underline decoration-amber decoration-2 underline-offset-2' : ''}`}>
+                    {limit.text}
+                    {limit.severity === 'caution' && limit.detail && <span className="font-normal">. {limit.detail}.</span>}
+                  </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {/* Their declarations, verbatim, under headings that make the polarity
-              unambiguous. */}
-          {theirFlags.length > 0 && (
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brown-light">
-                {dogName}&apos;s owner flagged
-              </p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {theirFlags.map((item) => (
-                  <span key={item} className="chip text-xs">{item}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {theirNotGoodWith.length > 0 && (
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brown-light">
-                {dogName} is <span className="text-amber-700">not good with</span>
-              </p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {theirNotGoodWith.map((item) => (
-                  <span key={item} className="chip border-amber-300 bg-amber-50 text-xs text-amber-950">
-                    🚫 {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* vaccinated is a checkbox that defaults to true, so only an explicit
-              false is information. true tells us nothing and is not rendered. */}
-          {unvaccinated && (
-            <p className="rounded-[1.25rem] border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold leading-relaxed text-amber-950">
-              {dogName}&apos;s owner marked them as not currently vaccinated.
-            </p>
-          )}
-
-          {itemCount === 0 && (
-            <p className="text-sm leading-relaxed text-brown-light">
-              Neither owner declared anything that crosses. That means nothing was
-              flagged — not that anything was checked.
-            </p>
-          )}
-
-          {/* The mirror. This is what makes the card a mutual disclosure rather
-              than a dossier, and it's the only place an owner sees the
-              consequence of the Safety section they may have skipped. */}
-          <div className="rounded-[1.25rem] bg-cream px-3 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brown-light">
-              What they can see about {myProfile?.name ?? 'your dog'}
-            </p>
-            {declaredCount(myProfile) > 0 ? (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {myFlags.map((item) => (
-                  <span key={item} className="chip text-xs">{item}</span>
-                ))}
-                {myNotGoodWith.map((item) => (
-                  <span key={item} className="chip border-amber-300 bg-amber-50 text-xs text-amber-950">
-                    🚫 {item}
-                  </span>
-                ))}
-              </div>
             ) : (
-              <p className="mt-1 text-sm leading-relaxed text-brown-light">
-                You haven&apos;t declared anything.{' '}
-                <Link href="/app/profile" className="font-semibold text-primary underline underline-offset-2">
-                  Add it to your profile
-                </Link>{' '}
-                — it&apos;s the only thing that can warn them before you meet.
+              <p className="mt-1 text-sm font-bold leading-snug text-brown-mid">
+                You haven&apos;t declared any limits.{' '}
+                <Link href="/app/profile" className="font-black text-rose underline underline-offset-2">
+                  Add them to your profile
+                </Link>
+                {' '}so the other owner is warned before you meet.
               </p>
             )}
           </div>
 
-          <p className="text-xs leading-relaxed text-brown-light">
-            All of this is what each owner typed about their own dog. GoDoggyDate
-            doesn&apos;t verify any of it.{' '}
-            <Link href="/playdate-safety" className="font-semibold text-primary underline underline-offset-2">
-              How to run a first meeting →
-            </Link>
+          <p className="text-xs font-bold leading-relaxed text-brown-mid">
+            This is what each owner typed about their own dog. GoDoggyDate doesn&apos;t verify any of it.
           </p>
+          <Link
+            href="/playdate-safety"
+            className="flex min-h-[44px] items-center text-sm font-black text-rose underline underline-offset-2"
+          >
+            How to run a first meeting
+          </Link>
         </div>
       )}
-    </div>
+    </section>
   );
 }

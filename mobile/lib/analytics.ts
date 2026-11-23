@@ -9,7 +9,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type AnalyticsParams = Record<string, string | number | boolean | null | undefined>;
 
 const CLIENT_ID_KEY = 'godoggydate.analytics.clientId';
+const SESSION_KEY = 'godoggydate.analytics.session';
+// GA4 closes a session after 30 idle minutes; a later event starts a new one.
+const SESSION_IDLE_MS = 30 * 60 * 1000;
 let cachedClientId: string | null = null;
+let session: { id: string; lastAt: number } | null = null;
+let sessionLoaded: Promise<void> | null = null;
+let sessionPersistedAt = 0;
 let currentUserId: string | null = null;
 
 function getApiBase(): string | null {
@@ -38,6 +44,38 @@ async function getClientId(): Promise<string> {
   return fresh;
 }
 
+/**
+ * Stable GA4 session id (unix seconds when the session began), shared by every
+ * event until 30 minutes pass with no event. The Measurement Protocol drops
+ * events that carry no session_id, so a fresh random value per event is as bad
+ * as none: it would make every event its own session. Survives an app restart
+ * inside the idle window.
+ */
+async function getSessionId(): Promise<string> {
+  if (!sessionLoaded) {
+    sessionLoaded = (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SESSION_KEY);
+        const stored = raw ? JSON.parse(raw) : null;
+        if (stored && typeof stored.id === 'string' && typeof stored.lastAt === 'number') session = stored;
+      } catch { /* start a fresh session */ }
+    })();
+  }
+  await sessionLoaded;
+
+  const now = Date.now();
+  const startedNew = !session || now - session.lastAt > SESSION_IDLE_MS;
+  session = startedNew || !session
+    ? { id: String(Math.floor(now / 1000)), lastAt: now }
+    : { id: session.id, lastAt: now };
+  // Persist on a new session and then at most about once a minute.
+  if (startedNew || now - sessionPersistedAt > 60 * 1000) {
+    sessionPersistedAt = now;
+    try { await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch { /* in-memory is fine */ }
+  }
+  return session.id;
+}
+
 export function setAnalyticsUser(userId: string | null) {
   currentUserId = userId;
 }
@@ -49,8 +87,12 @@ export function trackEvent(name: string, params: AnalyticsParams = {}) {
   void (async () => {
     try {
       const clientId = await getClientId();
+      const sessionId = await getSessionId();
+      // session_id and engagement_time_msec go first: GA4 needs both for the
+      // event to appear in session-based reports and the relay keeps only the
+      // first few params.
       const safeParams = Object.fromEntries(
-        Object.entries({ ...params, platform: 'mobile' })
+        Object.entries({ session_id: sessionId, engagement_time_msec: 100, ...params, platform: 'mobile' })
           .filter(([, v]) => ['string', 'number', 'boolean'].includes(typeof v)),
       );
       await fetch(`${base}/api/analytics`, {
@@ -58,6 +100,7 @@ export function trackEvent(name: string, params: AnalyticsParams = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
+          sessionId,
           ...(currentUserId ? { userId: currentUserId } : {}),
           events: [{ name, params: safeParams }],
         }),

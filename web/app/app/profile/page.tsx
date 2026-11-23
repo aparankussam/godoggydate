@@ -51,7 +51,36 @@ import {
 import { getHouseholdDogsForUser } from '../../../lib/household';
 import type { HouseholdDog } from '../../../lib/household';
 import type { Reminder } from '../../../../shared/types';
-import { getVaccinationStatus } from '../../../../shared/profile';
+import { getVaccinationStatus, isPubliclyDiscoverable } from '../../../../shared/profile';
+import { isNationalDogDaySeason } from '../../../../shared/seasons';
+import ProfileGroup from '../../../components/ProfileGroup';
+import PublicPageSwitch from '../../../components/PublicPageSwitch';
+import BlockedList from '../../../components/BlockedList';
+import FirstNameSwitch from '../../../components/FirstNameSwitch';
+
+// What stops this profile from counting as complete, in plain words. Mirrors
+// the checks in shared/profile.ts isProfileComplete so the list and the status
+// can't disagree.
+function missingProfileItems(p: SavedDogProfile | null): string[] {
+  if (!p) return [];
+  const out: string[] = [];
+  const photoCount = p.photos?.length ?? 0;
+  if (photoCount < 3) {
+    const need = 3 - photoCount;
+    out.push(photoCount === 0 ? '3 photos' : `${need} more photo${need === 1 ? '' : 's'}`);
+  }
+  if (!(p.name ?? '').trim()) out.push('a name');
+  if (!(p.breed ?? '').trim()) out.push('a breed');
+  if (!p.age) out.push('an age');
+  if (!p.sex) out.push('their sex');
+  if (!p.size) out.push('a size');
+  if ((p.temperament?.length ?? 0) < 1 && (p.playStyles?.length ?? 0) < 1) out.push('a personality tag');
+  const hasCoords = Number.isFinite(p.lat) && Number.isFinite(p.lng);
+  const hasLocation =
+    hasCoords || !!(p.zip ?? '').trim() || (!!(p.city ?? '').trim() && !!(p.state ?? '').trim()) || !!(p.location ?? '').trim();
+  if (!hasLocation) out.push('a neighborhood or ZIP');
+  return out;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -120,7 +149,7 @@ export default function ProfilePage() {
       const result = await shareOrDownloadCard(
         cardRef.current,
         `${(savedProfile?.name ?? 'dog').toLowerCase().replace(/\s+/g, '-')}-godoggydate-card.png`,
-        { publicUrl, dogName: savedProfile?.name },
+        { publicUrl: savedProfile?.publicPage === false ? undefined : publicUrl, dogName: savedProfile?.name },
       );
       feedback.success();
       trackEvent('trading_card_shared', { method: result });
@@ -254,6 +283,7 @@ export default function ProfilePage() {
         ...prev,
         householdMemberIds: data.householdMemberIds,
         bestFriendMatchId: data.bestFriendMatchId,
+        publicPage: typeof data.publicPage === 'boolean' ? data.publicPage : undefined,
       } : prev));
     });
   }, [authUser]);
@@ -401,11 +431,11 @@ export default function ProfilePage() {
   // ── Edit overlay ──────────────────────────────────────────────────────────
   if (showEdit) {
     return (
-      <div className="min-h-screen bg-cream">
-        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center gap-3">
+      <div className="min-h-screen">
+        <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center gap-3">
           <button
             onClick={closeEdit}
-            className="text-2xl text-brown-light hover:text-brown transition-colors"
+            className="text-2xl text-brown-mid hover:text-brown transition-colors"
             aria-label="Back"
           >
             ←
@@ -414,7 +444,7 @@ export default function ProfilePage() {
         </header>
         {saveError && (
           <div className="mx-auto max-w-md px-5 pt-4">
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-2xl border border-brown bg-cream px-4 py-3 text-sm text-brown">
               {saveError}
             </div>
           </div>
@@ -431,6 +461,12 @@ export default function ProfilePage() {
 
   // ── Profile view ──────────────────────────────────────────────────────────
   const complete    = isProfileComplete(savedProfile);
+  // Complete from the owner's own view, but with only a ZIP (private) there is
+  // no public location, so other dogs can't find this one. Same test Discover
+  // uses for its own warning.
+  const discoverable = isPubliclyDiscoverable(savedProfile);
+  const missing     = missingProfileItems(savedProfile);
+  const showDogDay  = isNationalDogDaySeason(new Date());
   const photos      = getRenderablePhotos(savedProfile?.photos);
   // Clamp so a stale index (after a photo is removed) can never read undefined.
   const safeActive  = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
@@ -446,10 +482,10 @@ export default function ProfilePage() {
   const householdOnly = !savedProfile && householdDogs.length > 0;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center">
-        <span className="font-display text-xl text-brown">🐕 Profile</span>
+      <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center">
+        <h1 className="font-display text-[26px] leading-none text-brown">Profile</h1>
       </header>
 
       {/* Below lg this is the original single phone-width column, so mobile
@@ -472,16 +508,6 @@ export default function ProfilePage() {
           />
         )}
 
-        {/* Profile incomplete warning */}
-        {!complete && savedProfile && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
-            <p className="font-semibold mb-1">Profile incomplete</p>
-            <p className="text-xs">
-              Add your dog&apos;s breed, age, neighborhood, and at least one personality tag to unlock swiping.
-            </p>
-          </div>
-        )}
-
         {/* Still deciding which empty state applies — the household lookup
             below hasn't answered yet. Without this the invited-partner case
             flashed "No profile yet" before its own view replaced it. */}
@@ -501,7 +527,7 @@ export default function ProfilePage() {
           <div className="flex flex-col gap-4">
             <div>
               <p className="font-display text-2xl text-brown">Your household</p>
-              <p className="mt-1 text-sm text-brown-light">
+              <p className="mt-1 text-sm text-brown-mid">
                 {householdDogs.length === 1
                   ? `You help look after ${householdDogs[0].profile.name}.`
                   : 'You help look after these dogs.'}{' '}
@@ -533,7 +559,7 @@ export default function ProfilePage() {
           <div className="flex flex-col items-center gap-4 py-12 text-center">
             <span className="text-6xl">🐾</span>
             <p className="font-display text-2xl text-brown">No profile yet</p>
-            <p className="text-brown-light text-sm">Set up your dog&apos;s profile to start swiping.</p>
+            <p className="text-brown-mid text-sm">Set up your dog&apos;s profile to start swiping.</p>
           </div>
         )}
         </div>
@@ -542,8 +568,8 @@ export default function ProfilePage() {
         <div className="contents lg:flex lg:flex-col lg:gap-5">
 
         {savedProfile && (
-          <div className="card rounded-[2rem] overflow-hidden">
-            <div className="bg-gradient-to-br from-cream-dark via-cream to-white px-5 py-5 flex items-center gap-4">
+          <div className="card rounded-[2rem] overflow-hidden max-lg:order-[10]">
+            <div className="bg-cream px-5 py-5 flex items-center gap-4">
               {/* Tap the photo to cycle through the gallery (loops back to the
                   first). Purely a preview — the shared Trading Card always uses
                   the starred cover, and leaving the page re-seeds to the hero. */}
@@ -552,7 +578,7 @@ export default function ProfilePage() {
                 onClick={() => { if (photos.length > 1) { setActivePhoto((i) => (i + 1) % photos.length); feedback.tap(); } }}
                 disabled={photos.length <= 1}
                 aria-label={photos.length > 1 ? `${name} photo ${safeActive + 1} of ${photos.length} — tap for next` : name}
-                className="w-20 h-20 rounded-[1.4rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center enabled:cursor-pointer disabled:cursor-default"
+                className="w-20 h-20 rounded-[1.4rem] overflow-hidden bg-note text-brown shrink-0 flex items-center justify-center enabled:cursor-pointer disabled:cursor-default"
               >
                 {photos[safeActive] ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -563,19 +589,37 @@ export default function ProfilePage() {
               </button>
               <div className="min-w-0 flex-1">
                 {vibeCheck?.archetype.name && (
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-gold">
+                  <p className="text-xs font-bold text-gold">
                     ✨ {vibeCheck.archetype.name}
                   </p>
                 )}
                 <p className="font-display text-3xl text-brown leading-tight break-words">{savedProfile.name}</p>
-                <p className="text-sm text-brown-light mt-1 truncate">
+                <p className="text-sm text-brown-mid mt-1 truncate">
                   {[savedProfile.breed, savedProfile.age, savedProfile.location].filter(Boolean).join(' · ')}
                 </p>
-                <p className={`mt-2 text-xs font-bold uppercase tracking-[0.16em] ${
-                  complete ? 'text-green-700' : 'text-amber-700'
-                }`}>
-                  {complete ? 'Ready to swipe' : 'Profile needs a few more details'}
-                </p>
+                {/* Honest status: a ZIP-only profile is complete for the owner but
+                    invisible to every other dog, and Discover says so too. */}
+                {!complete ? (
+                  <p className="mt-2 text-xs font-bold text-brown">
+                    Profile needs a few more details
+                  </p>
+                ) : discoverable ? (
+                  <p className="mt-2 text-xs font-bold text-brown">
+                    Ready to swipe
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs font-semibold leading-snug text-brown">
+                    <span className="font-bold">Ready to swipe</span>
+                    {' '}— other dogs can&apos;t see you yet:{' '}
+                    <button
+                      type="button"
+                      onClick={() => openEdit()}
+                      className="min-h-[32px] font-bold underline underline-offset-2"
+                    >
+                      add a city
+                    </button>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -583,7 +627,7 @@ export default function ProfilePage() {
                 shown here for the first time. */}
             {vibeCheck?.bio && (
               <div className="px-5 pb-4 -mt-1">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-0.5">
+                <p className="text-xs font-bold text-brown-mid mb-0.5">
                   ✨ Vibe Check · written by AI from their photos
                 </p>
                 <p className="text-sm italic leading-relaxed text-brown-mid">
@@ -616,52 +660,31 @@ export default function ProfilePage() {
                   </span>
                 )}
                 {bestFriendName && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-800">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-cream border border-brown px-3 py-1.5 text-xs font-bold text-brown">
                     ⭐ Best Friends with {bestFriendName}
                   </span>
                 )}
                 {(savedProfile.ratingCount ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-bold text-green-800">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-cream border border-brown px-3 py-1.5 text-xs font-bold text-brown">
                     🐾 {Math.round((savedProfile.meetAgainRate ?? 0) * 100)}% would meet again
-                    <span className="font-normal text-green-700">
+                    <span className="font-normal text-brown">
                       ({savedProfile.ratingCount} playdate{savedProfile.ratingCount === 1 ? '' : 's'} rated)
                     </span>
                   </span>
                 )}
               </div>
             )}
+            {(typeof savedProfile.foundingPackNumber === 'number' || hasLifetime) && (
+              <p className="px-5 pb-4 -mt-2 text-xs leading-relaxed text-brown-mid">
+                Founding Member: a permanent, numbered spot among the first {FOUNDING_TOTAL} dogs on GoDoggyDate.
+              </p>
+            )}
           </div>
-        )}
-
-        {/* ── Your dog's life: the daily card, their Dogtype, life stage, and
-            the next real celebration. The reason to come back every day. ── */}
-        {savedProfile && complete && authUser && (
-          <>
-            <DogtypeSection savedProfile={savedProfile} userId={authUser.uid} />
-            <EarnedStickers dogId={authUser.uid} />
-            <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
-            <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
-            {/* The Gotcha Day letter stays here — it only appears near a real
-                milestone, so it's contextual, not clutter. The rest of the
-                playful generators live in the Playroom (one entry, below). */}
-            <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
-            <a
-              href="/app/fun"
-              onClick={() => { feedback.tap(); trackEvent('fun_hub_click', { source: 'profile' }); }}
-              className="card rounded-[1.8rem] px-5 py-4 flex items-center justify-between hover:shadow-md transition-shadow"
-            >
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">The Playroom 🎉</p>
-                <p className="font-display text-lg text-brown leading-tight">Roast, apology, texts, review, quiz, plaque &amp; more</p>
-              </div>
-              <span className="text-2xl">→</span>
-            </a>
-          </>
         )}
 
         {/* Photo strip — tap a thumbnail to make it the main photo. */}
         {photos.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 max-lg:order-[12]">
             {photos.map((url, i) => (
               <button
                 key={i}
@@ -670,7 +693,7 @@ export default function ProfilePage() {
                 aria-label={`Show ${name} photo ${i + 1}`}
                 aria-pressed={i === safeActive}
                 className={`w-24 h-24 rounded-2xl overflow-hidden shrink-0 border-2 transition-all ${
-                  i === safeActive ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
+                  i === safeActive ? 'border-brown ring-2 ring-brown ring-offset-2 ring-offset-sky' : 'border-brown/40 opacity-80 hover:opacity-100'
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -680,23 +703,122 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Day 1 vs Day N — needs two different photos for "then vs now",
-            the same minimum the component itself checks. Not gated on a
-            complete profile: it only uses the owner's own photos. */}
-        {savedProfile && photos.length >= DIPTYCH_MIN_PHOTOS && (
-          <DiptychSection savedProfile={savedProfile} />
+        {/* What's missing — right under the dog card, specific, and with a way to fix it. */}
+        {!complete && savedProfile && (
+          <div className="bg-cream border border-brown rounded-2xl px-4 py-3 text-sm text-brown max-lg:order-[20]">
+            <p className="font-semibold mb-1">Profile incomplete</p>
+            <p className="text-xs leading-relaxed">
+              {missing.length > 0
+                ? <>Still needed to unlock swiping: {missing.join(', ')}.</>
+                : <>A few details are still missing before swiping unlocks.</>}
+            </p>
+            <button
+              type="button"
+              onClick={() => openEdit()}
+              className="mt-1 min-h-[36px] text-xs font-bold underline underline-offset-2"
+            >
+              Finish the profile
+            </button>
+          </div>
         )}
 
-        {/* Profile details card */}
+        {/* Actions */}
+        <div className="flex flex-col gap-3 max-lg:order-[30]">
+          {complete && (
+            <button
+              onClick={() => router.push('/app')}
+              className="btn-primary py-3"
+            >
+              Start Swiping
+            </button>
+          )}
+
+          {/* For a household member this is a real but secondary option —
+              they were invited to help with someone else's dog, so it
+              shouldn't be the loudest button on their page. */}
+          <button
+              onClick={() => openEdit()}
+              className={householdOnly ? 'btn-secondary py-3' : complete ? 'btn-secondary py-3' : 'btn-primary py-3'}
+            >
+            {savedProfile ? 'Edit Profile' : householdOnly ? 'Add a dog of your own' : 'Create Profile'}
+          </button>
+        </div>
+
+        {/* Today — reminders (Cadence). Kept visible even on an incomplete
+            profile since it's useful with just a saved dog. */}
+        {authUser && savedProfile && (
+          <div className="max-lg:order-[40]">
+            <RemindersSection dogId={authUser.uid} reminders={reminders} />
+          </div>
+        )}
+
+        {/* Pack Day and the Playroom — the two places to DO something, one tap from the top. */}
+        {savedProfile && complete && (
+          <div className="card rounded-[1.8rem] divide-y divide-border max-lg:order-[50]">
+            <Link
+              href="/app/pack"
+              onClick={() => { feedback.tap(); trackEvent('pack_day_entry_click', { source: 'profile' }); }}
+              className="flex min-h-[64px] items-center justify-between gap-3 px-5 py-3"
+            >
+              <div>
+                <p className="text-xs font-bold text-brown">Pack Day 🌳</p>
+                <p className="font-display text-lg text-brown leading-tight">Join or host an open group playdate at a public place</p>
+              </div>
+              <span className="text-2xl" aria-hidden="true">→</span>
+            </Link>
+            <Link
+              href="/app/fun"
+              onClick={() => { feedback.tap(); trackEvent('fun_hub_click', { source: 'profile' }); }}
+              className="flex min-h-[64px] items-center justify-between gap-3 px-5 py-3"
+            >
+              <div>
+                <p className="text-xs font-bold text-brown">The Playroom 🎉</p>
+                <p className="font-display text-lg text-brown leading-tight">Roast, apology, texts, review, quiz, plaque &amp; more</p>
+              </div>
+              <span className="text-2xl" aria-hidden="true">→</span>
+            </Link>
+          </div>
+        )}
+
+        {/* ── Your dog's life: Dogtype, life stage and the next real celebration.
+            The reason to come back every day. The Gotcha Day letter stays here —
+            it only appears near a real milestone, so it's contextual, not clutter.
+            The playful generators live in the Playroom (entry above). ── */}
+        {savedProfile && complete && authUser && (
+          <div className="flex flex-col gap-5 max-lg:order-[60]">
+            <DogtypeSection savedProfile={savedProfile} userId={authUser.uid} />
+            <EarnedStickers dogId={authUser.uid} />
+            <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
+            <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
+            <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
+          </div>
+        )}
+
+        {/* Day 1 vs Day N — the National Dog Day card, so it only shows in its
+            season (Aug 20 – Sep 5). Needs two different photos for "then vs
+            now", the same minimum the component itself checks. Not gated on a
+            complete profile: it only uses the owner's own photos. */}
+        {showDogDay && savedProfile && photos.length >= DIPTYCH_MIN_PHOTOS && (
+          <div className="max-lg:order-[65]">
+            <DiptychSection savedProfile={savedProfile} />
+          </div>
+        )}
+
+        {/* Profile details */}
         {savedProfile && (
+          <ProfileGroup
+            title="Profile details"
+            hint="Breed, age, size, energy, vaccination"
+            className="max-lg:order-[110]"
+          >
           <div className="card rounded-[1.8rem] divide-y divide-border">
             {[
-              { label: 'Name',          value: savedProfile.name           },
-              { label: 'Breed',         value: savedProfile.breed          },
+              { label: 'Name',          value: savedProfile.name,     raw: true },
+              { label: 'Breed',         value: savedProfile.breed,    raw: true },
               { label: 'Age',           value: savedProfile.age            },
               { label: 'Size',          value: savedProfile.size           },
               { label: 'Energy',        value: savedProfile.energyLevel !== undefined ? `${savedProfile.energyLevel}%` : undefined },
-              { label: 'Neighborhood',  value: savedProfile.location       },
+              { label: 'Neighborhood',  value: savedProfile.location, raw: true },
               // Honest tri-state: hide the row entirely when never answered
               // (the old code invented a "Not yet" for every unstated profile).
               // `raw` keeps the shared vaccination label verbatim — `capitalize`
@@ -704,7 +826,7 @@ export default function ProfilePage() {
               { label: 'Vaccination',   value: (() => { const v = getVaccinationStatus(savedProfile); return v.tone === 'unstated' ? undefined : v.label; })(), raw: true },
             ].map(({ label, value, raw }) => value ? (
               <div key={label} className="flex justify-between items-center gap-3 px-4 py-3">
-                <span className="shrink-0 text-sm text-brown-light">{label}</span>
+                <span className="shrink-0 text-sm text-brown-mid">{label}</span>
                 <span className={`min-w-0 break-words text-right text-sm font-semibold text-brown ${raw ? '' : 'capitalize'}`}>{value}</span>
               </div>
             ) : null)}
@@ -712,7 +834,7 @@ export default function ProfilePage() {
             {/* Temperament */}
             {(savedProfile.temperament?.length ?? 0) > 0 && (
               <div className="px-4 py-3">
-                <p className="text-sm text-brown-light mb-2">Temperament</p>
+                <p className="text-sm text-brown-mid mb-2">Temperament</p>
                 <div className="flex flex-wrap gap-1.5">
                   {savedProfile.temperament!.map((t) => (
                     <span key={t} className="chip text-xs">{t}</span>
@@ -724,7 +846,7 @@ export default function ProfilePage() {
             {/* Play styles */}
             {(savedProfile.playStyles?.length ?? 0) > 0 && (
               <div className="px-4 py-3">
-                <p className="text-sm text-brown-light mb-2">Play style</p>
+                <p className="text-sm text-brown-mid mb-2">Play style</p>
                 <div className="flex flex-wrap gap-1.5">
                   {savedProfile.playStyles.map((s) => (
                     <span key={s} className="chip text-xs">{s}</span>
@@ -733,34 +855,18 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+          </ProfileGroup>
         )}
 
-        {/* Actions */}
-        <div className="flex flex-col gap-3">
-          {complete && (
-            <button
-              onClick={() => router.push('/app')}
-              className="btn-primary py-3 shadow-lg"
-            >
-              Start Swiping 🐾
-            </button>
-          )}
-
-          {/* For a household member this is a real but secondary option —
-              they were invited to help with someone else's dog, so it
-              shouldn't be the loudest button on their page. */}
-          <button
-              onClick={() => openEdit()}
-              className={householdOnly ? 'btn-secondary py-3' : 'btn-primary py-3 shadow-lg'}
-            >
-            {savedProfile ? 'Edit Profile' : householdOnly ? 'Add a dog of your own' : 'Create Profile'}
-          </button>
-
+        {/* Account, help and sign-out — last. */}
+        <div className="flex flex-col gap-3 max-lg:order-[140]">
+          <FirstNameSwitch userId={authUser.uid} />
+          <BlockedList userId={authUser.uid} />
           <div className="card rounded-[1.8rem] divide-y divide-border">
             {/* Account info */}
             {authUser?.email && (
               <div className="flex justify-between items-center px-4 py-3">
-                <span className="text-sm text-brown-light">Account</span>
+                <span className="text-sm text-brown-mid">Account</span>
                 <span className="text-sm text-brown truncate max-w-[60%]">{authUser.email}</span>
               </div>
             )}
@@ -769,7 +875,7 @@ export default function ProfilePage() {
             <button
               onClick={handleSignOut}
               disabled={signingOut}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown hover:bg-cream transition-colors disabled:opacity-50"
             >
               <span>{signingOut ? 'Signing out…' : 'Sign out'}</span>
               <span>→</span>
@@ -779,19 +885,19 @@ export default function ProfilePage() {
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown-light hover:text-red-600 hover:bg-red-50 transition-colors rounded-b-2xl"
+                className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown-mid hover:text-brown hover:bg-cream transition-colors rounded-b-2xl"
               >
                 <span>Delete account</span>
                 <span>→</span>
               </button>
             ) : (
-              <div className="px-4 py-4 rounded-b-2xl bg-red-50/60">
-                <p className="text-sm font-semibold text-red-700">Delete your account permanently?</p>
-                <p className="mt-1 text-xs leading-relaxed text-brown-light">
+              <div className="px-4 py-4 rounded-b-2xl bg-cream">
+                <p className="text-sm font-semibold text-brown">Delete your account permanently?</p>
+                <p className="mt-1 text-xs leading-relaxed text-brown-mid">
                   This removes your dog&apos;s profile, all matches, messages, and swipe history.
                   Past purchases aren&apos;t refunded automatically: email godoggydate@gobotsai.com first if you&apos;re within the 14-day refund window. This cannot be undone.
                 </p>
-                {deleteError && <p className="mt-2 text-xs text-red-600">{deleteError}</p>}
+                {deleteError && <p className="mt-2 text-xs text-brown">{deleteError}</p>}
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={handleDeleteAccount}
@@ -803,7 +909,7 @@ export default function ProfilePage() {
                   <button
                     onClick={() => { setConfirmDelete(false); setDeleteError(null); }}
                     disabled={deleting}
-                    className="rounded-full px-4 py-2 text-xs font-semibold text-brown-light hover:text-brown disabled:opacity-50"
+                    className="rounded-full px-4 py-2 text-xs font-semibold text-brown-mid hover:text-brown disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -817,11 +923,19 @@ export default function ProfilePage() {
           {!householdOnly && (
             <Link
               href="/app"
-              className="text-center text-xs text-brown-light hover:text-brown transition-colors py-3.5"
+              className="text-center text-sm font-black text-brown underline decoration-2 underline-offset-4 min-h-[44px] flex items-center justify-center"
             >
               ← Back to discover
             </Link>
           )}
+
+          <nav aria-label="Help and legal" className="flex flex-wrap justify-center gap-x-4 text-sm font-extrabold text-brown">
+            <Link href="/support" className="py-2.5 hover:text-brown transition-colors">Support</Link>
+            <Link href="/terms" className="py-2.5 hover:text-brown transition-colors">Terms</Link>
+            <Link href="/privacy" className="py-2.5 hover:text-brown transition-colors">Privacy</Link>
+            <Link href="/playdate-safety" className="py-2.5 hover:text-brown transition-colors">Play or Fight?</Link>
+          </nav>
+          <p className="text-center text-xs font-extrabold text-brown">GoDoggyDate is operated by GoBots LLC.</p>
         </div>
         </div>
         {/* ── /Left column ───────────────────────────────────────────────── */}
@@ -841,8 +955,13 @@ export default function ProfilePage() {
             seen or used on desktop. */}
         <div className="contents lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:[&>*]:shrink-0">
 
-        {/* Trading card share */}
+        {/* Trading card share + the public page switch */}
         {savedProfile && complete && (
+          <ProfileGroup
+            title="Share card & public page"
+            hint="Trading card, share button and the public page switch"
+            className="max-lg:order-[90]"
+          >
           <div className="card rounded-[1.8rem] flex flex-col items-center gap-4 px-5 py-5">
             <p className="text-sm font-semibold text-brown self-start">Your dog&apos;s card</p>
             <div className="scale-[0.72] origin-top -mb-24 sm:scale-100 sm:mb-0">
@@ -856,15 +975,14 @@ export default function ProfilePage() {
               {sharingCard ? 'Rendering…' : '📤 Share this card'}
             </button>
             {authUser && (
-              <Link
-                href={`/d/${toDogSlug(savedProfile.name, authUser.uid)}`}
-                target="_blank"
-                className="inline-block max-w-full break-words py-3 text-center text-xs text-brown-light hover:text-brown transition-colors"
-              >
-                View {savedProfile.name}&apos;s public page →
-              </Link>
+              <PublicPageSwitch
+                uid={authUser.uid}
+                dogName={savedProfile.name}
+                enabled={savedProfile.publicPage !== false}
+              />
             )}
           </div>
+          </ProfileGroup>
         )}
 
         {/* The Handoff Card — the sitter/walker/groomer care sheet. Gated on
@@ -872,10 +990,15 @@ export default function ProfilePage() {
             has nothing to do with swiping, so a profile missing a third photo
             or a neighborhood still has a perfectly useful care sheet. */}
         {savedProfile && (
+          <ProfileGroup
+            title="Handoff card"
+            hint="A one-image care sheet for a sitter, walker or groomer"
+            className="max-lg:order-[100]"
+          >
           <div className="card rounded-[1.8rem] flex flex-col items-center gap-4 px-5 py-5">
             <div className="self-start">
               <p className="text-sm font-semibold text-brown">Handoff card</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-brown-light">
+              <p className="mt-0.5 text-xs leading-relaxed text-brown-mid">
                 One image for a sitter, walker, or groomer — only what you told us, marked as
                 yours rather than ours.
               </p>
@@ -889,23 +1012,22 @@ export default function ProfilePage() {
               {sharingHandoff ? 'Rendering…' : '📤 Share this card'}
             </button>
           </div>
-        )}
-
-        {/* Cadence — reminders, kept visible even on an incomplete profile
-            since it's useful with just a saved dog and doesn't need a
-            match/swipe to have value. */}
-        {authUser && savedProfile && (
-          <RemindersSection dogId={authUser.uid} reminders={reminders} />
+          </ProfileGroup>
         )}
 
         {savedProfile && (
-          <HouseholdSection
-            dogName={savedProfile.name}
-            memberIds={savedProfile.householdMemberIds ?? []}
-            memberNames={savedProfile.householdMemberNames}
-          />
+          <div className="max-lg:order-[70]">
+            <HouseholdSection
+              dogName={savedProfile.name}
+              memberIds={savedProfile.householdMemberIds ?? []}
+              memberNames={savedProfile.householdMemberNames}
+            />
+          </div>
         )}
 
+        {/* Pro + Founding offer blocks below are unchanged; this wrapper only
+            keeps them after the groups on a phone. */}
+        <div className="flex flex-col gap-5 max-lg:order-[130]">
         {/* goDoggyDate Pro — the recurring subscription (or, for a Founding
             Member, the grandfathered "Pro for life" state). id is the scroll
             target for the "get a card every day" upsell in PetTwinCard. */}
@@ -931,10 +1053,10 @@ export default function ProfilePage() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackEvent('founding_member_cta_click', { source: 'profile' })}
-            className="card block rounded-[1.8rem] border border-gold/40 bg-gold/10 px-4 py-4 transition-colors hover:bg-gold/20"
+            className="card block rounded-[1.8rem] px-4 py-4 transition-colors hover:bg-cream-dark"
           >
             <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
-            <p className="mt-1 text-xs leading-relaxed text-brown-light">
+            <p className="mt-1 text-xs leading-relaxed text-brown-mid">
               A permanent Founding Member number and every future Pro feature at no extra cost, for as long
               as GoDoggyDate runs. {foundingSpotsLeft(founding.count)} of {FOUNDING_PAID_SPOTS} paid spots
               left (#{FOUNDING_FREE_SPOTS + 1}–{FOUNDING_TOTAL}). Pro features aren&apos;t live yet, so this
@@ -942,6 +1064,7 @@ export default function ProfilePage() {
             </p>
           </a>
         )}
+        </div>
 
         </div>
         {/* ── /Right column ──────────────────────────────────────────────── */}

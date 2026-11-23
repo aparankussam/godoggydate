@@ -23,6 +23,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dogtype } from '../../shared/dogtype';
 import DogtypeCard from './DogtypeCard';
+import { ShareIcon, StickerDog, PoleIcon } from './StickerBits';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
@@ -37,17 +38,6 @@ interface Props {
   photoUrl?: string;
   /** CSS object-position for that photo's cover crop. */
   photoFocus?: string;
-}
-
-// Same spark/zen split the DogtypeCard uses, so the reveal's colorway matches
-// the card the owner is about to see. Spark dogs (code starts with 'E') get the
-// fiery gradient; everyone else the warm calm one. The code is used ONLY behind
-// the scenes here to pick the colorway — it is never shown.
-function gradientFor(code: string): string {
-  const spark = code[0] === 'E';
-  return spark
-    ? 'linear-gradient(160deg, #7A2E0E 0%, #E8633A 55%, #F5B731 100%)'
-    : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
 }
 
 // Animation anchors (ms). Kept in JS so the "reveal button" timer below stays in
@@ -152,9 +142,8 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex flex-col items-center justify-center px-6 text-center text-white select-none focus:outline-none"
+      className="fixed inset-0 z-[120] flex flex-col items-center justify-center overflow-y-auto bg-sky bg-gingham px-6 text-center text-brown select-none focus:outline-none"
       style={{
-        background: gradientFor(dogtype.code),
         animation: reduced
           ? 'dtrFade 320ms ease-out both'
           : 'dtrFade 400ms ease-out both',
@@ -193,14 +182,14 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
       {!reduced && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute h-72 w-72 rounded-full bg-white/25 blur-3xl"
+          className="pointer-events-none absolute h-72 w-72 rounded-full bg-paper/60 blur-3xl"
           style={{ animation: 'dtrGlow 1.6s ease-in-out 2', top: '28%' }}
         />
       )}
 
       {/* Intro line */}
       <p
-        className="relative text-[11px] font-bold uppercase tracking-[0.28em] text-white/80"
+        className="relative font-display text-2xl text-brown"
         style={anim('dtrRise', reduced ? 0 : 120)}
       >
         {intro}
@@ -208,20 +197,25 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
 
       {/* The payoff — emoji + name burst in big, the memorable identity. */}
       <div
-        className="relative mt-6 text-7xl leading-none sm:text-8xl"
+        className="relative mt-5 flex h-36 w-36 items-center justify-center rounded-md border-2 border-dashed border-brown bg-note -rotate-3"
         aria-hidden="true"
         style={anim('dtrBurst', reduced ? 0 : EMOJI_AT)}
       >
-        {dogtype.emoji}
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photoUrl} alt="" className="h-full w-full rounded-[3px] object-cover" style={photoFocus ? { objectPosition: photoFocus } : undefined} />
+        ) : (
+          <StickerDog size={112} label="" />
+        )}
       </div>
       <h2
-        className="relative mt-4 font-display text-4xl leading-tight sm:text-5xl"
+        className="relative mt-4 font-display text-4xl font-normal leading-tight sm:text-5xl"
         style={anim('dtrRise', reduced ? 0 : NAME_AT)}
       >
         {dogtype.name}
       </h2>
       <p
-        className="relative mt-2 max-w-xs text-base font-semibold italic text-white/90"
+        className="relative mt-2 max-w-xs text-base font-black text-brown-mid"
         style={anim('dtrRise', reduced ? 0 : TAGLINE_AT)}
       >
         {dogtype.tagline}
@@ -233,10 +227,10 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
         {axes.map((a, i) => (
           <span
             key={a.key}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3.5 py-1.5 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-1.5 rounded-full border-2 border-brown bg-paper px-3 py-1 text-sm font-black text-brown shadow-[0_2px_0_rgba(42,31,74,0.2)]"
             style={anim('dtrChip', reduced ? 0 : CHIP_START + i * CHIP_STEP)}
           >
-            <span aria-hidden="true">{a.pole.emoji}</span> {a.pole.label}
+            <PoleIcon letter={a.pole.letter} /> {a.pole.label}
           </span>
         ))}
       </div>
@@ -256,16 +250,16 @@ export default function DogtypeReveal({ dogtype, onDone, dogName, photoUrl, phot
           type="button"
           onClick={handleShare}
           disabled={sharing}
-          className="rounded-full bg-white px-8 py-3 font-bold text-brown shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
+          className="btn-primary flex min-h-[56px] items-center justify-center gap-2.5 px-8 text-xl disabled:opacity-70"
           tabIndex={showButton ? 0 : -1}
         >
-          {sharing ? 'Preparing…' : trimmedName ? `📤 Share ${trimmedName}'s Dogtype` : '📤 Share this Dogtype'}
+          {sharing ? 'Preparing…' : (<><ShareIcon size={22} />{trimmedName ? `Share ${trimmedName}'s Dogtype` : 'Share this Dogtype'}</>)}
         </button>
         <button
           type="button"
           onClick={onDone}
           ref={doneRef}
-          className="rounded-full border border-white/60 px-8 py-2.5 font-bold text-white transition-all hover:bg-white/10 active:scale-95"
+          className="btn-secondary min-h-[48px] px-8 py-2.5"
           tabIndex={showButton ? 0 : -1}
         >
           See my Dogtype

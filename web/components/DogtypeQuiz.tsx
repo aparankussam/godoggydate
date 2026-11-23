@@ -19,6 +19,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { dogtypeByCode, type Dogtype, type DogtypeAxisKey } from '../../shared/dogtype';
 import DogtypeReveal from './DogtypeReveal';
+import DogtypeResultCard from './DogtypeResultCard';
+import { Chevron, ShareIcon, StickerDog } from './StickerBits';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
 import { absoluteUrl } from '../lib/site';
@@ -109,6 +111,23 @@ const QUESTIONS: QuizQuestion[] = [
 
 const AXIS_ORDER: DogtypeAxisKey[] = ['energy', 'play', 'social', 'spirit'];
 
+// Where the quiz result is kept so the app can pick it up after sign-up (the
+// onboarding reads it and reveals the Dogtype after the first save). Shape:
+// { name?: string, code: string, at: number }.
+const QUIZ_RESULT_KEY = 'gdd.quiz.v1';
+
+// Which shared link brought this visitor here (?ref=dogtype, ?ref=hero, ...).
+// Anything that isn't a short slug is dropped, so a hostile or unknown value
+// can never reach analytics or the page.
+function readRef(): string {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('ref') ?? '';
+    return /^[a-z0-9_-]{1,32}$/i.test(raw) ? raw.toLowerCase() : 'direct';
+  } catch {
+    return 'direct';
+  }
+}
+
 // Deterministic tally: majority letter per axis; a tie is broken by the FIRST
 // answer given for that axis (answers are collected in question order, and a
 // tied letter can never beat the strictly-greater check, so the earliest one
@@ -147,6 +166,7 @@ export default function DogtypeQuiz() {
   const [result, setResult] = useState<Dogtype | null>(null);
   const [copied, setCopied] = useState<ShareKind | null>(null);
   const [reduced, setReduced] = useState(false);
+  const [ref, setRef] = useState('direct');
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -154,6 +174,7 @@ export default function DogtypeQuiz() {
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       setReduced(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
+    setRef(readRef());
     return () => {
       if (copyTimer.current) clearTimeout(copyTimer.current);
     };
@@ -166,7 +187,7 @@ export default function DogtypeQuiz() {
 
   const startQuiz = () => {
     feedback.pop();
-    trackEvent('quiz_start', { named: Boolean(trimmedName) });
+    trackEvent('quiz_start', { named: Boolean(trimmedName), ref });
     setStage('quiz');
   };
 
@@ -183,7 +204,17 @@ export default function DogtypeQuiz() {
     const type = dogtypeByCode(code);
     if (!type) return; // impossible for valid poles, but keeps types honest
     setResult(type);
-    trackEvent('quiz_complete', { code: type.code });
+    // Keep the result for the app's onboarding (it reveals this Dogtype after
+    // the first save). Best effort: private mode or blocked storage is fine.
+    try {
+      window.localStorage.setItem(
+        QUIZ_RESULT_KEY,
+        JSON.stringify({ name: trimmedName || undefined, code: type.code, at: Date.now() }),
+      );
+    } catch {
+      /* storage unavailable — the result still shows on this page */
+    }
+    trackEvent('quiz_complete', { code: type.code, ref });
     feedback.success();
     setStage('reveal');
   };
@@ -267,11 +298,23 @@ export default function DogtypeQuiz() {
   // ── Stage: name (optional, personalizes copy — never sent anywhere) ────────
   if (stage === 'name') {
     return (
+      <>
+      {/* Page intro: only on the first screen. Repeating it above every question
+          pushed the answers off a phone screen. */}
+      <header className="max-w-2xl mx-auto pt-2 sm:pt-8 pb-4 text-center">
+        <p className="text-xs font-black text-brown-mid">The Dogtype quiz</p>
+        <h1 className="mt-1 font-display text-[34px] sm:text-5xl text-brown leading-none">
+          What&apos;s your dog&apos;s Dogtype?
+        </h1>
+        <p className="mt-3 font-extrabold text-brown-mid">
+          8 playful questions, about 90 seconds — no account needed.
+        </p>
+      </header>
       <div className={`card p-6 sm:p-10 max-w-xl mx-auto text-center ${fadeClass}`}>
-        <p className="text-5xl mb-4" aria-hidden="true">🐶</p>
+        <div className="mb-3 flex justify-center"><StickerDog size={84} label="A drawn sticker dog" /></div>
         <h2 className="font-display text-3xl text-brown mb-2">First things first</h2>
-        <label htmlFor="quiz-dog-name" className="block text-brown-mid font-semibold mb-4">
-          What&apos;s your dog&apos;s name? <span className="text-brown-light font-normal">(optional)</span>
+        <label htmlFor="quiz-dog-name" className="block text-brown font-extrabold mb-4">
+          What&apos;s your dog&apos;s name? <span className="text-brown-mid font-bold">(optional)</span>
         </label>
         <input
           id="quiz-dog-name"
@@ -284,16 +327,18 @@ export default function DogtypeQuiz() {
           maxLength={30}
           placeholder="e.g. Kaju"
           autoComplete="off"
-          className="w-full max-w-xs mx-auto block rounded-full border border-border bg-cream px-5 py-3 text-center text-lg text-brown placeholder:text-brown-light focus:border-primary focus:outline-none"
+          className="w-full max-w-xs mx-auto block rounded-full border-2 border-brown bg-paper px-5 py-3 text-center text-lg font-extrabold text-brown placeholder:text-brown-light focus:outline-none focus:ring-2 focus:ring-brown focus:ring-offset-2 focus:ring-offset-paper"
         />
-        <p className="mt-2 text-xs text-brown-light">
+        <p className="mt-2 text-xs font-bold text-brown-mid">
           Just to personalize the questions — it stays on this page and is never sent anywhere.
         </p>
-        <button type="button" onClick={startQuiz} className="btn-primary mt-6 text-lg px-10">
+        <button type="button" onClick={startQuiz} className="btn-primary mt-6 flex w-full max-w-xs mx-auto items-center justify-center gap-2.5 min-h-[56px] text-[25px] leading-none">
           Start the quiz
+          <Chevron />
         </button>
-        <p className="mt-4 text-sm text-brown-light">8 questions · about 90 seconds · no signup</p>
+        <p className="mt-4 text-sm font-bold text-brown-mid">8 questions · about 90 seconds · no signup</p>
       </div>
+      </>
     );
   }
 
@@ -301,13 +346,13 @@ export default function DogtypeQuiz() {
   if (stage === 'quiz') {
     const question = QUESTIONS[qIndex];
     return (
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-xl mx-auto pt-2 sm:pt-6">
         {/* Progress dots + back */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-3 sm:mb-6">
           <button
             type="button"
             onClick={goBack}
-            className="text-sm font-semibold text-brown-light hover:text-primary transition-colors"
+            className="min-h-[44px] pr-3 text-sm font-black text-brown underline decoration-2 underline-offset-[3px]"
             aria-label={qIndex === 0 ? 'Back to name' : 'Back to previous question'}
           >
             ← Back
@@ -317,30 +362,32 @@ export default function DogtypeQuiz() {
               <span
                 key={i}
                 className={`h-2 w-2 rounded-full transition-colors ${
-                  i < qIndex ? 'bg-primary' : i === qIndex ? 'bg-gold' : 'bg-cream-dark'
+                  i < qIndex ? 'bg-brown' : i === qIndex ? 'bg-paper ring-2 ring-brown' : 'bg-paper/50'
                 }`}
               />
             ))}
           </div>
-          <p className="text-sm font-semibold text-brown-light">
+          <p className="text-sm font-black text-brown">
             {qIndex + 1}/{QUESTIONS.length}
           </p>
         </div>
 
         <div key={qIndex} className={fadeClass}>
-          <h2 className="font-display text-2xl sm:text-3xl text-brown text-center mb-8">
+          <h2 className="font-display text-2xl sm:text-3xl text-brown text-center mb-4 sm:mb-8">
             {personalize(question.prompt)}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* On a phone the two answers are compact side-by-side rows so both
+              show without scrolling; from sm up they are the big stacked tiles. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {question.answers.map((a) => (
               <button
                 key={a.letter}
                 type="button"
                 onClick={() => answer(a.letter)}
-                className="card p-6 text-center border-2 border-transparent hover:border-primary active:scale-95 transition-all"
+                className="card flex min-h-[64px] items-center gap-4 p-4 text-left sm:block sm:p-6 sm:text-center hover:brightness-95 active:translate-y-px transition-all"
               >
-                <span className="block text-5xl mb-3" aria-hidden="true">{a.emoji}</span>
-                <span className="block font-semibold text-brown-mid leading-snug">{a.line}</span>
+                <span className="block shrink-0 text-4xl sm:text-5xl sm:mb-3" aria-hidden="true">{a.emoji}</span>
+                <span className="block font-extrabold text-brown leading-snug">{a.line}</span>
               </button>
             ))}
           </div>
@@ -352,13 +399,8 @@ export default function DogtypeQuiz() {
   // ── Stages: reveal + result ─────────────────────────────────────────────────
   if (!result) return null; // unreachable once past the quiz, but keeps TS honest
 
-  const spark = result.code[0] === 'E';
-  const heroGradient = spark
-    ? 'linear-gradient(160deg, #7A2E0E 0%, #E8633A 55%, #F5B731 100%)'
-    : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
-
   return (
-    <div className="max-w-xl mx-auto">
+    <div className="max-w-md mx-auto">
       {stage === 'reveal' && (
         <DogtypeReveal
           dogtype={result}
@@ -367,73 +409,46 @@ export default function DogtypeQuiz() {
         />
       )}
 
-      {/* Result hero */}
-      <div className={`rounded-[2rem] overflow-hidden text-white p-8 text-center ${fadeClass}`} style={{ background: heroGradient }}>
-        <div className="flex items-center justify-center gap-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">
-            {trimmedName ? `${trimmedName}'s Dogtype` : 'Dogtype'}
-          </p>
-          <span className="font-mono text-sm font-bold tracking-[0.28em] bg-black/25 rounded-md px-2.5 py-1">
-            {result.code}
-          </span>
-        </div>
-        <div className="mt-5 text-7xl leading-none" aria-hidden="true">{result.emoji}</div>
-        <h2 className="mt-3 font-display text-4xl leading-tight">{result.name}</h2>
-        <p className="mt-2 text-lg text-white/90 italic font-semibold">{result.tagline}</p>
-        <p className="mt-3 text-white/85 leading-relaxed">{result.blurb}</p>
+      <h1 className="mb-3 mt-2 text-center font-display text-[26px] font-normal leading-none text-brown">
+        {trimmedName ? `${trimmedName}, meet your Dogtype` : 'Meet your Dogtype'}
+      </h1>
+
+      <div className={fadeClass}>
+        <DogtypeResultCard dogtype={result} dogName={trimmedName || undefined} />
       </div>
 
-      {/* The four axes */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-        {result.axes.map((a) => (
-          <div key={a.key} className="card p-4 rounded-2xl">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-brown-light">{a.axis}</p>
-            <p className="mt-1 font-display text-lg text-brown">
-              {a.pole.emoji} {a.pole.label}
-              <span className="text-brown-light text-sm font-body font-normal"> over {a.other.label}</span>
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <p className="mt-4 text-center text-xs text-brown-light">
-        A playful read from your answers — not a score or a diagnosis.
-      </p>
-
-      {/* Share loop */}
-      <div className="mt-6 flex flex-col sm:flex-row items-stretch justify-center gap-3">
-        <button type="button" onClick={() => share('type')} className="btn-primary text-base">
-          {copied === 'type' ? 'Link copied!' : `Share ${dogLabel === 'your dog' ? 'this' : `${trimmedName}'s`} Dogtype`}
-        </button>
-        <button type="button" onClick={() => share('compat')} className="btn-secondary text-base">
-          {copied === 'compat' ? 'Link copied!' : 'Would our dogs get along?'}
-        </button>
-      </div>
-
-      {/* Signup CTA */}
-      <div className="card p-6 mt-8 text-center">
-        <p className="text-3xl mb-2" aria-hidden="true">🐾</p>
-        <h3 className="font-display text-xl text-brown mb-2">Make it official</h3>
-        <p className="text-sm text-brown-mid mb-4">
-          Add photos and personality, and meet the dogs who actually fit.
-        </p>
-        <Link
-          href="/app"
-          onClick={() => trackEvent('quiz_signup_cta', { code: result.code })}
-          className="btn-primary inline-block"
+      <div className="mt-5 flex flex-col">
+        <button
+          type="button"
+          onClick={() => share('type')}
+          className="btn-primary flex h-14 items-center justify-center gap-2.5 pb-[5px] pt-0 text-[25px] leading-none tracking-[0.3px]"
         >
-          Save {dogLabel === 'your dog' ? "your dog's" : `${trimmedName}'s`} Dogtype + get their daily card — free
+          {copied === 'type' ? 'Link copied!' : (<><ShareIcon />{`Share ${dogLabel === 'your dog' ? 'this' : `${trimmedName}'s`} Dogtype`}</>)}
+        </button>
+        <button
+          type="button"
+          onClick={() => share('compat')}
+          className="btn-secondary mt-2.5 flex min-h-[48px] items-center justify-center gap-2 text-base"
+        >
+          {copied === 'compat' ? 'Link copied!' : (<>Would our dogs get along?<Chevron w={10} h={16} /></>)}
+        </button>
+        <Link
+          href="/app?from=quiz"
+          onClick={() => trackEvent('quiz_signup_cta', { code: result.code, ref })}
+          className="mt-0.5 flex min-h-[44px] items-center justify-center text-sm font-black text-brown underline decoration-2 underline-offset-[3px]"
+        >
+          Make it official: create {dogLabel === 'your dog' ? "your dog's" : `${trimmedName}'s`} profile
         </Link>
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-6 text-sm">
-        <Link href={`/dogtype/${result.code}`} className="font-semibold text-brown-mid hover:text-primary transition-colors">
-          Read all about the {result.name.replace(/^The /, '')}
+      <div className="mt-2 flex items-center justify-center gap-4 whitespace-nowrap text-sm">
+        <Link href={`/dogtype/${result.code}`} className="inline-flex min-h-[44px] items-center font-black text-brown-mid underline underline-offset-2">
+          Read about the {result.name.replace(/^The /, '')}
         </Link>
         <button
           type="button"
           onClick={retake}
-          className="font-semibold text-brown-light hover:text-primary transition-colors underline underline-offset-2"
+          className="min-h-[44px] font-black text-brown-mid underline underline-offset-2"
         >
           Retake the quiz
         </button>

@@ -16,7 +16,7 @@ import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getPrimaryRenderablePhoto } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
-import { getBlockedUserIds } from '../../../lib/blocks';
+import { BLOCKS_CHANGED_EVENT, getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
 import SignInGate from '../../../components/SignInGate';
@@ -152,12 +152,16 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
   });
 
   const results = await Promise.all(
-    visibleDocs.map(async (m): Promise<ConversationItem> => {
+    visibleDocs.map(async (m): Promise<(ConversationItem & { gone: boolean }) | null> => {
       const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
       let otherProfile: SavedDogProfile | null = null;
+      // Only a read that SUCCEEDED and found nothing means they have left; a read
+      // that failed (offline) keeps the row, as 'Mystery Dog'.
+      let gone = false;
       try {
         const snap = await getDoc(doc(db, 'dogs', otherUserId));
         if (snap.exists()) otherProfile = snap.data() as SavedDogProfile;
+        else gone = true;
       } catch { /* offline */ }
       return {
         matchId: m.matchId,
@@ -169,11 +173,14 @@ async function fetchConversations(uid: string): Promise<ConversationItem[]> {
         chatUnlocked: m.chatUnlocked,
         isNew: !m.lastMessage,
         unread: m.unread,
+        gone,
       };
     }),
   );
 
-  return results;
+  // A match whose other dog parent has left (their profile is gone) is a dead
+  // thread: it can't be opened to anything, so it isn't listed.
+  return results.filter((r): r is ConversationItem & { gone: boolean } => r !== null && !r.gone);
 }
 
 function loadConversations(
@@ -232,6 +239,18 @@ export default function MessagesPage() {
     fetchConversations(authUser.uid).then(setConvos).catch(() => { /* keep the current list */ });
   });
 
+  // Someone blocked or unblocked (here, or from the toast's Undo): the list
+  // follows without a reload.
+  useEffect(() => {
+    if (!authUser) return;
+    const uid = authUser.uid;
+    function refresh() {
+      fetchConversations(uid).then(setConvos).catch(() => { /* keep the current list */ });
+    }
+    window.addEventListener(BLOCKS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(BLOCKS_CHANGED_EVENT, refresh);
+  }, [authUser]);
+
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
@@ -247,9 +266,9 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center">
-        <span className="font-display text-xl text-brown">💬 Messages</span>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-40 bg-cream border-b-2 border-brown px-5 h-14 flex items-center">
+        <h1 className="font-display text-2xl text-brown">Messages</h1>
       </header>
 
       {/* Conversations stay a single readable column — a grid of chat rows
@@ -266,8 +285,8 @@ export default function MessagesPage() {
         {/* Error */}
         {error && !loading && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <span className="text-4xl">😕</span>
-            <p className="text-brown-mid text-sm">{error}</p>
+            <span className="text-4xl" aria-hidden="true">😕</span>
+            <p className="text-brown-mid text-sm font-bold">{error}</p>
             <button
               onClick={() => loadConversations(authUser.uid, setConvos, setError, setLoading)}
               className="btn-primary px-6 py-2 text-sm"
@@ -280,15 +299,15 @@ export default function MessagesPage() {
         {/* Empty */}
         {!loading && !error && convos.length === 0 && (
           <div className="card rounded-[2rem] px-6 py-10 flex flex-col items-center justify-center gap-4 text-center">
-            <span className="text-6xl">💬</span>
+            <span className="text-6xl" aria-hidden="true">💬</span>
             <p className="font-display text-2xl text-brown">No messages yet</p>
-            <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Your matches will appear here once you connect with another dog.
+            <p className="text-brown-mid text-sm font-semibold max-w-xs leading-relaxed">
+              When you and another dog parent both like each other&apos;s dogs, the conversation starts here.
             </p>
-            <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Start swiping to connect with other dogs, then open a match to send the first hello.
+            <p className="text-brown-mid text-sm font-semibold max-w-xs leading-relaxed">
+              Check Discover for dogs nearby. New neighbors join over time, so it&apos;s worth looking again.
             </p>
-            <Link href="/app" className="btn-primary px-8 py-3">Start Swiping</Link>
+            <Link href="/app" className="btn-primary px-8 py-3">Go to Discover</Link>
           </div>
         )}
 
@@ -303,20 +322,20 @@ export default function MessagesPage() {
                 <Link
                   key={c.matchId}
                   href={`/app/messages/${c.matchId}`}
-                  className="card rounded-[1.6rem] flex items-center gap-3 p-3 hover:-translate-y-0.5 hover:shadow-lg transition-all"
+                  className="card rounded-[1.4rem] flex items-center gap-3 p-3 hover:-translate-y-0.5 transition-all"
                 >
                   {/* Avatar, with the unread dot on its corner (as on iPhone) */}
                   <div className="relative shrink-0">
-                    <div className="w-16 h-16 rounded-[1.2rem] overflow-hidden bg-gradient-to-br from-gold to-primary flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full border-2 border-brown overflow-hidden bg-note flex items-center justify-center">
                       {photo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={photo} alt={name} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-3xl">🐕</span>
+                        <span className="text-3xl" aria-hidden="true">🐕</span>
                       )}
                     </div>
                     {c.unread && (
-                      <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary ring-2 ring-white">
+                      <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary border-2 border-brown">
                         <span className="sr-only">Unread</span>
                       </span>
                     )}
@@ -325,30 +344,30 @@ export default function MessagesPage() {
                   {/* Text */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className={`truncate ${c.unread ? 'font-black text-brown' : 'font-bold text-brown'}`}>{name}</p>
+                      <p className={`font-display text-xl leading-tight text-brown truncate ${c.unread ? 'underline decoration-primary decoration-[3px] underline-offset-4' : ''}`}>{name}</p>
                       {c.isNew && (
-                        <span className="ml-2 shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
+                        <span className="ml-2 shrink-0 rounded-full bg-kraft border-2 border-brown text-brown text-xs font-black px-2 py-0.5 -rotate-2">
                           New
                         </span>
                       )}
                       {!c.chatUnlocked && (
-                        <span className="ml-2 shrink-0 rounded-full bg-brown/10 text-brown text-[10px] font-bold px-2 py-1">
+                        <span className="ml-2 shrink-0 rounded-full bg-cream-dark border-2 border-brown text-brown text-xs font-black px-2 py-0.5">
                           Locked
                         </span>
                       )}
                     </div>
-                    <p className={`text-xs truncate mt-1 ${
-                      c.isNew ? 'text-primary font-medium' : c.unread ? 'text-brown font-semibold' : 'text-brown-light'
+                    <p className={`text-sm truncate mt-0.5 ${
+                      c.isNew ? 'text-rose font-black' : c.unread ? 'text-brown font-black' : 'text-brown-mid font-bold'
                     }`}>
                       {c.isNew
                         ? (c.chatUnlocked
-                            ? 'New match! Say hello 👋'
+                            ? 'New match! Say hello'
                             : 'Unlock chat to say hello')
                         : conversationHint(c, authUser.uid, name)}
                     </p>
                   </div>
 
-                  <span className="text-brown-light text-lg shrink-0">›</span>
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A1F4A" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M9.5 5l7 7-7 7" /></svg>
                 </Link>
               );
             })}

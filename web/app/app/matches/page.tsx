@@ -18,7 +18,7 @@ import { SkeletonMatchRow } from '../../../components/SkeletonCard';
 import { getHeroPhoto, resolveHeroIndex } from '../../../lib/photos';
 import { formatFirestoreLoadError } from '../../../lib/firestoreErrors';
 import { isUserChatUnlocked } from '../../../../shared/matchAccess';
-import { getBlockedUserIds } from '../../../lib/blocks';
+import { BLOCKS_CHANGED_EVENT, getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
@@ -158,21 +158,28 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
 
   // Fetch counterpart profiles in parallel
   const results = await Promise.all(
-    visibleDocs.map(async (m): Promise<MatchWithProfile> => {
+    visibleDocs.map(async (m): Promise<(MatchWithProfile & { gone: boolean }) | null> => {
       const otherUserId = m.dog1UserId === uid ? m.dog2UserId : m.dog1UserId;
       const otherDogId  = m.dog1UserId === uid ? m.dog2Id     : m.dog1Id;
       let otherProfile: SavedDogProfile | null = null;
+      // Only a read that SUCCEEDED and found nothing means they have left; a read
+      // that failed (offline) keeps the row, as 'Mystery Dog'.
+      let gone = false;
       try {
         const profileSnap = await getDoc(doc(db, 'dogs', otherUserId));
         if (profileSnap.exists()) {
           otherProfile = profileSnap.data() as SavedDogProfile;
+        } else {
+          gone = true;
         }
       } catch { /* offline — proceed without profile */ }
-      return { ...m, otherUserId, otherDogId, otherProfile };
+      return { ...m, otherUserId, otherDogId, otherProfile, gone };
     }),
   );
 
-  return results;
+  // A match whose other dog parent has left (their profile is gone) is a dead
+  // thread: it can't be opened to anything, so it isn't listed.
+  return results.filter((r): r is MatchWithProfile & { gone: boolean } => r !== null && !r.gone);
 }
 
 function loadMatches(
@@ -224,6 +231,18 @@ export default function MatchesPage() {
     fetchMatchesForUser(authUser.uid).then(setMatches).catch(() => { /* keep the current list */ });
   });
 
+  // Someone blocked or unblocked (here, or from the toast's Undo): the list
+  // follows without a reload.
+  useEffect(() => {
+    if (!authUser) return;
+    const uid = authUser.uid;
+    function refresh() {
+      fetchMatchesForUser(uid).then(setMatches).catch(() => { /* keep the current list */ });
+    }
+    window.addEventListener(BLOCKS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(BLOCKS_CHANGED_EVENT, refresh);
+  }, [authUser]);
+
   // ── Auth loading ────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -236,15 +255,15 @@ export default function MatchesPage() {
   // ── Not signed in ───────────────────────────────────────────────────────────
   if (!authUser) {
     return (
-      <SignInGate emoji="💛" title="Sign in to see your matches" />
+      <SignInGate emoji="🐾" title="Sign in to see your matches" />
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center">
-        <span className="font-display text-xl text-brown">💛 Matches</span>
+    <div className="min-h-screen">
+      {/* Header: a paper strip with an ink rule, like the chat header */}
+      <header className="sticky top-0 z-40 bg-cream border-b-2 border-brown px-5 h-14 flex items-center">
+        <h1 className="font-display text-2xl text-brown">Matches</h1>
       </header>
 
       {/* Mobile keeps the original full-bleed p-4 column. Desktop gets a
@@ -263,8 +282,8 @@ export default function MatchesPage() {
         {/* Error */}
         {error && !loading && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <span className="text-4xl">😕</span>
-            <p className="text-brown-mid text-sm">{error}</p>
+            <span className="text-4xl" aria-hidden="true">😕</span>
+            <p className="text-brown-mid text-sm font-bold">{error}</p>
             <button
               onClick={() => {
                 loadMatches(authUser.uid, setMatches, setError, setLoading);
@@ -279,16 +298,16 @@ export default function MatchesPage() {
         {/* Empty state */}
         {!loading && !error && matches.length === 0 && (
           <div className="card rounded-[2rem] px-6 py-10 flex flex-col items-center justify-center gap-4 text-center">
-            <span className="text-6xl">💛</span>
+            <span className="text-6xl" aria-hidden="true">🐾</span>
             <p className="font-display text-2xl text-brown">No matches yet</p>
-            <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Matches happen when both dogs swipe right on each other.
+            <p className="text-brown-mid text-sm font-semibold max-w-xs leading-relaxed">
+              A match happens when you and another dog parent both like each other&apos;s dogs.
             </p>
-            <p className="text-brown-light text-sm max-w-xs leading-relaxed">
-              Keep swiping in Discover and your next mutual like could show up here. 🐾
+            <p className="text-brown-mid text-sm font-semibold max-w-xs leading-relaxed">
+              Check Discover for dogs nearby. New neighbors join over time, so it&apos;s worth looking again.
             </p>
             <Link href="/app" className="btn-primary px-8 py-3">
-              Back to Discover
+              Go to Discover
             </Link>
           </div>
         )}
@@ -307,7 +326,7 @@ export default function MatchesPage() {
               return (
                 <div
                   key={m.matchId}
-                  className="card rounded-[1.6rem] flex items-center gap-3 p-3 hover:-translate-y-0.5 hover:shadow-lg transition-all"
+                  className="card rounded-[1.4rem] flex items-center gap-3 p-3 hover:-translate-y-0.5 transition-all"
                 >
                   {/* Photo — its own link, to the dog's profile. Previously
                       the whole row (photo included) went straight to chat,
@@ -316,19 +335,19 @@ export default function MatchesPage() {
                     <Link
                       href={`/app/dog/${m.matchId}`}
                       aria-label={`View ${name}'s profile`}
-                      className="w-20 h-20 rounded-[1.2rem] bg-gradient-to-br from-gold to-primary flex items-center justify-center overflow-hidden"
+                      className="w-[72px] h-[72px] rounded-full border-2 border-brown bg-note flex items-center justify-center overflow-hidden"
                     >
                       {photo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={photo} alt={name} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-4xl">🐕</span>
+                        <span className="text-4xl" aria-hidden="true">🐕</span>
                       )}
                     </Link>
                     {/* Unread dot on the photo's corner, as on iPhone. */}
                     {m.unread && (
                       <span
-                        className="pointer-events-none absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-primary ring-2 ring-white"
+                        className="pointer-events-none absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary border-2 border-brown"
                         aria-hidden="true"
                       />
                     )}
@@ -337,33 +356,36 @@ export default function MatchesPage() {
                   {/* Info + chat icon — link to the chat thread. */}
                   <Link href={`/app/messages/${m.matchId}`} className="flex-1 min-w-0 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
+                      <p className={`font-display text-brown text-xl leading-tight truncate ${m.unread ? 'underline decoration-primary decoration-[3px] underline-offset-4' : ''}`}>
+                        {name}
+                        {m.unread && <span className="sr-only"> (unread messages)</span>}
+                      </p>
                       <div className="flex items-center gap-2">
-                        <p className={`text-brown text-base truncate ${m.unread ? 'font-black' : 'font-bold'}`}>
-                          {name}
-                          {m.unread && <span className="sr-only"> (unread messages)</span>}
-                        </p>
+                        <p className="min-w-0 text-sm font-bold text-brown-mid truncate">{breed}</p>
                         {!hasLastMsg && (
-                          <span className="shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
+                          <span className="shrink-0 rounded-full bg-kraft border-2 border-brown text-brown text-xs font-black px-2 py-0.5 -rotate-2">
                             New match
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-brown-light truncate mt-0.5">{breed}</p>
                       {hasLastMsg && (
-                        <p className={`text-xs mt-1 truncate ${m.unread ? 'text-brown font-semibold' : 'text-brown-mid'}`}>
+                        <p className={`text-sm mt-0.5 truncate ${m.unread ? 'text-brown font-black' : 'text-brown-mid font-bold'}`}>
                           {messagePreview(m, authUser.uid, name)}
                         </p>
                       )}
                       {!hasLastMsg && (
-                        <p className="text-xs text-primary font-medium mt-1">
-                          {m.chatUnlocked ? 'Open chat and say hello 👋' : `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlocks it forever`}
+                        <p className="text-sm text-rose font-black mt-0.5">
+                          {m.chatUnlocked ? 'Open chat and say hello' : `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlocks it forever`}
                         </p>
                       )}
                     </div>
 
-                    <div className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center shadow-md ${
-                      m.chatUnlocked ? 'bg-primary text-white' : 'bg-brown-light/15 text-brown'
-                    }`}>
+                    <div
+                      aria-hidden="true"
+                      className={`shrink-0 w-11 h-11 rounded-full border-2 border-brown flex items-center justify-center shadow-[inset_0_-4px_0_#E3D6BA] ${
+                        m.chatUnlocked ? 'bg-cream' : 'bg-cream-dark'
+                      }`}
+                    >
                       {m.chatUnlocked ? '💬' : '🔒'}
                     </div>
                   </Link>

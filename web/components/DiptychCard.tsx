@@ -33,12 +33,12 @@ interface Props {
 
 // On-brand palette baked as inline hex (solid gradient, no oklch / backdrop-blur)
 // so html2canvas captures it faithfully — same rationale as WantedPosterWeb.
-const BROWN = '#2D1A0E';
-const BROWN_MID = '#5C3D2E';
-const BROWN_LIGHT = '#9B7560';
-const PRIMARY = '#E8633A';
-const BORDER = '#EAD9C8';
-const CREAM = '#FDF6EE';
+const BROWN = '#2A1F4A';
+const BROWN_MID = '#4A3F6E';
+const BROWN_LIGHT = '#5E5380';
+const PRIMARY = '#FF5C8D';
+const BORDER = '#E3D6BA';
+const CREAM = '#FFF9EC';
 
 function Panel({
   url,

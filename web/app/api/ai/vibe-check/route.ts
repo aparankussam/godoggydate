@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
-import { guardAiRequest } from '../../../../lib/aiGuard';
+import { FieldValue } from 'firebase-admin/firestore';
+import { claimAiBudget, guardAiRequest } from '../../../../lib/aiGuard';
+import { trustedPhotoUrl } from '../../../../lib/trustedPhotoUrl';
 import { resolveBreed } from '../../../../../shared/types/breeds';
 import type { DogSize, DogVibeCheck, PlayStyle } from '../../../../../shared/types';
 
@@ -60,15 +62,12 @@ interface VibeCheckRequestPhoto {
   dataUri: string; // "data:image/jpeg;base64,...."
 }
 
-// Only Firebase Storage download URLs are ever fetched server-side, and only
-// ones read out of the caller's OWN dog doc — see loadStoredPhotoParts. The
-// client is never trusted to name a URL: that would be a straightforward SSRF
-// (the server would fetch any address an attacker put in the body, including
-// cloud metadata endpoints and internal hosts).
-const ALLOWED_PHOTO_HOSTS = new Set([
-  'firebasestorage.googleapis.com',
-  'storage.googleapis.com',
-]);
+// Only this project's Firebase Storage download URLs are ever fetched
+// server-side (see lib/trustedPhotoUrl), and only ones read out of the caller's
+// OWN dog doc — see loadStoredPhotoParts. The client is never trusted to name a
+// URL: that would be a straightforward SSRF (the server would fetch any address
+// an attacker put in the body, including cloud metadata endpoints and internal
+// hosts).
 
 /** Builds Gemini image parts from the photos ALREADY stored on the caller's
  *  own dog doc.
@@ -117,23 +116,16 @@ async function loadStoredPhotoParts(uid: string): Promise<StoredPhotoResult> {
 
   const parts: Array<Record<string, unknown>> = [];
   for (const url of urls) {
-    let host: string;
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:') throw new Error('non-https');
-      host = parsed.hostname;
-    } catch {
-      return storedPhotoFailure('Stored photo URL is unreadable', 422);
-    }
     // Defense in depth: even though these came from our own Firestore doc, a
     // compromised/legacy doc must not turn this into an open fetch proxy.
-    if (!ALLOWED_PHOTO_HOSTS.has(host)) {
+    const trusted = trustedPhotoUrl(url);
+    if (!trusted) {
       return storedPhotoFailure('Stored photo is not in Firebase Storage', 422);
     }
 
     let res: Response;
     try {
-      res = await fetch(url);
+      res = await fetch(trusted, { redirect: 'error' });
     } catch (error) {
       console.error('vibe-check: stored photo fetch failed', error);
       return storedPhotoFailure('Could not read your saved photos — try again', 502);
@@ -340,6 +332,19 @@ async function reserveVibeCheckSlot(uid: string, nowMs: number): Promise<{ ok: b
   });
 }
 
+// Give the per-user slot back when the shared daily budget turned the call away
+// before any model call, so the user isn't charged for it tomorrow.
+async function refundVibeCheckSlot(uid: string): Promise<void> {
+  try {
+    await getAdminDb().doc(`dogs/${uid}/vibeCheckState/state`).set(
+      { lastAtMs: 0, dayCount: FieldValue.increment(-1) },
+      { merge: true },
+    );
+  } catch {
+    /* best effort */
+  }
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')?.trim() ?? '';
   if (!authHeader.startsWith('Bearer ')) {
@@ -428,6 +433,15 @@ export async function POST(request: Request) {
   const promptText = body.name
     ? `This dog's name is ${body.name}. Generate the vibe check.`
     : 'Generate the vibe check.';
+
+  // Last gate before the paid model call: the project-wide daily budget. Only a
+  // call that really reaches the model spends it (see lib/aiGuard.ts), so the key
+  // check, the per-user slot, body validation and photo loading all come first.
+  const budgetDenied = await claimAiBudget();
+  if (budgetDenied) {
+    await refundVibeCheckSlot(uid);
+    return budgetDenied;
+  }
 
   let data: GeminiResponse;
   try {

@@ -105,8 +105,8 @@ firebase use <your-firebase-project-id>
 
 In the [Firebase Console](https://console.firebase.google.com):
 1. **Authentication** → Sign-in methods → Enable **Google**
-2. **Authentication** → Sign-in methods → Enable **Anonymous**
-3. For iOS builds, configure **Sign in with Apple** in Apple Developer / App Store Connect and keep `usesAppleSignIn: true` in `mobile/app.config.js`
+2. **Authentication** → Sign-in methods → Enable **Anonymous** (the iPhone app's guest mode). It stays on: a guest can browse, but `firestore.rules` only lets a **Google or Apple** account create a dog profile, and `storage.rules` only lets one upload photos. **Email/Password stays OFF**, nothing uses it.
+3. For iOS builds, configure **Sign in with Apple** in Apple Developer / App Store Connect and keep `usesAppleSignIn: true` in `mobile/app.config.js`. (Deleting an account does not yet revoke the Apple token; see "Apple token revocation" in `PRODUCTION-LAUNCH-CHECKS.md` for what to provide.)
 4. **Firestore Database** → Create database → Start in **production mode**
 5. **Storage** → Get started
 
@@ -137,6 +137,14 @@ FIREBASE_PROJECT_ID=<your-firebase-project-id> npx ts-node scripts/seed.ts
 ```bash
 firebase emulators:start
 # UI at http://localhost:4000
+```
+
+Test users created in the Auth emulator through a Google sign-in can create a dog profile, like real ones; an anonymous (guest) emulator user cannot (see 3.2).
+
+With the emulators running, the security-rules tests check `firestore.rules` and `storage.rules` under their own project id (`demo-rules-test`), so they never touch your data:
+
+```bash
+cd firebase/tests && npm ci && npm test
 ```
 
 ---
@@ -290,6 +298,9 @@ In your [Stripe Dashboard](https://dashboard.stripe.com/webhooks):
    - `payment_intent.canceled`
    - `charge.refunded`
    - `charge.dispute.created`
+   - `charge.dispute.closed`
+   - `checkout.session.completed` and `checkout.session.async_payment_succeeded` (Founding Member Payment Link)
+   - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` (Pro)
 3. Copy the signing secret → `STRIPE_WEBHOOK_SECRET`
 
 ### 6.5 Mobile Stripe Setup
@@ -331,6 +342,8 @@ npm run build
 cd ../..
 firebase deploy --only functions
 ```
+
+`onDogProfileFounding` replaced `onDogProfileCreated`. If an earlier deploy created the old one, the CLI asks whether to delete it: say yes (or pass `--force`), and don't leave both deployed. The founding number rules, the Stripe webhook behavior and the moderator scripts (`scripts/admin-ban-user.cjs`, `scripts/admin-delete-user.cjs`) are described in `PRODUCTION-LAUNCH-CHECKS.md`.
 
 ### 7.3 Build Mobile App (EAS)
 
@@ -485,7 +498,7 @@ trustScore = clamp(weightedAvgStars/5 + confidenceBonus, 0, 1)
 → Ensure `useFonts` hook is called before first render. Check `SplashScreen.preventAutoHideAsync()` is called at module level.
 
 **Firestore permission denied**
-→ Check you're authenticated before reading/writing. Rules require `request.auth != null`.
+→ Check you're authenticated before reading/writing. Rules require `request.auth != null`, and creating a dog profile (or uploading a photo) needs a **Google or Apple** sign-in, not an anonymous guest session. Text and list fields also have size limits in `firestore.rules` (for example name 60, breed 80, bio 1000 characters, 6 photos).
 
 **Stripe webhook 400 error**
 → Ensure `STRIPE_WEBHOOK_SECRET` matches the secret shown by `stripe listen`. For production, use the Dashboard signing secret.

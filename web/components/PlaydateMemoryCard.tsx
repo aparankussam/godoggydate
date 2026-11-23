@@ -36,10 +36,10 @@ export default function PlaydateMemoryCard({ dogName, dogBreed, photos, stars, i
     <div
       ref={innerRef}
       className="relative w-[340px] max-w-full aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
-      style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #E8633A 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 60%, #8FC9F2 100%)' }}
     >
-      <div className="absolute top-5 left-5 z-10 rounded-full bg-black/25 backdrop-blur-sm px-3 py-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gold">Playdate Confirmed</p>
+      <div className="absolute top-5 left-5 z-10 rounded-full border-2 border-brown bg-cream px-3 py-1.5">
+        <p className="text-xs font-black text-brown">Playdate · Confirmed</p>
       </div>
       <div className="absolute top-5 right-5 z-10 text-2xl select-none" aria-hidden="true">🎾</div>
 
@@ -58,7 +58,7 @@ export default function PlaydateMemoryCard({ dogName, dogBreed, photos, stars, i
         )}
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(to top, rgba(45,26,14,0.95) 0%, rgba(45,26,14,0.5) 40%, transparent 75%)' }}
+          style={{ background: 'linear-gradient(to top, rgba(42,31,74,0.95) 0%, rgba(42,31,74,0.5) 40%, transparent 75%)' }}
         />
       </div>
 
@@ -71,12 +71,12 @@ export default function PlaydateMemoryCard({ dogName, dogBreed, photos, stars, i
         <h3 className="font-display text-3xl text-white leading-tight">
           Playdate with {dogName}
         </h3>
-        {dogBreed && <p className="mt-1 text-white/70 text-xs">{dogBreed}</p>}
+        {dogBreed && <p className="mt-1 text-white/85 text-xs font-bold">{dogBreed}</p>}
         {verdict && <p className="mt-3 text-white/85 text-sm font-semibold">Our dogs played. {verdict}</p>}
 
         <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between">
           <p className="font-display text-sm text-white">GoDoggyDate</p>
-          <p className="text-[10px] text-white/50">godoggydate.com</p>
+          <p className="text-xs text-white/70">godoggydate.com</p>
         </div>
       </div>
     </div>

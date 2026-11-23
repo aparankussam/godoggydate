@@ -8,6 +8,7 @@ import { ImageResponse } from 'next/og';
 import { getAdminDb } from '../../../lib/firebaseAdmin';
 import { parseDogSlugToUid } from '../../../lib/dogSlug';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../../../lib/photos';
+import { fetchTrustedPhotoDataUri } from '../../../lib/trustedPhotoUrl';
 import type { SavedDogProfile } from '../../../lib/auth';
 
 export const runtime = 'nodejs';
@@ -20,7 +21,11 @@ async function loadProfileForOg(uid: string | null): Promise<SavedDogProfile | n
   if (!uid) return null;
   try {
     const snap = await getAdminDb().doc(`dogs/${uid}`).get();
-    return snap.exists ? (snap.data() as SavedDogProfile) : null;
+    if (!snap.exists) return null;
+    // Owner switched the public page off: same generic fallback card as an
+    // unknown dog, so the link preview doesn't leak the name or photo either.
+    if (snap.data()?.publicPage === false) return null;
+    return snap.data() as SavedDogProfile;
   } catch (error) {
     // Public unauthenticated route — fail closed to the generic fallback
     // card below rather than crashing image generation entirely.
@@ -32,7 +37,13 @@ async function loadProfileForOg(uid: string | null): Promise<SavedDogProfile | n
 export default async function OpengraphImage({ params }: { params: { slug: string } }) {
   const uid = parseDogSlugToUid(params.slug);
   const profile = await loadProfileForOg(uid);
-  const photo = profile ? getHeroPhoto(profile.photos, resolveHeroIndex(profile)) : null;
+  // photos[] is user-writable, so the stored URL is never handed to the renderer
+  // (that would let anyone make this server request an address of their choosing).
+  // Only a Firebase Storage URL of this project's bucket is fetched, by us, and
+  // embedded; anything else renders the branded fallback card.
+  const photo = profile
+    ? await fetchTrustedPhotoDataUri(getHeroPhoto(profile.photos, resolveHeroIndex(profile)))
+    : null;
   const photoFocus = profile ? getHeroFocus(profile) : '50% 50%';
 
   const name = profile?.name ?? 'A GoDoggyDate dog';
@@ -46,7 +57,7 @@ export default async function OpengraphImage({ params }: { params: { slug: strin
           height: '100%',
           display: 'flex',
           position: 'relative',
-          background: 'linear-gradient(135deg, #3D1F0A 0%, #B45309 55%, #E8633A 100%)',
+          background: 'linear-gradient(135deg, #3D1F0A 0%, #B45309 55%, #FF5C8D 100%)',
           fontFamily: 'sans-serif',
         }}
       >

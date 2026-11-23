@@ -58,23 +58,23 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
   }
 
   return (
-    <section className="bg-cream-dark py-16">
+    <section className="py-16">
       <div className="max-w-2xl mx-auto px-6 text-center">
-        <div className="inline-flex items-center gap-2 bg-white border border-border rounded-full px-4 py-2 mb-5">
-          <span className="text-sm font-semibold text-primary">⭐ Founding Members</span>
+        <div className="inline-flex items-center gap-2 bg-paper border-2 border-brown rounded-md px-4 py-1.5 mb-5 -rotate-2 shadow-[0_2px_0_rgba(42,31,74,0.28)]">
+          <span className="text-sm font-black text-brown">Founding Members</span>
         </div>
         <h2 className="font-display text-3xl md:text-4xl text-brown mb-3">
           {pitch}
         </h2>
 
         <div className="mt-6 max-w-sm mx-auto">
-          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.1em] text-brown-light mb-1.5">
+          <div className="flex items-center justify-between text-xs font-black text-brown-mid mb-1.5">
             <span>{count !== null ? `${filled}/${FOUNDING_TOTAL} spots taken` : 'Loading…'}</span>
             <span>{count !== null ? `${pct}%` : ''}</span>
           </div>
-          <div className="relative h-3 rounded-full bg-white border border-border overflow-hidden">
+          <div className="relative h-3 rounded-full bg-paper border-2 border-brown overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
+              className="h-full rounded-full bg-brown transition-all duration-500"
               style={{ width: `${pct}%` }}
             />
             {/* Where the free spots end and the $39 spots begin. */}
@@ -84,7 +84,7 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
               style={{ left: `${FREE_SHARE_PCT}%` }}
             />
           </div>
-          <div className="mt-1 flex text-[11px] font-semibold text-brown-light">
+          <div className="mt-1 flex text-xs font-bold text-brown-mid">
             <span style={{ width: `${FREE_SHARE_PCT}%` }} className="text-left">
               #1–{FOUNDING_FREE_SPOTS} free
             </span>
@@ -96,30 +96,30 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
 
         {phase === 'free' && (
           <>
-            <p className="mt-4 text-sm text-brown-mid">
+            <p className="mt-4 text-sm font-bold text-brown">
               {left} of {FOUNDING_FREE_SPOTS} free spots left. Make your dog&apos;s profile to claim one. No
               payment, nothing to cancel.
             </p>
-            <button onClick={onClaimFreeSpot} className="btn-primary mt-5 text-base px-7 py-3.5">
+            <button onClick={onClaimFreeSpot} className="btn-secondary mt-5 text-base px-7 py-3.5">
               Claim a free spot
             </button>
           </>
         )}
 
         {phase === 'paid' && (
-          <p className="mt-4 text-sm text-brown-mid">
+          <p className="mt-4 text-sm font-bold text-brown">
             All {FOUNDING_FREE_SPOTS} free spots are taken. {left} of {FOUNDING_PAID_SPOTS} paid spots left.
           </p>
         )}
 
         {phase === 'closed' && (
-          <p className="mt-4 text-sm text-brown-mid">
+          <p className="mt-4 text-sm font-bold text-brown">
             All {FOUNDING_TOTAL} spots are taken, so founding is closed for good. Thank you, pack.
           </p>
         )}
 
         {showFoundingOffer && (
-          <div className="mt-10 rounded-3xl border border-gold/40 bg-white px-6 py-6">
+          <div className="mt-10 card px-6 py-6">
             <h3 className="font-display text-2xl text-brown">Back GoDoggyDate early — $39, once</h3>
             <p className="mt-2 text-sm leading-relaxed text-brown-mid">
               Everything in the app is free today. Founding Members get a permanent Founding Member number
@@ -130,7 +130,7 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
             </p>
             <button
               onClick={handleFoundingMemberClick}
-              className="btn-primary mt-5 text-base px-7 py-3.5"
+              className="btn-secondary mt-5 text-base px-7 py-3.5"
             >
               Become a Founding Member — $39 once
             </button>

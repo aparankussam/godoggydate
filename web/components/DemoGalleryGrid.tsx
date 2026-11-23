@@ -61,7 +61,7 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
 
   return (
     <div className="w-full max-w-3xl mx-auto text-left">
-      <div className="mb-3 rounded-2xl border border-border bg-white/70 px-4 py-3">
+      <div className="mb-3 rounded-2xl border-2 border-brown bg-paper px-4 py-3">
         <p className="text-sm font-bold text-brown">How matching works</p>
         <p className="mt-0.5 text-xs leading-relaxed text-brown-light">
           {interactive
@@ -82,10 +82,10 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
                     type="button"
                     onClick={() => setSize(s.value)}
                     aria-pressed={size === s.value}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`min-h-[36px] rounded-full border-2 px-3 py-1.5 text-xs font-bold transition-colors ${
                       size === s.value
-                        ? 'border-primary bg-primary text-white'
-                        : 'border-border bg-white text-brown hover:bg-cream-dark/60'
+                        ? 'border-brown bg-brown text-paper'
+                        : 'border-brown bg-paper text-brown hover:bg-cream-dark/60'
                     }`}
                   >
                     {s.label}
@@ -126,7 +126,7 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
           return (
             <div
               key={dog.id}
-              className="relative rounded-2xl overflow-hidden border border-border bg-white flex flex-col"
+              className="relative rounded-2xl overflow-hidden border-2 border-brown bg-paper flex flex-col"
             >
               <div className="relative aspect-[4/3] bg-gradient-to-br from-cream-dark to-cream flex items-center justify-center">
                 <span className="absolute top-2 left-2 z-10 rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white">
@@ -189,7 +189,7 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
                       type="button"
                       onClick={() => setOpenId(open ? null : dog.id)}
                       aria-expanded={open}
-                      className="self-start text-[11px] font-semibold text-primary underline underline-offset-2 transition-colors hover:text-primary-dark"
+                      className="self-start text-[11px] font-semibold text-rose underline underline-offset-2 transition-colors hover:text-primary-dark"
                     >
                       {open ? 'Hide the math' : 'Show the math'}
                     </button>

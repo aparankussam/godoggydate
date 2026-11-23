@@ -211,9 +211,9 @@ export default function PlaqueCard({ savedProfile }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun</p>
+        <p className="text-xs font-bold text-brown">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">🏆 Employee of the Month</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           {dogName}&apos;s official (and entirely ceremonial) office plaque — a straight-faced job title picked from
@@ -230,12 +230,12 @@ export default function PlaqueCard({ savedProfile }: Props) {
         type="button"
         onClick={handleShare}
         disabled={sharing}
-        className="btn-primary w-full mt-4 disabled:opacity-60"
+        className="btn-secondary w-full mt-4 disabled:opacity-60"
       >
         {sharing ? 'Preparing…' : `Share ${dogName}'s plaque`}
       </button>
 
-      <p className="mt-2 text-[11px] text-brown-light leading-snug text-center">
+      <p className="mt-2 text-xs text-brown-mid leading-snug text-center">
         A joke, not a job. The title comes from {dogName}&apos;s Dogtype and the highlights are all in good fun —
         no real performance review was harmed.
       </p>

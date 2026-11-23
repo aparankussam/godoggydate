@@ -8,6 +8,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import SiteFooter from '../../../components/SiteFooter';
+import { PawCoin } from '../../../components/StickerBits';
 import { DOGTYPE_CODES, dogtypeByCode, dogtypeBestMatches, dogtypeCodeDecode } from '../../../../shared/dogtype';
 
 export const dynamic = 'force-static';
@@ -39,18 +41,14 @@ export default function DogtypePage({ params }: PageProps) {
   if (!type) notFound();
 
   const bestMatches = dogtypeBestMatches(type.code, 3);
-  const spark = type.code[0] === 'E';
-  const heroGradient = spark
-    ? 'linear-gradient(160deg, #7A2E0E 0%, #E8633A 55%, #F5B731 100%)'
-    : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
 
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
+      <nav className="sticky top-0 z-50 bg-sky/95 backdrop-blur-md border-b-2 border-brown">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
-          <Link href="/app" className="btn-primary text-sm whitespace-nowrap px-4 sm:px-6">
+          <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-xl sm:text-2xl text-brown whitespace-nowrap"><PawCoin size={30} /> GoDoggyDate</Link>
+          <Link href="/quiz?ref=dogtype" className="btn-secondary inline-flex min-h-[44px] items-center text-sm whitespace-nowrap px-4 py-2 sm:px-6">
             <span className="sm:hidden">Get yours</span>
             <span className="hidden sm:inline">Find your dog&apos;s Dogtype</span>
           </Link>
@@ -59,17 +57,17 @@ export default function DogtypePage({ params }: PageProps) {
 
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-12 pb-8">
-        <div className="rounded-[2rem] overflow-hidden text-white p-8 sm:p-12" style={{ background: heroGradient }}>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/80">Dogtype</p>
+        <div className="card overflow-hidden text-brown p-8 sm:p-12">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose">Dogtype</p>
           <div className="mt-6 text-7xl sm:text-8xl leading-none" aria-hidden="true">{type.emoji}</div>
           <h1 className="mt-4 font-display text-4xl sm:text-6xl leading-tight">{type.name}</h1>
-          <p className="mt-2 text-xl text-white/90 italic font-semibold">{type.tagline}</p>
-          <p className="mt-4 text-lg text-white/85 max-w-2xl leading-relaxed">{type.blurb}</p>
+          <p className="mt-2 text-xl text-brown-mid font-extrabold">{type.tagline}</p>
+          <p className="mt-4 text-lg text-brown-mid max-w-2xl leading-relaxed">{type.blurb}</p>
           <div className="mt-5 flex flex-wrap gap-1.5">
             {type.axes.map((a) => (
               <span
                 key={a.key}
-                className="inline-flex items-center gap-1 rounded-full bg-cream border border-border px-2.5 py-1 text-xs font-semibold text-brown"
+                className="inline-flex items-center gap-1 rounded-full bg-paper border-2 border-brown px-2.5 py-1 text-xs font-extrabold text-brown"
               >
                 <span aria-hidden="true">{a.pole.emoji}</span> {a.pole.label}
               </span>
@@ -98,7 +96,7 @@ export default function DogtypePage({ params }: PageProps) {
       {bestMatches.length > 0 && (
         <section className="max-w-4xl mx-auto px-6 py-6">
           <h2 className="font-display text-2xl text-brown mb-1">Plays well with</h2>
-          <p className="text-sm text-brown-light mb-4">
+          <p className="text-sm font-semibold text-brown mb-4">
             A playful read from the types — real matches get worked out dog-by-dog in the app.
           </p>
           <div className="flex flex-wrap gap-3">
@@ -119,11 +117,11 @@ export default function DogtypePage({ params }: PageProps) {
       <section className="bg-brown py-16 mt-6">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <p className="text-5xl mb-4" aria-hidden="true">{type.emoji}</p>
-          <h2 className="font-display text-3xl text-white mb-3">What&apos;s your dog&apos;s Dogtype?</h2>
-          <p className="text-white/70 mb-6">
-            Add your dog&apos;s photos and personality and get their type in about a minute — free.
+          <h2 className="font-display text-3xl text-paper mb-3">What&apos;s your dog&apos;s Dogtype?</h2>
+          <p className="text-paper/85 font-semibold mb-6">
+            Answer 8 playful questions and get their type in about 90 seconds — free, no signup.
           </p>
-          <Link href="/app" className="btn-primary text-lg px-10 py-4">Find your dog&apos;s type</Link>
+          <Link href="/quiz?ref=dogtype" className="btn-primary text-lg px-10 py-4">Find your dog&apos;s type</Link>
         </div>
       </section>
 
@@ -141,8 +139,8 @@ export default function DogtypePage({ params }: PageProps) {
                 key={code}
                 href={`/dogtype/${code}`}
                 title={decode ?? undefined}
-                className={`rounded-xl border p-3 text-center transition-colors ${
-                  active ? 'border-primary bg-primary/10' : 'border-border bg-white hover:border-primary/40'
+                className={`rounded-xl border-2 p-3 text-center transition-all ${
+                  active ? 'border-brown bg-gold-light' : 'border-brown bg-paper hover:brightness-95'
                 }`}
               >
                 <div className="text-2xl" aria-hidden="true">{t.emoji}</div>
@@ -153,13 +151,7 @@ export default function DogtypePage({ params }: PageProps) {
         </div>
       </section>
 
-      <footer className="border-t border-border py-8">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-sm text-brown-light">
-            © {new Date().getFullYear()} GoDoggyDate · Dogtype is a playful personality read, not a clinical test.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter note="Dogtype is a playful personality read, not a clinical test." />
     </main>
   );
 }

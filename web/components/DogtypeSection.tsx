@@ -16,6 +16,8 @@ import DogtypeReveal from './DogtypeReveal';
 import { feedback } from '../lib/feedback';
 import { computeDogtype } from '../../shared/dogtype';
 import CompatExplorer from './CompatExplorer';
+import ScaleToFit from './ScaleToFit';
+import { ShareIcon } from './StickerBits';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -89,9 +91,9 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-primary/5 p-5">
+    <section className="card p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Dogtype</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Dogtype</p>
         <h2 className="font-display text-xl text-brown leading-tight">
           {dogtype.emoji} {dogtype.name}
         </h2>
@@ -105,7 +107,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
         {dogtype.axes.map((a) => (
           <span
             key={a.key}
-            className="inline-flex items-center gap-1 rounded-full bg-cream border border-border px-2.5 py-1 text-xs font-semibold text-brown"
+            className="inline-flex items-center gap-1 rounded-full bg-paper border-2 border-brown px-2.5 py-1 text-xs font-extrabold text-brown"
           >
             <span aria-hidden="true">{a.pole.emoji}</span> {a.pole.label}
           </span>
@@ -113,19 +115,19 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
       </div>
 
       {/* The card itself (this is what gets captured to PNG) */}
-      <div className="mt-4 flex justify-center">
-        <div className="scale-[0.82] origin-top -mb-12">
+      <div className="mt-4 mb-4 flex justify-center">
+        <ScaleToFit width={360}>
           <DogtypeCard dogtype={dogtype} dogName={dogName} photoUrl={photo ?? undefined} photoFocus={photoFocus} innerRef={cardRef} />
-        </div>
+        </ScaleToFit>
       </div>
 
       <button
         type="button"
         onClick={handleShare}
         disabled={sharing}
-        className="btn-primary w-full mt-2 disabled:opacity-60"
+        className="btn-secondary inline-flex w-full items-center justify-center gap-2 mt-2 disabled:opacity-60"
       >
-        {sharing ? 'Preparing…' : `Share ${dogName}'s Dogtype`}
+        {sharing ? 'Preparing…' : <><ShareIcon size={20} /> Share {dogName}&apos;s Dogtype</>}
       </button>
 
       <div className="mt-2 flex gap-2">
@@ -133,14 +135,14 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
           type="button"
           onClick={handleStoryShare}
           disabled={sharingStory}
-          className="btn-secondary flex-1 disabled:opacity-60"
+          className="btn-secondary flex-1 px-3 text-sm disabled:opacity-60"
         >
-          {sharingStory ? 'Preparing…' : '📱 Share as Story'}
+          {sharingStory ? 'Preparing…' : 'Share as Story'}
         </button>
         <button
           type="button"
           onClick={() => { feedback.pop(); setShowReveal(true); }}
-          className="btn-secondary flex-1"
+          className="btn-secondary flex-1 px-3 text-sm"
         >
           ▶ Replay reveal
         </button>
@@ -154,7 +156,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
       <button
         type="button"
         onClick={() => setShowAxes((v) => !v)}
-        className="mt-1 py-3 text-xs font-bold text-primary underline underline-offset-2"
+        className="mt-1 min-h-[44px] py-3 text-sm font-bold text-rose underline underline-offset-2"
       >
         {showAxes ? 'Hide the read' : 'How we read this'}
       </button>

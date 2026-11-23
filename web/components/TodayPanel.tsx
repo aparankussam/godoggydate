@@ -235,7 +235,7 @@ export default function TodayPanel({ dogId, savedProfile, variant, onEditProfile
         <p className="text-sm font-bold text-brown">Today</p>
         <Link
           href="/app/profile"
-          className="text-xs font-bold text-primary transition-colors hover:text-primary/80"
+          className="text-xs font-bold text-rose transition-colors hover:text-rose/80"
         >
           All reminders
         </Link>
@@ -286,7 +286,7 @@ export default function TodayPanel({ dogId, savedProfile, variant, onEditProfile
             <button
               type="button"
               onClick={() => handleProfileClick(profilePrompt)}
-              className="mt-2 text-xs font-bold text-primary underline underline-offset-2"
+              className="mt-2 text-xs font-bold text-rose underline underline-offset-2"
             >
               {profilePrompt.cta}
             </button>
@@ -308,10 +308,17 @@ export default function TodayPanel({ dogId, savedProfile, variant, onEditProfile
         {error && <p className="px-4 py-2.5 text-xs text-red-600">{error}</p>}
       </div>
 
-      <div className="border-t border-border bg-cream-dark/30 px-4 py-3">
+      <div className="flex flex-col border-t border-border bg-cream-dark/30 px-4 py-1">
+        <Link
+          href="/app/fun"
+          onClick={() => trackEvent('fun_hub_click', { source: 'today_panel' })}
+          className="py-2 text-xs font-semibold text-brown-mid underline underline-offset-2 transition-colors hover:text-brown"
+        >
+          🎉 The Playroom: roast, letter, quiz &amp; more cards →
+        </Link>
         <Link
           href="/playdate-safety"
-          className="text-xs font-semibold text-brown-mid underline underline-offset-2 transition-colors hover:text-brown"
+          className="py-2 text-xs font-semibold text-brown-mid underline underline-offset-2 transition-colors hover:text-brown"
         >
           Play or fight? First-meeting safety reference →
         </Link>

@@ -231,7 +231,7 @@ export default function SnootPage() {
   const todayCount = state.todayDate === localDateStr(Date.now()) ? state.todayCount : 0;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen">
       {/* Component-scoped keyframes — keeps this file self-contained. */}
       <style>{`
         @keyframes snoot-squish {
@@ -251,8 +251,8 @@ export default function SnootPage() {
         }
       `}</style>
 
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
-        <Link href="/app/fun" className="text-sm font-bold text-primary hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
+      <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center justify-between">
+        <Link href="/app/fun" className="text-sm font-bold text-brown hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
         <span className="font-display text-xl text-brown">🐽 Snoot Boop</span>
         <span className="w-16" />
       </header>
@@ -289,7 +289,7 @@ export default function SnootPage() {
             onClick={boop}
             disabled={!ready}
             aria-label={`Boop ${dogName}'s snoot. ${state.allTime} boop${state.allTime === 1 ? '' : 's'} so far.`}
-            className="relative rounded-full overflow-hidden bg-white border-4 border-white shadow-[0_10px_30px_rgba(45,26,14,0.18)] active:cursor-pointer select-none touch-manipulation disabled:opacity-60"
+            className="relative rounded-full overflow-hidden bg-cream border-4 border-white shadow-[0_10px_30px_rgba(42,31,74,0.18)] active:cursor-pointer select-none touch-manipulation disabled:opacity-60"
             style={{ width: 240, height: 240, WebkitTapHighlightColor: 'transparent' }}
           >
             {photo ? (
@@ -310,9 +310,9 @@ export default function SnootPage() {
         {/* Milestone title */}
         <div key={`title-${title?.count ?? 0}`} style={{ animation: title ? 'snoot-pop 500ms ease-out' : undefined }}>
           {title ? (
-            <p className="font-display text-2xl text-primary-dark text-center">{title.emoji} {title.title}</p>
+            <p className="font-display text-2xl text-brown text-center">{title.emoji} {title.title}</p>
           ) : (
-            <p className="text-sm text-brown-light text-center">Boop to earn your first title…</p>
+            <p className="text-sm text-brown-mid text-center">Boop to earn your first title…</p>
           )}
         </div>
 
@@ -320,17 +320,17 @@ export default function SnootPage() {
         <div className="flex items-center gap-6">
           <div className="text-center">
             <p className="font-display text-4xl text-brown leading-none">{todayCount.toLocaleString()}</p>
-            <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">today</p>
+            <p className="mt-1 text-xs font-bold text-brown-mid">today</p>
           </div>
           <div className="w-px h-10 bg-border" />
           <div className="text-center">
             <p className="font-display text-4xl text-brown leading-none">{state.allTime.toLocaleString()}</p>
-            <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light">all time</p>
+            <p className="mt-1 text-xs font-bold text-brown-mid">all time</p>
           </div>
         </div>
 
         {next && (
-          <p className="text-[13px] text-brown-light text-center">
+          <p className="text-[13px] text-brown-mid text-center">
             {remaining.toLocaleString()} more boop{remaining === 1 ? '' : 's'} to {next.emoji} {next.title}
           </p>
         )}
@@ -339,12 +339,12 @@ export default function SnootPage() {
         <div className="w-full max-w-sm">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-bold text-brown-mid">⚡ Zoomies</span>
-            <span className="text-xs text-brown-light">{energy}/{MAX_ENERGY}</span>
+            <span className="text-xs text-brown-mid">{energy}/{MAX_ENERGY}</span>
           </div>
           <div className="h-2 rounded-full bg-cream-dark overflow-hidden">
             <div
               className="h-full rounded-full transition-[width] duration-500"
-              style={{ width: `${energyPct}%`, backgroundColor: outOfZoomies ? '#9B7560' : '#E8633A' }}
+              style={{ width: `${energyPct}%`, backgroundColor: outOfZoomies ? '#9B7560' : '#FF5C8D' }}
             />
           </div>
           {outOfZoomies && (
@@ -366,14 +366,14 @@ export default function SnootPage() {
             <Link
               href="/app/fun/sticker-studio"
               onClick={() => feedback.tap()}
-              className="rounded-full border border-primary px-5 py-3 text-sm font-bold text-primary hover:bg-primary/5 transition-colors"
+              className="rounded-full border-2 border-brown px-5 py-3 text-sm font-bold text-brown hover:bg-cream-dark transition-colors"
             >
               🎨 Sticker Studio · {stickerCount}
             </Link>
           )}
         </div>
 
-        <p className="text-[11px] text-brown-light text-center max-w-xs leading-relaxed">
+        <p className="text-xs text-brown-mid text-center max-w-xs leading-relaxed">
           Every number here is a literal count of your own taps — nothing about {dogName} is claimed. Just candy. 🍬
         </p>
       </div>
@@ -396,7 +396,7 @@ export default function SnootPage() {
             paddingTop: 36,
             paddingLeft: 20,
             paddingRight: 20,
-            background: 'linear-gradient(160deg, #5C3D2E 0%, #B45309 60%, #E8633A 100%)',
+            background: 'linear-gradient(160deg, #4A3F6E 0%, #B45309 60%, #FF5C8D 100%)',
             fontFamily: 'Georgia, serif',
           }}
         >

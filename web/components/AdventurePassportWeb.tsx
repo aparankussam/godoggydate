@@ -99,9 +99,9 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="rounded-2xl border-2 border-brown bg-cream-dark/30 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun</p>
+        <p className="text-xs font-bold text-brown">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">🗺️ {dogName}&apos;s Adventure Passport</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           A bucket list picked to fit {dogName}. Stamp a quest when you two actually pull it off — it&apos;s your own
@@ -114,11 +114,11 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
         <div
           ref={cardRef}
           className="relative w-[320px] rounded-[1.6rem] overflow-hidden text-white flex flex-col"
-          style={{ minHeight: 360, padding: 20, background: 'linear-gradient(160deg, #1F3A2E 0%, #2E5A43 60%, #5C8A6A 100%)' }}
+          style={{ minHeight: 360, padding: 20, background: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 100%)' }}
         >
           <div className="flex items-center gap-3">
             <div className="flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/80">Adventure Passport</p>
+              <p className="text-sm font-black text-white">Adventure Passport</p>
               <p className="font-display text-3xl leading-tight mt-0.5">{dogName}</p>
             </div>
             {/* Emoji behind the photo so an undecoded remote image still captures. */}
@@ -136,7 +136,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
 
           <div className="flex items-end gap-1.5 mt-4">
             <span className="font-display leading-none" style={{ fontSize: 56 }}>{doneCount}</span>
-            <span className="font-semibold text-white/80 mb-2 text-sm">/ {ADVENTURE_COUNT} quests stamped</span>
+            <span className="font-semibold text-white mb-2 text-sm">/ {ADVENTURE_COUNT} quests stamped</span>
           </div>
 
           <div className="flex flex-wrap gap-2.5 mt-4">
@@ -150,7 +150,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
               </div>
             ))}
             {doneCount === 0 && (
-              <p className="text-sm text-white/75 py-5">No stamps yet — the adventure starts now.</p>
+              <p className="text-sm text-white py-5">No stamps yet — the adventure starts now.</p>
             )}
           </div>
 
@@ -160,7 +160,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
             style={{ borderTop: '1px solid rgba(255,255,255,0.2)' }}
           >
             <p className="font-display text-sm">GoDoggyDate</p>
-            <p className="text-[10px] text-white/60">godoggydate.com</p>
+            <p className="text-xs text-white">godoggydate.com</p>
           </div>
         </div>
       </div>
@@ -176,12 +176,12 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
 
       {/* Progress bar */}
       <div className="mt-5">
-        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.12em] text-brown-light mb-1">
+        <div className="flex items-center justify-between text-xs font-bold text-brown-mid mb-1">
           <span>Progress</span>
           <span>{doneCount} / {ADVENTURE_COUNT}</span>
         </div>
         <div className="h-2 rounded-full bg-cream-dark overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-gold to-primary" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-brown" style={{ width: `${pct}%` }} />
         </div>
       </div>
 
@@ -196,23 +196,23 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
               onClick={() => toggle(a.id)}
               aria-pressed={done}
               className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors motion-reduce:transition-none ${
-                done ? 'bg-primary/10 border-primary/40' : 'bg-white border-border hover:border-primary/40'
+                done ? 'bg-note border-brown' : 'bg-cream border-brown/40'
               }`}
             >
               <span
-                className={`flex items-center justify-center rounded-full shrink-0 ${done ? 'bg-primary/15' : 'bg-cream-dark'}`}
+                className={`flex items-center justify-center rounded-full shrink-0 ${done ? 'bg-cream' : 'bg-cream-dark'}`}
                 style={{ width: 42, height: 42 }}
                 aria-hidden="true"
               >
                 <span style={{ fontSize: 22, lineHeight: 1 }}>{a.emoji}</span>
               </span>
               <span className="flex-1 min-w-0">
-                <span className={`block font-bold text-sm ${done ? 'text-primary' : 'text-brown'}`}>{a.title}</span>
-                <span className="block text-xs text-brown-light leading-snug">{a.blurb}</span>
+                <span className={`block font-bold text-sm ${done ? 'text-brown' : 'text-brown'}`}>{a.title}</span>
+                <span className="block text-xs text-brown-mid leading-snug">{a.blurb}</span>
               </span>
               <span
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-bold tracking-wide ${
-                  done ? 'bg-primary border-primary text-white' : 'border-primary text-primary'
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold tracking-wide ${
+                  done ? 'bg-brown border-brown text-cream' : 'border-brown text-brown'
                 }`}
               >
                 {done ? '✓' : 'STAMP'}
@@ -222,7 +222,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
         })}
       </div>
 
-      <p className="mt-3 text-[11px] text-brown-light leading-snug text-center">
+      <p className="mt-3 text-xs text-brown-mid leading-snug text-center">
         Your own checklist — stamp a quest when you and {dogName} pull it off. 🐾{' '}
         {dogId ? 'Saved to your account.' : 'Saved on this device.'}
       </p>

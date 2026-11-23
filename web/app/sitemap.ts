@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/privacy',
     '/terms',
     '/delete-account',
+    '/support',
     // The 16 Dogtype identity pages and their compatibility pages are the
     // acquisition funnel and are intentionally indexable (unlike /d/[slug]).
     ...DOGTYPE_CODES.map((code) => `/dogtype/${code}`),

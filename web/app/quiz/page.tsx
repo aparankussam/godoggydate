@@ -8,6 +8,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import DogtypeQuiz from '../../components/DogtypeQuiz';
+import { PawCoin } from '../../components/StickerBits';
+import SiteFooter from '../../components/SiteFooter';
 
 export const dynamic = 'force-static';
 
@@ -26,38 +28,20 @@ export function generateMetadata(): Metadata {
 
 export default function QuizPage() {
   return (
-    <main className="min-h-screen bg-cream">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
-          <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Open the app</Link>
-        </div>
-      </nav>
-
-      {/* Header */}
-      <section className="max-w-2xl mx-auto px-6 pt-10 pb-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-brown-light">The Dogtype quiz</p>
-        <h1 className="mt-2 font-display text-4xl sm:text-5xl text-brown leading-tight">
-          What&apos;s your dog&apos;s Dogtype?
-        </h1>
-        <p className="mt-3 text-brown-mid">
-          8 playful questions, about 90 seconds — no account needed.
-        </p>
-      </section>
+    <main className="min-h-screen">
+      <header className="max-w-4xl mx-auto px-4 h-[54px] flex items-center justify-between">
+        <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-[22px] text-brown whitespace-nowrap">
+          <PawCoin size={30} /> GoDoggyDate
+        </Link>
+        <Link href="/app" className="inline-flex min-h-[44px] items-center px-2 text-sm font-black text-brown underline decoration-2 underline-offset-[3px] whitespace-nowrap">Sign up free</Link>
+      </header>
 
       {/* The quiz itself */}
-      <section className="max-w-4xl mx-auto px-6 pb-16">
+      <section className="max-w-4xl mx-auto px-4 pb-10">
         <DogtypeQuiz />
       </section>
 
-      <footer className="border-t border-border py-8">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-sm text-brown-light">
-            © {new Date().getFullYear()} GoDoggyDate · Dogtype is a playful personality read, not a clinical test.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter note="Dogtype is a playful personality read, not a clinical test." />
     </main>
   );
 }

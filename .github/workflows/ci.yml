@@ -23,6 +23,7 @@ jobs:
             web/package-lock.json
             mobile/package-lock.json
             firebase/functions/package-lock.json
+            firebase/tests/package-lock.json
 
       - name: Install root deps
         run: npm ci
@@ -112,3 +113,19 @@ jobs:
       - name: Build functions
         run: npm run build
         working-directory: firebase/functions
+
+      # Security-rules tests (firebase/tests): Firestore and Storage rules run
+      # against throwaway emulators under their own project id. About 25 seconds
+      # once the emulator jars are cached. Needs Java, which ubuntu-latest has.
+      - name: Cache Firebase emulators
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-tools13
+
+      - name: Install rules-test deps
+        run: npm ci
+        working-directory: firebase/tests
+
+      - name: Test Firestore and Storage security rules
+        run: npx --yes firebase-tools@13 emulators:exec --only firestore,storage --project demo-rules-test "npm --prefix firebase/tests test"

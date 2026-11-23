@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import SiteFooter from '../../components/SiteFooter';
 import { absoluteUrl, defaultSocialImages } from '../../lib/site';
 
 export const metadata: Metadata = {
@@ -28,48 +29,49 @@ const checklist = [
 
 export default function DogPlaydatesPage() {
   return (
-    <main className="min-h-screen bg-cream px-6 py-12">
-      <article className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+    <main className="min-h-screen">
+      <div className="px-4 py-12 sm:px-6">
+      <article className="card mx-auto max-w-3xl px-6 py-8 sm:px-10">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">
           Dog Playdates
         </p>
         <h1 className="mt-3 font-display text-4xl text-brown">
           How to find safer dog playdates near you
         </h1>
-        <p className="mt-6 text-base leading-8 text-brown-light">
+        <p className="mt-6 text-base leading-8 text-brown-mid">
           The best dog playdates are not just nearby. They are compatible. A good match
           depends on size, confidence, energy, play style, and whether both owners are
           aligned on safety. That is the problem GoDoggyDate is trying to solve.
         </p>
         <h2 className="mt-8 font-display text-2xl text-brown">A simple first-meetup checklist</h2>
-        <ul className="mt-4 space-y-3 text-sm leading-7 text-brown-light">
+        <ul className="mt-4 space-y-3 text-sm leading-7 text-brown-mid">
           {checklist.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
         <h2 className="mt-8 font-display text-2xl text-brown">What usually goes wrong</h2>
-        <p className="mt-4 text-sm leading-7 text-brown-light">
+        <p className="mt-4 text-sm leading-7 text-brown-mid">
           Most bad playdates start with mismatched expectations. One dog wants chase and
           wrestling, the other wants gentle sniffing. One owner assumes an off-leash park
           is fine, the other prefers a structured intro. Screening for compatibility before
           the meetup lowers that risk.
         </p>
         <h2 className="mt-8 font-display text-2xl text-brown">Finding the right local match</h2>
-        <p className="mt-4 text-sm leading-7 text-brown-light">
+        <p className="mt-4 text-sm leading-7 text-brown-mid">
           If you are searching for dog playdates near you, start with your city, your dog&apos;s
           temperament, and the type of interaction they enjoy. A confident high-energy dog
           needs a different playmate than a smaller dog that prefers calm one-on-one time.
         </p>
-        <div className="mt-10 rounded-[1.5rem] bg-cream-dark px-5 py-5">
-          <p className="text-sm leading-7 text-brown-light">
+        <div className="mt-10 rounded-[1.5rem] border-2 border-brown bg-note px-5 py-5">
+          <p className="text-sm leading-7 text-brown-mid">
             Want a simpler way to screen matches? Visit the{' '}
-            <Link href="/" className="font-semibold text-primary underline underline-offset-2">
+            <Link href="/" className="font-semibold text-rose underline underline-offset-2">
               GoDoggyDate homepage
             </Link>{' '}
             or read our{' '}
             <Link
               href="/dog-socialization-tips"
-              className="font-semibold text-primary underline underline-offset-2"
+              className="font-semibold text-rose underline underline-offset-2"
             >
               dog socialization tips
             </Link>
@@ -77,6 +79,8 @@ export default function DogPlaydatesPage() {
           </p>
         </div>
       </article>
+      </div>
+      <SiteFooter />
     </main>
   );
 }

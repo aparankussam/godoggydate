@@ -78,7 +78,7 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
     <div className="card rounded-[1.8rem] overflow-hidden">
       <div className="px-4 py-3 border-b border-border">
         <p className="text-sm font-bold text-brown">Household</p>
-        <p className="text-xs text-brown-light">Everyone who takes care of this dog — they don&apos;t need a dog of their own.</p>
+        <p className="text-xs text-brown-mid">Everyone who takes care of this dog — they don&apos;t need a dog of their own.</p>
       </div>
 
       {memberIds.length > 0 && (
@@ -90,7 +90,7 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
                 type="button"
                 onClick={() => handleRemove(uid)}
                 disabled={busyUid === uid}
-                className="text-xs text-brown-light hover:text-red-600 transition-colors disabled:opacity-50"
+                className="text-xs text-brown-mid hover:text-brown transition-colors disabled:opacity-50"
               >
                 Remove
               </button>
@@ -101,8 +101,8 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
 
       <div className="px-4 py-3">
         {invite ? (
-          <div className="rounded-2xl bg-cream-dark/60 border border-border px-4 py-3 flex flex-col gap-2">
-            <p className="text-xs text-brown-light">Share this code — it expires in 7 days:</p>
+          <div className="rounded-2xl bg-cream-dark/60 border-2 border-brown px-4 py-3 flex flex-col gap-2">
+            <p className="text-xs text-brown-mid">Share this code — it expires in 7 days:</p>
             <p className="font-mono text-2xl font-bold tracking-[0.2em] text-brown text-center py-1">{invite.code}</p>
             <button
               type="button"

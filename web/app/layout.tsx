@@ -1,20 +1,27 @@
 import type { Metadata } from 'next';
-import { Fraunces, Nunito } from 'next/font/google';
+import { Caveat, Chewy, Nunito } from 'next/font/google';
 import Script from 'next/script';
 import AnalyticsTracker from '../components/AnalyticsTracker';
+import ErrorReporter from '../components/ErrorReporter';
 import { absoluteUrl, siteUrl } from '../lib/site';
 import './globals.css';
 
-const fraunces = Fraunces({
+const chewy = Chewy({
   subsets: ['latin'],
-  variable: '--font-fraunces',
-  weight: ['700', '900'],
+  variable: '--font-chewy',
+  weight: '400',
+});
+
+const caveat = Caveat({
+  subsets: ['latin'],
+  variable: '--font-caveat',
+  weight: ['700'],
 });
 
 const nunito = Nunito({
   subsets: ['latin'],
   variable: '--font-nunito',
-  weight: ['400', '600', '700'],
+  weight: ['400', '600', '700', '800', '900'],
 });
 
 export const metadata: Metadata = {
@@ -58,8 +65,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
 
   return (
-    <html lang="en" className={`${fraunces.variable} ${nunito.variable}`}>
-      <body className="bg-cream text-brown antialiased">
+    <html lang="en" className={`${chewy.variable} ${caveat.variable} ${nunito.variable}`}>
+      <body className="bg-sky bg-gingham text-brown antialiased">
         {gaMeasurementId && (
           <>
             <Script
@@ -79,6 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
         <AnalyticsTracker />
+        <ErrorReporter />
         {children}
       </body>
     </html>

@@ -7,6 +7,15 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // Uploading needs a real account: Google or Apple, not an anonymous guest
+    // (the iPhone app's guest mode). Guests can't create a dog profile
+    // (firestore.rules), so they have no photos to upload, and a throwaway
+    // anonymous account shouldn't be able to host files at a public link.
+    function isRealAccount() {
+      return isSignedIn()
+          && request.auth.token.firebase.sign_in_provider in ['google.com', 'apple.com'];
+    }
+
     // An explicit list rather than image/.*, which would admit SVG (scriptable).
     function isPhoto() {
       return request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
@@ -24,7 +33,7 @@ service firebase.storage {
     // Path: dogs/{userId}/{dogId}/photos/{filename}
     match /dogs/{userId}/{dogId}/photos/{filename} {
       allow read:   if isSignedIn();
-      allow write:  if isSignedIn()
+      allow write:  if isRealAccount()
                     && request.auth.uid == userId
                     && isPhoto()
                     && isUnder10MB();
@@ -35,7 +44,7 @@ service firebase.storage {
     // Path: dogs/{userId}/{dogId}/video/{filename}
     match /dogs/{userId}/{dogId}/video/{filename} {
       allow read:   if isSignedIn();
-      allow write:  if isSignedIn()
+      allow write:  if isRealAccount()
                     && request.auth.uid == userId
                     && request.resource.contentType.matches('video/.*')
                     && isUnder50MB();
@@ -46,7 +55,7 @@ service firebase.storage {
     // Path: avatars/{userId}/{filename}
     match /avatars/{userId}/{filename} {
       allow read:   if isSignedIn();
-      allow write:  if isSignedIn()
+      allow write:  if isRealAccount()
                     && request.auth.uid == userId
                     && isPhoto()
                     && isUnder10MB();

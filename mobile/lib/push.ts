@@ -88,8 +88,15 @@ async function saveExpoPushToken(userId: string): Promise<void> {
   if (!token) return;
 
   const { db } = getFirebase();
+  // The zone lets the playdate reminders (firebase/functions/src/playdates.ts)
+  // turn "3:00 PM" into the right moment for this person.
+  let timeZone: string | undefined;
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch { /* the runtime can't tell: the server falls back to the dog's state */ }
   await setDoc(doc(db, 'users', userId, 'private', 'push'), {
     expoPushTokens: arrayUnion(token),
+    ...(timeZone ? { timeZone } : {}),
     updatedAt: serverTimestamp(),
   }, { merge: true });
 }

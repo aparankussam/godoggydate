@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { absoluteUrl, defaultSocialImages } from '../../lib/site';
+import { PawCoin } from '../../components/StickerBits';
+import SiteFooter from '../../components/SiteFooter';
 import {
   AFTER_A_BAD_MEETING,
   BODY_LANGUAGE_PREAMBLE,
@@ -46,7 +48,7 @@ const SECTIONS = [
 
 /** Offset for anything else that sticks: jump bar is h-16 (64px) + 1px border.
  *  Written as a literal class string so Tailwind's scanner still sees it. */
-const STICKY_TOP = 'top-[65px]';
+const STICKY_TOP = 'top-[66px]';
 
 const EVIDENCE_LABEL: Record<EvidenceLevel, string> = {
   'professional-consensus': 'Professional consensus',
@@ -56,15 +58,15 @@ const EVIDENCE_LABEL: Record<EvidenceLevel, string> = {
 
 /** Consensus is muted so the two weaker labels are what catches the eye. */
 const EVIDENCE_STYLE: Record<EvidenceLevel, string> = {
-  'professional-consensus': 'bg-cream-dark text-brown-mid',
+  'professional-consensus': 'bg-cream-dark text-brown',
   'rule-of-thumb': 'bg-[rgba(245,183,49,0.28)] text-brown',
-  contested: 'bg-[rgba(232,99,58,0.14)] text-primary-dark',
+  contested: 'bg-[#FFE1EA] text-rose',
 };
 
 function EvidenceBadge({ level }: { level: EvidenceLevel }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${EVIDENCE_STYLE[level]}`}
+      className={`inline-flex shrink-0 items-center rounded-full border-2 border-brown px-3 py-1 text-xs font-bold uppercase tracking-wide ${EVIDENCE_STYLE[level]}`}
     >
       {EVIDENCE_LABEL[level]}
     </span>
@@ -75,7 +77,7 @@ function EvidenceBadge({ level }: { level: EvidenceLevel }) {
  *  rather than a parenthetical, so nobody skims past it. */
 function Caveat({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-4 rounded-[1.25rem] border-l-4 border-gold bg-cream px-4 py-3 text-base leading-7 text-brown-mid">
+    <p className="mt-4 rounded-[1.25rem] border-l-4 border-gold bg-cream-dark px-4 py-3 text-base leading-7 text-brown-mid">
       <span className="font-bold text-brown">Worth knowing: </span>
       {children}
     </p>
@@ -102,7 +104,7 @@ function Attribution({ ids }: { ids: readonly SourceId[] }) {
             href={getSource(id).url}
             target="_blank"
             rel="noreferrer"
-            className="underline decoration-border underline-offset-2 hover:text-primary"
+            className="underline decoration-border underline-offset-2 hover:text-rose"
           >
             {getSource(id).name}
           </a>
@@ -131,7 +133,7 @@ function SignalList({
           </h4>
           <p className="mt-2 pl-[1.375rem] text-base leading-7 text-brown-mid">{s.meaning}</p>
           {s.caveat && (
-            <p className="mt-3 ml-[1.375rem] rounded-[1.25rem] bg-cream px-4 py-3 text-sm leading-6 text-brown-mid">
+            <p className="mt-3 ml-[1.375rem] rounded-[1.25rem] bg-cream-dark px-4 py-3 text-sm leading-6 text-brown-mid">
               <span className="font-bold text-brown">But: </span>
               {s.caveat}
             </p>
@@ -144,26 +146,26 @@ function SignalList({
 
 export default function PlaydateSafetyPage() {
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen">
       {/* Jump bar. Plain anchors so the page needs no JavaScript to navigate —
           this gets opened at a park on a bad connection. Height is pinned to
           h-16 so STICKY_TOP below can clear it exactly. */}
       <nav
         aria-label="On this page"
-        className="sticky top-0 z-20 border-b border-border bg-cream/95 backdrop-blur-md"
+        className="sticky top-0 z-20 border-b-2 border-brown bg-sky/95 backdrop-blur-md"
       >
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-2 overflow-x-auto px-4">
           <Link
             href="/"
-            className="shrink-0 rounded-full px-3 py-3 font-display text-lg text-brown"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-3 font-display text-lg text-brown"
           >
-            🐾 GoDoggyDate
+            <PawCoin size={28} /> GoDoggyDate
           </Link>
           {SECTIONS.map((s) => (
             <a
               key={s.id}
               href={`#${s.id}`}
-              className="shrink-0 rounded-full border border-border bg-white px-4 py-3 text-sm font-bold text-brown-mid hover:border-primary hover:text-primary"
+              className="shrink-0 rounded-full border-2 border-brown bg-paper px-4 py-2.5 text-sm font-extrabold text-brown hover:brightness-95"
             >
               {s.label}
             </a>
@@ -173,24 +175,24 @@ export default function PlaydateSafetyPage() {
 
       <div className="mx-auto max-w-3xl px-4 pb-20 pt-10 sm:px-6">
         <header>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-brown">
             First meetings
           </p>
           <h1 className="mt-3 font-display text-4xl leading-tight text-brown sm:text-5xl">
             Play or fight?
           </h1>
-          <p className="mt-5 text-lg leading-8 text-brown-mid">
+          <p className="mt-5 text-lg font-semibold leading-8 text-brown">
             Two dogs who have never met are about to meet. This is how veterinary and
             animal-welfare organizations say to run that introduction, and how to read what
             happens next while it is still happening.
           </p>
-          <p className="mt-4 text-lg leading-8 text-brown-mid">
+          <p className="mt-4 text-lg font-semibold leading-8 text-brown">
             Written to be read one-handed, outdoors, with a leash in the other hand.
           </p>
         </header>
 
         {/* Guardrail up top, not buried in a footer. */}
-        <aside className="mt-8 rounded-[1.5rem] border-2 border-border bg-white px-5 py-5 sm:px-6">
+        <aside className="card mt-8 px-5 py-5 sm:px-6">
           <h2 className="font-display text-xl text-brown">Read this part first</h2>
           <p className="mt-3 text-base leading-7 text-brown-mid">{MEETUP_DISCLAIMER}</p>
         </aside>
@@ -200,7 +202,7 @@ export default function PlaydateSafetyPage() {
           <h2 className="font-display text-3xl leading-tight text-brown sm:text-4xl">
             The introduction protocol
           </h2>
-          <p className="mt-4 text-base leading-7 text-brown-mid">
+          <p className="mt-4 text-base font-semibold leading-7 text-brown">
             This is assembled from the introduction protocols the SF SPCA and the Animal
             Humane Society publish for adopters, which are written for putting two unfamiliar
             dogs together on purpose. It works the same way for two owners in a car park.
@@ -209,11 +211,11 @@ export default function PlaydateSafetyPage() {
 
           <ol className="mt-8 space-y-5">
             {FIRST_MEETING_STEPS.map((step, i) => (
-              <li key={step.id} className="rounded-[1.5rem] bg-white px-5 py-6 shadow-sm sm:px-6">
+              <li key={step.id} className="card px-5 py-6 sm:px-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-baseline gap-4">
                     <span
-                      className="font-display text-4xl leading-none text-[rgba(232,99,58,0.25)]"
+                      className="font-display text-4xl leading-none text-[rgba(255,92,141,0.25)]"
                       aria-hidden="true"
                     >
                       {String(i + 1).padStart(2, '0')}
@@ -224,7 +226,7 @@ export default function PlaydateSafetyPage() {
                 </div>
                 <p className="mt-4 text-lg leading-8 text-brown-mid">{step.detail}</p>
                 {step.whyItMatters && (
-                  <p className="mt-4 text-base leading-7 text-brown-mid">
+                  <p className="mt-4 text-base font-semibold leading-7 text-brown">
                     <span className="font-bold text-brown">Why it matters: </span>
                     {step.whyItMatters}
                   </p>
@@ -241,7 +243,7 @@ export default function PlaydateSafetyPage() {
           <h2 className="font-display text-3xl leading-tight text-brown sm:text-4xl">
             Play or conflict, side by side
           </h2>
-          <p className="mt-4 text-base leading-7 text-brown-mid">{BODY_LANGUAGE_PREAMBLE}</p>
+          <p className="mt-4 text-base font-semibold leading-7 text-brown">{BODY_LANGUAGE_PREAMBLE}</p>
 
           {/* Two columns on desktop, stacked on mobile. Each column header
               sticks so the label stays visible while scrolling a long list. */}
@@ -251,8 +253,8 @@ export default function PlaydateSafetyPage() {
                 header itself instead. The header fills are opaque literals rather
                 than rgba tints of gold/primary because list rows scroll underneath
                 them. */}
-            <div className="rounded-[1.5rem] border-2 border-gold bg-white">
-              <div className={`sticky ${STICKY_TOP} z-10 rounded-t-[1.35rem] border-b-2 border-gold bg-[#FCEFCF] px-5 py-4 sm:px-6`}>
+            <div className="rounded-[1.5rem] border-2 border-brown bg-paper">
+              <div className={`sticky ${STICKY_TOP} z-10 rounded-t-[1.35rem] border-b-2 border-brown bg-[#FCEFCF] px-5 py-4 sm:px-6`}>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-brown-mid">
                   Column one
                 </p>
@@ -261,8 +263,8 @@ export default function PlaydateSafetyPage() {
               <SignalList signals={PLAY_SIGNALS} tone="play" />
             </div>
 
-            <div className="rounded-[1.5rem] border-2 border-primary bg-white">
-              <div className={`sticky ${STICKY_TOP} z-10 rounded-t-[1.35rem] border-b-2 border-primary bg-[#FBE0D6] px-5 py-4 sm:px-6`}>
+            <div className="rounded-[1.5rem] border-2 border-brown bg-paper">
+              <div className={`sticky ${STICKY_TOP} z-10 rounded-t-[1.35rem] border-b-2 border-brown bg-[#FFE1EA] px-5 py-4 sm:px-6`}>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-brown-mid">
                   Column two
                 </p>
@@ -280,10 +282,10 @@ export default function PlaydateSafetyPage() {
           <h2 className="font-display text-3xl leading-tight text-brown sm:text-4xl">
             {CONSENT_TEST.name}
           </h2>
-          <p className="mt-2 text-sm font-bold uppercase tracking-[0.14em] text-brown-mid">
+          <p className="mt-2 text-sm font-black uppercase tracking-[0.14em] text-brown">
             Also called {CONSENT_TEST.alsoCalled}
           </p>
-          <div className="mt-6 rounded-[1.5rem] bg-white px-5 py-6 shadow-sm sm:px-6">
+          <div className="mt-6 card px-5 py-6 sm:px-6">
             <div className="mb-4">
               <EvidenceBadge level={CONSENT_TEST.evidence} />
             </div>
@@ -299,13 +301,13 @@ export default function PlaydateSafetyPage() {
               ))}
             </ol>
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-[1.25rem] border-2 border-gold bg-[#FCEFCF] px-4 py-4">
+              <div className="rounded-[1.25rem] border-2 border-brown bg-[#FCEFCF] px-4 py-4">
                 <h3 className="font-display text-xl text-brown">Yes looks like</h3>
                 <p className="mt-2 text-base leading-7 text-brown-mid">
                   {CONSENT_TEST.yesLooksLike}
                 </p>
               </div>
-              <div className="rounded-[1.25rem] border-2 border-primary bg-[#FBE0D6] px-4 py-4">
+              <div className="rounded-[1.25rem] border-2 border-brown bg-[#FFE1EA] px-4 py-4">
                 <h3 className="font-display text-xl text-brown">No looks like</h3>
                 <p className="mt-2 text-base leading-7 text-brown-mid">
                   {CONSENT_TEST.noLooksLike}
@@ -321,7 +323,7 @@ export default function PlaydateSafetyPage() {
           <h2 className="font-display text-3xl leading-tight text-brown sm:text-4xl">
             End the meeting now
           </h2>
-          <p className="mt-4 text-base leading-7 text-brown-mid">
+          <p className="mt-4 text-base font-semibold leading-7 text-brown">
             Any one of these is enough on its own. You do not need two.
           </p>
 
@@ -329,7 +331,7 @@ export default function PlaydateSafetyPage() {
             {WHEN_TO_ABORT.map((item) => (
               <li
                 key={item.id}
-                className="rounded-[1.5rem] border-l-8 border-primary bg-white px-5 py-5 shadow-sm sm:px-6"
+                className="card border-l-8 border-l-primary px-5 py-5 sm:px-6"
               >
                 <h3 className="font-display text-2xl leading-snug text-brown">{item.sign}</h3>
                 <p className="mt-2 text-lg leading-8 text-brown-mid">{item.detail}</p>
@@ -338,9 +340,9 @@ export default function PlaydateSafetyPage() {
             ))}
           </ul>
 
-          <div className="mt-8 rounded-[1.5rem] bg-brown px-5 py-6 sm:px-6">
-            <h3 className="font-display text-2xl text-white">Afterwards</h3>
-            <p className="mt-3 text-lg leading-8 text-[rgba(255,255,255,0.85)]">
+          <div className="mt-8 rounded-[1.5rem] border-2 border-brown bg-brown px-5 py-6 sm:px-6">
+            <h3 className="font-display text-2xl text-paper">Afterwards</h3>
+            <p className="mt-3 text-lg leading-8 text-paper/90">
               {AFTER_A_BAD_MEETING}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
@@ -348,7 +350,7 @@ export default function PlaydateSafetyPage() {
                 href={getSource('iaabc').url}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full bg-white px-5 py-3 text-base font-bold text-brown hover:text-primary"
+                className="btn-secondary text-base"
               >
                 Find an IAABC consultant
               </a>
@@ -356,7 +358,7 @@ export default function PlaydateSafetyPage() {
                 href={getSource('ccpdt').url}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full bg-white px-5 py-3 text-base font-bold text-brown hover:text-primary"
+                className="btn-secondary text-base"
               >
                 Find a CCPDT trainer
               </a>
@@ -369,7 +371,7 @@ export default function PlaydateSafetyPage() {
           <h2 className="font-display text-3xl leading-tight text-brown sm:text-4xl">
             If your dog is new, or you do not have one yet
           </h2>
-          <p className="mt-4 text-base leading-7 text-brown-mid">
+          <p className="mt-4 text-base font-semibold leading-7 text-brown">
             Most of what gets written for new owners is either a sales pitch or a shrug. Here
             is the part that actually changes outcomes, including where the popular advice is
             softer than it sounds.
@@ -377,7 +379,7 @@ export default function PlaydateSafetyPage() {
 
           <div className="mt-8 space-y-5">
             {NEW_OWNER_NOTES.map((note) => (
-              <article key={note.id} className="rounded-[1.5rem] bg-white px-5 py-6 shadow-sm sm:px-6">
+              <article key={note.id} className="card px-5 py-6 sm:px-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <h3 className="font-display text-2xl leading-snug text-brown">{note.title}</h3>
                   <EvidenceBadge level={note.evidence} />
@@ -393,7 +395,7 @@ export default function PlaydateSafetyPage() {
         {/* ---------------------------------------------------------------- */}
         <section id="sources" className="mt-16 scroll-mt-20">
           <h2 className="font-display text-3xl leading-tight text-brown sm:text-4xl">Sources</h2>
-          <p className="mt-4 text-base leading-7 text-brown-mid">
+          <p className="mt-4 text-base font-semibold leading-7 text-brown">
             Everything above came from these. None of it is ours, and none of it is specific to
             your dog. Go and read the originals — they are better than any summary, including
             this one.
@@ -405,7 +407,7 @@ export default function PlaydateSafetyPage() {
                   href={source.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-[1.25rem] bg-white px-5 py-4 text-base font-semibold leading-7 text-brown-mid shadow-sm hover:text-primary"
+                  className="block rounded-[1.25rem] border-2 border-brown bg-paper px-5 py-4 text-base font-bold leading-7 text-brown hover:brightness-95"
                 >
                   {source.name}
                   <span className="block text-sm font-normal text-brown-mid">
@@ -418,7 +420,7 @@ export default function PlaydateSafetyPage() {
         </section>
 
         {/* ---------------------------------------------------------------- */}
-        <section className="mt-16 rounded-[2rem] bg-cream-dark px-5 py-8 sm:px-8">
+        <section className="card mt-16 px-5 py-8 sm:px-8">
           <h2 className="font-display text-2xl leading-snug text-brown sm:text-3xl">
             Keep reading
           </h2>
@@ -439,6 +441,7 @@ export default function PlaydateSafetyPage() {
           </div>
         </section>
       </div>
+      <SiteFooter />
     </main>
   );
 }

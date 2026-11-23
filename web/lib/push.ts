@@ -55,6 +55,15 @@ export function dismissPushBanner(): void {
   } catch { /* best effort */ }
 }
 
+/** This device's IANA time zone ('America/Detroit'), or undefined if it can't tell. */
+function deviceTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Registers this browser's FCM token, assuming permission is already
  * granted. Safe to call repeatedly/silently — Firebase Installations can
@@ -75,8 +84,12 @@ async function registerToken(userId: string): Promise<boolean> {
     });
     if (!token) return false;
 
+    // The zone lets the playdate reminders (firebase/functions/src/playdates.ts)
+    // turn "3:00 PM" into the right moment for this person.
+    const timeZone = deviceTimeZone();
     await setDoc(doc(db, 'users', userId, 'private', 'push'), {
       fcmWebTokens: arrayUnion(token),
+      ...(timeZone ? { timeZone } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true });
     return true;

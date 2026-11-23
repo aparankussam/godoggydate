@@ -1,8 +1,9 @@
 'use client';
 // web/components/PlaydateRatingModal.tsx
-// The "Playdate Payout" — a post-game score screen that's secretly the
-// missing client half of the deployed trust-score engine (onRatingCreated
-// reads from the `ratings` collection this writes to).
+// The "Playdate Payout" — a post-game score screen. The rating is private: it is
+// stored in `ratings` (and folded into a server-side score by onRatingCreated),
+// and no screen shows anyone's rating or score to another member. Keep the copy
+// in step with that; do not promise a visible trust score.
 
 import { useState } from 'react';
 
@@ -36,12 +37,12 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0">
-      <div className="w-full max-w-sm rounded-[1.75rem] bg-white p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-brown/50 px-4 pb-4 sm:pb-0">
+      <div role="dialog" aria-modal="true" aria-label={`How did it go with ${dogName}?`} className="w-full max-w-sm rounded-[1.75rem] border-2 border-brown bg-cream p-6 shadow-[0_10px_0_rgba(42,31,74,0.18)]">
         <p className="text-center text-4xl mb-2" aria-hidden="true">🎾</p>
         <h3 className="text-center font-display text-2xl text-brown">How did it go with {dogName}?</h3>
-        <p className="text-center text-sm text-brown-light mt-1">
-          This feeds the trust score every other dog parent sees.
+        <p className="text-center text-sm font-bold text-brown-mid mt-1">
+          Your rating is private. It helps us notice problems and keep playdates safe.
         </p>
 
         <div className="mt-6 flex justify-center gap-2">
@@ -50,7 +51,7 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
               key={n}
               onClick={() => setStars(n)}
               aria-label={`${n} star${n > 1 ? 's' : ''}`}
-              className="text-4xl leading-none transition-transform hover:scale-110"
+              className="min-h-[44px] min-w-[44px] text-4xl leading-none transition-transform hover:scale-110"
             >
               {n <= stars ? '⭐' : '☆'}
             </button>
@@ -58,24 +59,24 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
         </div>
 
         <div className="mt-6">
-          <p className="text-center text-sm font-semibold text-brown mb-2">Would you meet again?</p>
+          <p className="text-center text-sm font-black text-brown mb-2">Would you meet again?</p>
           <div className="flex gap-3">
             <button
               onClick={() => setWouldMeetAgain(true)}
-              className={`flex-1 rounded-full py-2.5 text-sm font-semibold border transition-colors ${
+              className={`flex-1 min-h-[44px] rounded-full py-2.5 text-sm font-black border-2 transition-colors ${
                 wouldMeetAgain === true
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-cream border-border text-brown'
+                  ? 'bg-brown text-cream border-brown'
+                  : 'bg-cream border-brown text-brown'
               }`}
             >
               🐾 Definitely
             </button>
             <button
               onClick={() => setWouldMeetAgain(false)}
-              className={`flex-1 rounded-full py-2.5 text-sm font-semibold border transition-colors ${
+              className={`flex-1 min-h-[44px] rounded-full py-2.5 text-sm font-black border-2 transition-colors ${
                 wouldMeetAgain === false
-                  ? 'bg-brown text-white border-brown'
-                  : 'bg-cream border-border text-brown'
+                  ? 'bg-brown text-cream border-brown'
+                  : 'bg-cream border-brown text-brown'
               }`}
             >
               Not really
@@ -93,7 +94,7 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
         </button>
         <button
           onClick={onDismiss}
-          className="w-full mt-2 py-2 text-sm text-brown-light hover:text-brown transition-colors"
+          className="w-full mt-2 min-h-[44px] py-2 text-sm font-bold text-brown-mid hover:text-brown transition-colors"
         >
           Maybe later
         </button>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
-import { guardAiRequest } from '../../../../lib/aiGuard';
+import { claimAiBudget, guardAiRequest, refundUserSlot } from '../../../../lib/aiGuard';
 import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 import { computeMilestones, type Milestone } from '../../../../../shared/milestones';
@@ -311,6 +311,15 @@ export async function POST(request: Request) {
   const releaseLock = async () => {
     try { await stateRef.set({ lastReservedAtMs: 0 }, { merge: true }); } catch { /* best effort */ }
   };
+
+  // Last gate before the paid model call: the project-wide daily budget. Only a
+  // call that really reaches the model spends it (see lib/aiGuard.ts), so every
+  // validation, the dog lookup and the per-user lock/cap above come first.
+  const budgetDenied = await claimAiBudget();
+  if (budgetDenied) {
+    await refundUserSlot(stateRef);
+    return budgetDenied;
+  }
 
   // Sparse = almost nothing to ground on beyond the occasion itself. The letter
   // then stays SHORTER and honest rather than padding with invented colour.

@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { PawCoin } from './StickerBits';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { trackEvent } from '../lib/analytics';
 import {
@@ -55,6 +56,25 @@ function appleErrorMessage(code: string, inAppBrowserName: string | null): strin
   }
 }
 
+// One place for the three account-outcome events, so every sign-in path reports
+// the same way: sign_in_success for any success, plus sign_up for a brand-new
+// account or login for a returning one.
+function trackSignInOutcome(method: string, isNewUser: boolean) {
+  trackEvent('sign_in_success', { method });
+  trackEvent(isNewUser ? 'sign_up' : 'login', { method });
+}
+
+function GoogleLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+  );
+}
+
 function AppleLogo() {
   return (
     <svg width="17" height="20" viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true">
@@ -95,10 +115,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
   useEffect(() => {
     if (!APPLE_SIGN_IN_ENABLED) return;
     completeRedirectSignIn()
-      .then(async (method) => {
-        if (!method) return;
+      .then(async (result) => {
+        if (!result) return;
         await recordTermsAcceptance();
-        trackEvent('sign_in_success', { method: 'apple_redirect' });
+        trackSignInOutcome('apple_redirect', result.isNewUser);
         onSuccessRef.current?.();
       })
       .catch((err: unknown) => {
@@ -197,11 +217,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
 
       setError('');
       try {
-        await signInWithGoogleIdToken(response.credential);
+        const { isNewUser } = await signInWithGoogleIdToken(response.credential);
         await recordTermsAcceptance();
-        trackEvent('sign_in_success', {
-          method: 'google_one_tap',
-        });
+        trackSignInOutcome('google_one_tap', isNewUser);
         onSuccess?.();
         onClose();
       } catch {
@@ -299,11 +317,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
       method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
     });
     try {
-      await signInWithGoogle();
+      const { isNewUser } = await signInWithGoogle();
       await recordTermsAcceptance();
-      trackEvent('sign_in_success', {
-        method: oneTapReady ? 'google_popup_fallback' : 'google_popup',
-      });
+      trackSignInOutcome(oneTapReady ? 'google_popup_fallback' : 'google_popup', isNewUser);
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
@@ -336,9 +352,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
     try {
       // If popups are blocked this navigates to Apple and never resolves;
       // the redirect effect above finishes the sign-in on the way back.
-      await signInWithApple();
+      const { isNewUser } = await signInWithApple();
       await recordTermsAcceptance();
-      trackEvent('sign_in_success', { method: 'apple_popup' });
+      trackSignInOutcome('apple_popup', isNewUser);
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
@@ -361,7 +377,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
     /* Backdrop — click outside to dismiss */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(45,26,14,0.65)' }}
+      style={{ background: 'rgba(42,31,74,0.65)' }}
       onClick={onClose}
     >
       <div
@@ -371,7 +387,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         aria-labelledby="auth-modal-title"
         tabIndex={-1}
         onKeyDown={trapTab}
-        className="bg-cream w-full max-w-sm max-h-full overflow-y-auto rounded-3xl px-8 py-8 flex flex-col items-center gap-4 shadow-2xl animate-fade-in-up focus:outline-none"
+        className="bg-paper border-2 border-brown w-full max-w-sm max-h-full overflow-y-auto rounded-3xl px-8 py-8 flex flex-col items-center gap-4 shadow-2xl animate-fade-in-up focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
@@ -384,19 +400,19 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           <span aria-hidden="true">×</span>
         </button>
 
-        <span className="text-5xl -mt-2">🐾</span>
+        <span className="-mt-2"><PawCoin size={56} /></span>
 
         <div className="text-center">
           <h2 id="auth-modal-title" className="font-display text-2xl text-brown mb-1">GoDoggyDate</h2>
           <p className="text-brown-light text-sm leading-relaxed">
-            Find safe, compatible playmates<br />for your dog nearby.
+            Local dog playdates with compatible dogs, plus your dog&apos;s whole life in one place.
           </p>
         </div>
 
         {inApp && (
           <div
             role="note"
-            className="w-full rounded-2xl border-2 border-primary/40 bg-white px-4 py-3 text-left text-xs leading-relaxed text-brown-mid"
+            className="w-full rounded-2xl border-2 border-brown bg-note px-4 py-3 text-left text-xs leading-relaxed text-brown-mid"
           >
             <p className="font-semibold text-brown">
               Open this page in {externalBrowser} to sign in
@@ -410,7 +426,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               {chromeIntentUrl && (
                 <a
                   href={chromeIntentUrl}
-                  className="inline-flex min-h-[40px] items-center rounded-full bg-primary px-4 text-xs font-bold text-white"
+                  className="inline-flex min-h-[44px] items-center rounded-full border-2 border-brown bg-paper px-4 text-xs font-bold text-brown"
                 >
                   Open in Chrome
                 </a>
@@ -418,7 +434,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               <button
                 type="button"
                 onClick={copyPageLink}
-                className="inline-flex min-h-[40px] items-center rounded-full border border-border px-4 text-xs font-bold text-brown"
+                className="inline-flex min-h-[44px] items-center rounded-full border-2 border-brown bg-paper px-4 text-xs font-bold text-brown"
               >
                 {linkCopied ? 'Link copied ✓' : 'Copy link'}
               </button>
@@ -426,20 +442,55 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           </div>
         )}
 
-        <label className="w-full flex items-start gap-2.5 text-xs leading-relaxed text-brown-mid cursor-pointer">
+        {/* The whole row is the tap target (44px tall); the box itself is large
+            enough to see and hit on a phone. */}
+        <label className="w-full min-h-[44px] flex items-center gap-3 rounded-2xl border-2 border-brown bg-cream-dark px-3 py-2 text-xs leading-relaxed text-brown-mid cursor-pointer">
           <input
             type="checkbox"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+            className="h-6 w-6 shrink-0 accent-primary"
           />
           <span>
             I&apos;m 18 or older and agree to the{' '}
-            <Link href="/terms" target="_blank" className="font-semibold text-primary underline underline-offset-2">Terms</Link>
+            <Link href="/terms" target="_blank" className="font-semibold text-rose underline underline-offset-2">Terms</Link>
             {' '}and{' '}
-            <Link href="/privacy" target="_blank" className="font-semibold text-primary underline underline-offset-2">Privacy Policy</Link>.
+            <Link href="/privacy" target="_blank" className="font-semibold text-rose underline underline-offset-2">Privacy Policy</Link>.
           </span>
         </label>
+        <p className="-mt-2 text-xs text-brown-light">
+          <Link href="/terms#in-plain-english" target="_blank" className="font-semibold text-rose underline underline-offset-2">
+            Terms in plain English
+          </Link>
+        </p>
+
+        {!agreed && (
+          <div className="w-full flex flex-col items-center gap-2">
+            {/* Visible but locked until the 18+ box is ticked, so nobody wonders
+                where the sign-in button went. */}
+            <button
+              type="button"
+              disabled
+              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-border text-brown font-bold rounded-2xl px-6 py-4 text-base opacity-50 cursor-not-allowed"
+            >
+              <GoogleLogo />
+              Continue with Google
+            </button>
+            {APPLE_SIGN_IN_ENABLED && (
+              <button
+                type="button"
+                disabled
+                className="w-full flex items-center justify-center gap-2.5 bg-black text-white font-bold rounded-2xl px-6 py-4 text-base opacity-40 cursor-not-allowed"
+              >
+                <AppleLogo />
+                Continue with Apple
+              </button>
+            )}
+            <p className="text-xs font-semibold text-brown-mid">
+              Tick the box above to confirm you&apos;re 18+ and agree to continue.
+            </p>
+          </div>
+        )}
 
         {agreed && (
         <div className="w-full mt-1 flex flex-col items-center gap-3">
@@ -456,15 +507,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           ) : (
             <button
               onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-border text-brown font-bold rounded-2xl px-6 py-4 text-base hover:border-primary hover:text-primary transition-all shadow-sm"
+              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-border text-brown font-bold rounded-2xl px-6 py-4 text-base hover:border-primary hover:text-rose transition-all shadow-sm"
             >
-              {/* Official Google G */}
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
+              <GoogleLogo />
               Continue with Google
             </button>
           )}
@@ -492,6 +537,11 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         {(error || redirectError) && (
           <p role="alert" className="text-xs text-red-700 -mt-1">{error || redirectError}</p>
         )}
+
+        <ul className="w-full space-y-1.5 text-xs leading-relaxed text-brown-light">
+          <li>🔒 We use your Google or Apple account only to sign you in. We never post to your accounts.</li>
+          <li>📍 Your dog&apos;s location is never exact — other owners only see your general area.</li>
+        </ul>
 
         <p className="text-xs text-brown-light">Free to join · No subscription needed</p>
       </div>

@@ -13,7 +13,7 @@ import { requestLetter, pickLetterMilestone, type Letter, type LetterKind } from
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
-import { toDogSlug } from '../lib/dogSlug';
+import { publicDogUrl } from '../lib/dogSlug';
 import LetterCard from './LetterCard';
 
 interface Props {
@@ -68,7 +68,7 @@ export default function LetterSection({ savedProfile, userId }: Props) {
     trackEvent('letter_share_click', { kind: letter.kind });
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://godoggydate.com';
-      const publicUrl = `${origin}/d/${toDogSlug(dogName, userId)}`;
+      const publicUrl = publicDogUrl(origin, dogName, userId, savedProfile.publicPage);
       const result = await shareOrDownloadCard(
         cardRef.current,
         `${dogName.toLowerCase().replace(/\s+/g, '-')}-${letter.kind}-letter.png`,
@@ -89,9 +89,9 @@ export default function LetterSection({ savedProfile, userId }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="card p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
           {milestone.emoji} {milestone.isActive ? `It's ${dogName}'s ${kindLabel}` : `${dogName}'s ${kindLabel} is ${when}`}
         </p>
         <h2 className="font-display text-xl text-brown leading-tight">💌 The {kindLabel} Letter</h2>
@@ -106,14 +106,14 @@ export default function LetterSection({ savedProfile, userId }: Props) {
           type="button"
           onClick={handleGenerate}
           disabled={busy}
-          className="btn-primary w-full disabled:opacity-60"
+          className="btn-secondary w-full disabled:opacity-60"
         >
           {busy ? 'Writing the letter…' : `Write ${dogName}'s letter`}
         </button>
       )}
 
       {error && (
-        <p className="mt-2 text-[13px] text-primary font-semibold text-center">{error}</p>
+        <p className="mt-2 text-[13px] text-rose font-semibold text-center">{error}</p>
       )}
 
       {letter && (

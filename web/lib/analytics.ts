@@ -85,3 +85,32 @@ export function trackOncePerSession(
   trackEvent(eventName, params);
   return true;
 }
+
+const FIRST_TIME_PREFIX = 'godoggydate.analytics.first.';
+
+/**
+ * Fire an event only the FIRST time this browser sees this account do it
+ * ("first message sent", "first swipe", ...), so launch funnels can count
+ * activation without counting every repeat. Remembered in localStorage per
+ * account; if storage is blocked the event still fires, so the worst case is a
+ * repeat rather than a gap. Returns true when the event was sent now.
+ */
+export function trackFirstTime(
+  userId: string | null | undefined,
+  key: string,
+  eventName: string,
+  params: AnalyticsParams = {},
+): boolean {
+  if (typeof window === 'undefined' || !userId) return false;
+
+  try {
+    const storageKey = `${FIRST_TIME_PREFIX}${userId}.${key}`;
+    if (window.localStorage.getItem(storageKey) === '1') return false;
+    window.localStorage.setItem(storageKey, '1');
+  } catch {
+    // Storage blocked: fall through and track.
+  }
+
+  trackEvent(eventName, params);
+  return true;
+}

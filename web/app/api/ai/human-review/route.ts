@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '../../../../lib/firebaseAdmin';
-import { guardAiRequest } from '../../../../lib/aiGuard';
+import { claimAiBudget, guardAiRequest, refundUserSlot } from '../../../../lib/aiGuard';
 import { DOG_TOPIC_STEMS, DOG_TOPIC_WORDS, PERSON_TOPIC_STEMS, buildBannedTopicRegex } from '../../../../lib/bannedTopics';
 import { computeDogtype } from '../../../../../shared/dogtype';
 
@@ -262,6 +262,15 @@ export async function POST(request: Request) {
   const releaseLock = async () => {
     try { await lockRef.set({ lastReservedAtMs: 0 }, { merge: true }); } catch { /* best effort */ }
   };
+
+  // Last gate before the paid model call: the project-wide daily budget. Only a
+  // call that really reaches the model spends it (see lib/aiGuard.ts), so every
+  // validation, the dog lookup and the per-user lock/cap above come first.
+  const budgetDenied = await claimAiBudget();
+  if (budgetDenied) {
+    await refundUserSlot(lockRef);
+    return budgetDenied;
+  }
 
   const systemPrompt = `You write a satirical customer-review-site review (think Yelp / Google reviews) for GoDoggyDate. The twist: the REVIEWER is a dog and the ESTABLISHMENT being reviewed is that dog's human owner. It is openly a JOKE and clearly labelled as a playful AI read — never a real assessment of a person.
 Rules:

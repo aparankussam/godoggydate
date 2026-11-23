@@ -6,6 +6,7 @@
 import { useRouter } from 'next/navigation';
 import { setPendingPackDay } from '../lib/packDayPending';
 import { trackEvent } from '../lib/analytics';
+import { TreeIcon } from './PackDayFlyer';
 
 interface Props {
   eventId: string;
@@ -25,8 +26,9 @@ export default function PackDayJoinCta({ eventId, disabled, label }: Props) {
         setPendingPackDay(eventId);
         router.push(`/app/pack/${eventId}`);
       }}
-      className="btn-primary w-full py-3 shadow-lg disabled:opacity-60"
+      className="btn-primary flex min-h-[56px] w-full items-center justify-center gap-2.5 py-3 text-[26px] disabled:opacity-60"
     >
+      {!disabled && <TreeIcon size={24} />}
       {label}
     </button>
   );

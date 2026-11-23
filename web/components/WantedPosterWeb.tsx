@@ -123,9 +123,9 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
+    <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun</p>
+        <p className="text-xs font-bold text-brown">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">🤠 {dogName}&apos;s Wanted Poster</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Every &ldquo;crime&rdquo; is one of {dogName}&apos;s own real traits, reworded into frontier comedy. It&apos;s
@@ -241,7 +241,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
       </button>
 
       {showPicker && (
-        <div className="mt-3 rounded-2xl border border-border bg-white p-4">
+        <div className="mt-3 rounded-2xl border-2 border-brown bg-cream p-4">
           {profilePhotos.length > 1 && (
             <>
               <p className="text-xs font-bold text-brown mb-1.5">From {dogName}&apos;s photos</p>
@@ -256,7 +256,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
                       aria-label={`Use photo ${i + 1} as the mugshot`}
                       aria-pressed={selected}
                       className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
-                        selected ? 'border-primary ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
+                        selected ? 'border-brown ring-2 ring-primary/30' : 'border-border opacity-80 hover:opacity-100'
                       }`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -272,7 +272,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary hover:bg-primary/5 transition-colors motion-reduce:transition-none"
+              className="rounded-full border border-brown px-4 py-2 text-sm font-bold text-brown hover:bg-cream-dark transition-colors motion-reduce:transition-none"
             >
               🖼 Use a photo from your device
             </button>
@@ -280,7 +280,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
               <button
                 type="button"
                 onClick={() => { setMugshot(null); setMugshotError(null); }}
-                className="rounded-full px-3 py-2 text-sm font-semibold text-brown-light hover:text-brown transition-colors motion-reduce:transition-none"
+                className="rounded-full px-3 py-2 text-sm font-semibold text-brown-mid hover:text-brown transition-colors motion-reduce:transition-none"
               >
                 Back to the cover photo
               </button>
@@ -293,24 +293,24 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
             className="hidden"
             onChange={handleFile}
           />
-          <p className="mt-2 text-[11px] text-brown-light leading-snug">
+          <p className="mt-2 text-xs text-brown-mid leading-snug">
             A photo from your device stays on it, just for this poster. It isn&apos;t uploaded or saved to {dogName}&apos;s profile.
           </p>
         </div>
       )}
 
-      {mugshotError && <p className="mt-2 text-xs text-primary">{mugshotError}</p>}
+      {mugshotError && <p className="mt-2 text-xs text-brown">{mugshotError}</p>}
 
       <button
         type="button"
         onClick={handleShare}
         disabled={sharing}
-        className="btn-primary w-full mt-3 disabled:opacity-60"
+        className="btn-secondary w-full mt-3 disabled:opacity-60"
       >
         {sharing ? 'Preparing…' : `Share ${dogName}'s Wanted Poster`}
       </button>
 
-      <p className="mt-2 text-[11px] text-brown-light leading-snug text-center">
+      <p className="mt-2 text-xs text-brown-mid leading-snug text-center">
         The charges are your dog&apos;s real profile traits, played for laughs — the generic ones (soft ears, nap
         crimes) are obviously in on the joke.
       </p>

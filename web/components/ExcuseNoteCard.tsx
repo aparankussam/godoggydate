@@ -29,17 +29,17 @@ interface Props {
 // Aged-paper palette as inline hex (solid fills / solid gradient, no
 // backdrop-blur or oklch) so html2canvas captures it faithfully — same
 // rationale as WantedPosterWeb / DogtypeCard.
-const INK = '#2D1A0E';
-const INK_SOFT = '#6B4E2E';
-const PAPER = '#FBF3E4';
-const SEAL = '#C44E27';
+const INK = '#2A1F4A';
+const INK_SOFT = '#4A3F6E';
+const PAPER = '#FFF9EC';
+const SEAL = '#D63A6B';
 
 const ExcuseNoteCard = forwardRef<HTMLDivElement, Props>(function ExcuseNoteCard({ note }, ref) {
   return (
     <div
       ref={ref}
       className="relative w-[360px] min-h-[450px] overflow-hidden [overflow-wrap:anywhere]"
-      style={{ background: 'linear-gradient(155deg, #FBF3E4 0%, #F3E4C9 100%)' }}
+      style={{ background: 'linear-gradient(155deg, #FFF9EC 0%, #F3ECDC 100%)' }}
     >
       {/* Decorative formal double-border frame. It is in flow (not absolutely
           positioned) with a 4:5 minimum, so a long dog name or event makes the
@@ -52,7 +52,7 @@ const ExcuseNoteCard = forwardRef<HTMLDivElement, Props>(function ExcuseNoteCard
         {/* "Not a real note" ribbon — the unmistakable tell, kept in-frame */}
         <div
           className="self-center -mt-[1px] px-3 py-1"
-          style={{ backgroundColor: SEAL, color: '#fff' }}
+          style={{ backgroundColor: '#FF5C8D', color: INK }}
         >
           <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-center leading-none">
             🐾 Not a real doctor&apos;s note 🐾
@@ -115,16 +115,18 @@ const ExcuseNoteCard = forwardRef<HTMLDivElement, Props>(function ExcuseNoteCard
             <div
               className="flex flex-col items-center justify-center rounded-full shrink-0"
               style={{
-                width: 62,
-                height: 62,
+                width: 66,
+                height: 66,
                 border: `2px solid ${SEAL}`,
                 color: SEAL,
                 transform: 'rotate(-11deg)',
               }}
               aria-hidden="true"
             >
-              <span style={{ fontSize: 22, lineHeight: 1 }}>🐾</span>
-              <span className="text-[6px] font-bold uppercase tracking-[0.14em] mt-0.5 text-center leading-tight">
+              {/* The paw glyph used to sit on top of the first line of text;
+                  smaller, with clear space below it, keeps the stamp readable. */}
+              <span style={{ fontSize: 17, lineHeight: 1, marginBottom: 4 }}>🐾</span>
+              <span className="text-[6px] font-bold uppercase tracking-[0.14em] text-center leading-tight">
                 Certified
                 <br />
                 Good Dog

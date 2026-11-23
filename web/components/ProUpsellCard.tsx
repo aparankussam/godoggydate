@@ -79,9 +79,9 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   // ── Founding Member: grandfathered Pro for life ──────────────────────────
   if (isPro && (isFounding || source === 'founding')) {
     return (
-      <section className="card rounded-[1.8rem] border border-gold/40 bg-gold/10 px-5 py-4">
+      <section className="card rounded-[1.8rem] bg-note px-5 py-4">
         <p className="text-sm font-bold text-brown">⭐ Founding Member — Pro for life</p>
-        <p className="mt-1 text-xs leading-relaxed text-brown-light">
+        <p className="mt-1 text-xs leading-relaxed text-brown-mid">
           You were here first, so Pro is yours forever — everything we add to Pro, at no extra cost.
           Thank you for backing this early.
         </p>
@@ -92,12 +92,12 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   // ── Active subscriber: manage plan ───────────────────────────────────────
   if (isPro && source === 'subscription') {
     return (
-      <section className="card rounded-[1.8rem] border border-primary/30 bg-primary/5 px-5 py-4">
+      <section className="card rounded-[1.8rem] bg-note px-5 py-4">
         <p className="text-sm font-bold text-brown">🐾 goDoggyDate Pro — active</p>
-        <p className="mt-1 text-xs leading-relaxed text-brown-light">
+        <p className="mt-1 text-xs leading-relaxed text-brown-mid">
           Thanks for going Pro. You get first access to everything we add to Pro, as it ships.
         </p>
-        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        {error && <p className="mt-2 text-xs text-brown">{error}</p>}
         <button
           type="button"
           onClick={handleManage}
@@ -114,9 +114,9 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   const savings = proAnnualSavingsPercent();
 
   return (
-    <section className="card rounded-[1.8rem] border border-primary/30 overflow-hidden">
-      <div className="bg-gradient-to-br from-primary/10 to-gold/10 px-5 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">goDoggyDate Pro</p>
+    <section className="card rounded-[1.8rem] overflow-hidden">
+      <div className="bg-cream px-5 py-4">
+        <p className="text-xs font-bold text-brown">goDoggyDate Pro</p>
         <h2 className="font-display text-xl text-brown leading-tight">Your dog’s whole life, in one place</h2>
       </div>
 
@@ -129,12 +129,12 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-[11px] leading-relaxed text-brown-light">{COMING_BENEFITS}</p>
+        <p className="mt-2 text-xs leading-relaxed text-brown-mid">{COMING_BENEFITS}</p>
 
         {!configured ? (
           <div className="mt-4 rounded-xl bg-cream-dark px-4 py-3 text-center">
             <p className="text-sm font-bold text-brown">Coming soon 🐾</p>
-            <p className="mt-0.5 text-xs text-brown-light">
+            <p className="mt-0.5 text-xs text-brown-mid">
               Pro is almost ready. Keep enjoying Dogtype, life stage, milestones, and the Playroom — all free.
             </p>
           </div>
@@ -146,17 +146,17 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
                 type="button"
                 onClick={() => setTier('monthly')}
                 className={`rounded-xl border-2 px-3 py-2.5 text-center transition-colors ${
-                  tier === 'monthly' ? 'border-primary bg-primary/10' : 'border-border bg-white'
+                  tier === 'monthly' ? 'border-brown bg-note' : 'border-border bg-cream'
                 }`}
               >
                 <p className="text-sm font-bold text-brown">{proMonthlyLabel()}</p>
-                <p className="text-[10px] text-brown-light">billed monthly</p>
+                <p className="text-xs text-brown-mid">billed monthly</p>
               </button>
               <button
                 type="button"
                 onClick={() => setTier('annual')}
                 className={`relative rounded-xl border-2 px-3 py-2.5 text-center transition-colors ${
-                  tier === 'annual' ? 'border-primary bg-primary/10' : 'border-border bg-white'
+                  tier === 'annual' ? 'border-brown bg-note' : 'border-border bg-cream'
                 }`}
               >
                 {savings > 0 && (
@@ -165,11 +165,11 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
                   </span>
                 )}
                 <p className="text-sm font-bold text-brown">{proAnnualLabel()}</p>
-                <p className="text-[10px] text-brown-light">{proAnnualPerMonthLabel()}</p>
+                <p className="text-xs text-brown-mid">{proAnnualPerMonthLabel()}</p>
               </button>
             </div>
 
-            {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+            {error && <p className="mt-2 text-xs text-brown">{error}</p>}
 
             <button
               type="button"
@@ -183,7 +183,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
                 customers who never subscribed (checkout route: !existingCustomerId),
                 so a returning/churned member is billed immediately. Stripe
                 Checkout shows each user their true terms before they pay. */}
-            <p className="mt-2 text-center text-[11px] text-brown-light">
+            <p className="mt-2 text-center text-xs text-brown-mid">
               {PRO_TRIAL_DAYS > 0 ? `New members get ${PRO_TRIAL_DAYS} days free, then ` : ''}
               {tier === 'annual' ? proAnnualLabel() : proMonthlyLabel()}. Cancel anytime.
             </p>

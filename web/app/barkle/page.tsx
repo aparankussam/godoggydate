@@ -8,6 +8,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import BarkleGame from '../../components/BarkleGame';
+import SiteFooter from '../../components/SiteFooter';
+import { PawCoin } from '../../components/StickerBits';
 
 export const dynamic = 'force-static';
 
@@ -26,20 +28,20 @@ export function generateMetadata(): Metadata {
 
 export default function BarklePage() {
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-cream/90 backdrop-blur-md border-b border-border">
+      <nav className="sticky top-0 z-50 bg-sky/95 backdrop-blur-md border-b-2 border-brown">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="inline-flex min-h-[44px] items-center font-display text-xl sm:text-2xl text-brown whitespace-nowrap">🐾 GoDoggyDate</Link>
-          <Link href="/app" className="btn-secondary text-sm whitespace-nowrap px-4 sm:px-6">Open the app</Link>
+          <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-xl sm:text-2xl text-brown whitespace-nowrap"><PawCoin size={30} /> GoDoggyDate</Link>
+          <Link href="/app" className="btn-secondary inline-flex min-h-[44px] items-center text-sm whitespace-nowrap px-4 py-2 sm:px-6">Sign up free</Link>
         </div>
       </nav>
 
       {/* Header */}
       <section className="max-w-2xl mx-auto px-6 pt-10 pb-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-brown-light">The daily dog game</p>
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-brown">The daily dog game</p>
         <h1 className="mt-2 font-display text-4xl sm:text-5xl text-brown leading-tight">Barkle</h1>
-        <p className="mt-3 text-brown-mid">
+        <p className="mt-3 font-semibold text-brown">
           Guess today&apos;s mystery breed in six tries. A fresh clue after every miss — no account, no spoilers.
         </p>
       </section>
@@ -49,13 +51,7 @@ export default function BarklePage() {
         <BarkleGame />
       </section>
 
-      <footer className="border-t border-border py-8">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-sm text-brown-light">
-            © {new Date().getFullYear()} GoDoggyDate · One breed a day, the same for everyone. Just for fun.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter note="One breed a day, the same for everyone. Just for fun." />
     </main>
   );
 }

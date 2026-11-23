@@ -106,7 +106,7 @@ function UnlockForm({ matchId, dogName, onCheckAgain }: ChatUnlockPanelProps) {
         </p>
         <button
           onClick={onCheckAgain}
-          className="mt-3 text-xs font-semibold text-primary underline underline-offset-2"
+          className="mt-3 text-xs font-semibold text-rose underline underline-offset-2"
         >
           Check again
         </button>
@@ -121,7 +121,7 @@ function UnlockForm({ matchId, dogName, onCheckAgain }: ChatUnlockPanelProps) {
       <button
         onClick={handleSubmit}
         disabled={!stripe || submitting}
-        className="w-full py-3 rounded-2xl bg-primary text-white font-bold text-sm shadow-md hover:scale-[1.02] transition-transform disabled:opacity-50 disabled:scale-100"
+        className="btn-primary w-full min-h-[48px] py-3 text-lg disabled:opacity-50"
       >
         {submitting ? 'Processing…' : `Unlock chat — ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)}`}
       </button>
@@ -174,7 +174,7 @@ export default function ChatUnlockPanel({ matchId, dogName, onCheckAgain }: Chat
         <p role="alert" className="text-xs text-red-600">{error}</p>
         <button
           onClick={() => setAttempt((n) => n + 1)}
-          className="mt-2 text-xs font-semibold text-primary underline underline-offset-2"
+          className="mt-2 text-xs font-semibold text-rose underline underline-offset-2"
         >
           Try again
         </button>

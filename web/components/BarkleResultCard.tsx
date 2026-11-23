@@ -16,9 +16,8 @@ interface Props {
   won: boolean;
 }
 
-// Same colours as the iPhone card (and the on-page reveal), top-left → bottom-right.
-const WON_GRADIENT = 'linear-gradient(135deg, #7A2E0E 0%, #E8633A 50%, #F5B731 100%)';
-const LOST_GRADIENT = 'linear-gradient(135deg, #241A2E 0%, #5C3D2E 50%, #9B7560 100%)';
+// Sticker Book look: a paper card with an ink outline. Solid colours only, so
+// html2canvas captures it exactly.
 
 const BarkleResultCard = forwardRef<HTMLDivElement, Props>(function BarkleResultCard(
   { puzzleNumber, results, won },
@@ -30,14 +29,14 @@ const BarkleResultCard = forwardRef<HTMLDivElement, Props>(function BarkleResult
   return (
     <div
       ref={ref}
-      className="relative w-[320px] rounded-[28px] overflow-hidden text-white"
-      style={{ background: won ? WON_GRADIENT : LOST_GRADIENT }}
+      className="relative w-[320px] rounded-[28px] overflow-hidden text-[#2A1F4A]"
+      style={{ background: '#FFF9EC', border: '2.5px solid #2A1F4A' }}
     >
       <div className="flex flex-col items-center px-6 py-[30px]">
-        <p className="text-[11px] font-bold uppercase tracking-[0.27em] text-white/80">The daily dog game</p>
-        <p className="mt-1.5 font-display text-[30px] leading-tight text-center">🐾 Barkle #{puzzleNumber}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.27em]" style={{ color: '#B8214F' }}>The daily dog game</p>
+        <p className="mt-1.5 font-display text-[30px] leading-tight text-center">Barkle #{puzzleNumber}</p>
 
-        <div className="mt-4 rounded-full px-[18px] py-2" style={{ backgroundColor: 'rgba(0,0,0,0.22)' }}>
+        <div className="mt-4 rounded-full px-[18px] py-2" style={{ backgroundColor: won ? '#6FDB9C' : '#F3ECDC', border: '2px solid #2A1F4A' }}>
           <p className="text-sm font-bold tracking-wide">
             {won ? `Solved in ${score}` : `Out of guesses · ${score}`}
           </p>
@@ -59,14 +58,14 @@ const BarkleResultCard = forwardRef<HTMLDivElement, Props>(function BarkleResult
           {grid}
         </p>
 
-        <p className="mt-[18px] text-[13px] text-white/85 text-center">Guess the mystery breed in six tries.</p>
+        <p className="mt-[18px] text-[13px] font-semibold text-center" style={{ color: '#4A3F6E' }}>Guess the mystery breed in six tries.</p>
 
         <div
-          className="mt-[22px] self-stretch flex items-center justify-between pt-3"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.25)' }}
+          className="mt-[22px] -mx-6 -mb-[30px] self-stretch flex items-center justify-between px-6 py-3"
+          style={{ backgroundColor: '#2A1F4A', color: '#FFF9EC' }}
         >
           <p className="font-display text-[15px]">GoDoggyDate</p>
-          <p className="text-[11px] text-white/80">godoggydate.com/barkle</p>
+          <p className="text-[11px] font-bold">godoggydate.com/barkle</p>
         </div>
       </div>
     </div>

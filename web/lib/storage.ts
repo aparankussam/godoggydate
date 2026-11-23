@@ -6,8 +6,11 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirebase } from '../shared/utils/firebase';
 
-const MAX_PHOTO_EDGE_PX = 2000;
-const PHOTO_JPEG_QUALITY = 0.88;
+// Stored photos were averaging about 640 KB each, and every swipe card, match list
+// and public dog page downloads them. 1400 px on the long edge at JPEG quality
+// 0.82 keeps them sharp on a phone-sized card at a fraction of the bytes.
+const MAX_PHOTO_EDGE_PX = 1400;
+const PHOTO_JPEG_QUALITY = 0.82;
 
 /**
  * Redraw the image to a fresh JPEG, which drops all metadata. Phone photos carry

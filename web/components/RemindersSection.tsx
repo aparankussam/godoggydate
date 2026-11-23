@@ -106,12 +106,12 @@ export default function RemindersSection({ dogId, reminders }: Props) {
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div>
           <p className="text-sm font-bold text-brown">Reminders</p>
-          <p className="text-xs text-brown-light">The dates nobody holds in their head</p>
+          <p className="text-xs text-brown-mid">The dates nobody holds in their head</p>
         </div>
         <button
           type="button"
           onClick={() => setShowAdd((v) => !v)}
-          className="-my-3 -mr-2 px-2 py-3 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+          className="-my-3 -mr-2 px-2 py-3 text-xs font-bold text-brown hover:text-brown/80 transition-colors"
         >
           {showAdd ? 'Cancel' : '+ Add'}
         </button>
@@ -122,7 +122,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           <select
             value={presetType}
             onChange={(e) => setPresetType(e.target.value as ReminderType)}
-            className="rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown"
+            className="rounded-xl border-2 border-brown bg-cream px-3 py-2 text-sm text-brown"
           >
             {REMINDER_PRESETS.map((p) => (
               <option key={p.type} value={p.type}>{p.label}</option>
@@ -135,7 +135,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
               onChange={(e) => setCustomLabel(e.target.value)}
               placeholder="e.g. Refill anxiety meds"
               maxLength={80}
-              className="rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown"
+              className="rounded-xl border-2 border-brown bg-cream px-3 py-2 text-sm text-brown"
             />
           )}
           <div className="flex items-center gap-2">
@@ -143,21 +143,21 @@ export default function RemindersSection({ dogId, reminders }: Props) {
               type="date"
               value={dueDateInput}
               onChange={(e) => setDueDateInput(e.target.value)}
-              className="rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown flex-1"
+              className="rounded-xl border-2 border-brown bg-cream px-3 py-2 text-sm text-brown flex-1"
             />
             {preset.recurrenceDays && (
-              <label className="flex items-center gap-1.5 text-xs text-brown-light whitespace-nowrap">
+              <label className="flex items-center gap-1.5 text-xs text-brown-mid whitespace-nowrap">
                 <input type="checkbox" checked={repeats} onChange={(e) => setRepeats(e.target.checked)} />
                 Repeats
               </label>
             )}
           </div>
-          <p className="text-[11px] text-brown-light">{preset.helpText}</p>
+          <p className="text-xs text-brown-mid">{preset.helpText}</p>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <button
             type="submit"
             disabled={saving}
-            className="btn-primary py-2 text-sm disabled:opacity-50"
+            className="btn-secondary py-2 text-sm disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Add reminder'}
           </button>
@@ -166,7 +166,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
 
       {sorted.length === 0 && !showAdd && (
         <div className="px-4 py-6 text-center">
-          <p className="text-sm text-brown-light">Nothing due yet — add your first reminder.</p>
+          <p className="text-sm text-brown-mid">Nothing due yet — add your first reminder.</p>
         </div>
       )}
 
@@ -198,7 +198,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-brown truncate">{r.label}</p>
-                  <p className={`text-xs ${due.urgent ? 'text-red-600 font-semibold' : 'text-brown-light'}`}>
+                  <p className={`text-xs ${due.urgent ? 'text-brown font-semibold' : 'text-brown-mid'}`}>
                     {due.text}{r.recurrenceDays ? ' · repeats' : ''}
                     {hasStreak && (
                       <span className="ml-1.5 font-bold text-amber-600">
@@ -212,7 +212,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
                     type="button"
                     onClick={() => handleComplete(r)}
                     disabled={busy}
-                    className="rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-bold text-green-700 disabled:opacity-50"
+                    className="min-h-[40px] rounded-full bg-cream border-2 border-brown px-3 py-1.5 text-xs font-bold text-brown disabled:opacity-50"
                   >
                     Done
                   </button>
@@ -221,7 +221,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
                     onClick={() => handleDelete(r)}
                     disabled={busy}
                     aria-label="Delete reminder"
-                    className="text-brown-light hover:text-red-600 transition-colors disabled:opacity-50 px-1"
+                    className="flex h-10 w-10 items-center justify-center text-xl text-brown-mid hover:text-brown transition-colors disabled:opacity-50"
                   >
                     ×
                   </button>

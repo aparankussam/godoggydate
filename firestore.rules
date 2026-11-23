@@ -10,6 +10,115 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // A real account: signed in with Google or Apple, as opposed to an
+    // anonymous guest (the iPhone app's guest mode) or any other provider.
+    // Creating a dog profile needs one, so a throwaway anonymous account can't
+    // fill the database with hollow dogs or take a free Founding spot. A guest
+    // who links Google or Apple gets a new token whose sign_in_provider is the
+    // linked provider, and can then create the profile.
+    function isRealAccount() {
+      return isSignedIn()
+          && request.auth.token.firebase.sign_in_provider in ['google.com', 'apple.com'];
+    }
+
+    // ── Shape helpers ─────────────────────────────────────────────────────────
+    // Rules can't loop, so list contents are bounded with size() and join(), or
+    // checked by index for the short lists. null passes everything: the apps
+    // write null to clear a field ({ merge: true } saves) and a legacy doc may
+    // simply lack it. These limits sit above the apps' own (PROFILE_TEXT_LIMITS
+    // in shared/profileInput.ts) so no real profile is refused; they exist so a
+    // modified client can't store a 900 KB name or a thousand photo URLs on a
+    // document every signed-in user reads.
+    function okStr(v, max) {
+      return v == null || (v is string && v.size() <= max);
+    }
+
+    function okNum(v) {
+      return v == null || v is number;
+    }
+
+    function okBool(v) {
+      return v == null || v is bool;
+    }
+
+    // At most maxItems entries and maxChars characters in all.
+    function okStrList(v, maxItems, maxChars) {
+      return v == null
+          || (v is list && v.size() <= maxItems && v.join('').size() <= maxChars);
+    }
+
+    // Entry i of a list is a string of at most max characters (or there is no entry i).
+    function okStrAt(v, i, max) {
+      return v.size() <= i || (v[i] is string && v[i].size() <= max);
+    }
+
+    // photos: up to 6 entries (MAX_PHOTOS in the profile form), each a string
+    // of at most 1000 characters. A real Storage download URL is ~300.
+    function okPhotos(v) {
+      return v == null
+          || (v is list && v.size() <= 6
+              && okStrAt(v, 0, 1000) && okStrAt(v, 1, 1000) && okStrAt(v, 2, 1000)
+              && okStrAt(v, 3, 1000) && okStrAt(v, 4, 1000) && okStrAt(v, 5, 1000));
+    }
+
+    // prompts: up to 6 { prompt, answer } maps; answers are capped at 300 in
+    // both apps (PROFILE_TEXT_LIMITS.promptAnswer).
+    function okPromptAt(v, i) {
+      return v.size() <= i
+          || (v[i] is map && okStr(v[i].get('prompt', null), 200) && okStr(v[i].get('answer', null), 300));
+    }
+
+    function okPrompts(v) {
+      return v == null
+          || (v is list && v.size() <= 6
+              && okPromptAt(v, 0) && okPromptAt(v, 1) && okPromptAt(v, 2)
+              && okPromptAt(v, 3) && okPromptAt(v, 4) && okPromptAt(v, 5));
+    }
+
+    // The owner-writable fields of a dog document. Not a whitelist on purpose:
+    // new fields ship with the apps (publicPage was the last), and a whitelist
+    // here would silently refuse every profile save until the rules caught up.
+    // Fields that aren't listed are limited only by the key count and by the
+    // 1 MiB document cap.
+    function validDogShape(d) {
+      return d.keys().size() <= 60
+          && okStr(d.get('name', null), 60)
+          && okStr(d.get('breed', null), 80)
+          && okStr(d.get('bio', null), 1000)
+          && okStr(d.get('healthNotes', null), 1000)
+          && okStr(d.get('city', null), 80)
+          && okStr(d.get('state', null), 40)
+          && okStr(d.get('location', null), 160)
+          && okStr(d.get('age', null), 20)
+          && okStr(d.get('sex', null), 20)
+          && okStr(d.get('size', null), 20)
+          && okStr(d.get('ownerId', null), 128)
+          && okStr(d.get('rabiesExpiry', null), 32)
+          && okStr(d.get('adoptionDate', null), 32)
+          && okStr(d.get('bestFriendMatchId', null), 200)
+          && okNum(d.get('energyLevel', null))
+          && okNum(d.get('lat', null))
+          && okNum(d.get('lng', null))
+          && okNum(d.get('birthYear', null))
+          && okNum(d.get('birthMonth', null))
+          && okNum(d.get('birthDay', null))
+          && okNum(d.get('coverPhotoIndex', null))
+          && okNum(d.get('coverFocusX', null))
+          && okNum(d.get('coverFocusY', null))
+          && okBool(d.get('vaccinated', null))
+          && okBool(d.get('publicPage', null))
+          && okPhotos(d.get('photos', null))
+          && okPrompts(d.get('prompts', null))
+          && okStrList(d.get('temperament', null), 12, 720)
+          && okStrList(d.get('playStyles', null), 12, 720)
+          && okStrList(d.get('notGoodWith', null), 12, 720)
+          && okStrList(d.get('behaviorFlags', null), 12, 720)
+          && okStrList(d.get('goodWith', null), 12, 720)
+          && okStrList(d.get('boundaries', null), 12, 720)
+          && okStrList(d.get('allergies', null), 12, 720)
+          && okStrList(d.get('specialNeeds', null), 12, 720);
+    }
+
     function isPartyToMatch(matchData) {
       return isSignedIn()
           && (
@@ -67,10 +176,35 @@ service cloud.firestore {
           || exists(/databases/$(database)/documents/blocks/$(uidB)/blocked/$(uidA));
     }
 
+    // users/{uid} holds the terms acceptance (termsAcceptedAt, termsVersion,
+    // ageConfirmed18). Capped by key count and the known strings; see validDogShape
+    // for why it isn't a whitelist.
+    function validUserDocShape(d) {
+      return d.keys().size() <= 30
+          && okStr(d.get('termsVersion', null), 40)
+          && okBool(d.get('ageConfirmed18', null));
+    }
+
+    // The owner's own private documents. dogProfile carries the real location
+    // (ZIP, city, state, coordinates); push carries the device tokens.
+    function validPrivateDocShape(docId, d) {
+      return d.keys().size() <= 40
+          && (docId != 'dogProfile'
+              || (okStr(d.get('zip', null), 10)
+                  && okStr(d.get('city', null), 80)
+                  && okStr(d.get('state', null), 40)
+                  && okStr(d.get('location', null), 160)
+                  && okNum(d.get('lat', null))
+                  && okNum(d.get('lng', null))))
+          && (docId != 'push'
+              || (okStrList(d.get('expoPushTokens', null), 50, 15000)
+                  && okStrList(d.get('fcmWebTokens', null), 50, 15000)));
+    }
+
     match /users/{userId} {
       allow read:   if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow create: if isOwner(userId) && validUserDocShape(request.resource.data);
+      allow update: if isOwner(userId) && validUserDocShape(request.resource.data);
       allow delete: if false;
 
       // Subscription status + swipe counters live here.
@@ -78,12 +212,15 @@ service cloud.firestore {
       // except 'entitlements', which only the server (webhook) may write.
       match /private/{docId} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId) && docId != 'entitlements';
+        allow create, update: if isOwner(userId)
+                              && docId != 'entitlements'
+                              && validPrivateDocShape(docId, request.resource.data);
+        allow delete: if isOwner(userId) && docId != 'entitlements';
       }
     }
 
     // Fields only the server (Admin SDK, which bypasses these rules
-    // entirely) may write: onDogProfileCreated assigns foundingPackNumber,
+    // entirely) may write: onDogProfileFounding assigns foundingPackNumber,
     // onRatingCreated writes trustScore/ratingCount/meetAgainRate, and the
     // Vibe Check API route writes ai. A client update() only touches the
     // keys it lists, so request.resource.data holds the previous value for
@@ -131,12 +268,17 @@ service cloud.firestore {
 
     match /dogs/{dogId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn()
+      // Creating the profile needs a Google or Apple account (isRealAccount):
+      // anonymous guests can browse but not make a profile. A Founding number
+      // is also only awarded to a finished profile (onDogProfileFounding).
+      allow create: if isRealAccount()
                     && request.auth.uid == dogId
-                    && hasNoServerOnlyDogFields();
+                    && hasNoServerOnlyDogFields()
+                    && validDogShape(request.resource.data);
       allow update: if isSignedIn()
                     && request.auth.uid == dogId
-                    && preservesServerOnlyDogFields();
+                    && preservesServerOnlyDogFields()
+                    && validDogShape(request.resource.data);
       allow delete: if isSignedIn()
                     && request.auth.uid == dogId;
 
@@ -148,8 +290,15 @@ service cloud.firestore {
       // server-computed, so no field guard is needed the way the parent doc
       // needs one for trustScore/ai/foundingPackNumber.
       match /reminders/{reminderId} {
-        allow read, write: if isSignedIn()
+        allow read, delete: if isSignedIn()
           && (request.auth.uid == dogId || isHouseholdMember(dogId));
+        allow create, update: if isSignedIn()
+          && (request.auth.uid == dogId || isHouseholdMember(dogId))
+          && request.resource.data.keys().size() <= 15
+          && okStr(request.resource.data.get('label', null), 200)
+          && okStr(request.resource.data.get('type', null), 40)
+          && okNum(request.resource.data.get('recurrenceDays', null))
+          && okNum(request.resource.data.get('currentStreak', null));
       }
 
       // Pet Twin "moments" — the AI-imagined daily cards, GROUNDED in a real
@@ -189,9 +338,14 @@ service cloud.firestore {
                      && resource.data.action == 'like');
       allow list: if isOwner(userId);
 
+      // Exactly what both apps write (web: action, timestamp, targetUserId;
+      // iPhone adds targetDogId). The ids are Firestore document ids.
       allow create, update: if isSignedIn()
                             && request.auth.uid == userId
+                            && request.resource.data.keys().hasOnly(['action', 'timestamp', 'targetUserId', 'targetDogId'])
                             && request.resource.data.targetUserId is string
+                            && request.resource.data.targetUserId.size() <= 128
+                            && okStr(request.resource.data.get('targetDogId', null), 128)
                             && request.resource.data.action in ['like', 'pass'];
 
       allow delete: if false;
@@ -200,6 +354,7 @@ service cloud.firestore {
     match /blocks/{userId}/blocked/{targetId} {
       allow read:   if isOwner(userId);
       allow create: if isOwner(userId)
+                    && request.resource.data.keys().hasOnly(['targetUserId', 'createdAt'])
                     && request.resource.data.targetUserId == targetId;
       allow update: if false;
       allow delete: if isOwner(userId);
@@ -275,6 +430,8 @@ service cloud.firestore {
                          ])
                       && request.resource.data.text is string
                       && request.resource.data.text.size() <= 1000
+                      && okStr(request.resource.data.get('senderId', null), 128)
+                      && okBool(request.resource.data.get('read', null))
                       && (!('type' in request.resource.data)
                           || request.resource.data.type in ['playdate_proposal', 'playdate_confirmed'])
                       && (!('playdate' in request.resource.data)
@@ -347,7 +504,10 @@ service cloud.firestore {
                     && request.resource.data.stars is int
                     && request.resource.data.stars >= 1
                     && request.resource.data.stars <= 5
-                    && request.resource.data.wouldMeetAgain is bool;
+                    && request.resource.data.wouldMeetAgain is bool
+                    && request.resource.data.matchId is string
+                    && request.resource.data.matchId.size() <= 128
+                    && request.resource.data.keys().size() <= 10;
 
       allow update: if false;
       allow delete: if false;
@@ -391,9 +551,25 @@ service cloud.firestore {
       allow read, create, update, delete: if false;
     }
 
+    // A report is read only by the server (onReportCreated copies the evidence and
+    // alerts ops), so the caps are about cost and abuse, not display. The
+    // free-text fields listed are the ones a report form could carry.
     match /reports/{reportId} {
       allow create: if isSignedIn()
-                    && request.resource.data.reporterId == request.auth.uid;
+                    && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.targetUserId is string
+                    && request.resource.data.targetUserId.size() <= 128
+                    && request.resource.data.reason is string
+                    && request.resource.data.reason.size() <= 100
+                    && request.resource.data.keys().size() <= 12
+                    && okStr(request.resource.data.get('source', null), 60)
+                    && okStr(request.resource.data.get('matchId', null), 128)
+                    && okStr(request.resource.data.get('eventId', null), 128)
+                    && okStr(request.resource.data.get('text', null), 1000)
+                    && okStr(request.resource.data.get('details', null), 1000)
+                    && okStr(request.resource.data.get('note', null), 1000)
+                    && okStr(request.resource.data.get('comment', null), 1000)
+                    && okStr(request.resource.data.get('message', null), 1000);
       allow read:   if false;
       allow update: if false;
       allow delete: if false;
