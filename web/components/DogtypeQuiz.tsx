@@ -6,8 +6,9 @@
 //
 // HONESTY RULES (same as everywhere else Dogtype appears):
 //  - Fully deterministic: 8 fixed questions, 2 per axis, each answer maps to
-//    one pole letter from shared/dogtype. Ties on an axis are broken by the
-//    FIRST answer given for that axis — no randomness, no rerolls.
+//    one pole letter from shared/dogtype. If an axis's two answers disagree,
+//    one extra question for that axis settles it (shared/dogtypeQuiz.ts) — no
+//    randomness, no rerolls.
 //  - The result is framed as a playful read from the owner's own answers,
 //    never a score, a diagnosis, or a psychometric instrument.
 //  - Works at N=0 users: no AI, no Firestore, no network calls. The optional
@@ -17,7 +18,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { dogtypeByCode, type Dogtype, type DogtypeAxisKey } from '../../shared/dogtype';
+import { dogtypeByCode, type Dogtype } from '../../shared/dogtype';
+import { computeQuizCode, quizQuestionsFor } from '../../shared/dogtypeQuiz';
 import DogtypeReveal from './DogtypeReveal';
 import DogtypeResultCard from './DogtypeResultCard';
 import { Chevron, ShareIcon, StickerDog } from './StickerBits';
@@ -25,91 +27,9 @@ import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
 import { absoluteUrl } from '../lib/site';
 
-// ── Questions ────────────────────────────────────────────────────────────────
-// 2 questions per axis in a fixed, playful order. Letters come straight from
-// shared/dogtype's poles: Energy E/Z · Play R/G · Social O/S · Spirit B/M.
+// ── Questions ────────────────────────────────────────
+// The 8 questions, the tie-breakers and the scoring live in shared/dogtypeQuiz.ts.
 // "{name}" is replaced with the dog's name (or "your dog") at render time.
-
-interface QuizAnswer {
-  letter: string;
-  emoji: string;
-  line: string;
-}
-
-interface QuizQuestion {
-  axis: DogtypeAxisKey;
-  prompt: string;
-  answers: [QuizAnswer, QuizAnswer];
-}
-
-const QUESTIONS: QuizQuestion[] = [
-  {
-    axis: 'energy',
-    prompt: "It's 7 a.m. on a Saturday. Where's {name}?",
-    answers: [
-      { letter: 'E', emoji: '⚡', line: 'Standing on your chest, ready for adventure' },
-      { letter: 'Z', emoji: '😴', line: 'A warm lump under the blankets — do not disturb' },
-    ],
-  },
-  {
-    axis: 'play',
-    prompt: 'A brand-new squeaky toy enters the house…',
-    answers: [
-      { letter: 'R', emoji: '🤼', line: 'Shaken, wrestled, gloriously de-stuffed by dinner' },
-      { letter: 'G', emoji: '🌸', line: 'Carried around gently like precious treasure' },
-    ],
-  },
-  {
-    axis: 'social',
-    prompt: 'A dog {name} has never met appears at the park…',
-    answers: [
-      { letter: 'O', emoji: '🎉', line: 'Instant best friend — no questions asked' },
-      { letter: 'S', emoji: '🛡️', line: 'Hmm. New friends may apply for approval first' },
-    ],
-  },
-  {
-    axis: 'spirit',
-    prompt: 'A big, weird, unfamiliar object shows up on your walk.',
-    answers: [
-      { letter: 'B', emoji: '🚀', line: 'Marches straight up to investigate it' },
-      { letter: 'M', emoji: '☁️', line: 'Peeks at it from safely behind your legs' },
-    ],
-  },
-  {
-    axis: 'energy',
-    prompt: 'How does a game of fetch usually end?',
-    answers: [
-      { letter: 'E', emoji: '🎾', line: "It doesn't — your throwing arm gives out first" },
-      { letter: 'Z', emoji: '🧘', line: 'One dignified retrieve, then a nice lie-down' },
-    ],
-  },
-  {
-    axis: 'play',
-    prompt: 'Roughhousing with a trusted dog friend looks like…',
-    answers: [
-      { letter: 'R', emoji: '😤', line: 'Full-contact wrestling, flying paws everywhere' },
-      { letter: 'G', emoji: '🐾', line: 'Gentle bitey-face and soft, polite rolls' },
-    ],
-  },
-  {
-    axis: 'social',
-    prompt: 'You have friends over. {name} spends the evening…',
-    answers: [
-      { letter: 'O', emoji: '🥳', line: 'Working the entire room for pats and snacks' },
-      { letter: 'S', emoji: '🕵️', line: 'Bonding deeply with one hand-picked favorite' },
-    ],
-  },
-  {
-    axis: 'spirit',
-    prompt: 'A thunderstorm rolls in. {name}…',
-    answers: [
-      { letter: 'B', emoji: '😎', line: 'Barely looks up from the nap' },
-      { letter: 'M', emoji: '🧸', line: 'Relocates immediately to your lap' },
-    ],
-  },
-];
-
-const AXIS_ORDER: DogtypeAxisKey[] = ['energy', 'play', 'social', 'spirit'];
 
 // Where the quiz result is kept so the app can pick it up after sign-up (the
 // onboarding reads it and reveals the Dogtype after the first save). Shape:
@@ -126,33 +46,6 @@ function readRef(): string {
   } catch {
     return 'direct';
   }
-}
-
-// Deterministic tally: majority letter per axis; a tie is broken by the FIRST
-// answer given for that axis (answers are collected in question order, and a
-// tied letter can never beat the strictly-greater check, so the earliest one
-// encountered wins).
-function computeCodeFromAnswers(answers: string[]): string {
-  const byAxis: Record<DogtypeAxisKey, string[]> = { energy: [], play: [], social: [], spirit: [] };
-  answers.forEach((letter, i) => {
-    const q = QUESTIONS[i];
-    if (q) byAxis[q.axis].push(letter);
-  });
-  return AXIS_ORDER.map((axis) => {
-    const letters = byAxis[axis];
-    const counts = new Map<string, number>();
-    for (const l of letters) counts.set(l, (counts.get(l) ?? 0) + 1);
-    let best = letters[0] ?? '';
-    let bestCount = 0;
-    for (const l of letters) {
-      const c = counts.get(l) ?? 0;
-      if (c > bestCount) {
-        best = l;
-        bestCount = c;
-      }
-    }
-    return best;
-  }).join('');
 }
 
 type Stage = 'name' | 'quiz' | 'reveal' | 'result';
@@ -195,12 +88,12 @@ export default function DogtypeQuiz() {
     feedback.tap();
     const next = [...answers.slice(0, qIndex), letter];
     setAnswers(next);
-    if (qIndex + 1 < QUESTIONS.length) {
+    if (qIndex + 1 < quizQuestionsFor(next).length) {
       setQIndex(qIndex + 1);
       return;
     }
     // Done — assemble the code deterministically and look it up.
-    const code = computeCodeFromAnswers(next);
+    const code = computeQuizCode(next);
     const type = dogtypeByCode(code);
     if (!type) return; // impossible for valid poles, but keeps types honest
     setResult(type);
@@ -341,7 +234,8 @@ export default function DogtypeQuiz() {
 
   // ── Stage: quiz ─────────────────────────────────────────────────────────────
   if (stage === 'quiz') {
-    const question = QUESTIONS[qIndex];
+    const questions = quizQuestionsFor(answers);
+    const question = questions[qIndex] ?? questions[questions.length - 1];
     return (
       <div className="max-w-xl mx-auto pt-2 sm:pt-6">
         {/* Progress dots + back */}
@@ -355,7 +249,7 @@ export default function DogtypeQuiz() {
             ← Back
           </button>
           <div className="flex items-center gap-1.5" aria-hidden="true">
-            {QUESTIONS.map((_, i) => (
+            {questions.map((_, i) => (
               <span
                 key={i}
                 className={`h-2 w-2 rounded-full transition-colors ${
@@ -365,7 +259,7 @@ export default function DogtypeQuiz() {
             ))}
           </div>
           <p className="text-sm font-black text-brown">
-            {qIndex + 1}/{QUESTIONS.length}
+            {qIndex + 1}/{questions.length}
           </p>
         </div>
 
