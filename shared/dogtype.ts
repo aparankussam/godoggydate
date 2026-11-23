@@ -445,3 +445,43 @@ export function dogtypeRankedMatches(code: string, limit = 3): RankedDogtype[] {
 export function dogtypeBestMatches(code: string, limit = 3): Dogtype[] {
   return dogtypeRankedMatches(code, limit).map((r) => r.type);
 }
+
+// ── Profile answers that produce a type, and type-change wording ────────────
+// The website quiz uses profileHintsForCode so a profile created from a quiz
+// result lands on the same type the quiz showed. Option strings are exactly what
+// the profile editors store (ProfileEditor / DogProfileForm).
+
+export interface ProfileHints {
+  energyLevel: number;
+  playStyles: string[];
+  behaviorFlags: string[];
+  temperament: string[];
+}
+
+/** Option strings exactly as the profile editors store them (see ProfileEditor / DogProfileForm). */
+export function profileHintsForCode(code: string): ProfileHints | null {
+  const c = code.toUpperCase();
+  if (!DOGTYPE_CODES.includes(c)) return null;
+  return {
+    energyLevel: c[0] === 'E' ? 80 : 25,
+    playStyles: [c[1] === 'R' ? 'wrestling 🤼' : 'gentle play 🐾'],
+    behaviorFlags: c[2] === 'S' ? ['needs slow introduction'] : [],
+    temperament: [c[3] === 'B' ? 'Independent 🦅' : 'Shy at first 🙈'],
+  };
+}
+
+export interface TypeChange {
+  changed: boolean;
+  from?: string;
+  to?: string;
+  /** Contains "{name}" for the caller to replace with the dog's name. */
+  message?: string;
+}
+
+export function describeTypeChange(beforeCode: string | null | undefined, afterCode: string | null | undefined): TypeChange {
+  if (!beforeCode || !afterCode || beforeCode === afterCode) return { changed: false };
+  const from = dogtypeByCode(beforeCode)?.name;
+  const to = dogtypeByCode(afterCode)?.name;
+  if (!from || !to) return { changed: false };
+  return { changed: true, from, to, message: `This changes {name}'s Dogtype from ${from} to ${to}.` };
+}

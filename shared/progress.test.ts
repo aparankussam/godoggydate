@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   BARKLE_HISTORY_LIMIT,
   addDiscovery,
+  barkleStreak,
   matchedDogsOfType,
   mergeDogtypeDogs,
   mergeRevealed,
@@ -553,4 +554,18 @@ test('normalizeProgress and mergeProgress carry the new fields', () => {
   const merged = mergeProgress(doc, { dogtypeDogs: { d1: { code: 'ZGSM', at: 1 } } });
   assert.equal(merged.dogtypeDogs!.d1.code, 'ZGSM');
   assert.equal(merged.dogtypeRevealed, true);
+});
+
+test('barkleStreak counts consecutive solved days ending today or yesterday', () => {
+  const h = (nums: number[], unsolved: number[] = []) =>
+    Object.fromEntries([...nums.map((n) => [String(n), { solved: true }]), ...unsolved.map((n) => [String(n), { solved: false }])]);
+  assert.deepEqual(barkleStreak(h([8, 9, 10]), 10), { current: 3, best: 3, yesterdaySolved: true });
+  // today not played yet: yesterday's run still counts
+  assert.deepEqual(barkleStreak(h([8, 9]), 10), { current: 2, best: 2, yesterdaySolved: true });
+  // a missed day breaks it
+  assert.deepEqual(barkleStreak(h([5, 6, 7, 9]), 10), { current: 1, best: 3, yesterdaySolved: true });
+  assert.deepEqual(barkleStreak(h([5, 6, 7]), 10), { current: 0, best: 3, yesterdaySolved: null });
+  // lost yesterday
+  assert.deepEqual(barkleStreak(h([7, 8], [9]), 10), { current: 0, best: 2, yesterdaySolved: false });
+  assert.deepEqual(barkleStreak(undefined, 10), { current: 0, best: 0, yesterdaySolved: null });
 });

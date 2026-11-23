@@ -401,6 +401,30 @@ export function mergeRevealed(a?: boolean, b?: boolean): boolean | undefined {
   return a || b ? true : undefined;
 }
 
+/** Consecutive solved Barkle days. Today not being played yet never breaks a run that ends yesterday. */
+export function barkleStreak(
+  history: Record<string, { solved: boolean }> | undefined,
+  todayPuzzle: number,
+): { current: number; best: number; yesterdaySolved: boolean | null } {
+  const solved = new Set<number>();
+  for (const [k, v] of Object.entries(history ?? {})) if (v && v.solved && PUZZLE_RE.test(k)) solved.add(Number(k));
+  let best = 0;
+  let run = 0;
+  const sorted = [...solved].sort((x, y) => x - y);
+  sorted.forEach((n, i) => {
+    run = i > 0 && sorted[i - 1] === n - 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  });
+  let cursor = solved.has(todayPuzzle) ? todayPuzzle : todayPuzzle - 1;
+  let current = 0;
+  while (solved.has(cursor)) {
+    current += 1;
+    cursor -= 1;
+  }
+  const y = history?.[String(todayPuzzle - 1)];
+  return { current, best, yesterdaySolved: y ? y.solved === true : null };
+}
+
 // ── Adventure Passport ───────────────────────────────────────────────────────
 
 function normalizeMark(raw: unknown): AdventureMark | null {
