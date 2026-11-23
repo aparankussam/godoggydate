@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import type { DimensionValue, TextStyle, ViewStyle } from 'react-native';
+import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
+import type { DimensionValue } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -12,17 +12,31 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fonts, radius } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts } from '../constants/theme';
 import type { DiscoverDog } from '../lib/discover';
 import { focusForPhoto, resolveHeroIndex, type CoverFocus } from '../lib/coverPhoto';
 import { getRenderablePhotos } from '../lib/photos';
-import { getVaccinationStatus, type VaccinationTone } from '../../shared/profile';
 import { CoverImage } from './CoverPhotoEditor';
+import { StickerDog } from './sticker';
+import {
+  FitSticker,
+  FitTag,
+  PlaceTicket,
+  TrustSlip,
+  factsLine,
+  placeLabel,
+  playsLine,
+} from './discover/DiscoverBits';
 
-// The crop for a photo with no owner-set focal point. Same as web's swipe card
-// (object-[center_24%]): a little above centre, where a dog's face usually is
-// in a portrait shot.
+// "Sticker Book, grown up" Discover card, minimized. Mirrors
+// web/components/SwipeCard.tsx: the photo carries the card; on the photo only
+// the fit tag + sticker (top-right), the kraft place ticket (bottom-left) and
+// the photo counter (top-left). Below it on paper: the name, one facts line,
+// one plays line and ONE calm trust slip.
+
+// The crop for a photo with no owner-set focal point. Same as web's swipe card:
+// a little above centre, where a dog's face usually is in a portrait shot.
 const DEFAULT_CARD_FOCUS: CoverFocus = { x: 50, y: 24 };
 
 // The photo the card should OPEN on — the owner's cover pick (or AI hero),
@@ -34,9 +48,8 @@ function heroIndexFor(dog: DiscoverDog): number {
 }
 
 // Fixed scatter positions for the like-swipe paw burst — mirrors
-// web/components/SwipeCard.tsx's PAW_BURST_OFFSETS. A handful of paws at
-// varied fixed spots reads as a burst without needing a separate
-// useAnimatedStyle per paw (each paw shares one opacity/scale animation).
+// web/components/SwipeCard.tsx's PAW_BURST_OFFSETS. Each paw shares one
+// opacity/scale animation.
 const PAW_BURST_SPOTS: { top: DimensionValue; left: DimensionValue }[] = [
   { top: '32%', left: '20%' },
   { top: '24%', left: '62%' },
@@ -46,9 +59,7 @@ const PAW_BURST_SPOTS: { top: DimensionValue; left: DimensionValue }[] = [
 ];
 
 function triggerHaptic(direction: 'like' | 'pass') {
-  // Drag-to-swipe previously had no haptic at all — only the Like/Pass
-  // buttons did (see app/(tabs)/discover.tsx's handleLikePress/handlePassPress),
-  // so the far more common gesture-swipe path felt inert by comparison.
+  // Drag-to-swipe gets the same haptic as the WOOF / Pass buttons.
   if (direction === 'like') {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   } else {
@@ -57,65 +68,8 @@ function triggerHaptic(direction: 'like' | 'pass') {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-export const CARD_WIDTH = SCREEN_WIDTH - 32;
-// 4:5 aspect ratio — same as Tinder/Hinge. Max 560px on large phones.
-export const CARD_HEIGHT = Math.min(CARD_WIDTH * 1.25, 560);
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 const VELOCITY_THRESHOLD = 700; // px/s — enables flick even if position < threshold
-
-function getEnergyLabel(energyLevel: number): string {
-  if (energyLevel >= 75) return 'High energy';
-  if (energyLevel <= 35) return 'Mellow';
-  return 'Balanced';
-}
-
-// Mirrors getLocationLabel in web/components/SwipeCard.tsx. 0 is a real
-// distance (same ~1 km cell), so it gets a number, not the fallback.
-function getLocationLabel(dog: DiscoverDog): string {
-  if (typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0) {
-    const city = dog.neighbourhood?.split(',')[0]?.trim();
-    const miles = dog.distanceMiles.toFixed(1);
-    return city ? `${city} · ${miles} mi` : `${miles} mi away`;
-  }
-  return dog.location;
-}
-
-/** Mirrors web/components/CompatBreakdown.tsx's QUALITY_STYLES.ringHex —
- *  keep the two in sync if the palette changes. */
-export const QUALITY_RING_COLORS: Record<string, string> = {
-  perfect: '#4ade80',
-  good: '#fbbf24',
-  blocked: '#f87171',
-};
-
-// Vaccination pill styling, keyed by how much the underlying data supports.
-// Mirrors VACCINATION_PILL_STYLES in web/components/SwipeCard.tsx. Deliberately
-// no green ✓ anywhere: a checkmark on a self-reported boolean reads as a
-// verification badge, and nothing here is verified. Only an owner-supplied
-// certificate date earns the confident treatment, and even that stays worded
-// as the owner's claim.
-const VACCINATION_PILL_STYLES: Record<VaccinationTone, { pill: ViewStyle; text: TextStyle }> = {
-  dated: {
-    pill: { borderColor: 'rgba(167,243,208,0.5)', backgroundColor: 'rgba(2,44,34,0.6)' },
-    text: { color: '#ECFDF5' },
-  },
-  expired: {
-    pill: { borderColor: 'rgba(252,165,165,0.6)', backgroundColor: 'rgba(69,10,10,0.6)' },
-    text: { color: '#FEF2F2' },
-  },
-  'self-reported': {
-    pill: { borderColor: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(0,0,0,0.4)' },
-    text: { color: 'rgba(255,255,255,0.9)' },
-  },
-  unvaccinated: {
-    pill: { borderColor: 'rgba(252,211,77,0.6)', backgroundColor: 'rgba(69,26,3,0.6)' },
-    text: { color: '#FEF3C7' },
-  },
-  unstated: {
-    pill: { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(0,0,0,0.34)' },
-    text: { color: 'rgba(255,255,255,0.7)' },
-  },
-};
 
 export interface SwipeCardRef {
   triggerSwipe: (direction: 'like' | 'pass') => void;
@@ -138,14 +92,16 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     const burstAnim = useSharedValue(0);
     const reactionKind = useSharedValue<0 | 1 | 2>(0); // 0 none, 1 like-burst, 2 pass-puff
     const [photoIndex, setPhotoIndex] = useState(() => heroIndexFor(dog));
+    // Photos that failed to load, so one dead URL doesn't blank the card.
+    const [failed, setFailed] = useState<string[]>([]);
 
-    // Filter out placeholder strings
     const photos = getRenderablePhotos(dog.photos);
     const photoCount = photos.length;
 
     // Reset to the dog's cover/hero photo whenever the dog changes (new card)
     useEffect(() => {
       setPhotoIndex(heroIndexFor(dog));
+      setFailed([]);
       swipeHandled.value = false;
       tx.value = 0;
       ty.value = 0;
@@ -159,8 +115,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
         reactionKind.value = direction === 'like' ? 1 : 2;
         burstAnim.value = 0;
         burstAnim.value = withTiming(1, { duration: 300 });
-        const exitX =
-          direction === 'like' ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
+        const exitX = direction === 'like' ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
         tx.value = withTiming(exitX, { duration: 280 }, () => {
           runOnJS(onSwipe)(direction);
         });
@@ -168,8 +123,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     }));
 
     // Any tap advances to the next photo and wraps back to the first after
-    // the last. Runs on the JS thread via runOnJS; photoCount is always >= 2
-    // when this is called (guarded in the tap gesture below).
+    // the last. photoCount is always >= 2 when this is called.
     function advancePhoto() {
       setPhotoIndex((i) => (i + 1) % photoCount);
     }
@@ -189,14 +143,11 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
           if (swipeHandled.value) return;
           swipeHandled.value = true;
           const dir = e.translationX > 0 ? 'like' : 'pass';
-          // Drag-to-swipe previously had zero feedback at the moment of
-          // commit — haptic + burst only existed on the Like/Pass buttons.
           runOnJS(triggerHaptic)(dir);
           reactionKind.value = dir === 'like' ? 1 : 2;
           burstAnim.value = 0;
           burstAnim.value = withTiming(1, { duration: 300 });
-          const exitX =
-            e.translationX > 0 ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
+          const exitX = e.translationX > 0 ? SCREEN_WIDTH * 1.6 : -SCREEN_WIDTH * 1.6;
           tx.value = withTiming(exitX, { duration: 260 }, () => {
             if (__DEV__) {
               console.log('[SwipeCard] pan swipe complete', dir);
@@ -216,7 +167,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     const showReport = isTop && !!onReport;
     const reportTapGesture = Gesture.Tap()
       .enabled(showReport)
-      .hitSlop(8)
+      .hitSlop(4)
       .maxDistance(10)
       .runOnJS(true)
       .onEnd((_e, success) => {
@@ -229,8 +180,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
       .maxDistance(10)
       .requireExternalGestureToFail(reportTapGesture)
       // RNGH fires onEnd with success=false on a cancelled/failed tap — without
-      // this guard a cancelled tap would still advance the photo (harmless when
-      // taps also went backward, but now every tap is forward-only).
+      // this guard a cancelled tap would still advance the photo.
       .onEnd((_e, success) => {
         if (!success || photoCount <= 1) return;
         runOnJS(advancePhoto)();
@@ -241,8 +191,8 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
     const cardStyle = useAnimatedStyle(() => {
       if (stackIndex > 0) {
         return {
-          transform: [{ scale: 0.94 }, { translateY: 16 }],
-          opacity: 0.78,
+          opacity: 0.9,
+          transform: [{ translateX: 0 }, { translateY: 12 }, { rotate: '0deg' }, { scale: 0.96 }],
         };
       }
       const rotation = interpolate(
@@ -251,239 +201,175 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
         [-8, 0, 8],
         Extrapolation.CLAMP,
       );
+      // Every key the peek branch sets is set here too: the peek card becomes
+      // the top card in place (same key), and a key left out would keep its
+      // peek value (a see-through, shrunken top card).
       return {
+        opacity: 1,
         transform: [
           { translateX: tx.value },
           { translateY: ty.value },
           { rotate: `${rotation}deg` },
+          { scale: 1 },
         ],
       };
     });
 
     const likeOverlayStyle = useAnimatedStyle(() => ({
-      opacity: interpolate(
-        tx.value,
-        [0, SWIPE_THRESHOLD * 0.6],
-        [0, 1],
-        Extrapolation.CLAMP,
-      ),
+      opacity: interpolate(tx.value, [20, SWIPE_THRESHOLD * 0.6], [0, 1], Extrapolation.CLAMP),
     }));
 
     const passOverlayStyle = useAnimatedStyle(() => ({
-      opacity: interpolate(
-        tx.value,
-        [-SWIPE_THRESHOLD * 0.6, 0],
-        [1, 0],
-        Extrapolation.CLAMP,
-      ),
+      opacity: interpolate(tx.value, [-SWIPE_THRESHOLD * 0.6, -20], [1, 0], Extrapolation.CLAMP),
     }));
 
-    // Swipe-completion reactions — everything above only fires during the
-    // drag itself; the card previously just flew off with no feedback at
-    // the moment a like/pass actually committed.
+    // The fit sticker fades while a WOOF / PASS stamp shows, so they never overprint.
+    const fitFadeStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(Math.abs(tx.value), [0, 20, 60], [1, 1, 0], Extrapolation.CLAMP),
+    }));
+
+    // Swipe-completion reactions.
     const pawBurstStyle = useAnimatedStyle(() => ({
-      opacity: reactionKind.value === 1 ? interpolate(burstAnim.value, [0, 0.15, 1], [0, 1, 0], Extrapolation.CLAMP) : 0,
+      opacity:
+        reactionKind.value === 1
+          ? interpolate(burstAnim.value, [0, 0.15, 1], [0, 1, 0], Extrapolation.CLAMP)
+          : 0,
       transform: [{ scale: interpolate(burstAnim.value, [0, 1], [0.5, 1.3], Extrapolation.CLAMP) }],
     }));
     const dustPuffStyle = useAnimatedStyle(() => ({
-      opacity: reactionKind.value === 2 ? interpolate(burstAnim.value, [0, 1], [0.55, 0], Extrapolation.CLAMP) : 0,
+      opacity:
+        reactionKind.value === 2 ? interpolate(burstAnim.value, [0, 1], [0.55, 0], Extrapolation.CLAMP) : 0,
       transform: [{ scale: interpolate(burstAnim.value, [0, 1], [0.4, 2.2], Extrapolation.CLAMP) }],
     }));
 
-    const currentPhoto = photos[photoIndex] ?? null;
+    const currentPhoto = photos[Math.min(photoIndex, Math.max(0, photoCount - 1))] ?? null;
+    const showPhoto = currentPhoto && !failed.includes(currentPhoto);
     // The owner's focal point applies only while the card shows their cover,
     // and only when they actually set one — as on web.
     const photoFocus = focusForPhoto(dog, photoIndex, heroIndexFor(dog)) ?? DEFAULT_CARD_FOCUS;
-    const ageLabel =
-      dog.age === 'puppy' ? 'Puppy' : dog.age === 'senior' ? 'Senior' : 'Adult';
-    const sexLabel = dog.sex === 'M' ? 'Male' : 'Female';
-    const distLabel = getLocationLabel(dog);
-    const energyLabel = getEnergyLabel(dog.energyLevel);
-    const vaccination = getVaccinationStatus(dog);
-    const vaccinationIsWarning = vaccination.tone === 'expired' || vaccination.tone === 'unvaccinated';
-    const vaccinationStyle = VACCINATION_PILL_STYLES[vaccination.tone];
+    const hasScore = dog.compat.score > 0;
+    const plays = playsLine(dog);
 
     return (
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.card, cardStyle]}>
-          {/* Photo */}
-          {currentPhoto ? (
-            <CoverImage uri={currentPhoto} focus={photoFocus} style={StyleSheet.absoluteFill} />
-          ) : (
-            <View style={styles.photoFallback}>
-              <Text style={styles.photoFallbackEmoji}>🐕</Text>
-            </View>
-          )}
-
-          {/* Photo progress bars (Tinder-style) */}
-          {photoCount > 1 && (
-            <View style={styles.photoBars} pointerEvents="none">
-              {photos.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.photoBar, i === photoIndex && styles.photoBarActive]}
+        <Animated.View
+          style={[styles.card, cardStyle]}
+          accessibilityLabel={`${dog.name}, ${dog.breed}`}
+          importantForAccessibility={isTop ? 'auto' : 'no-hide-descendants'}
+          accessibilityElementsHidden={!isTop}
+        >
+          <View style={styles.inner}>
+            {/* ── Photo ─────────────────────────────────────────────────── */}
+            <View style={styles.photo}>
+              {showPhoto ? (
+                <CoverImage
+                  uri={currentPhoto}
+                  focus={photoFocus}
+                  style={StyleSheet.absoluteFill}
+                  accessibilityLabel={`${dog.name}, photo ${photoIndex + 1}`}
                 />
-              ))}
-            </View>
-          )}
-
-          {/* Vaccination pill. getVaccinationStatus grades the copy to the
-              data: a real expiry date is quoted, an expired one is shown
-              rather than hidden (that's the case worth knowing before a
-              meetup), a bare boolean is attributed to the owner, and an
-              absence says so. Always rendered — "not stated" is information
-              too. Mirrors web/components/SwipeCard.tsx. */}
-          <View
-            style={[styles.vaccinationPill, vaccinationStyle.pill, showReport && styles.vaccinationPillWithReport]}
-            pointerEvents="none"
-          >
-            <Text style={[styles.vaccinationPillText, vaccinationStyle.text]} numberOfLines={1}>
-              {vaccinationIsWarning ? `⚠ ${vaccination.label}` : vaccination.label}
-            </Text>
-          </View>
-
-          {/* Report / block — top card only, as on web. Its own RNGH tap so
-              the card's photo-advance tap doesn't swallow it. */}
-          {showReport && (
-            <GestureDetector gesture={reportTapGesture}>
-              <View
-                style={styles.reportBtn}
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel={`Report or block ${dog.name}`}
-                onAccessibilityTap={onReport}
-              >
-                <Text style={styles.reportBtnText}>•••</Text>
-              </View>
-            </GestureDetector>
-          )}
-
-          {/* WOOF badge */}
-          <Animated.View style={[styles.woofBadge, likeOverlayStyle]} pointerEvents="none">
-            <Text style={styles.woofText}>WOOF 🐾</Text>
-          </Animated.View>
-
-          {/* PASS badge */}
-          <Animated.View style={[styles.passBadge, passOverlayStyle]} pointerEvents="none">
-            <Text style={styles.passText}>PASS</Text>
-          </Animated.View>
-
-          {/* Like-swipe paw burst */}
-          <Animated.View style={[StyleSheet.absoluteFill, pawBurstStyle]} pointerEvents="none">
-            {PAW_BURST_SPOTS.map((spot, i) => (
-              <Text key={i} style={[styles.burstPaw, spot]}>🐾</Text>
-            ))}
-          </Animated.View>
-
-          {/* Pass-swipe dust puff */}
-          <Animated.View style={[styles.dustPuff, dustPuffStyle]} pointerEvents="none" />
-
-          {/* Info overlay */}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.38)', 'rgba(0,0,0,0.78)']}
-            locations={[0, 0.5, 1]}
-            style={styles.gradient}
-            pointerEvents="none"
-          >
-            {/* The dog's Vibe Check identity — generated at onboarding and,
-                until now, visible only AFTER a mutual match. Deciding whether
-                you like a dog is exactly when it's useful. Renders nothing at
-                all for dogs without a Vibe Check. */}
-            {dog.ai?.vibeCheck?.archetype && (
-              <View style={styles.archetypeRow}>
-                {!!dog.ai.vibeCheck.archetype.code && (
-                  <View style={styles.archetypeCode}>
-                    <Text style={styles.archetypeCodeText}>{dog.ai.vibeCheck.archetype.code}</Text>
-                  </View>
-                )}
-                <Text style={styles.archetypeName} numberOfLines={1}>
-                  ✨ {dog.ai.vibeCheck.archetype.name}
-                </Text>
-              </View>
-            )}
-
-            {/* Name + sex */}
-            <View style={styles.nameLine}>
-              <Text style={styles.name} numberOfLines={1}>
-                {dog.name}
-              </Text>
-              <View style={styles.sexBadge}>
-                <Text style={styles.sexText}>{sexLabel}</Text>
-              </View>
-            </View>
-
-            {/* Breed · age */}
-            <Text style={styles.breedAge} numberOfLines={1}>
-              {dog.breed} · {ageLabel} · {dog.size}
-            </Text>
-
-            {/* Distance */}
-            <Text style={styles.distance} numberOfLines={1}>
-              📍 {distLabel}
-            </Text>
-
-            {/* compat.microcopy — the engine's own one-line verdict, written
-                specifically to be shown on the card (see its type comment
-                in shared/types). compat.label is the same information in
-                shorter form, so it's reserved for the detail modal instead
-                of repeating the same phrase twice on one card. */}
-            {dog.compat.score > 0 && dog.compat.microcopy && (
-              <Text style={styles.microcopy} numberOfLines={2}>
-                {dog.compat.microcopy}
-              </Text>
-            )}
-
-            {dog.compat.score > 0 && (
-              <View style={styles.matchBadgeWrap}>
-                {/* Ring color signals compat.quality — was a flat white ring
-                    regardless of tier, so a blocked match and a perfect one
-                    looked identically inviting. */}
-                <View style={[styles.matchRing, { borderColor: QUALITY_RING_COLORS[dog.compat.quality] ?? 'rgba(255,255,255,0.9)' }]}>
-                  <Text style={styles.matchRingScore}>{dog.compat.score}</Text>
+              ) : (
+                <View style={styles.photoFallback}>
+                  <StickerDog size={96} label={`No photo of ${dog.name} yet`} />
+                  <Text style={styles.photoFallbackText}>No photo yet</Text>
                 </View>
-                <Text style={styles.matchRingLabel}>MATCH</Text>
-              </View>
-            )}
+              )}
+              {/* Invisible probe so a dead URL moves to the next photo. */}
+              {showPhoto ? (
+                <ImageErrorProbe
+                  uri={currentPhoto}
+                  onError={() => {
+                    const next = [...failed, currentPhoto];
+                    setFailed(next);
+                    const alive = photos.findIndex((p) => !next.includes(p));
+                    if (alive >= 0) setPhotoIndex(alive);
+                  }}
+                />
+              ) : null}
 
-            {/* Tags row */}
-            {(dog.playStyles.length > 0 || energyLabel) && (
-              <View style={styles.tagRow}>
-                <View style={styles.tag}>
-                  <Text style={styles.tagText} numberOfLines={1}>
-                    {energyLabel}
+              {/* Photo counter, top-left — only with 2+ photos. */}
+              {photoCount > 1 && isTop && (
+                <View
+                  style={styles.counter}
+                  pointerEvents="none"
+                  accessible
+                  accessibilityLabel={`Photo ${photoIndex + 1} of ${photoCount}. Tap the photo for the next one.`}
+                >
+                  <Text style={styles.counterText}>
+                    {photoIndex + 1} / {photoCount}
                   </Text>
                 </View>
-                {dog.playStyles.slice(0, 2).map((tag) => (
-                  <View key={tag} style={styles.tag}>
-                    <Text style={styles.tagText} numberOfLines={1}>
-                      {tag}
-                    </Text>
+              )}
+
+              {/* Fit: the tag and the sticker, top-right. */}
+              {hasScore && (
+                <Animated.View style={[styles.fitCorner, fitFadeStyle]} pointerEvents="none">
+                  <FitTag />
+                  <FitSticker compat={dog.compat} />
+                </Animated.View>
+              )}
+
+              {/* Place ticket, bottom-left */}
+              <View style={styles.ticketWrap} pointerEvents="none">
+                <PlaceTicket text={placeLabel(dog)} />
+              </View>
+
+              {/* WOOF stamp */}
+              <Animated.View style={[styles.stamp, styles.woofStamp, likeOverlayStyle]} pointerEvents="none">
+                <Text style={styles.stampText}>WOOF</Text>
+              </Animated.View>
+
+              {/* PASS stamp */}
+              <Animated.View style={[styles.stamp, styles.passStamp, passOverlayStyle]} pointerEvents="none">
+                <Text style={styles.stampText}>PASS</Text>
+              </Animated.View>
+
+              {/* Like-swipe paw burst */}
+              <Animated.View style={[StyleSheet.absoluteFill, pawBurstStyle]} pointerEvents="none">
+                {PAW_BURST_SPOTS.map((spot, i) => (
+                  <View key={i} style={[styles.burstPaw, spot]}>
+                    <Ionicons name="paw" size={30} color={colors.ink} />
                   </View>
                 ))}
-              </View>
-            )}
+              </Animated.View>
 
-            {/* Safety warnings from detectUnsafePairings(). Not sliced: the
-                engine returns every warning, and a local cap silently dropped
-                the third safety flag onward — exactly the detail an owner
-                needs before a like. Mirrors web/components/SwipeCard.tsx. */}
-            {dog.compat.warnings.length > 0 && (
-              <View style={styles.tagRow}>
-                {dog.compat.warnings.map((warning) => (
-                  <View key={warning} style={styles.warnTag}>
-                    <Text style={styles.warnTagText} numberOfLines={2}>
-                      ⚠ {warning}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
+              {/* Pass-swipe dust puff */}
+              <Animated.View style={[styles.dustPuff, dustPuffStyle]} pointerEvents="none" />
+            </View>
 
-            {/* Tagline */}
-            <Text style={styles.tagline} numberOfLines={2}>
-              {dog.tagline}
-            </Text>
-          </LinearGradient>
+            {/* ── Name, facts, one quiet trust slip ─────────────────────── */}
+            <View style={styles.info}>
+              <View style={styles.nameRow}>
+                <Text style={styles.name} numberOfLines={1} accessibilityRole="header">
+                  {dog.name}
+                </Text>
+                {/* Report / block — top card only. Its own RNGH tap so the
+                    card's photo-advance tap doesn't swallow it. */}
+                {showReport && (
+                  <GestureDetector gesture={reportTapGesture}>
+                    <View
+                      style={styles.moreBtn}
+                      accessible
+                      accessibilityRole="button"
+                      accessibilityLabel={`Report or block ${dog.name}`}
+                      onAccessibilityTap={onReport}
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={22} color={colors.ink} />
+                    </View>
+                  </GestureDetector>
+                )}
+              </View>
+              <Text style={styles.facts} numberOfLines={2}>
+                {factsLine(dog)}
+              </Text>
+              {plays ? (
+                <Text style={styles.plays} numberOfLines={1}>
+                  {plays}
+                </Text>
+              ) : null}
+              <TrustSlip dog={dog} compat={dog.compat} style={styles.slip} />
+            </View>
+          </View>
         </Animated.View>
       </GestureDetector>
     );
@@ -493,133 +379,107 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
 SwipeCard.displayName = 'SwipeCard';
 export default SwipeCard;
 
+/**
+ * CoverImage has no error callback; a zero-size Image with the same URI does
+ * (it shares the cache, so this costs no extra download).
+ */
+function ImageErrorProbe({ uri, onError }: { uri: string; onError: () => void }) {
+  return (
+    <Image
+      source={{ uri }}
+      onError={onError}
+      style={styles.probe}
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: colors.creamDark,
-    position: 'absolute',
-    shadowColor: '#000',
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    backgroundColor: colors.paper,
+    shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 6,
   },
+  inner: {
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    overflow: 'hidden',
+  },
+  photo: {
+    flex: 1,
+    minHeight: 180,
+    backgroundColor: '#5B4A3A',
+    borderBottomWidth: 2,
+    borderBottomColor: colors.ink,
+    overflow: 'hidden',
+  },
+  probe: { position: 'absolute', width: 1, height: 1, opacity: 0 },
   photoFallback: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.creamDark,
+    gap: 8,
+    backgroundColor: colors.note,
   },
-  photoFallbackEmoji: { fontSize: 80 },
+  photoFallbackText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
 
-  // Photo progress bars
-  photoBars: {
+  counter: {
     position: 'absolute',
     top: 12,
-    left: 10,
-    right: 10,
-    flexDirection: 'row',
-    gap: 4,
-    zIndex: 10,
-  },
-  photoBar: {
-    flex: 1,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.38)',
-  },
-  photoBarActive: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-  },
-
-  // Vaccination pill + report button (top corners, under the photo bars)
-  vaccinationPill: {
-    position: 'absolute',
-    top: 24,
-    left: 14,
-    maxWidth: '78%',
-    borderWidth: 1,
-    borderRadius: radius.full,
+    left: 12,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
-  vaccinationPillWithReport: {
-    maxWidth: '68%',
-  },
-  vaccinationPillText: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 10,
-  },
-  reportBtn: {
+  counterText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 15, color: colors.ink },
+
+  fitCorner: {
     position: 'absolute',
-    top: 20,
+    top: 12,
     right: 12,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(0,0,0,0.38)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 11,
+    alignItems: 'flex-end',
+    gap: 6,
   },
-  reportBtnText: {
-    color: '#fff',
-    fontFamily: fonts.bold,
-    fontSize: 13,
-    letterSpacing: 1,
+  ticketWrap: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    flexDirection: 'row',
   },
 
-  // WOOF / PASS overlays
-  woofBadge: {
+  stamp: {
     position: 'absolute',
-    top: 28,
-    left: 18,
+    top: 120,
+    backgroundColor: colors.paper,
     borderWidth: 3,
-    borderColor: '#4CAF50',
-    borderRadius: radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    transform: [{ rotate: '-14deg' }],
-    backgroundColor: 'rgba(0,0,0,0.12)',
+    borderColor: colors.ink,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 0,
+    elevation: 4,
   },
-  woofText: {
-    color: '#4CAF50',
-    fontFamily: fonts.bold,
-    fontWeight: '800',
-    fontSize: 24,
-    letterSpacing: 2,
-  },
-  passBadge: {
-    position: 'absolute',
-    top: 28,
-    right: 18,
-    borderWidth: 3,
-    borderColor: '#F44336',
-    borderRadius: radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    transform: [{ rotate: '14deg' }],
-    backgroundColor: 'rgba(0,0,0,0.12)',
-  },
-  passText: {
-    color: '#F44336',
-    fontFamily: fonts.bold,
-    fontWeight: '800',
-    fontSize: 24,
-    letterSpacing: 2,
-  },
+  woofStamp: { left: 18, transform: [{ rotate: '-8deg' }] },
+  passStamp: { right: 18, transform: [{ rotate: '8deg' }] },
+  stampText: { fontFamily: fonts.display, fontSize: 30, lineHeight: 36, color: colors.ink, letterSpacing: 1 },
 
-  // Swipe-completion reactions
-  burstPaw: {
-    position: 'absolute',
-    fontSize: 30,
-  },
+  burstPaw: { position: 'absolute' },
   dustPuff: {
     position: 'absolute',
     top: '38%',
@@ -630,167 +490,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.5)',
   },
 
-  // Gradient info area
-  gradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: CARD_HEIGHT * 0.52,
-    paddingHorizontal: 18,
-    paddingBottom: 22,
-    justifyContent: 'flex-end',
+  info: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
   },
-  matchBadgeWrap: {
-    position: 'absolute',
-    left: 0,
-    bottom: 104,
+  nameRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  matchRing: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  name: {
+    flex: 1,
+    fontFamily: fonts.display,
+    fontSize: 34,
+    lineHeight: 40,
+    color: colors.ink,
+  },
+  moreBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.9)',
-    backgroundColor: 'rgba(255,248,240,0.16)',
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  matchRingScore: {
+  facts: {
+    fontFamily: fonts.black,
+    fontSize: 14.5,
+    lineHeight: 19,
+    color: colors.ink,
+    marginTop: 2,
+  },
+  plays: {
     fontFamily: fonts.bold,
-    fontWeight: '800',
-    fontSize: 22,
-    color: colors.white,
-  },
-  matchRingLabel: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.22)',
-    color: colors.white,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 10,
-    letterSpacing: 1.3,
-  },
-  archetypeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  archetypeCode: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  archetypeCodeText: {
-    color: colors.gold,
-    fontFamily: fonts.bold,
-    fontSize: 10,
-    letterSpacing: 1.8,
-  },
-  archetypeName: {
-    flex: 1,
-    color: colors.gold,
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  nameLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
-  },
-  name: {
-    fontFamily: fonts.display,
-    fontSize: 32,
-    color: '#fff',
-    flex: 1,
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  sexBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  sexText: {
-    color: '#fff',
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  breedAge: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.9)',
-    marginBottom: 4,
-  },
-  distance: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
-    marginBottom: 10,
-  },
-  microcopy: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
     fontSize: 14,
-    color: '#fff',
-    marginBottom: 10,
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    lineHeight: 19,
+    color: colors.brownMid,
   },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
-  },
-  tag: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
-  },
-  warnTag: {
-    backgroundColor: 'rgba(69,26,3,0.62)',
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(252,211,77,0.55)',
-  },
-  warnTagText: {
-    color: '#FDE68A',
-    fontFamily: fonts.semibold,
-    fontSize: 11,
-  },
-  tagText: {
-    color: '#fff',
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  tagline: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.82)',
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
+  slip: { marginTop: 10 },
 });

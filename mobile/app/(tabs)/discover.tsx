@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,12 +17,22 @@ import Animated, {
   useSharedValue,
   withSequence,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { colors, fonts, radius, shadow } from '../../constants/theme';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, fonts } from '../../constants/theme';
 import SwipeCard, { type SwipeCardRef } from '../../components/SwipeCard';
-import DogTradingCard from '../../components/DogTradingCard';
+import DiscoverEmpty from '../../components/discover/DiscoverEmpty';
+import {
+  PawIcon,
+  PrimaryButton,
+  SkyBackground,
+  StickerDog,
+  StickerHeader,
+  Tape,
+} from '../../components/sticker';
 import MatchModal from '../../components/MatchModal';
 import TodayPanel from '../../components/TodayPanel';
 import DiscoverDetailsSheet from '../../components/DiscoverDetailsSheet';
@@ -59,45 +69,6 @@ const AUTO_REFRESH_MIN_GAP_MS = 60_000;
  */
 type DeckLoadMode = 'initial' | 'manual' | 'silent' | 'auto';
 
-// Every dog in the deck lands in exactly one bucket, so the line can only ever
-// under-describe the deck — never claim a proximity it didn't measure. Mirrors
-// web/app/app/page.tsx.
-interface DensityCounts {
-  withinFive: number;
-  withinRadius: number;
-  beyondRadius: number;
-  unknownDistance: number;
-}
-
-function countDensity(dogs: DiscoverDog[], radiusMiles: number): DensityCounts {
-  const located = dogs.filter(
-    (dog) => typeof dog.distanceMiles === 'number' && dog.distanceMiles >= 0,
-  ) as (DiscoverDog & { distanceMiles: number })[];
-  return {
-    withinFive: located.filter((dog) => dog.distanceMiles <= 5).length,
-    withinRadius: located.filter((dog) => dog.distanceMiles <= radiusMiles).length,
-    beyondRadius: located.filter((dog) => dog.distanceMiles > radiusMiles).length,
-    unknownDistance: dogs.length - located.length,
-  };
-}
-
-function formatDensityLine(counts: DensityCounts, radiusMiles: number): string {
-  const parts: string[] = [];
-  if (counts.withinFive > 0) parts.push(`${counts.withinFive} within 5 mi`);
-  if (counts.withinRadius > counts.withinFive) {
-    parts.push(`${counts.withinRadius} within ${radiusMiles} mi`);
-  }
-  if (counts.beyondRadius > 0) parts.push(`${counts.beyondRadius} farther out`);
-  // A dog with no shared coordinates isn't "nearby" — we don't know where it
-  // is. It used to be folded into the within-50-mi count, which told people
-  // there were dogs in their radius that the app had never located.
-  if (counts.unknownDistance > 0) {
-    parts.push(`${counts.unknownDistance} at an unknown distance`);
-  }
-  if (parts.length === 0) return `We’ll keep looking within ${radiusMiles} mi`;
-  return parts.join(' · ');
-}
-
 /** "3:07 PM" — built by hand so it reads the same on every Hermes build. */
 function formatClockTime(ms: number): string {
   const date = new Date(ms);
@@ -122,11 +93,13 @@ export default function DiscoverTab() {
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
-  const [likeCount, setLikeCount] = useState(0);
+  // The count of this session's WOOFs is no longer shown (no invented counts on
+  // the card), but resetting it on a manual re-check stays as it was.
+  const [, setLikeCount] = useState(0);
   const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
   const [matchedDog, setMatchedDog] = useState<DiscoverDog | null>(null);
   const [matchedMatchId, setMatchedMatchId] = useState<string | null>(null);
-  const [locationStatus, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
+  const [, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
   const [swipeError, setSwipeError] = useState<string | null>(null);
   const [sharingRecruitCard, setSharingRecruitCard] = useState(false);
   const locationRequestedRef = useRef(false);
@@ -362,10 +335,12 @@ export default function DiscoverTab() {
   );
 
   function bounce(sv: { value: number }) {
+    // A quick squash, then a settle back to exactly 1. The old three-spring
+    // chain (0.84 -> 1.08 -> 1) could stall part-way on react-native-web and
+    // leave the button shrunken; a timed squash always hands over.
     sv.value = withSequence(
-      withSpring(0.84, { damping: 5, stiffness: 400 }),
-      withSpring(1.08, { damping: 8 }),
-      withSpring(1, { damping: 12 }),
+      withTiming(0.88, { duration: 90 }),
+      withSpring(1, { damping: 12, stiffness: 260 }),
     );
   }
 
@@ -459,41 +434,49 @@ export default function DiscoverTab() {
   // their real deck loaded — the app appeared to forget them on every launch.
   if (sessionLoading) {
     return (
-      <SafeAreaView style={styles.gateContainer}>
-        <ActivityIndicator color={colors.primary} size="large" />
-      </SafeAreaView>
+      <DiscoverGate>
+        <ActivityIndicator color={colors.ink} size="large" />
+      </DiscoverGate>
     );
   }
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.gateContainer}>
-        <Text style={styles.gateTitle}>Sign in to discover pups</Text>
-        <Text style={styles.gateBody}>
-          Start a session from the welcome screen to browse nearby dogs.
-        </Text>
-      </SafeAreaView>
+      <DiscoverGate
+        title="Sign in to meet dogs near you"
+        body="Start from the welcome screen to see dogs nearby who might play like yours."
+        action={
+          <PrimaryButton
+            label="Go to the welcome screen"
+            onPress={() => router.replace('/welcome')}
+            icon={<PawIcon size={22} />}
+          />
+        }
+      />
     );
   }
 
   if (!profileComplete) {
     return (
-      <SafeAreaView style={styles.gateContainer}>
-        <Text style={styles.gateEmoji}>🐾</Text>
-        <Text style={styles.gateTitle}>Finish your profile first</Text>
-        <Text style={styles.gateBody}>
-          Go to the Profile tab and complete your dog's profile to start discovering nearby pups.
-        </Text>
-      </SafeAreaView>
+      <DiscoverGate
+        title="Finish your dog’s profile first"
+        body="Other dogs can only find yours, and you theirs, once the profile is complete."
+        action={
+          <PrimaryButton
+            label="Finish the profile"
+            onPress={() => router.push('/(tabs)/profile?edit=1')}
+            icon={<PawIcon size={22} />}
+          />
+        }
+      />
     );
   }
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.gateContainer}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.loadingText}>Sniffing the neighborhood…</Text>
-      </SafeAreaView>
+      <DiscoverGate title="Sniffing the neighborhood…">
+        <ActivityIndicator color={colors.ink} size="large" />
+      </DiscoverGate>
     );
   }
 
@@ -501,208 +484,140 @@ export default function DiscoverTab() {
   const isDeckEmpty = remaining <= 0;
   const topDog = deck[index] ?? null;
   const peekDog = deck[index + 1] ?? null;
-  const visibleDogs = deck.slice(index);
-  const densityLine =
-    visibleDogs.length === 0
-      ? `Sniffed everyone within ${DEFAULT_DISCOVER_RADIUS_MILES} mi. New dogs drop daily-ish.`
-      : formatDensityLine(
-          countDensity(visibleDogs, DEFAULT_DISCOVER_RADIUS_MILES),
-          DEFAULT_DISCOVER_RADIUS_MILES,
-        );
 
   return (
     <SafeAreaView style={styles.container}>
+      <SkyBackground />
       <MatchModal
         dog={matchedDog}
         matchId={matchedMatchId}
+        viewer={profile}
         onSayHi={handleOpenMatchedChat}
         onKeepSwiping={closeMatch}
       />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>GoDoggyDate</Text>
-          <Text style={styles.headerSubtitle}>
-            {radiusApplied
-              ? densityLine
-              : locationStatus === 'denied' || locationStatus === 'unavailable'
-                ? `${visibleDogs.length} dogs ready to meet`
-                : densityLine}
-          </Text>
-        </View>
-        <View style={styles.headerRight}>
-          {likeCount > 0 && (
-            <View style={styles.likesBadge}>
-              <Text style={styles.likesBadgeText}>{likeCount} 🐾</Text>
-            </View>
-          )}
-          {topDog && (
-            <Pressable
-              style={styles.infoBtn}
-              onPress={() => setDetailDog(topDog)}
-              accessibilityRole="button"
-              accessibilityLabel={`Details for ${topDog.name}`}
-            >
-              <Text style={styles.infoBtnText}>ℹ</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
       {swipeError && (
-        <View style={styles.swipeErrorBanner}>
-          <Text style={styles.swipeErrorBannerText}>{swipeError}</Text>
+        <View style={styles.swipeError} accessibilityLiveRegion="polite">
+          <Text style={styles.swipeErrorText}>{swipeError}</Text>
         </View>
       )}
 
-      {/* Visibility warning — shows when the profile is complete from the
-          owner's view (e.g. has a ZIP) but lacks a public location anchor
-          (city/state or lat/lng), so other dogs cannot discover them. */}
-      {profile && profileComplete && !isPubliclyDiscoverable(profile) && (
-        <Pressable
-          style={styles.visibilityBanner}
-          onPress={openProfileTab}
-        >
-          <Text style={styles.visibilityBannerText}>
-            Other dogs can&apos;t see you yet. Add a city or allow location to be
-            discoverable.
-          </Text>
-          <Text style={styles.visibilityBannerCta}>Edit profile ›</Text>
-        </Pressable>
-      )}
+      {isDeckEmpty ? (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.emptyScroll}>
+          <VisibilityNotice show={!!profile && profileComplete && !isPubliclyDiscoverable(profile)} onPress={openProfileTab} />
+          <DiscoverEmpty
+            uid={user.uid}
+            profile={profile}
+            deckTotal={deck.length}
+            radiusApplied={radiusApplied}
+            radiusMiles={DEFAULT_DISCOVER_RADIUS_MILES}
+            checking={checking}
+            lastCheckedLabel={lastCheckedAt !== null ? formatClockTime(lastCheckedAt) : null}
+            onCheckAgain={handleCheckAgain}
+            onInvite={handleInviteFriends}
+            onShareCard={handleShareRecruitCard}
+            sharingCard={sharingRecruitCard}
+            recruitCardRef={recruitCardRef}
+            today={
+              // Today — reminders, profile gaps, the things that are true for
+              // THIS dog right now. Renders nothing when there's nothing to say.
+              <TodayPanel
+                dogId={user.uid}
+                profile={profile}
+                variant="full"
+                onEditProfile={openProfileTab}
+                onOpenReminders={openProfileTab}
+              />
+            }
+          />
+        </ScrollView>
+      ) : (
+        <>
+          <StickerHeader title="Who wants to play?" style={styles.header} />
 
-      {/* Same Today panel as the empty state, one line: above a live deck only
-          something already due earns space — swiping is the job here. */}
-      {!isDeckEmpty && (
-        <TodayPanel
-          dogId={user.uid}
-          profile={profile}
-          variant="strip"
-          onEditProfile={openProfileTab}
-          onOpenReminders={openProfileTab}
-        />
-      )}
+          <VisibilityNotice show={!!profile && profileComplete && !isPubliclyDiscoverable(profile)} onPress={openProfileTab} />
 
-      {/* Card stack area */}
-      <View style={styles.stackArea}>
-        {isDeckEmpty ? (
-          <ScrollView contentContainerStyle={styles.emptyScrollContent} showsVerticalScrollIndicator={false}>
-            {/* Today — reminders, profile gaps, the things that are true for
-                THIS dog right now. Renders nothing when there's nothing real
-                to say. */}
-            <TodayPanel
-              dogId={user.uid}
-              profile={profile}
-              variant="full"
-              onEditProfile={openProfileTab}
-              onOpenReminders={openProfileTab}
-            />
+          {/* Above a live deck only something already due earns space. */}
+          <TodayPanel
+            dogId={user.uid}
+            profile={profile}
+            variant="strip"
+            onEditProfile={openProfileTab}
+            onOpenReminders={openProfileTab}
+          />
 
-            <Text style={styles.emptyEmoji}>🐕</Text>
-            <Text style={styles.emptyTitle}>That&apos;s everyone for now</Text>
-            <Text style={styles.emptyBody}>
-              We check again each time you come back to Discover. New dogs drop daily-ish.
-            </Text>
+          {/* Card stack area */}
+          <View style={styles.stackArea}>
+            <View style={styles.stack}>
+              {peekDog && (
+                <SwipeCard
+                  key={peekDog.id}
+                  dog={peekDog}
+                  onSwipe={(action) => handleSwipe(peekDog, action)}
+                  isTop={false}
+                  stackIndex={1}
+                />
+              )}
+              <SwipeCard
+                ref={topCardRef}
+                key={topDog!.id}
+                dog={topDog!}
+                onSwipe={(action) => handleSwipe(topDog!, action)}
+                onReport={() => handleReport(topDog!)}
+                isTop
+                stackIndex={0}
+              />
+            </View>
+          </View>
 
-            {/* Recruit Card — the actual growth lever here is a stranger
-                seeing this dog's card and wanting one for their own, not a
-                bare text link. Same Trading Card export the profile tab
-                uses, framed as an invitation instead of an identity card. */}
-            {profile && (
-              <>
-                <Text style={styles.recruitCaption}>
-                  Share {profile.name}&apos;s card{profile.ai?.vibeCheck?.archetype.name ? ` — a ${profile.ai.vibeCheck.archetype.name}` : ''} to bring dog parents near you into the pack. The more locals join, the sooner {profile.name} finds a playdate.
-                </Text>
-                <View style={styles.recruitCardWrap}>
-                  <DogTradingCard ref={recruitCardRef} profile={profile} />
-                </View>
+          {/* Tray: Pass | WOOF | Details */}
+          <View style={styles.tray}>
+            <View style={styles.trayRow}>
+              <Animated.View style={passButtonStyle}>
                 <Pressable
-                  style={[styles.resetButton, sharingRecruitCard && { opacity: 0.6 }]}
-                  onPress={handleShareRecruitCard}
-                  disabled={sharingRecruitCard}
+                  style={({ pressed }) => [styles.sideBtn, pressed && styles.pressed]}
+                  onPress={handlePassPress}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Pass on ${topDog!.name}`}
                 >
-                  <Text style={styles.resetButtonText}>
-                    {sharingRecruitCard ? 'Preparing…' : `Share ${profile.name}'s Card`}
-                  </Text>
+                  <View pointerEvents="none" style={styles.sideEdge} />
+                  <Ionicons name="close" size={24} color={colors.ink} style={styles.sideIcon} />
+                  <Text style={styles.sideText}>Pass</Text>
                 </Pressable>
-              </>
-            )}
+              </Animated.View>
 
-            <View style={styles.emptySecondaryRow}>
-              {/* A genuine re-query (fetchDiscoverFeed re-reads the dogs
-                  collection every call). The empty state stays mounted while
-                  it runs, and the time below says when the last one finished —
-                  the only honest answer when nothing changed. */}
+              <Animated.View style={[styles.woofWrap, likeButtonStyle]}>
+                <Pressable
+                  style={({ pressed }) => [styles.woofBtn, pressed && styles.pressed]}
+                  onPress={handleLikePress}
+                  accessibilityRole="button"
+                  accessibilityLabel={`WOOF at ${topDog!.name}`}
+                >
+                  <View pointerEvents="none" style={styles.woofEdge} />
+                  <PawIcon size={27} />
+                  <Text style={styles.woofText}>WOOF</Text>
+                </Pressable>
+              </Animated.View>
+
               <Pressable
-                style={[styles.emptySecondaryButton, checking && { opacity: 0.6 }]}
-                onPress={handleCheckAgain}
-                disabled={checking}
+                style={({ pressed }) => [styles.sideBtn, pressed && styles.pressed]}
+                onPress={() => setDetailDog(topDog)}
                 accessibilityRole="button"
+                accessibilityLabel={`Details for ${topDog!.name}`}
               >
-                <Text style={styles.emptySecondaryButtonText}>
-                  {checking ? 'Checking…' : 'Check again'}
-                </Text>
-              </Pressable>
-              <Pressable style={styles.emptySecondaryButton} onPress={handleInviteFriends}>
-                <Text style={styles.emptySecondaryButtonText}>Invite dog parents nearby</Text>
+                <View pointerEvents="none" style={styles.sideEdge} />
+                <MaterialCommunityIcons
+                  name="card-account-details"
+                  size={23}
+                  color={colors.ink}
+                  style={styles.sideIcon}
+                />
+                <Text style={styles.sideText}>Details</Text>
               </Pressable>
             </View>
-            {lastCheckedAt !== null && (
-              <Text style={styles.lastChecked}>Last checked {formatClockTime(lastCheckedAt)}</Text>
-            )}
-          </ScrollView>
-        ) : (
-          <>
-            {peekDog && (
-              <SwipeCard
-                key={peekDog.id}
-                dog={peekDog}
-                onSwipe={(action) => handleSwipe(peekDog, action)}
-                isTop={false}
-                stackIndex={1}
-              />
-            )}
-            <SwipeCard
-              ref={topCardRef}
-              key={topDog!.id}
-              dog={topDog!}
-              onSwipe={(action) => handleSwipe(topDog!, action)}
-              onReport={() => handleReport(topDog!)}
-              isTop
-              stackIndex={0}
-            />
-          </>
-        )}
-      </View>
-
-      {/* Action buttons */}
-      {!isDeckEmpty && (
-        <View style={styles.actionRow}>
-          {/* Pass */}
-          <Animated.View style={passButtonStyle}>
-            <Pressable
-              style={[styles.actionBtn, styles.passBtn]}
-              onPress={handlePassPress}
-              accessibilityRole="button"
-              accessibilityLabel="Pass"
-            >
-              <Text style={styles.passIcon}>✕</Text>
-            </Pressable>
-          </Animated.View>
-
-          {/* Like */}
-          <Animated.View style={likeButtonStyle}>
-            <Pressable
-              style={[styles.actionBtn, styles.likeBtn]}
-              onPress={handleLikePress}
-              accessibilityRole="button"
-              accessibilityLabel="Woof"
-            >
-              <Text style={styles.likeIcon}>🐾</Text>
-            </Pressable>
-          </Animated.View>
-        </View>
+            <Text style={styles.helper}>It’s a match when you both say WOOF. Then propose a playdate.</Text>
+          </View>
+        </>
       )}
 
       <DiscoverDetailsSheet
@@ -715,243 +630,197 @@ export default function DiscoverTab() {
           // while it's open — but only ever like the dog the sheet showed.
           if (dog && topDog?.id === dog.id) topCardRef.current?.triggerSwipe('like');
         }}
+        onPass={() => {
+          const dog = detailDog;
+          setDetailDog(null);
+          if (dog && topDog?.id === dog.id) topCardRef.current?.triggerSwipe('pass');
+        }}
         onReport={detailDog ? () => handleReport(detailDog) : undefined}
       />
     </SafeAreaView>
   );
 }
 
+/** Sky page with the paw coin, one Chewy line, a plain sentence and (optionally) one pink action. */
+function DiscoverGate({
+  title,
+  body,
+  action,
+  children,
+}: {
+  title?: string;
+  body?: string;
+  action?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <SafeAreaView style={styles.container}>
+      <SkyBackground />
+      <View style={styles.gate}>
+        {title ? (
+          <View style={styles.gateCard}>
+            <Tape width={84} height={22} angle={-4} style={{ top: -9, left: 28 }} />
+            <StickerDog size={84} style={styles.gateDog} />
+            <Text style={styles.gateTitle} accessibilityRole="header">
+              {title}
+            </Text>
+            {body ? <Text style={styles.gateBody}>{body}</Text> : null}
+            {children ? <View style={styles.gateSpinner}>{children}</View> : null}
+          </View>
+        ) : (
+          children
+        )}
+        {action ? <View style={styles.gateAction}>{action}</View> : null}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+/** Shown when the profile is complete but has no public place, so nobody can find it. */
+function VisibilityNotice({ show, onPress }: { show: boolean; onPress: () => void }) {
+  if (!show) return null;
+  return (
+    <Pressable style={styles.notice} onPress={onPress} accessibilityRole="button">
+      <Text style={styles.noticeText}>
+        Other dogs can’t see you yet. Add a city or allow location to be discoverable.
+      </Text>
+      <View style={styles.noticeCta}>
+        <Text style={styles.noticeCtaText}>Edit profile</Text>
+        <Ionicons name="chevron-forward" size={14} color={colors.ink} />
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  gateContainer: {
-    flex: 1,
-    backgroundColor: colors.cream,
+  container: { flex: 1, backgroundColor: colors.sky },
+  header: { paddingTop: 6 },
+
+  gate: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, gap: 22 },
+  gateCard: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 24,
+    paddingHorizontal: 22,
+    paddingTop: 26,
+    paddingBottom: 24,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 4,
   },
-  gateEmoji: { fontSize: 56, marginBottom: 16 },
+  gateDog: { marginBottom: 8 },
   gateTitle: {
     fontFamily: fonts.display,
-    fontSize: 24,
-    color: colors.brown,
-    marginBottom: 10,
+    fontSize: 28,
+    lineHeight: 32,
+    color: colors.ink,
     textAlign: 'center',
   },
   gateBody: {
-    fontFamily: fonts.body,
+    marginTop: 8,
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: colors.brownLight,
+    lineHeight: 21,
+    color: colors.brownMid,
     textAlign: 'center',
-    lineHeight: 22,
   },
-  loadingText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownLight,
-    marginTop: 14,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 8,
-  },
-  headerLeft: {
-    flexShrink: 1,
-  },
-  headerTitle: {
-    fontFamily: fonts.display,
-    fontSize: 22,
-    color: colors.brown,
-  },
-  headerSubtitle: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
-    marginTop: 2,
-  },
-  swipeErrorBanner: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 4,
+  gateSpinner: { marginTop: 16 },
+  gateAction: {},
+
+  swipeError: {
+    position: 'absolute',
+    top: 54,
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: radius.lg,
-    backgroundColor: colors.brown,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
+    elevation: 6,
   },
-  swipeErrorBannerText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: '#fff',
+  swipeErrorText: {
+    fontFamily: fonts.black,
+    fontSize: 13.5,
+    lineHeight: 18,
+    color: colors.ink,
     textAlign: 'center',
   },
-  visibilityBanner: {
-    marginHorizontal: 16,
+
+  notice: {
+    marginHorizontal: 14,
     marginTop: 4,
-    marginBottom: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(245,183,49,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(180,83,9,0.30)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  visibilityBannerText: {
-    flex: 1,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.brown,
-  },
-  visibilityBannerCta: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 12,
-    color: colors.primary,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  likesBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
+    marginBottom: 6,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  likesBadgeText: {
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    fontSize: 13,
-    color: '#fff',
-  },
-  infoBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.creamDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoBtnText: {
-    fontSize: 16,
-    color: colors.brownMid,
-  },
-  stackArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 8,
-  },
-  actionRow: {
+    paddingVertical: 8,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderLeftWidth: 6,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 18,
-    paddingHorizontal: 20,
-    gap: 18,
-  },
-  actionBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow.button,
-  },
-  passBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#fff',
-    borderWidth: 2.5,
-    borderColor: colors.danger,
-    shadowColor: colors.danger,
-  },
-  likeBtn: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-  },
-  passIcon: { fontSize: 22, color: colors.danger },
-  likeIcon: { fontSize: 28 },
-  emptyScrollContent: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 24,
-  },
-  recruitCaption: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownLight,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 16,
-    maxWidth: 280,
-    lineHeight: 20,
-  },
-  recruitCardWrap: {
-    marginBottom: 18,
-  },
-  emptySecondaryRow: {
-    flexDirection: 'row',
     gap: 10,
   },
-  emptyEmoji: { fontSize: 64, marginBottom: 16 },
-  emptyTitle: {
-    fontFamily: fonts.display,
-    fontSize: 26,
-    color: colors.brown,
-    marginBottom: 10,
-    textAlign: 'center',
+  noticeText: { flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 17, color: colors.ink },
+  noticeCta: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  noticeCtaText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, textDecorationLine: 'underline' },
+
+  stackArea: { flex: 1, paddingHorizontal: 14, paddingTop: 4, paddingBottom: 12 },
+  stack: { flex: 1 },
+
+  tray: { paddingHorizontal: 14, paddingBottom: 6 },
+  trayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sideBtn: {
+    width: 66,
+    height: 54,
+    borderRadius: 18,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 5,
+    overflow: 'hidden',
   },
-  emptyBody: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.brownLight,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 28,
-  },
-  resetButton: {
+  sideEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 5, backgroundColor: colors.border },
+  sideIcon: { marginBottom: -1 },
+  sideText: { fontFamily: fonts.black, fontSize: 12.5, lineHeight: 15, color: colors.ink },
+  woofWrap: { flex: 1 },
+  woofBtn: {
+    height: 54,
+    borderRadius: 999,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
     backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 30,
-    paddingVertical: 14,
-    ...shadow.button,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingBottom: 6,
+    overflow: 'hidden',
   },
-  resetButtonText: {
+  woofEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 6, backgroundColor: colors.primaryDark },
+  woofText: { fontFamily: fonts.display, fontSize: 31, lineHeight: 36, letterSpacing: 1, color: colors.ink },
+  pressed: { transform: [{ translateY: 1 }], opacity: 0.94 },
+  helper: {
+    marginTop: 6,
+    textAlign: 'center',
     fontFamily: fonts.bold,
-    fontWeight: '700',
-    color: '#fff',
-    fontSize: 15,
+    fontSize: 12.5,
+    lineHeight: 16,
+    color: colors.ink,
   },
-  emptySecondaryButton: {
-    marginTop: 12,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.cream,
-  },
-  emptySecondaryButtonText: {
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    color: colors.brownMid,
-    fontSize: 14,
-  },
-  lastChecked: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: colors.brownLight,
-    marginTop: 12,
-  },
+
+  emptyScroll: { paddingTop: 4, paddingBottom: 24 },
 });
