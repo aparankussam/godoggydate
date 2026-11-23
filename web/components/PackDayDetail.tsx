@@ -9,6 +9,8 @@
 // public summary the server page passes in: the same facts as the shareable
 // flyer at /pack/[id], never who is going. Only the sign-in step is gated.
 
+import { discoverFromPackDay } from '../lib/dogtypeDiscovery';
+import { computeDogtype } from '../../shared/dogtype';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -109,7 +111,19 @@ export default function PackDayDetail({ eventId, publicSummary }: Props) {
         return;
       }
       setEvent(result.event);
-      setAttendees(await loadAttendees(result.event, result.foundingUids));
+      const loaded = await loadAttendees(result.event, result.foundingUids);
+      setAttendees(loaded);
+      // A finished Pack Day you went to: the dogs there count as met (their Dogtypes join your collection).
+      const me = getFirebase().auth.currentUser?.uid;
+      if (me && isPast(result.event, Date.now()) && result.event.status !== 'cancelled' && result.event.attendeeUids.includes(me)) {
+        discoverFromPackDay(
+          me,
+          loaded.flatMap((a) => {
+            const code = a.uid !== me ? computeDogtype(a.dog)?.code : undefined;
+            return code ? [{ code, dogId: a.uid, dogName: a.name, at: result.event.startsAtMs }] : [];
+          }),
+        );
+      }
       setLoadState('ready');
     } catch {
       setLoadState('error');
