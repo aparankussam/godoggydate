@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   newPill: {
     marginLeft: 8,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(232,99,58,0.12)',
+    backgroundColor: 'rgba(255,92,141,0.12)',
     paddingHorizontal: 8,
     paddingVertical: 3,
   },

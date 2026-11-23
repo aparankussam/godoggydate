@@ -58,7 +58,7 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
             wash over the entire image, which muddied every photo — the web
             card always used a gradient; mobile never matched it. */}
         <LinearGradient
-          colors={['transparent', 'rgba(45,26,14,0.6)', colors.brown]}
+          colors={['transparent', 'rgba(42,31,74,0.6)', colors.brown]}
           locations={[0.55, 0.85, 1]}
           style={styles.photoFade}
           pointerEvents="none"

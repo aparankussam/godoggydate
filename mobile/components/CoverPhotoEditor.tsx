@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: colors.white,
-    backgroundColor: 'rgba(232,99,58,0.7)',
+    backgroundColor: 'rgba(255,92,141,0.7)',
     ...shadow.card,
   },
   hint: {

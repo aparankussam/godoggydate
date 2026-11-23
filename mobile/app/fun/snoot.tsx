@@ -287,7 +287,7 @@ export default function SnootScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#FDF6EE', '#F5E6D3']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#FFF9EC', '#F3ECDC']} style={StyleSheet.absoluteFill} />
 
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
@@ -403,7 +403,7 @@ export default function SnootScreen() {
       {/* Off-screen capturable badge */}
       <View style={styles.offscreen} pointerEvents="none">
         <View ref={badgeRef} collapsable={false} style={styles.badge}>
-          <LinearGradient colors={['#5C3D2E', '#B45309', '#E8633A']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['#4A3F6E', '#B45309', '#FF5C8D']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
           {photo ? <Image source={{ uri: photo }} style={styles.badgePhoto} /> : <Text style={styles.badgeEmoji}>🐽</Text>}
           <Text style={styles.badgeCount}>{state.allTime.toLocaleString()}</Text>
           <Text style={styles.badgeLabel}>boops and counting</Text>

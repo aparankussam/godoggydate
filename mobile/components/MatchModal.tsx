@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlayCelebrate: {
-    backgroundColor: 'rgba(45,26,14,0.72)',
+    backgroundColor: 'rgba(42,31,74,0.72)',
   },
   overlayBlocked: {
     backgroundColor: 'rgba(15,23,42,0.78)',

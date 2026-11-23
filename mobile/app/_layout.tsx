@@ -5,11 +5,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { useFonts } from 'expo-font';
-import { Fraunces_600SemiBold, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
+import { Chewy_400Regular } from '@expo-google-fonts/chewy';
+import { Caveat_700Bold } from '@expo-google-fonts/caveat';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
   Nunito_700Bold,
+  Nunito_800ExtraBold,
+  Nunito_900Black,
 } from '@expo-google-fonts/nunito';
 import { SessionProvider, useSession } from '../lib/session';
 import { addNotificationTapListener, registerForPushNotifications } from '../lib/push';
@@ -76,20 +79,21 @@ export default function RootLayout() {
     throw new Error('Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY for mobile Stripe initialization');
   }
 
-  // The web app's Fraunces/Nunito brand fonts were never actually loaded on
-  // mobile — theme.ts silently fell back to system fonts (Georgia for
-  // display), so iOS looked like a newspaper instead of the styled web app.
+  // Brand fonts shared with the web app: Chewy (display), Caveat (owner
+  // handwriting) and Nunito (body).
   const [fontsLoaded] = useFonts({
-    Fraunces_600SemiBold,
-    Fraunces_700Bold,
+    Chewy_400Regular,
+    Caveat_700Bold,
     Nunito_400Regular,
     Nunito_600SemiBold,
     Nunito_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
   });
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.sky }}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );

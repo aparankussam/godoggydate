@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   pawEmoji: { position: 'absolute', top: 20, right: 20, zIndex: 10, fontSize: 22 },
   photo: { ...StyleSheet.absoluteFillObject, resizeMode: 'cover' },
   photoFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryLight },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(45,26,14,0.55)' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(42,31,74,0.55)' },
   infoPanel: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 24, paddingTop: 40 },
   stars: { fontSize: 24, marginBottom: 6 },
   name: { color: '#fff', fontFamily: fonts.display, fontSize: 26 },

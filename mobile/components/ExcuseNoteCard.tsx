@@ -27,9 +27,9 @@ interface Props {
 
 // Aged-paper palette as literal hex for a faithful view-shot capture (same
 // values as the web card).
-const INK = '#2D1A0E';
+const INK = '#2A1F4A';
 const INK_SOFT = '#6B4E2E';
-const SEAL = '#C44E27';
+const SEAL = '#D63A6B';
 
 const CARD_WIDTH = 340;
 

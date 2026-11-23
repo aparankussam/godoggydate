@@ -1272,7 +1272,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginBottom: 10,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(232,99,58,0.08)',
+    backgroundColor: 'rgba(255,92,141,0.08)',
   },
   loadOlderText: {
     fontFamily: fonts.semibold,
@@ -1284,7 +1284,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 2,
     borderRadius: radius.md,
-    backgroundColor: 'rgba(232,99,58,0.08)',
+    backgroundColor: 'rgba(255,92,141,0.08)',
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -1438,7 +1438,7 @@ const styles = StyleSheet.create({
   },
   starterChip: {
     borderRadius: radius.full,
-    backgroundColor: 'rgba(232,99,58,0.1)',
+    backgroundColor: 'rgba(255,92,141,0.1)',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -1550,7 +1550,7 @@ const styles = StyleSheet.create({
   },
   playdateCardMe: {
     alignSelf: 'flex-end',
-    borderColor: 'rgba(232,99,58,0.25)',
+    borderColor: 'rgba(255,92,141,0.25)',
     backgroundColor: '#FFF7F3',
   },
   playdateCardThem: { alignSelf: 'flex-start' },

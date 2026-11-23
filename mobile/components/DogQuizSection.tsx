@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
   },
   ownerOnly: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownLight },
-  progressTrack: { height: 6, borderRadius: radius.full, backgroundColor: 'rgba(45,26,14,0.10)', overflow: 'hidden' },
+  progressTrack: { height: 6, borderRadius: radius.full, backgroundColor: 'rgba(42,31,74,0.10)', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.primary },
   prompt: { fontFamily: fonts.display, fontSize: 18, color: colors.brown, lineHeight: 24, marginTop: 12 },
 
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: 'rgba(45,26,14,0.05)',
+    backgroundColor: 'rgba(42,31,74,0.05)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,

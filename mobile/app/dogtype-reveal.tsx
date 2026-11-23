@@ -95,7 +95,7 @@ export default function DogtypeRevealScreen() {
   if (!dogtype) {
     return (
       <View style={styles.container}>
-        <LinearGradient colors={['#241A2E', '#5C3D2E', '#C98A5E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#241A2E', '#4A3F6E', '#C98A5E']} style={StyleSheet.absoluteFill} />
         <View style={styles.center}>
           <Text style={styles.emptyEmoji}>🐾</Text>
           <Text style={styles.emptyTitle}>Almost there</Text>
@@ -117,7 +117,7 @@ export default function DogtypeRevealScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={dogtype.code[0] === 'E' ? ['#7A2E0E', '#B8431F', '#241A2E'] : ['#241A2E', '#3C2A3E', '#5C3D2E']}
+        colors={dogtype.code[0] === 'E' ? ['#7A2E0E', '#B8431F', '#241A2E'] : ['#241A2E', '#3C2A3E', '#4A3F6E']}
         style={StyleSheet.absoluteFill}
       />
 

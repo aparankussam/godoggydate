@@ -25,7 +25,7 @@ const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string
   ({ milestone, dogName }, ref) => (
     <View ref={ref} collapsable={false} style={styles.celebrate}>
       <LinearGradient
-        colors={['#B45309', '#E8633A', '#F5B731']}
+        colors={['#B45309', '#FF5C8D', '#F5B731']}
         locations={[0, 0.55, 1]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
