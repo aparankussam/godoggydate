@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { doc, getDoc } from 'firebase/firestore';
-import { getFirebase } from '../../shared/utils/firebase';
+import { getFirebase } from '../shared/utils/firebase';
 import { trackEvent } from '../lib/analytics';
 import { discoverOwnType, loadDiscoveries, onDiscoveriesChange } from '../lib/dogtypeDiscovery';
 import { computeDogtype, dogtypeByCode, dogtypeCompat, dogtypeReasons } from '../../shared/dogtype';
