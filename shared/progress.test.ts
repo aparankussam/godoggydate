@@ -4,6 +4,12 @@ import assert from 'node:assert/strict';
 import {
   BARKLE_HISTORY_LIMIT,
   addDiscovery,
+  matchedDogsOfType,
+  mergeDogtypeDogs,
+  mergeRevealed,
+  normalizeDogtypeDogs,
+  normalizeRevealed,
+  snapshotDog,
   discoveredOrder,
   markSeen,
   mergeDogtypes,
@@ -500,4 +506,51 @@ test('mergeDogtypes tie-breaks on dogName so it is order independent', () => {
   const a = { EGOB: { at: 1, dogId: 'd', dogName: 'Alpha', seen: false } };
   const b = { EGOB: { at: 1, dogId: 'd', dogName: 'Beta', seen: false } };
   assert.deepEqual(mergeDogtypes(a, b), mergeDogtypes(b, a));
+});
+
+// ── Per-dog type snapshots and the "has revealed" flag ──────────────────────
+
+test('normalizeDogtypeDogs drops bad codes and caps at 200', () => {
+  const raw: Record<string, unknown> = { d1: { code: 'EROB', at: 5 }, d2: { code: 'XXXX', at: 5 }, d3: { code: 'ZGSM', at: -1 } };
+  for (let i = 0; i < 250; i++) raw[`dog${i}`] = { code: 'EROB', at: i + 1 };
+  const out = normalizeDogtypeDogs(raw)!;
+  assert.equal(Object.keys(out).length, 200);
+  assert.ok(!('d2' in out) && !('d3' in out));
+  assert.equal(normalizeDogtypeDogs('nope'), undefined);
+});
+
+test('dogtypeDogs merge is commutative, associative and idempotent, earliest wins', () => {
+  const a = { d1: { code: 'EROB', at: 10 } };
+  const b = { d1: { code: 'ZGSM', at: 5 }, d2: { code: 'EGOB', at: 7 } };
+  const c = { d3: { code: 'ZROM', at: 1 } };
+  assert.deepEqual(mergeDogtypeDogs(a, b), mergeDogtypeDogs(b, a));
+  assert.deepEqual(mergeDogtypeDogs(mergeDogtypeDogs(a, b), c), mergeDogtypeDogs(a, mergeDogtypeDogs(b, c)));
+  assert.deepEqual(mergeDogtypeDogs(a, a), mergeDogtypeDogs(a));
+  assert.equal(mergeDogtypeDogs(a, b)!.d1.code, 'ZGSM');
+});
+
+test('snapshotDog keeps the first code even if called again with another', () => {
+  let m = snapshotDog(undefined, 'd1', 'EROB', 10);
+  m = snapshotDog(m, 'd1', 'ZGSM', 20);
+  assert.equal(m.d1.code, 'EROB');
+  m = snapshotDog(m, 'd2', 'EROB', 30);
+  assert.deepEqual(matchedDogsOfType(m, 'EROB').sort(), ['d1', 'd2']);
+  assert.deepEqual(matchedDogsOfType(undefined, 'EROB'), []);
+});
+
+test('revealed merges with OR and normalizes only true', () => {
+  assert.equal(normalizeRevealed(true), true);
+  assert.equal(normalizeRevealed('yes'), undefined);
+  assert.equal(mergeRevealed(undefined, true), true);
+  assert.equal(mergeRevealed(true, undefined), true);
+  assert.equal(mergeRevealed(undefined, undefined), undefined);
+});
+
+test('normalizeProgress and mergeProgress carry the new fields', () => {
+  const doc = normalizeProgress({ dogtypeRevealed: true, dogtypeDogs: { d1: { code: 'EROB', at: 3 } } });
+  assert.equal(doc.dogtypeRevealed, true);
+  assert.equal(doc.dogtypeDogs!.d1.code, 'EROB');
+  const merged = mergeProgress(doc, { dogtypeDogs: { d1: { code: 'ZGSM', at: 1 } } });
+  assert.equal(merged.dogtypeDogs!.d1.code, 'ZGSM');
+  assert.equal(merged.dogtypeRevealed, true);
 });
