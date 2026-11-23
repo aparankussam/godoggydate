@@ -430,7 +430,9 @@ export function Gingham({ columns = 12, rows = 26 }: { columns?: number; rows?: 
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={StyleSheet.absoluteFill}
+      // Clip the stripes to the parent: 12 columns are wider than a phone, and
+      // without this they widened the page (horizontal scroll on web).
+      style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}
     >
       {Array.from({ length: columns }).map((_, i) => (
         <View key={`c${i}`} style={[styles.ginghamCol, { left: i * 44 }]} />
@@ -445,7 +447,7 @@ export function Gingham({ columns = 12, rows = 26 }: { columns?: number; rows?: 
 /** Sky page background (with optional gingham) filling its parent. */
 export function SkyBackground({ gingham = true }: { gingham?: boolean }) {
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.sky }]}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.sky, overflow: 'hidden' }]}>
       {gingham ? <Gingham /> : null}
     </View>
   );

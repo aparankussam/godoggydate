@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   collection,
   doc,
@@ -20,6 +20,7 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -33,7 +34,9 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { useStripe } from '@stripe/stripe-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors, fonts, radius } from '../../constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts } from '../../constants/theme';
 import { getFirebase } from '../../lib/firebase';
 import {
   fetchMatch,
@@ -76,13 +79,36 @@ import { CHAT_UNLOCK_PRICE_CENTS, formatPrice, getChatUnlockPitch } from '../../
 import { hasRatedPlaydate, submitPlaydateRating } from '../../lib/ratings';
 import PlaydateRatingModal from '../../components/PlaydateRatingModal';
 import PlaydateMemoryCard from '../../components/PlaydateMemoryCard';
-import PlaydateHeadsUpCard from '../../components/PlaydateHeadsUpCard';
+import PlaydateHeadsUpCard, { playdateConflicts } from '../../components/PlaydateHeadsUpCard';
+import ChatBubble from '../../components/chat/ChatBubble';
+import PlaydateTicket, {
+  RoundPaperButton,
+  TicketCream,
+  TicketNote,
+  TicketPink,
+  TicketQuiet,
+} from '../../components/chat/PlaydateTicket';
+import { PrimaryButton, SecondaryButton, SkyBackground, StickerDog } from '../../components/sticker';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import { setBestFriend, clearBestFriend } from '../../lib/bestFriend';
 
-const SAFETY_TIP =
-  'Safety tip: For a first playdate, meet in a public dog park or other busy public place. Keep dogs leashed at first and take it slow.';
+// Shown after a bold "Tip:" (as on web), in the calm register.
+const SAFETY_TIP = 'always meet in a public place for your first playdate.';
+
+/** What this person did with a received proposal. Kept on this device only, as on web. */
+type ProposalResponse = 'declined' | 'countered';
+
+function responsesKey(matchId: string): string {
+  return `gdd.playdateResponses.${matchId}`;
+}
+
+/** The other owner's first name as the match doc carries it, or null. Mirrors web's cleanFirstName. */
+function cleanFirstName(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed && trimmed.length <= 40 ? trimmed : null;
+}
 
 /** How many of the newest messages to load, and how many more each "Load earlier" adds. */
 const MESSAGE_PAGE_SIZE = 50;
@@ -174,6 +200,16 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [match, setMatch] = useState<MatchItem | null>(null);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
+  // The other owner's first name, from the match document only (they can hide it).
+  const [otherOwnerFirstName, setOtherOwnerFirstName] = useState<string | null>(null);
+  // Declined / suggested-another-time, per proposal. A per-device convenience
+  // like web's localStorage copy; the thread itself is the record.
+  const [responses, setResponses] = useState<Record<string, ProposalResponse>>({});
+  const [confirmDeclineId, setConfirmDeclineId] = useState<string | null>(null);
+  // The proposal a new one answers ("Suggest another time"), marked handled once sent.
+  const [counterOfId, setCounterOfId] = useState<string | null>(null);
+  // The message box has focus (keyboard up): the Heads-Up card folds to its header.
+  const [inputFocused, setInputFocused] = useState(false);
   const [matchMissing, setMatchMissing] = useState(false);
   // False until the match doc's listener first answers, so a chat that is
   // open doesn't flash the locked screen while access is still unknown.
@@ -382,8 +418,14 @@ export default function ChatScreen() {
           dog2UserId?: string;
           userAId?: string;
           userBId?: string;
+          dog1OwnerFirstName?: unknown;
+          dog2OwnerFirstName?: unknown;
         };
-        if (user) setOtherUserId(getOtherUserId(data, user.uid));
+        if (user) {
+          setOtherUserId(getOtherUserId(data, user.uid));
+          const iAmDog1 = data.dog1UserId === user.uid;
+          setOtherOwnerFirstName(cleanFirstName(iAmDog1 ? data.dog2OwnerFirstName : data.dog1OwnerFirstName));
+        }
         // OR in hasLifetime so this state means the same "effective access"
         // as fetchMatch()/fetchMatches() in lib/matches.ts — Founding
         // Members never look locked in match.chatUnlocked here.
@@ -405,6 +447,27 @@ export default function ChatScreen() {
 
     return unsubscribe;
   }, [resolvedMatchId, user, hasLifetime, matchLoadRetryToken]);
+
+  useEffect(() => {
+    if (!resolvedMatchId) return undefined;
+    let cancelled = false;
+    AsyncStorage.getItem(responsesKey(resolvedMatchId))
+      .then((raw) => {
+        const parsed = raw ? JSON.parse(raw) : {};
+        if (!cancelled && parsed && typeof parsed === 'object') setResponses(parsed);
+      })
+      .catch(() => { /* a per-device convenience; the thread is the record */ });
+    return () => { cancelled = true; };
+  }, [resolvedMatchId]);
+
+  function recordResponse(messageId: string, response: ProposalResponse) {
+    if (!resolvedMatchId) return;
+    setResponses((current) => {
+      const next = { ...current, [messageId]: response };
+      AsyncStorage.setItem(responsesKey(resolvedMatchId), JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!canChat) return;
@@ -608,6 +671,7 @@ export default function ChatScreen() {
         return day && day >= startOfToday ? d : { ...defaultPlaydateDraft(), place: d.place };
       });
     }
+    if (showPlaydateForm) setCounterOfId(null);
     setShowPlaydateForm(!showPlaydateForm);
   }
 
@@ -650,8 +714,15 @@ export default function ChatScreen() {
       playdate: { date, time, place: place.trim() },
     });
     if (!delivered) return; // keep the form + draft so the user can retry
+    if (counterOfId) recordResponse(counterOfId, 'countered');
+    setCounterOfId(null);
     setShowPlaydateForm(false);
     setPlaydateDraft(defaultPlaydateDraft());
+  }
+
+  function closePlaydateForm() {
+    setShowPlaydateForm(false);
+    setCounterOfId(null);
   }
 
   async function acceptPlaydate(proposal: ChatMessage) {
@@ -662,6 +733,56 @@ export default function ChatScreen() {
       type: 'playdate_confirmed',
       playdate: proposal.playdate,
     });
+  }
+
+  // Accept is one tap, unless the two dogs' declared limits cross: then the
+  // owner-named limits are said first and have to be tapped through (web's
+  // "Before you accept" sheet).
+  function handleAcceptTap(proposal: ChatMessage) {
+    const conflicts = playdateConflicts(myProfile, otherProfile);
+    if (conflicts.length === 0) {
+      void acceptPlaydate(proposal);
+      return;
+    }
+    const lines = conflicts.map((c) => `• ${c.text}${c.detail ? `. ${c.detail}.` : ''}`).join('\n');
+    const body = `What you and ${dogName}’s owner each said about your dogs:\n\n${lines}`;
+    if (Platform.OS === 'web') {
+      // react-native-web has no Alert; the browser's confirm says the same.
+      if (typeof window !== 'undefined' && window.confirm(`Before you accept\n\n${body}`)) void acceptPlaydate(proposal);
+      return;
+    }
+    Alert.alert('Before you accept', body, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Got it, accept playdate', onPress: () => void acceptPlaydate(proposal) },
+    ]);
+  }
+
+  async function handleDecline(proposal: ChatMessage) {
+    if (!proposal.playdate) return;
+    setConfirmDeclineId(null);
+    const delivered = await handleSend(
+      `Can’t make ${formatPlaydateWhen(proposal.playdate, now)}. Thanks for suggesting it! 🐾`,
+    );
+    if (delivered) recordResponse(proposal.id, 'declined');
+  }
+
+  // "Suggest another time": the proposal form again, with the same place filled in.
+  function handleSuggestAnotherTime(proposal: ChatMessage) {
+    setPlaydateDraft({ ...defaultPlaydateDraft(), place: proposal.playdate?.place ?? '' });
+    setCounterOfId(proposal.id);
+    setShowPlaydateForm(true);
+  }
+
+  // Web downloads an .ics file. The app has no file-system package to write
+  // one (same as Pack Day's "Save the date"), so this opens the share sheet
+  // with the date and place, which Calendar, Notes or Messages can take.
+  async function handleSaveTheDate(p: PlaydateDetails) {
+    trackEvent('playdate_calendar', { match_id: resolvedMatchId ?? '', method: 'share' });
+    try {
+      await Share.share({ message: `Playdate with ${dogName}\n${formatPlaydateWhen(p, now)}\n${p.place}` });
+    } catch {
+      // A dismissed share sheet isn't an error worth showing.
+    }
   }
 
   // Fills the input rather than sending straight away (web sends on tap), so
@@ -721,65 +842,130 @@ export default function ChatScreen() {
     }
   }
 
+  // A confirmation whose proposal ticket is in the thread is shown BY that
+  // ticket ("Playdate · Confirmed"); its own message is only a copy of it.
+  const proposalKeys = new Set(
+    messages
+      .filter((m) => isPlaydateMessage(m, 'playdate_proposal'))
+      .map((m) => playdateKey(m.playdate)),
+  );
+  // Exactly one pink action in the thread, as on web: "Send proposal" while
+  // the form is open; else the newest proposal waiting on me ("Accept
+  // playdate"); else "I'm here" on the soonest upcoming playdate.
+  const pinkProposalId = showPlaydateForm
+    ? null
+    : ([...messages].reverse().find((m) =>
+        isPlaydateMessage(m, 'playdate_proposal')
+        && m.senderId !== user?.uid
+        && !confirmedPlaydateKeys.has(playdateKey(m.playdate))
+        && playdatePhase(m.playdate, now, m.createdAt) !== 'happened'
+        && !responses[m.id],
+      )?.id ?? null);
+  const pinkPlaydateKey =
+    !showPlaydateForm && !pinkProposalId && upcomingPlaydate ? playdateKey(upcomingPlaydate) : null;
+  const otherName = otherOwnerFirstName ?? dogName;
+
+  // A confirmed playdate that is still ahead: the quick messages and the date.
+  const confirmedActions = (p: PlaydateDetails, sentAt: number) => {
+    if (playdatePhase(p, now, sentAt) !== 'upcoming') return null;
+    const pink = playdateKey(p) === pinkPlaydateKey;
+    return (
+      <>
+        {pink ? (
+          <TicketPink label="I’m here" onPress={() => void handleSend('I’m here! 🐾')} disabled={sending} />
+        ) : (
+          <TicketCream label="I’m here" icon="paw" onPress={() => void handleSend('I’m here! 🐾')} disabled={sending} />
+        )}
+        <TicketCream
+          label="Running late"
+          icon="clock"
+          onPress={() => void handleSend('Running a few minutes late. See you soon! ⏰')}
+          disabled={sending}
+        />
+        <TicketCream label="Save the date" icon="calendar" onPress={() => void handleSaveTheDate(p)} />
+      </>
+    );
+  };
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isMe = item.senderId === user?.uid || item.senderId === 'me';
     const time = formatMessageTime(item.createdAt, now);
 
     // Caught by the server's content filter: muted, never a playdate card.
     if (item.moderated) {
-      return (
-        <View style={[styles.bubbleWrap, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
-          <View style={[styles.bubble, styles.bubbleModerated]}>
-            <Text style={styles.bubbleTextModerated}>{item.text || 'This message was removed.'}</Text>
-          </View>
-          <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>{time}</Text>
-        </View>
-      );
+      return <ChatBubble text={item.text} fromMe={isMe} time={time} moderated />;
     }
 
     if (isPlaydateMessage(item, 'playdate_proposal')) {
       const confirmed = confirmedPlaydateKeys.has(playdateKey(item.playdate));
-      return (
-        <View style={[styles.playdateCard, isMe ? styles.playdateCardMe : styles.playdateCardThem]}>
-          <Text style={styles.playdateLabel}>📅 Playdate {confirmed ? '· Confirmed' : 'proposal'}</Text>
-          <Text style={styles.playdateWhen}>{formatPlaydateWhen(item.playdate, now)}</Text>
-          <Text style={styles.playdateWhere}>{item.playdate.place}</Text>
-          {!isMe && !confirmed && (
-            // A proposal whose time has gone by can't be confirmed: that would
-            // count as a meetup that never happened and prompt for a rating of it.
-            playdatePhase(item.playdate, now, item.createdAt) === 'happened' ? (
-              <Text style={styles.playdateExpiredText}>That time has passed. Propose a new one.</Text>
+      // A proposal whose time has gone by can't be confirmed: that would
+      // count as a meetup that never happened and prompt for a rating of it.
+      const passed = playdatePhase(item.playdate, now, item.createdAt) === 'happened';
+      const response = responses[item.id];
+      const awaitingMe = !isMe && !confirmed && !passed && !response;
+      const status = !isMe && !confirmed && passed
+        ? 'That time has passed. Propose a new one.'
+        : isMe && !confirmed && !passed
+          ? `Waiting for ${otherName} to reply.`
+          : !isMe && !confirmed && !passed && response
+            ? (response === 'declined' ? 'You declined this one.' : 'You suggested another time.')
+            : null;
+      let actions: ReactNode = null;
+      if (confirmed) {
+        actions = confirmedActions(item.playdate, item.createdAt);
+      } else if (awaitingMe) {
+        actions = confirmDeclineId === item.id ? (
+          <>
+            <TicketNote>Let {otherName} know you can’t make it?</TicketNote>
+            <TicketCream label="Yes, decline" onPress={() => void handleDecline(item)} disabled={sending} />
+            <TicketQuiet label="Cancel" onPress={() => setConfirmDeclineId(null)} />
+          </>
+        ) : (
+          <>
+            {item.id === pinkProposalId ? (
+              <TicketPink label="Accept playdate" onPress={() => handleAcceptTap(item)} disabled={sending} />
             ) : (
-              <Pressable
-                style={styles.playdateAcceptBtn}
-                onPress={() => acceptPlaydate(item)}
-                disabled={sending}
-              >
-                <Text style={styles.playdateAcceptText}>Accept playdate</Text>
-              </Pressable>
-            )
-          )}
-          <Text style={styles.playdateTime}>{time}</Text>
-        </View>
+              <TicketCream label="Accept playdate" icon="paw" onPress={() => handleAcceptTap(item)} disabled={sending} />
+            )}
+            <TicketCream
+              label="Suggest another time"
+              icon="clock"
+              onPress={() => handleSuggestAnotherTime(item)}
+              disabled={sending}
+            />
+            <TicketQuiet label="Decline" onPress={() => setConfirmDeclineId(item.id)} disabled={sending} />
+          </>
+        );
+      }
+      return (
+        <PlaydateTicket
+          align={isMe ? 'end' : 'start'}
+          header={confirmed ? 'Playdate · Confirmed' : `Playdate proposal · from ${isMe ? 'you' : otherName}`}
+          when={formatPlaydateWhen(item.playdate, now)}
+          place={item.playdate.place}
+          status={status}
+          actions={actions}
+          time={time}
+        />
       );
     }
 
-    // A confirmation's stored text carries web's ISO strings
-    // ("2026-11-22 at 15:00"); show the date the way the proposal card does.
-    const bubbleText = isPlaydateMessage(item, 'playdate_confirmed')
-      ? `✅ Playdate confirmed: ${formatPlaydateWhen(item.playdate, now)} — ${item.playdate.place}`
-      : item.text;
+    if (isPlaydateMessage(item, 'playdate_confirmed')) {
+      // Its proposal ticket already says "Confirmed"; this would be a duplicate.
+      if (proposalKeys.has(playdateKey(item.playdate))) return null;
+      return (
+        <PlaydateTicket
+          align="center"
+          header="Playdate · Confirmed"
+          when={formatPlaydateWhen(item.playdate, now)}
+          place={item.playdate.place}
+          actions={confirmedActions(item.playdate, item.createdAt)}
+          time={time}
+        />
+      );
+    }
 
-    return (
-      <View style={[styles.bubbleWrap, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
-        <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-          <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
-            {bubbleText}
-          </Text>
-        </View>
-        <Text style={[styles.messageTime, isMe && styles.messageTimeMe]}>{time}</Text>
-      </View>
-    );
+    return <ChatBubble text={item.text} fromMe={isMe} time={time} />;
   };
 
   // Starters only until you've written something yourself.
@@ -798,6 +984,9 @@ export default function ChatScreen() {
   const reportReady = Boolean(user && resolvedMatchId && otherPartyId);
   const reportPending = Boolean(user && resolvedMatchId) && !reportReady && !matchMissing && !matchLoadError;
 
+  const isBestFriend = myBestFriendMatchId === resolvedMatchId;
+  const headerSub = otherOwnerFirstName ? `with ${otherOwnerFirstName}` : otherBreed;
+
   return (
     <SafeAreaView style={styles.container}>
       <PlaydateRatingModal
@@ -807,882 +996,689 @@ export default function ChatScreen() {
         onDismiss={() => setShowRatingModal(false)}
       />
 
-      {/* Header */}
+      {/* Header: a paper strip with an ink rule, as on web */}
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>‹</Text>
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={4}
+        >
+          <Ionicons name="chevron-back" size={26} color={colors.ink} />
         </Pressable>
         <Pressable
           style={styles.headerCenter}
           onPress={() => resolvedMatchId && router.push({ pathname: '/dog/[matchId]', params: { matchId: resolvedMatchId } })}
+          accessibilityRole="button"
           accessibilityLabel={`View ${dogName}'s profile`}
         >
-          {otherPhoto ? (
-            <Image source={{ uri: otherPhoto }} style={styles.headerAvatar} />
-          ) : (
-            <View style={[styles.headerAvatar, styles.headerAvatarFallback]}>
-              <Text style={styles.headerAvatarEmoji}>🐕</Text>
-            </View>
-          )}
+          <View style={styles.headerAvatar}>
+            {otherPhoto ? (
+              <Image source={{ uri: otherPhoto }} style={styles.headerAvatarImg} />
+            ) : (
+              <StickerDog size={36} label={`A drawn sticker dog standing in for ${dogName}`} />
+            )}
+          </View>
           <View style={styles.headerText}>
             <Text style={styles.headerName} numberOfLines={1}>{resolvedName || match?.dog.name || 'Chat'}</Text>
-            <Text style={styles.headerSub} numberOfLines={1}>{otherBreed ?? 'Tap to view profile'}</Text>
+            {headerSub ? <Text style={styles.headerSub} numberOfLines={1}>{headerSub}</Text> : null}
           </View>
         </Pressable>
         {resolvedMatchId && (
           <Pressable
-            style={styles.bestFriendBtn}
+            style={[styles.bestFriendBtn, togglingBestFriend && styles.dimmed]}
             onPress={handleToggleBestFriend}
             disabled={togglingBestFriend}
-            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={isBestFriend ? 'Remove Best Friend' : `Make ${dogName} Best Friend`}
+            accessibilityState={{ selected: isBestFriend }}
           >
-            <Text style={styles.bestFriendBtnText}>
-              {myBestFriendMatchId === resolvedMatchId ? '⭐' : '☆'}
-            </Text>
+            <Ionicons name={isBestFriend ? 'star' : 'star-outline'} size={22} color={colors.ink} />
           </Pressable>
         )}
         <Pressable
-          style={[styles.moreBtn, !reportReady && !reportPending && styles.moreBtnDisabled]}
+          style={[styles.moreBtn, !reportReady && !reportPending && styles.dimmed]}
           onPress={openSafetyMenu}
           disabled={!reportReady}
+          accessibilityRole="button"
           accessibilityLabel="Report or block"
         >
           {reportPending ? (
-            <ActivityIndicator size="small" color={colors.brownLight} />
+            <ActivityIndicator size="small" color={colors.ink} />
           ) : (
-            <Text style={styles.moreBtnText}>•••</Text>
+            <Ionicons name="ellipsis-horizontal" size={22} color={colors.ink} />
           )}
         </Pressable>
       </View>
 
-      {!resolvedMatchId ? (
-        <View style={styles.emptyChat}>
-          <Text style={styles.emptyChatText}>This chat link is missing a match id.</Text>
-        </View>
-      ) : !user ? (
-        <View style={styles.emptyChat}>
-          <Text style={styles.emptyChatText}>Sign in to open this chat.</Text>
-        </View>
-      ) : loading || (!matchStateKnown && !matchLoadError) ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      ) : matchLoadError ? (
-        <View style={styles.emptyChat}>
-          <Text style={styles.emptyChatEmoji}>😕</Text>
-          <Text style={styles.emptyChatText}>Couldn’t load this chat. Check your connection and try again.</Text>
-          <Pressable
-            style={styles.statusButton}
-            onPress={() => setMatchLoadRetryToken((t) => t + 1)}
-          >
-            <Text style={styles.statusButtonText}>Retry</Text>
-          </Pressable>
-        </View>
-      ) : matchMissing ? (
-        <View style={styles.emptyChat}>
-          <Text style={styles.emptyChatEmoji}>🐾</Text>
-          <Text style={styles.emptyChatText}>This match isn’t available any more.</Text>
-        </View>
-      ) : match && isSeedUserId(match.dog.id) ? (
-        <View style={styles.emptyChat}>
-          <Text style={styles.emptyChatEmoji}>🐾</Text>
-          <Text style={styles.emptyChatText}>
-            This demo profile is no longer available for chats or unlocks.
-          </Text>
-        </View>
-      ) : !canChat ? (
-        <View style={styles.paywallSendWrap}>
-          {!canOfferInAppPurchase() ? (
-            // Apple Guideline 3.1.1: no in-app sale of digital content
-            // without IAP, and no price, purchase button or link that steers
-            // to one. This used to show "Unlock on godoggydate.com — $X",
-            // which the purchase rule didn't hide. Neutral copy only; the
-            // realtime match listener opens the chat on its own once it's
-            // unlocked.
-            <>
-              <Text style={styles.paywallTitle}>Chat isn’t open yet</Text>
-              <Text style={styles.paywallBody}>
-                Your chat with {dogName} will open right here as soon as it’s available.
-              </Text>
-              <Text style={styles.paywallSupport}>{SAFETY_TIP}</Text>
-              {unlockError ? <Text style={styles.paywallNotice}>{unlockError}</Text> : null}
-              <Pressable style={styles.statusButton} onPress={handleRefreshUnlockStatus}>
-                <Text style={styles.statusButtonText}>Check again</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={styles.paywallTitle}>Unlock Chat</Text>
-              <Text style={styles.paywallBody}>
-                {paymentConfigured
-                  ? getChatUnlockPitch()
-                  : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
-              </Text>
-              <Text style={styles.paywallSupport}>
-                {SAFETY_TIP}
-              </Text>
-              {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
-              {!unlockLoading && unlockError ? (
-                <Pressable style={styles.statusButton} onPress={handleRefreshUnlockStatus}>
-                  <Text style={styles.statusButtonText}>Check Unlock Status</Text>
-                </Pressable>
-              ) : null}
-              <Pressable
-                style={[styles.unlockBtn, unlockLoading && styles.sendBtnDisabled]}
-                onPress={handleUnlock}
-                disabled={unlockLoading || !paymentConfigured}
-              >
-                {unlockLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.unlockBtnText}>
-                    {paymentConfigured ? `Unlock chat for ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)}` : 'Payment Not Configured'}
-                  </Text>
-                )}
-              </Pressable>
-              {founding.phase === 'paid' && getFoundingMemberLink(user.uid) && (
-                <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink}>
-                  <Text style={styles.foundingMemberLinkText}>
-                    ⭐ Or become a Founding Member — $39 once. Pro for life, first access to every Pro feature as it ships, and a numbered Founding Member badge.
-                  </Text>
-                </Pressable>
-              )}
-            </>
-          )}
-        </View>
-      ) : (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          {/* Generic advice yields to the specific briefing once a playdate
-              is on the calendar, as on web. */}
-          {!upcomingPlaydate && (
-            <View style={styles.safetyBanner}>
-              <Text style={styles.safetyBannerText}>{SAFETY_TIP}</Text>
-            </View>
-          )}
-          {hasPastPlaydate && !alreadyRated && (
-            <Pressable style={styles.ratingBanner} onPress={() => setShowRatingModal(true)}>
-              <Text style={styles.ratingBannerText}>
-                🎾 How did the playdate with {dogName} go?
-              </Text>
-              <Text style={styles.ratingBannerCta}>Rate it →</Text>
-            </Pressable>
-          )}
-          {memoryCardStars !== null && (
-            <View style={styles.memoryCardWrap}>
-              <PlaydateMemoryCard
-                ref={memoryCardRef}
-                dogName={dogName}
-                dogBreed={otherBreed ?? undefined}
-                photo={otherPhoto}
-                stars={memoryCardStars}
-              />
-              <View style={styles.memoryCardActions}>
-                <Pressable
-                  style={[styles.unlockBtn, sharingMemoryCard && styles.sendBtnDisabled]}
-                  onPress={handleShareMemoryCard}
-                  disabled={sharingMemoryCard}
-                >
-                  {sharingMemoryCard ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.unlockBtnText}>📤 Share this memory</Text>
-                  )}
-                </Pressable>
-                <Pressable onPress={() => setMemoryCardStars(null)} style={{ paddingVertical: 10 }}>
-                  <Text style={styles.dismissMemoryText}>Dismiss</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            extraData={now}
-            onScroll={handleListScroll}
-            scrollEventThrottle={100}
-            // Loading earlier messages adds rows ABOVE what's on screen; this
-            // keeps the message you were reading where it was. Index 1 skips
-            // the "Load earlier" header.
-            maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
-            ListHeaderComponent={
-              hasOlder ? (
-                <Pressable
-                  style={styles.loadOlderBtn}
-                  onPress={loadOlderMessages}
-                  disabled={loadingOlder}
-                >
-                  {loadingOlder ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Text style={styles.loadOlderText}>Load earlier messages</Text>
-                  )}
-                </Pressable>
-              ) : null
-            }
-            // flexGrow:1 alone stretched the container to the full viewport
-            // and left the messages pinned to the TOP, so a short thread had
-            // a large dead gap above the input. Anchoring to the end is the
-            // normal chat behaviour; only applied when messages exist so the
-            // empty-state component can still center itself.
-            contentContainerStyle={[
-              styles.messageList,
-              messages.length > 0 && styles.messageListAnchored,
-            ]}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyChat}>
-                <Text style={styles.emptyChatEmoji}>🐾</Text>
-                <Text style={styles.emptyChatText}>
-                  Someone has to text first — and dogs can't type. Say hi to {dogName}!
-                </Text>
-              </View>
-            }
-          />
-
-          {/* Pinned so it can't scroll away — the one thing in the thread
-              you want to re-read on the way to the park. */}
-          {upcomingPlaydate && otherProfile && (
-            <PlaydateHeadsUpCard
-              dogName={dogName}
-              otherProfile={otherProfile}
-              myProfile={myProfile}
-              playdate={upcomingPlaydate}
-            />
-          )}
-
-          {showPlaydateForm && (
-            <View style={styles.playdateForm}>
-              <Text style={styles.playdateFormLabel}>📅 Propose a playdate</Text>
-              {Platform.OS === 'ios' ? (
-                <View style={styles.playdatePickerRow}>
-                  <DateTimePicker
-                    value={draftDate}
-                    mode="date"
-                    display="compact"
-                    minimumDate={todayStart}
-                    accentColor={colors.primary}
-                    themeVariant="light"
-                    onChange={(_event: DateTimePickerEvent, picked?: Date) => picked && setDraftDate(picked)}
-                  />
-                  <DateTimePicker
-                    value={draftDate}
-                    mode="time"
-                    display="compact"
-                    minuteInterval={5}
-                    accentColor={colors.primary}
-                    themeVariant="light"
-                    onChange={(_event: DateTimePickerEvent, picked?: Date) => picked && setDraftTime(picked)}
-                  />
-                </View>
-              ) : (
-                <View style={styles.playdatePickerRow}>
-                  <Pressable style={styles.playdatePickerBtn} onPress={() => openAndroidPicker('date')}>
-                    <Text style={styles.playdatePickerBtnText}>{formatDay(draftDate, now)}</Text>
-                  </Pressable>
-                  <Pressable style={styles.playdatePickerBtn} onPress={() => openAndroidPicker('time')}>
-                    <Text style={styles.playdatePickerBtnText}>
-                      {formatClock(parseIsoTime(playdateDraft.time) ?? 10 * 60)}
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-              <Text style={[styles.playdateDraftSummary, draftStartsInPast && styles.playdateDraftWarning]}>
-                {draftStartsInPast
-                  ? 'That time has already passed. Pick a later one.'
-                  : formatPlaydateWhen(playdateDraft, now)}
-              </Text>
-              <TextInput
-                style={styles.playdateFormInput}
-                value={playdateDraft.place}
-                onChangeText={(v) => setPlaydateDraft((d) => ({ ...d, place: v }))}
-                placeholder="Where? (e.g. Maple Dog Park)"
-                placeholderTextColor={colors.brownLight}
-                maxLength={200}
-                autoCapitalize="words"
-                returnKeyType="done"
-              />
-              <View style={styles.playdateFormActions}>
-                <Pressable
-                  style={[styles.playdateSendBtn, !canSendProposal && styles.sendBtnDisabled]}
-                  onPress={proposePlaydate}
-                  disabled={!canSendProposal}
-                >
-                  <Text style={styles.playdateSendBtnText}>Send proposal</Text>
-                </Pressable>
-                <Pressable style={styles.playdateCancelBtn} onPress={() => setShowPlaydateForm(false)}>
-                  <Text style={styles.playdateCancelBtnText}>Cancel</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          {starterPrompts.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              style={styles.starterRow}
-              contentContainerStyle={styles.starterRowContent}
-            >
-              {starterPrompts.map((prompt) => (
-                <Pressable
-                  key={prompt}
-                  style={styles.starterChip}
-                  onPress={() => applyStarterPrompt(prompt)}
-                  disabled={sending}
-                >
-                  <Text style={styles.starterChipText}>{prompt}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
-
-          <View style={styles.inputRow}>
-            <Pressable
-              style={styles.playdateToggleBtn}
-              onPress={togglePlaydateForm}
-              disabled={sending}
-              accessibilityLabel="Propose a playdate"
-            >
-              <Text style={styles.playdateToggleBtnText}>📅</Text>
-            </Pressable>
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              value={text}
-              onChangeText={setText}
-              placeholder={`Message ${dogName}…`}
-              placeholderTextColor={colors.brownLight}
-              multiline
-              maxLength={MAX_MESSAGE_LENGTH}
-              returnKeyType="send"
-              // A multiline TextInput defaults to submitBehavior 'newline': the
-              // keyboard's "send" key would insert a line break and never call
-              // onSubmitEditing. 'submit' makes it send (like web's Enter),
-              // keeps the keyboard up, and still lets long messages wrap.
-              submitBehavior="submit"
-              onSubmitEditing={() => handleSend()}
-            />
-            <Pressable
-              style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
-              onPress={() => handleSend()}
-              disabled={!text.trim() || sending}
-            >
-              {sending ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.sendIcon}>↑</Text>
-              )}
-            </Pressable>
+      <View style={styles.page}>
+        <SkyBackground />
+        {!resolvedMatchId ? (
+          <View style={styles.emptyChat}>
+            <Text style={styles.emptyChatText}>This chat link is missing a match id.</Text>
           </View>
-        </KeyboardAvoidingView>
-      )}
+        ) : !user ? (
+          <View style={styles.emptyChat}>
+            <Text style={styles.emptyChatText}>Sign in to open this chat.</Text>
+          </View>
+        ) : loading || (!matchStateKnown && !matchLoadError) ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={colors.ink} />
+          </View>
+        ) : matchLoadError ? (
+          <View style={styles.emptyChat}>
+            <Text style={styles.emptyChatTitle}>Couldn’t load this chat</Text>
+            <Text style={styles.emptyChatText}>Check your connection and try again.</Text>
+            <PrimaryButton
+              label="Retry"
+              onPress={() => setMatchLoadRetryToken((t) => t + 1)}
+              style={styles.emptyChatBtn}
+            />
+          </View>
+        ) : matchMissing ? (
+          <View style={styles.emptyChat}>
+            <StickerDog size={72} />
+            <Text style={styles.emptyChatText}>This match isn’t available any more.</Text>
+          </View>
+        ) : match && isSeedUserId(match.dog.id) ? (
+          <View style={styles.emptyChat}>
+            <StickerDog size={72} />
+            <Text style={styles.emptyChatText}>
+              This demo profile is no longer available for chats or unlocks.
+            </Text>
+          </View>
+        ) : !canChat ? (
+          <ScrollView contentContainerStyle={styles.paywallScroll}>
+            <View style={styles.paywallCard}>
+              {!canOfferInAppPurchase() ? (
+                // Apple Guideline 3.1.1: no in-app sale of digital content
+                // without IAP, and no price, purchase button or link that steers
+                // to one. This used to show "Unlock on godoggydate.com — $X",
+                // which the purchase rule didn't hide. Neutral copy only; the
+                // realtime match listener opens the chat on its own once it's
+                // unlocked.
+                <>
+                  <Text style={styles.paywallTitle}>Chat isn’t open yet</Text>
+                  <Text style={styles.paywallBody}>
+                    Your chat with {dogName} will open right here as soon as it’s available.
+                  </Text>
+                  {unlockError ? <Text style={styles.paywallNotice}>{unlockError}</Text> : null}
+                  <PrimaryButton label="Check again" onPress={handleRefreshUnlockStatus} style={styles.paywallBtn} />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.paywallTitle}>Unlock chat with {dogName}</Text>
+                  <Text style={styles.paywallBody}>
+                    {paymentConfigured
+                      ? getChatUnlockPitch()
+                      : paymentConfigurationError ?? 'Payments are not configured for this build yet, so locked chats cannot be unlocked on this device.'}
+                  </Text>
+                  {unlockError ? <Text style={styles.paywallError}>{unlockError}</Text> : null}
+                  {!unlockLoading && unlockError ? (
+                    <SecondaryButton
+                      label="Check unlock status"
+                      onPress={handleRefreshUnlockStatus}
+                      style={styles.paywallSecondary}
+                    />
+                  ) : null}
+                  <PrimaryButton
+                    label={paymentConfigured ? `Unlock chat for ${formatPrice(CHAT_UNLOCK_PRICE_CENTS)}` : 'Payment not configured'}
+                    onPress={handleUnlock}
+                    disabled={unlockLoading || !paymentConfigured}
+                    loading={unlockLoading}
+                    style={styles.paywallBtn}
+                  />
+                  {founding.phase === 'paid' && getFoundingMemberLink(user.uid) && (
+                    <Pressable style={styles.foundingMemberLink} onPress={openFoundingMemberLink} accessibilityRole="link">
+                      <Text style={styles.foundingMemberLinkText}>
+                        Or become a Founding Member — $39 once. Pro for life, first access to every Pro feature as it ships, and a numbered Founding Member badge.
+                      </Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
+              <Text style={styles.paywallSupport}>
+                <Text style={styles.tipLead}>Tip:</Text> {SAFETY_TIP}
+              </Text>
+            </View>
+          </ScrollView>
+        ) : (
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+          >
+            {memoryCardStars !== null && (
+              <View style={styles.memoryCardWrap}>
+                <PlaydateMemoryCard
+                  ref={memoryCardRef}
+                  dogName={dogName}
+                  dogBreed={otherBreed ?? undefined}
+                  photo={otherPhoto}
+                  stars={memoryCardStars}
+                />
+                <View style={styles.memoryCardActions}>
+                  <SecondaryButton
+                    label="Share this memory"
+                    icon={<Ionicons name="share" size={18} color={colors.ink} />}
+                    onPress={handleShareMemoryCard}
+                    loading={sharingMemoryCard}
+                  />
+                  <Pressable onPress={() => setMemoryCardStars(null)} style={styles.dismissMemory} accessibilityRole="button">
+                    <Text style={styles.dismissMemoryText}>Dismiss</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+            <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderMessage}
+              extraData={[now, responses, confirmDeclineId, pinkProposalId, pinkPlaydateKey, otherOwnerFirstName, sending]}
+              onScroll={handleListScroll}
+              scrollEventThrottle={100}
+              keyboardShouldPersistTaps="handled"
+              // Loading earlier messages adds rows ABOVE what's on screen; this
+              // keeps the message you were reading where it was. Index 1 skips
+              // the "Load earlier" header.
+              maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+              ListHeaderComponent={
+                hasOlder ? (
+                  <SecondaryButton
+                    label={loadingOlder ? 'Loading…' : 'Load earlier messages'}
+                    onPress={loadOlderMessages}
+                    disabled={loadingOlder}
+                    style={styles.loadOlderBtn}
+                    textStyle={styles.loadOlderText}
+                  />
+                ) : null
+              }
+              // Right below the newest message: the rating prompt once a
+              // playdate has happened, then the calm tip line. Generic advice
+              // yields to the specific briefing once a playdate is on the
+              // calendar, as on web.
+              ListFooterComponent={
+                <>
+                  {hasPastPlaydate && !alreadyRated && (
+                    <Pressable
+                      style={styles.ratingBanner}
+                      onPress={() => setShowRatingModal(true)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.ratingBannerText}>How did the playdate with {dogName} go?</Text>
+                      <Text style={styles.ratingBannerCta}>Rate it</Text>
+                    </Pressable>
+                  )}
+                  {!upcomingPlaydate && messages.length > 0 && (
+                    <Text style={styles.tipLine}>
+                      <Text style={styles.tipLead}>Tip:</Text> {SAFETY_TIP}
+                    </Text>
+                  )}
+                </>
+              }
+              // flexGrow:1 alone stretched the container to the full viewport
+              // and left the messages pinned to the TOP, so a short thread had
+              // a large dead gap above the input. Anchoring to the end is the
+              // normal chat behaviour; only applied when messages exist so the
+              // empty-state component can still center itself.
+              contentContainerStyle={[
+                styles.messageList,
+                messages.length > 0 && styles.messageListAnchored,
+              ]}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <View style={styles.emptyChat}>
+                  <StickerDog size={84} label={`A drawn sticker dog standing in for ${dogName}`} />
+                  <Text style={styles.emptyChatTitle}>Someone has to text first</Text>
+                  <Text style={styles.emptyChatText}>
+                    And dogs can’t type, so it’s on you. Say hi to {dogName}.
+                  </Text>
+                  <Text style={styles.tipLine}>
+                    <Text style={styles.tipLead}>Tip:</Text> {SAFETY_TIP}
+                  </Text>
+                </View>
+              }
+            />
+
+            {/* Pinned so it can't scroll away — the one thing in the thread
+                you want to re-read on the way to the park. */}
+            {upcomingPlaydate && otherProfile && (
+              <PlaydateHeadsUpCard
+                dogName={dogName}
+                otherProfile={otherProfile}
+                myProfile={myProfile}
+                playdate={upcomingPlaydate}
+                ownerFirstName={otherOwnerFirstName}
+                compact={inputFocused}
+              />
+            )}
+
+            {/* The composer: a paper bar. The quick actions sit above the box
+                as paper chips: "Propose playdate", then the starter ideas
+                (which fill the box for editing, never send). */}
+            <View style={styles.composer}>
+              {showPlaydateForm && (
+                <View style={styles.playdateForm}>
+                  <Text style={styles.playdateFormLabel}>
+                    {counterOfId ? 'Suggest another time' : 'Propose a playdate'}
+                  </Text>
+                  {Platform.OS === 'ios' ? (
+                    <View style={styles.playdatePickerRow}>
+                      <DateTimePicker
+                        value={draftDate}
+                        mode="date"
+                        display="compact"
+                        minimumDate={todayStart}
+                        accentColor={colors.ink}
+                        themeVariant="light"
+                        onChange={(_event: DateTimePickerEvent, picked?: Date) => picked && setDraftDate(picked)}
+                      />
+                      <DateTimePicker
+                        value={draftDate}
+                        mode="time"
+                        display="compact"
+                        minuteInterval={5}
+                        accentColor={colors.ink}
+                        themeVariant="light"
+                        onChange={(_event: DateTimePickerEvent, picked?: Date) => picked && setDraftTime(picked)}
+                      />
+                    </View>
+                  ) : (
+                    <View style={styles.playdatePickerRow}>
+                      <Pressable
+                        style={styles.playdatePickerBtn}
+                        onPress={() => openAndroidPicker('date')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Playdate date"
+                      >
+                        <Ionicons name="calendar" size={18} color={colors.ink} />
+                        <Text style={styles.playdatePickerBtnText}>{formatDay(draftDate, now)}</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.playdatePickerBtn}
+                        onPress={() => openAndroidPicker('time')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Playdate time"
+                      >
+                        <Ionicons name="time" size={18} color={colors.ink} />
+                        <Text style={styles.playdatePickerBtnText}>
+                          {formatClock(parseIsoTime(playdateDraft.time) ?? 10 * 60)}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  <Text style={[styles.playdateDraftSummary, draftStartsInPast && styles.playdateDraftWarning]}>
+                    {draftStartsInPast
+                      ? 'That time has already passed. Pick a later one.'
+                      : formatPlaydateWhen(playdateDraft, now)}
+                  </Text>
+                  <TextInput
+                    style={styles.playdateFormInput}
+                    value={playdateDraft.place}
+                    onChangeText={(v) => setPlaydateDraft((d) => ({ ...d, place: v }))}
+                    placeholder="Where? (e.g. Maple Dog Park)"
+                    placeholderTextColor={colors.brownLight}
+                    maxLength={200}
+                    autoCapitalize="words"
+                    returnKeyType="done"
+                    accessibilityLabel="Playdate place"
+                  />
+                  <View style={styles.playdateFormActions}>
+                    <PrimaryButton
+                      label="Send proposal"
+                      onPress={proposePlaydate}
+                      disabled={!canSendProposal}
+                      style={styles.playdateSendBtn}
+                      textStyle={styles.playdateSendBtnText}
+                    />
+                    <SecondaryButton
+                      label="Cancel"
+                      onPress={closePlaydateForm}
+                      style={styles.playdateCancelBtn}
+                      textStyle={styles.playdateCancelBtnText}
+                    />
+                  </View>
+                </View>
+              )}
+              {!showPlaydateForm && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.chipRow}
+                  contentContainerStyle={styles.chipRowContent}
+                >
+                  <Pressable
+                    style={({ pressed }) => [styles.chip, pressed && styles.chipPressed, sending && styles.dimmed]}
+                    onPress={togglePlaydateForm}
+                    disabled={sending}
+                    accessibilityRole="button"
+                    accessibilityLabel="Propose a playdate"
+                  >
+                    <Ionicons name="ticket" size={18} color={colors.ink} />
+                    <Text style={styles.chipTextStrong}>Propose playdate</Text>
+                  </Pressable>
+                  {starterPrompts.map((prompt) => (
+                    <Pressable
+                      key={prompt}
+                      style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+                      onPress={() => applyStarterPrompt(prompt)}
+                      disabled={sending}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.chipText}>{prompt}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+
+              <View style={styles.inputRow}>
+                <TextInput
+                  ref={inputRef}
+                  style={styles.input}
+                  value={text}
+                  onChangeText={setText}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder={`Message ${dogName}…`}
+                  placeholderTextColor={colors.brownLight}
+                  multiline
+                  // Web (preview) only: one row to start, like iOS. Android/iOS grow anyway.
+                  numberOfLines={1}
+                  maxLength={MAX_MESSAGE_LENGTH}
+                  returnKeyType="send"
+                  // A multiline TextInput defaults to submitBehavior 'newline': the
+                  // keyboard's "send" key would insert a line break and never call
+                  // onSubmitEditing. 'submit' makes it send (like web's Enter),
+                  // keeps the keyboard up, and still lets long messages wrap.
+                  submitBehavior="submit"
+                  onSubmitEditing={() => handleSend()}
+                  accessibilityLabel={`Message ${dogName}`}
+                />
+                <RoundPaperButton
+                  size={46}
+                  onPress={() => void handleSend()}
+                  disabled={!text.trim() || sending}
+                  accessibilityLabel="Send"
+                  icon={sending
+                    ? <ActivityIndicator color={colors.ink} size="small" />
+                    : <Ionicons name="arrow-up" size={22} color={colors.ink} />}
+                />
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
+const INK_SHADOW = {
+  shadowColor: colors.ink,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 0,
+  elevation: 2,
+} as const;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  // Paper behind the status bar and the home indicator; the sky is the page.
+  container: { flex: 1, backgroundColor: colors.paper },
+  // overflow hidden: the shared Gingham draws 12 columns (528px), wider than a phone.
+  page: { flex: 1, backgroundColor: colors.sky, overflow: 'hidden' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    minHeight: 62,
+    paddingLeft: 4,
+    paddingRight: 10,
+    gap: 6,
+    backgroundColor: colors.paper,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.ink,
+    zIndex: 2,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backText: {
-    fontSize: 32,
-    lineHeight: 36,
-    color: colors.primary,
-    fontFamily: fonts.body,
-  },
-  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0 },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, minHeight: 44 },
   headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: colors.creamDark,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.note,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...INK_SHADOW,
   },
-  headerAvatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  headerAvatarEmoji: { fontSize: 20 },
+  headerAvatarImg: { width: '100%', height: '100%' },
   headerText: { flex: 1, minWidth: 0 },
-  headerName: {
-    fontFamily: fonts.bold,
-    fontSize: 17,
-    color: colors.brown,
-  },
-  headerSub: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
-  },
+  headerName: { fontFamily: fonts.display, fontSize: 22, lineHeight: 25, color: colors.ink },
+  headerSub: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 16, color: colors.brownMid },
+  bestFriendBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   moreBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  moreBtnDisabled: { opacity: 0.35 },
-  moreBtnText: {
-    fontSize: 16,
-    color: colors.brownLight,
-    fontFamily: fonts.bold,
-  },
-  bestFriendBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bestFriendBtnText: {
-    fontSize: 20,
-  },
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  messageList: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexGrow: 1,
-  },
-  messageListAnchored: {
-    justifyContent: 'flex-end',
-  },
-  loadOlderBtn: {
-    alignSelf: 'center',
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginBottom: 10,
-    borderRadius: radius.full,
-    backgroundColor: 'rgba(255,92,141,0.08)',
-  },
-  loadOlderText: {
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.primary,
-  },
-  safetyBanner: {
-    marginHorizontal: 16,
-    marginTop: 12,
+  dimmed: { opacity: 0.4 },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  messageList: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10, flexGrow: 1 },
+  messageListAnchored: { justifyContent: 'flex-end' },
+  loadOlderBtn: { alignSelf: 'center', minHeight: 44, marginBottom: 12, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
+  loadOlderText: { fontSize: 14 },
+  tipLine: {
+    marginTop: 8,
     marginBottom: 2,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255,92,141,0.08)',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  ratingBanner: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 2,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(245,183,49,0.4)',
-    backgroundColor: 'rgba(245,183,49,0.12)',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  ratingBannerText: {
-    flex: 1,
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-    color: colors.brown,
-  },
-  ratingBannerCta: {
+    paddingHorizontal: 8,
     fontFamily: fonts.bold,
-    fontSize: 13,
-    color: colors.primary,
-  },
-  memoryCardWrap: {
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 16,
-  },
-  memoryCardActions: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  dismissMemoryText: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.brownLight,
-  },
-  safetyBannerText: {
-    fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 18,
     color: colors.brownMid,
     textAlign: 'center',
   },
-  bubbleWrap: { marginBottom: 8 },
-  bubbleWrapMe: { alignItems: 'flex-end' },
-  bubbleWrapThem: { alignItems: 'flex-start' },
-  bubble: {
-    maxWidth: '75%',
-    borderRadius: radius.xl,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  tipLead: { fontFamily: fonts.black, color: colors.ink },
+  ratingBanner: {
+    marginTop: 8,
+    minHeight: 48,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.kraft,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  bubbleMe: {
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: 6,
+  ratingBannerText: { flex: 1, fontFamily: fonts.black, fontSize: 14, lineHeight: 19, color: colors.ink },
+  ratingBannerCta: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
+  memoryCardWrap: { alignItems: 'center', gap: 12, paddingVertical: 16 },
+  memoryCardActions: { alignItems: 'center', gap: 4 },
+  dismissMemory: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16 },
+  dismissMemoryText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
+  composer: {
+    backgroundColor: colors.paper,
+    borderTopWidth: 2.5,
+    borderLeftWidth: 2.5,
+    borderRightWidth: 2.5,
+    borderColor: colors.ink,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginHorizontal: -2.5,
   },
-  bubbleThem: {
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
+  chipRow: { flexGrow: 0 },
+  chipRowContent: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6, gap: 8 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    minHeight: 44,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderBottomWidth: 4,
+    backgroundColor: colors.paper,
   },
-  bubbleModerated: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-  },
-  bubbleText: { fontSize: 15, lineHeight: 21 },
-  bubbleTextMe: { color: '#fff', fontFamily: fonts.body },
-  bubbleTextThem: { color: colors.brown, fontFamily: fonts.body },
-  bubbleTextModerated: {
-    fontFamily: fonts.body,
-    fontStyle: 'italic',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownLight,
-  },
-  messageTime: {
-    marginTop: 3,
-    marginHorizontal: 6,
-    fontFamily: fonts.body,
-    fontSize: 10,
-    color: colors.brownLight,
-  },
-  messageTimeMe: { textAlign: 'right' },
+  chipPressed: { transform: [{ translateY: 1 }], opacity: 0.92 },
+  chipTextStrong: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink },
+  chipText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    paddingBottom: 14,
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    paddingHorizontal: 14,
+    paddingTop: 4,
+    paddingBottom: 12,
     gap: 10,
   },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.xl,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.brown,
+    minHeight: 46,
     maxHeight: 120,
-    backgroundColor: colors.cream,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sendBtnDisabled: { backgroundColor: colors.brownLight, shadowOpacity: 0 },
-  sendIcon: {
-    color: '#fff',
-    fontSize: 20,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 23,
+    paddingHorizontal: 16,
+    paddingTop: 11,
+    paddingBottom: 11,
     fontFamily: fonts.bold,
-    lineHeight: 24,
-  },
-  starterRow: {
-    flexGrow: 0,
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.08)',
-  },
-  starterRowContent: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  starterChip: {
-    borderRadius: radius.full,
-    backgroundColor: 'rgba(255,92,141,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  starterChipText: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.primary,
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.ink,
+    backgroundColor: '#FFFDF6',
   },
   emptyChat: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingTop: 60,
+    paddingHorizontal: 28,
+    paddingVertical: 40,
+    gap: 10,
   },
-  emptyChatEmoji: { fontSize: 48, marginBottom: 14 },
+  emptyChatTitle: { fontFamily: fonts.display, fontSize: 28, lineHeight: 31, color: colors.ink, textAlign: 'center' },
   emptyChatText: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: colors.brownLight,
+    color: colors.ink,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 21,
   },
-  paywallSendWrap: {
-    flex: 1,
-    backgroundColor: colors.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+  emptyChatBtn: { alignSelf: 'stretch', marginTop: 8 },
+  paywallScroll: { flexGrow: 1, justifyContent: 'center', padding: 16 },
+  paywallCard: {
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 0,
+    elevation: 4,
   },
   paywallTitle: {
     fontFamily: fonts.display,
     fontSize: 24,
-    color: colors.brown,
-    marginBottom: 10,
+    lineHeight: 28,
+    color: colors.ink,
+    marginBottom: 8,
     textAlign: 'center',
   },
   paywallBody: {
-    fontFamily: fonts.body,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    color: colors.brownMid,
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 22,
+    marginBottom: 14,
+    lineHeight: 21,
   },
   paywallSupport: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     color: colors.brownMid,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
     textAlign: 'center',
-    marginBottom: 18,
+    marginTop: 14,
   },
   paywallError: {
-    color: '#c00',
+    fontFamily: fonts.black,
+    color: colors.rose,
+    fontSize: 14,
+    lineHeight: 19,
     marginBottom: 12,
     textAlign: 'center',
   },
   paywallNotice: {
-    fontFamily: fonts.body,
+    fontFamily: fonts.bold,
     color: colors.brownMid,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 19,
     textAlign: 'center',
+    marginBottom: 12,
   },
-  unlockBtn: {
-    width: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: radius.xl,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unlockBtnText: {
-    color: '#fff',
-    fontFamily: fonts.bold,
-    fontSize: 16,
-  },
-  statusButton: {
-    alignSelf: 'center',
-    marginTop: 12,
-    paddingVertical: 6,
-  },
-  statusButtonText: {
-    color: colors.primary,
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-  },
-  foundingMemberLink: {
-    marginTop: 14,
-    paddingVertical: 6,
-  },
+  paywallBtn: { alignSelf: 'stretch' },
+  paywallSecondary: { alignSelf: 'stretch', marginBottom: 10 },
+  foundingMemberLink: { marginTop: 12, minHeight: 44, justifyContent: 'center' },
   foundingMemberLinkText: {
-    color: colors.primary,
-    fontFamily: fonts.semibold,
-    fontSize: 13,
+    color: colors.rose,
+    fontFamily: fonts.black,
+    fontSize: 13.5,
+    lineHeight: 19,
     textAlign: 'center',
     textDecorationLine: 'underline',
   },
-  playdateCard: {
-    maxWidth: '85%',
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: '#fff',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  playdateCardMe: {
-    alignSelf: 'flex-end',
-    borderColor: 'rgba(255,92,141,0.25)',
-    backgroundColor: '#FFF7F3',
-  },
-  playdateCardThem: { alignSelf: 'flex-start' },
-  playdateLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: colors.primary,
-  },
-  playdateWhen: {
-    fontFamily: fonts.bold,
-    fontSize: 15,
-    color: colors.brown,
-    marginTop: 4,
-  },
-  playdateWhere: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brownLight,
-  },
-  playdateTime: {
-    marginTop: 6,
-    fontFamily: fonts.body,
-    fontSize: 10,
-    color: colors.brownLight,
-  },
-  playdateAcceptBtn: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  playdateAcceptText: {
-    color: '#fff',
-    fontFamily: fonts.bold,
-    fontSize: 12,
-  },
-  playdateExpiredText: {
-    marginTop: 8,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.brownLight,
-  },
-  playdateToggleBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(212,163,53,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playdateToggleBtnText: { fontSize: 18 },
+  // Inside the composer's paper bar, above the message box.
   playdateForm: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(0,0,0,0.08)',
+    paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.border,
   },
-  playdateFormLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 11,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: colors.primary,
-    marginBottom: 8,
-  },
-  playdatePickerRow: {
+  playdateFormLabel: { fontFamily: fonts.black, fontSize: 15, color: colors.ink, marginBottom: 8 },
+  playdatePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  playdatePickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  playdatePickerBtn: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    gap: 6,
+    minHeight: 44,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 9,
-    backgroundColor: colors.cream,
+    backgroundColor: '#FFFDF6',
   },
-  playdatePickerBtnText: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.brown,
-  },
-  playdateDraftSummary: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.brownLight,
-    marginBottom: 8,
-  },
-  playdateDraftWarning: { color: colors.primaryDark },
+  playdatePickerBtnText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  playdateDraftSummary: { fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, marginBottom: 8 },
+  playdateDraftWarning: { fontFamily: fonts.black, color: colors.rose },
   playdateFormInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    minHeight: 44,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.brown,
-    backgroundColor: colors.cream,
-    marginBottom: 8,
-  },
-  playdateFormActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 4,
-  },
-  playdateSendBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 18,
     paddingVertical: 10,
-  },
-  playdateSendBtnText: {
-    color: '#fff',
     fontFamily: fonts.bold,
-    fontSize: 13,
+    fontSize: 15,
+    color: colors.ink,
+    backgroundColor: '#FFFDF6',
+    marginBottom: 10,
   },
-  playdateCancelBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-  },
-  playdateCancelBtnText: {
-    color: colors.brownLight,
-    fontFamily: fonts.semibold,
-    fontSize: 13,
-  },
+  playdateFormActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  playdateSendBtn: { flex: 1, minHeight: 50, paddingTop: 4, paddingBottom: 10 },
+  playdateSendBtnText: { fontSize: 22, lineHeight: 26 },
+  playdateCancelBtn: { minHeight: 50, paddingHorizontal: 18, paddingTop: 4, paddingBottom: 10 },
+  playdateCancelBtnText: { fontSize: 14 },
 });

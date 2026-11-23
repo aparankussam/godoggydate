@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../constants/theme';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts } from '../constants/theme';
+import { PawIcon, PrimaryButton } from './sticker';
 
 interface Props {
   visible: boolean;
@@ -9,6 +11,7 @@ interface Props {
   onDismiss: () => void;
 }
 
+// A paper sheet on an ink scrim. Submit is the one pink action while it's open.
 export default function PlaydateRatingModal({ visible, dogName, onSubmit, onDismiss }: Props) {
   const [stars, setStars] = useState(0);
   const [wouldMeetAgain, setWouldMeetAgain] = useState<boolean | null>(null);
@@ -31,15 +34,25 @@ export default function PlaydateRatingModal({ visible, dogName, onSubmit, onDism
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <Text style={styles.emoji}>🎾</Text>
-          <Text style={styles.title}>How did it go with {dogName}?</Text>
+        <View style={styles.card} accessibilityViewIsModal>
+          <View style={styles.coin} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Ionicons name="tennisball" size={26} color={colors.ink} />
+          </View>
+          <Text style={styles.title} accessibilityRole="header">How did it go with {dogName}?</Text>
           <Text style={styles.subtitle}>This feeds the trust score every other dog parent sees.</Text>
 
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setStars(n)} hitSlop={6}>
-                <Text style={styles.star}>{n <= stars ? '⭐' : '☆'}</Text>
+              <Pressable
+                key={n}
+                onPress={() => setStars(n)}
+                hitSlop={4}
+                style={styles.starBtn}
+                accessibilityRole="button"
+                accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`}
+                accessibilityState={{ selected: n <= stars }}
+              >
+                <Ionicons name={n <= stars ? 'star' : 'star-outline'} size={34} color={colors.ink} />
               </Pressable>
             ))}
           </View>
@@ -47,31 +60,32 @@ export default function PlaydateRatingModal({ visible, dogName, onSubmit, onDism
           <Text style={styles.sectionLabel}>Would you meet again?</Text>
           <View style={styles.choiceRow}>
             <Pressable
-              style={[styles.choiceBtn, wouldMeetAgain === true && styles.choiceBtnActivePrimary]}
+              style={[styles.choiceBtn, wouldMeetAgain === true && styles.choiceBtnOn]}
               onPress={() => setWouldMeetAgain(true)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: wouldMeetAgain === true }}
             >
-              <Text style={[styles.choiceText, wouldMeetAgain === true && styles.choiceTextActive]}>
-                🐾 Definitely
-              </Text>
+              <PawIcon size={16} color={wouldMeetAgain === true ? colors.paper : colors.ink} />
+              <Text style={[styles.choiceText, wouldMeetAgain === true && styles.choiceTextOn]}>Definitely</Text>
             </Pressable>
             <Pressable
-              style={[styles.choiceBtn, wouldMeetAgain === false && styles.choiceBtnActiveBrown]}
+              style={[styles.choiceBtn, wouldMeetAgain === false && styles.choiceBtnOn]}
               onPress={() => setWouldMeetAgain(false)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: wouldMeetAgain === false }}
             >
-              <Text style={[styles.choiceText, wouldMeetAgain === false && styles.choiceTextActive]}>
-                Not really
-              </Text>
+              <Text style={[styles.choiceText, wouldMeetAgain === false && styles.choiceTextOn]}>Not really</Text>
             </Pressable>
           </View>
 
-          <Pressable
-            style={[styles.submitBtn, !canSubmit && styles.submitBtnDisabled]}
+          <PrimaryButton
+            label="Submit"
             onPress={handleSubmit}
             disabled={!canSubmit}
-          >
-            {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Submit</Text>}
-          </Pressable>
-          <Pressable onPress={onDismiss} style={{ paddingVertical: 10 }}>
+            loading={submitting}
+            style={styles.submit}
+          />
+          <Pressable onPress={onDismiss} style={styles.dismiss} accessibilityRole="button">
             <Text style={styles.dismissText}>Maybe later</Text>
           </Pressable>
         </View>
@@ -83,53 +97,77 @@ export default function PlaydateRatingModal({ visible, dogName, onSubmit, onDism
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   card: {
     width: '100%',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: 24,
-    paddingBottom: 36,
+    maxWidth: 440,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 20,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 0,
+    elevation: 8,
   },
-  emoji: { fontSize: 36, textAlign: 'center', marginBottom: 6 },
-  title: { fontFamily: fonts.display, fontSize: 22, color: colors.brown, textAlign: 'center' },
-  subtitle: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight, textAlign: 'center', marginTop: 4 },
-  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 20 },
-  star: { fontSize: 34 },
-  sectionLabel: {
-    marginTop: 20,
-    textAlign: 'center',
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.brown,
+  coin: {
+    alignSelf: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
+    transform: [{ rotate: '-8deg' }],
+  },
+  title: { fontFamily: fonts.display, fontSize: 25, lineHeight: 28, color: colors.ink, textAlign: 'center' },
+  subtitle: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    lineHeight: 19,
+    color: colors.brownMid,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 4, marginTop: 16 },
+  starBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  sectionLabel: {
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontFamily: fonts.black,
+    fontSize: 14,
+    color: colors.ink,
   },
   choiceRow: { flexDirection: 'row', gap: 10 },
   choiceBtn: {
     flex: 1,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.cream,
-    paddingVertical: 11,
+    minHeight: 46,
+    flexDirection: 'row',
+    gap: 6,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
   },
-  choiceBtnActivePrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
-  choiceBtnActiveBrown: { backgroundColor: colors.brown, borderColor: colors.brown },
-  choiceText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brown },
-  choiceTextActive: { color: '#fff' },
-  submitBtn: {
-    marginTop: 22,
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  submitBtnDisabled: { opacity: 0.4 },
-  submitText: { color: '#fff', fontFamily: fonts.bold, fontSize: 16 },
-  dismissText: { textAlign: 'center', color: colors.brownLight, fontSize: 14 },
+  choiceBtnOn: { backgroundColor: colors.ink },
+  choiceText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  choiceTextOn: { color: colors.paper },
+  submit: { marginTop: 20 },
+  dismiss: { minHeight: 44, justifyContent: 'center', marginTop: 4 },
+  dismissText: { textAlign: 'center', fontFamily: fonts.black, color: colors.brownMid, fontSize: 14 },
 });
