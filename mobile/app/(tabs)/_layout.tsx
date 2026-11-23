@@ -29,11 +29,12 @@ type Glyph =
   | { set: 'mci'; name: ComponentProps<typeof MaterialCommunityIcons>['name'] };
 
 /** Filled chunky glyphs, same meaning as web/components/AppNav.tsx:
- *  paw = Discover, tree = Pack Day, heart = Matches, dog = Profile. */
-const GLYPHS: Record<'discover' | 'pack' | 'matches' | 'profile', Glyph> = {
+ *  paw = Discover, tree = Pack Day, heart = Matches, puzzle = Playroom, dog = Profile. */
+const GLYPHS: Record<'discover' | 'pack' | 'matches' | 'playroom' | 'profile', Glyph> = {
   discover: { set: 'ion', name: 'paw' },
   pack: { set: 'mci', name: 'tree' },
   matches: { set: 'ion', name: 'heart' },
+  playroom: { set: 'mci', name: 'puzzle' },
   profile: { set: 'mci', name: 'dog' },
 };
 
@@ -109,6 +110,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="playroom"
+        options={{
+          title: 'Playroom',
+          tabBarAccessibilityLabel: 'Playroom',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon glyph={GLYPHS.playroom} label="Playroom" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -134,7 +145,7 @@ const styles = StyleSheet.create({
   tabIcon: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 80,
+    width: 68,
   },
   pill: {
     width: 52,
