@@ -33,7 +33,10 @@ import {
   StickerHeader,
   Tape,
 } from '../../components/sticker';
-import MatchModal from '../../components/MatchModal';
+import MatchModal, { type MatchReveal } from '../../components/MatchModal';
+import { computeDogtype } from '../../../shared/dogtype';
+import { discoveredOrder } from '../../../shared/progress';
+import { discoverFromMatch, loadDiscoveries } from '../../lib/dogtypeDiscovery';
 import TodayPanel from '../../components/TodayPanel';
 import DiscoverDetailsSheet from '../../components/DiscoverDetailsSheet';
 import {
@@ -99,6 +102,7 @@ export default function DiscoverTab() {
   const [detailDog, setDetailDog] = useState<DiscoverDog | null>(null);
   const [matchedDog, setMatchedDog] = useState<DiscoverDog | null>(null);
   const [matchedMatchId, setMatchedMatchId] = useState<string | null>(null);
+  const [matchReveal, setMatchReveal] = useState<MatchReveal | null>(null);
   const [, setLocationStatus] = useState<LocationStatus | 'unknown'>('unknown');
   const [swipeError, setSwipeError] = useState<string | null>(null);
   const [sharingRecruitCard, setSharingRecruitCard] = useState(false);
@@ -301,6 +305,27 @@ export default function DiscoverTab() {
           dog_id: fresh.id,
           compatibility_score: fresh.compat.score,
         });
+        // Dogtype reveal: save the discovery BEFORE the pop-up so it can say
+        // whether this type is new. Quiet on any failure (no reveal then).
+        let reveal: MatchReveal | null = null;
+        try {
+          const own = profileRef.current ? computeDogtype(profileRef.current) : null;
+          const other = computeDogtype(fresh);
+          if (own && other) {
+            const { isNew } = await discoverFromMatch(uid, { code: other.code, dogId: fresh.id, dogName: fresh.name, at: Date.now() });
+            const ledger = await loadDiscoveries(uid);
+            reveal = {
+              ownCode: own.code,
+              otherCode: other.code,
+              ownName: profileRef.current?.name?.trim() || 'Your dog',
+              discovered: discoveredOrder(ledger, own.code).length,
+              variant: own.code === other.code ? 'same' : isNew ? 'new' : 'met',
+            };
+          }
+        } catch {
+          reveal = null;
+        }
+        setMatchReveal(reveal);
         setMatchedDog(fresh);
         setMatchedMatchId(result.matchId);
         void Haptics.notificationAsync(
@@ -401,6 +426,7 @@ export default function DiscoverTab() {
     const askedFor = matchedDog?.name;
     setMatchedDog(null);
     setMatchedMatchId(null);
+    setMatchReveal(null);
     // A first match is the natural moment to ask about notifications: there's
     // now someone to hear back from. Asked after the pop-up closes, and only
     // while iOS's one-time prompt is still unused (the helper checks).
@@ -492,6 +518,7 @@ export default function DiscoverTab() {
         dog={matchedDog}
         matchId={matchedMatchId}
         viewer={profile}
+        reveal={matchReveal}
         onSayHi={handleOpenMatchedChat}
         onKeepSwiping={closeMatch}
       />

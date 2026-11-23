@@ -20,6 +20,10 @@ import { resolveHeroIndex } from '../../lib/coverPhoto';
 import { getRenderablePhotos } from '../../lib/photos';
 import { Ionicons } from '@expo/vector-icons';
 import VibeTypeCard from '../../components/VibeTypeCard';
+import DogtypeRevealCard from '../../components/DogtypeRevealCard';
+import { loadDiscoveries, markDiscoverySeen, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
+import { computeDogtype } from '../../../shared/dogtype';
+import { discoveredOrder, type DogtypeLedger } from '../../../shared/progress';
 import { PrimaryButton, SkyBackground, StickerDog, Tape } from '../../components/sticker';
 import { colors, fonts } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
@@ -48,7 +52,8 @@ function getOtherUserId(data: MatchIdentityLike, currentUserId: string, otherDog
 export default function MatchedDogProfileScreen() {
   const { matchId } = useLocalSearchParams<{ matchId?: string | string[] }>();
   const resolvedMatchId = Array.isArray(matchId) ? matchId[0] : matchId;
-  const { user, loading: sessionLoading } = useSession();
+  const { user, profile: ownProfile, loading: sessionLoading } = useSession();
+  const [ledger, setLedger] = useState<DogtypeLedger>({});
 
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
@@ -103,6 +108,26 @@ export default function MatchedDogProfileScreen() {
 
     return () => { cancelled = true; };
   }, [sessionLoading, user, resolvedMatchId]);
+
+  // Dogtype: this dog's type, how it gets along with yours. Only ever a dog you've matched.
+  const uid = user?.uid ?? null;
+  useEffect(() => {
+    if (!uid) return undefined;
+    const load = () => void loadDiscoveries(uid).then(setLedger);
+    load();
+    return onDiscoveriesChange(load);
+  }, [uid]);
+  const ownType = ownProfile ? computeDogtype(ownProfile) : null;
+  const otherType = profile ? computeDogtype(profile) : null;
+  const entry = otherType ? ledger[otherType.code] : undefined;
+  const entryUnseen = !!entry && entry.dogId !== null && !entry.seen;
+  // Latch: marking it seen must not flip this card back to "met" while it's on screen.
+  const [unseen, setUnseen] = useState(false);
+  useEffect(() => {
+    if (!entryUnseen) return;
+    setUnseen(true);
+    if (uid && otherType) void markDiscoverySeen(uid, otherType.code);
+  }, [uid, otherType?.code, entryUnseen]);
 
   if (sessionLoading || loading) {
     return (
@@ -219,6 +244,18 @@ export default function MatchedDogProfileScreen() {
             <View style={styles.foundingBadge}>
               <Text style={styles.foundingBadgeText}>{foundingBadgeLabel(profile.foundingPackNumber)}</Text>
             </View>
+          )}
+
+          {ownType && otherType && (
+            <DogtypeRevealCard
+              ownName={ownProfile?.name?.trim() || 'Your dog'}
+              ownCode={ownType.code}
+              otherName={profile.name}
+              otherCode={otherType.code}
+              discovered={discoveredOrder(ledger, ownType.code).length}
+              variant={ownType.code === otherType.code ? 'same' : unseen ? 'new' : 'met'}
+              showTease={unseen}
+            />
           )}
 
           {vibeCheck && (

@@ -20,6 +20,9 @@ import {
   type MatchItem,
 } from '../../lib/matches';
 import { useSession } from '../../lib/session';
+import { loadDiscoveries, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
+import { computeDogtype } from '../../../shared/dogtype';
+import type { DogtypeLedger } from '../../../shared/progress';
 
 function previewLine(match: MatchItem, selfUid: string): string {
   if (!match.chatUnlocked) return 'Open chat to send the first hello';
@@ -31,6 +34,13 @@ function previewLine(match: MatchItem, selfUid: string): string {
 export default function MatchesTab() {
   const { user, loading: sessionLoading } = useSession();
   const uid = user?.uid;
+  const [ledger, setLedger] = useState<DogtypeLedger>({});
+  useEffect(() => {
+    if (!uid) return undefined;
+    const load = () => void loadDiscoveries(uid).then(setLedger);
+    load();
+    return onDiscoveriesChange(load);
+  }, [uid]);
   // null until the first load answers, so a refocus keeps showing the list
   // instead of flashing a spinner.
   const [matches, setMatches] = useState<MatchItem[] | null>(null);
@@ -211,11 +221,16 @@ export default function MatchesTab() {
                           {breed}
                         </Text>
                       )}
-                      {match.isNew && (
-                        <View style={styles.newTag}>
-                          <Text style={styles.newTagText}>New match</Text>
-                        </View>
-                      )}
+                      {(() => {
+                        const code = match.dog.profile ? computeDogtype(match.dog.profile)?.code : undefined;
+                        const e = code ? ledger[code] : undefined;
+                        const newType = !!e && e.dogId === match.dog.id && !e.seen;
+                        return newType || match.isNew ? (
+                          <View style={styles.newTag}>
+                            <Text style={styles.newTagText}>{newType ? 'New Dogtype' : 'New match'}</Text>
+                          </View>
+                        ) : null;
+                      })()}
                     </View>
                     <Text
                       style={[
