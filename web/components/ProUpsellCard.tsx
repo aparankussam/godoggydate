@@ -116,7 +116,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
   return (
     <section className="card rounded-[1.8rem] border border-primary/30 overflow-hidden">
       <div className="bg-gradient-to-br from-primary/10 to-gold/10 px-5 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">goDoggyDate Pro</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">goDoggyDate Pro</p>
         <h2 className="font-display text-xl text-brown leading-tight">Your dog’s whole life, in one place</h2>
       </div>
 

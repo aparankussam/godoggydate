@@ -101,7 +101,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
   return (
     <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">🗺️ {dogName}&apos;s Adventure Passport</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           A bucket list picked to fit {dogName}. Stamp a quest when you two actually pull it off — it&apos;s your own
@@ -207,12 +207,12 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
                 <span style={{ fontSize: 22, lineHeight: 1 }}>{a.emoji}</span>
               </span>
               <span className="flex-1 min-w-0">
-                <span className={`block font-bold text-sm ${done ? 'text-primary' : 'text-brown'}`}>{a.title}</span>
+                <span className={`block font-bold text-sm ${done ? 'text-rose' : 'text-brown'}`}>{a.title}</span>
                 <span className="block text-xs text-brown-light leading-snug">{a.blurb}</span>
               </span>
               <span
                 className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-bold tracking-wide ${
-                  done ? 'bg-primary border-primary text-white' : 'border-primary text-primary'
+                  done ? 'bg-primary border-primary text-brown' : 'border-primary text-rose'
                 }`}
               >
                 {done ? '✓' : 'STAMP'}

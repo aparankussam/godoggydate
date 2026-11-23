@@ -213,7 +213,7 @@ export default function PlaqueCard({ savedProfile }: Props) {
   return (
     <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">🏆 Employee of the Month</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           {dogName}&apos;s official (and entirely ceremonial) office plaque — a straight-faced job title picked from

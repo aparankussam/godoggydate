@@ -41,13 +41,13 @@ interface Props {
 // On-brand palette baked as inline hex (no oklch / backdrop-blur) so
 // html2canvas captures the scoreboard card faithfully — same rationale as
 // DiptychCard / WantedPosterWeb.
-const BROWN = '#2D1A0E';
-const BROWN_MID = '#5C3D2E';
+const BROWN = '#2A1F4A';
+const BROWN_MID = '#4A3F6E';
 const BROWN_LIGHT = '#9B7560';
-const PRIMARY = '#E8633A';
+const PRIMARY = '#FF5C8D';
 const GOLD = '#D9A441';
-const BORDER = '#EAD9C8';
-const CREAM = '#FDF6EE';
+const BORDER = '#E3D6BA';
+const CREAM = '#FFF9EC';
 
 type Phase = 'intro' | 'setup' | 'lobby' | 'play' | 'result';
 
@@ -183,7 +183,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
   return (
     <section className="rounded-2xl border border-gold/30 bg-gradient-to-br from-primary/5 to-gold/10 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Pass the phone 📱</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Pass the phone 📱</p>
         <h2 className="font-display text-xl text-brown leading-tight">Who actually knows {dogName}?</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Ten questions about {dogName}. You set the real answers, then hand the phone around — friends and
@@ -219,7 +219,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {phase === 'setup' && currentQuestion && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
               Answer key · {stepIdx + 1} of {total}
             </p>
             <span className="text-[11px] font-bold text-brown-light">🔒 owner only</span>
@@ -251,7 +251,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
             <button
               type="button"
               onClick={() => { feedback.tap(); setStepIdx((i) => Math.max(0, i - 1)); }}
-              className="mt-3 text-xs font-bold text-primary underline underline-offset-2"
+              className="mt-3 text-xs font-bold text-rose underline underline-offset-2"
             >
               ← Back
             </button>
@@ -315,7 +315,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
             </p>
           </div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
               Question {stepIdx + 1} of {total}
             </p>
             <span className="text-[11px] font-bold text-brown-light">{activeGuest}’s guesses</span>

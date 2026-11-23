@@ -33,7 +33,7 @@ export default function DogtypeIndexPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-12">
       <header className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">The Dogtypes</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-rose">The Dogtypes</p>
         <h1 className="mt-2 font-display text-3xl text-brown sm:text-4xl">All 16 Dogtypes</h1>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-brown-mid">
           Every dog lands on one of these — a playful personality read from four things you already
@@ -54,7 +54,7 @@ export default function DogtypeIndexPage() {
               </span>
               <span className="min-w-0">
                 <span className="block font-display text-lg leading-tight text-brown">{type.name}</span>
-                <span className="mt-0.5 block text-[12px] font-semibold text-primary">{type.tagline}</span>
+                <span className="mt-0.5 block text-[12px] font-semibold text-rose">{type.tagline}</span>
                 <span className="mt-0.5 block text-[11px] text-brown-light">{dogtypeCodeDecode(type.code)}</span>
               </span>
             </Link>
@@ -64,7 +64,7 @@ export default function DogtypeIndexPage() {
 
       <p className="mt-8 text-center text-sm text-brown-mid">
         Don’t know your dog’s type yet?{' '}
-        <Link href="/quiz?ref=dogtype" className="font-bold text-primary underline underline-offset-2">
+        <Link href="/quiz?ref=dogtype" className="font-bold text-rose underline underline-offset-2">
           Take the 90-second quiz →
         </Link>
       </p>

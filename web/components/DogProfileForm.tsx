@@ -911,7 +911,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       <div className="mb-6 w-full max-w-sm">
         <div className="mb-1 flex justify-between text-xs text-brown-light">
           <span>{completedCount}/9 sections complete</span>
-          <span className={complete ? 'font-semibold text-green-600' : 'font-semibold text-primary'}>
+          <span className={complete ? 'font-semibold text-green-600' : 'font-semibold text-rose'}>
             {complete ? '✓ Ready to swipe!' : `${progressPct}% — complete to unlock swipe`}
           </span>
         </div>
@@ -920,7 +920,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${progressPct}%`,
-              backgroundColor: complete ? '#22c55e' : '#E8633A',
+              backgroundColor: complete ? '#22c55e' : '#FF5C8D',
             }}
           />
         </div>
@@ -1105,7 +1105,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 key={option.value}
                 className={`flex-1 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
                   sex === option.value
-                    ? 'border-primary bg-primary/10 text-primary'
+                    ? 'border-primary bg-primary/10 text-rose'
                     : 'border-border bg-white text-brown-mid'
                 }`}
               >
@@ -1148,7 +1148,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             {energySource === 'none' ? (
               <span className="font-bold text-brown-light">not set yet</span>
             ) : (
-              <span className="font-bold text-primary">
+              <span className="font-bold text-rose">
                 {energyLevel}% · {energyWord(energyLevel)}
               </span>
             )}
@@ -1192,7 +1192,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                     setEnergyLevel(suggestion.value);
                     setEnergySource(suggestion.fromQuiz ? 'quiz' : suggestion.reasons.length > 0 ? 'picks' : 'none');
                   }}
-                  className="font-semibold text-primary underline underline-offset-2"
+                  className="font-semibold text-rose underline underline-offset-2"
                 >
                   Use my picks instead
                 </button>
@@ -1436,7 +1436,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 className={`flex-1 rounded-xl border-2 py-2.5 text-sm font-semibold transition-colors ${
                   vaccinated === value
                     ? value
-                      ? 'border-primary bg-primary/10 text-primary'
+                      ? 'border-primary bg-primary/10 text-rose'
                       : 'border-amber-400 bg-amber-50 text-amber-700'
                     : 'border-border bg-white text-brown-mid'
                 }`}

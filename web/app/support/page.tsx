@@ -21,14 +21,14 @@ export const metadata: Metadata = {
   },
 };
 
-const link = 'font-semibold text-primary underline underline-offset-2';
+const link = 'font-semibold text-rose underline underline-offset-2';
 
 export default function SupportPage() {
   return (
     <main className="min-h-screen bg-cream">
       <div className="px-6 py-10">
         <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Support</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">Support</p>
           <h1 className="mt-3 font-display text-4xl text-brown">How can we help?</h1>
           <p className="mt-3 text-sm leading-7 text-brown-light">
             GoDoggyDate is a small, independent app. The quickest way to reach a person is email.

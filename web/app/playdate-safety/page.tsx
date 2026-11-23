@@ -59,7 +59,7 @@ const EVIDENCE_LABEL: Record<EvidenceLevel, string> = {
 const EVIDENCE_STYLE: Record<EvidenceLevel, string> = {
   'professional-consensus': 'bg-cream-dark text-brown-mid',
   'rule-of-thumb': 'bg-[rgba(245,183,49,0.28)] text-brown',
-  contested: 'bg-[rgba(232,99,58,0.14)] text-primary-dark',
+  contested: 'bg-[rgba(255,92,141,0.14)] text-primary-dark',
 };
 
 function EvidenceBadge({ level }: { level: EvidenceLevel }) {
@@ -103,7 +103,7 @@ function Attribution({ ids }: { ids: readonly SourceId[] }) {
             href={getSource(id).url}
             target="_blank"
             rel="noreferrer"
-            className="underline decoration-border underline-offset-2 hover:text-primary"
+            className="underline decoration-border underline-offset-2 hover:text-rose"
           >
             {getSource(id).name}
           </a>
@@ -164,7 +164,7 @@ export default function PlaydateSafetyPage() {
             <a
               key={s.id}
               href={`#${s.id}`}
-              className="shrink-0 rounded-full border border-border bg-white px-4 py-3 text-sm font-bold text-brown-mid hover:border-primary hover:text-primary"
+              className="shrink-0 rounded-full border border-border bg-white px-4 py-3 text-sm font-bold text-brown-mid hover:border-primary hover:text-rose"
             >
               {s.label}
             </a>
@@ -174,7 +174,7 @@ export default function PlaydateSafetyPage() {
 
       <div className="mx-auto max-w-3xl px-4 pb-20 pt-10 sm:px-6">
         <header>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-rose">
             First meetings
           </p>
           <h1 className="mt-3 font-display text-4xl leading-tight text-brown sm:text-5xl">
@@ -214,7 +214,7 @@ export default function PlaydateSafetyPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-baseline gap-4">
                     <span
-                      className="font-display text-4xl leading-none text-[rgba(232,99,58,0.25)]"
+                      className="font-display text-4xl leading-none text-[rgba(255,92,141,0.25)]"
                       aria-hidden="true"
                     >
                       {String(i + 1).padStart(2, '0')}
@@ -349,7 +349,7 @@ export default function PlaydateSafetyPage() {
                 href={getSource('iaabc').url}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full bg-white px-5 py-3 text-base font-bold text-brown hover:text-primary"
+                className="rounded-full bg-white px-5 py-3 text-base font-bold text-brown hover:text-rose"
               >
                 Find an IAABC consultant
               </a>
@@ -357,7 +357,7 @@ export default function PlaydateSafetyPage() {
                 href={getSource('ccpdt').url}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full bg-white px-5 py-3 text-base font-bold text-brown hover:text-primary"
+                className="rounded-full bg-white px-5 py-3 text-base font-bold text-brown hover:text-rose"
               >
                 Find a CCPDT trainer
               </a>
@@ -406,7 +406,7 @@ export default function PlaydateSafetyPage() {
                   href={source.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-[1.25rem] bg-white px-5 py-4 text-base font-semibold leading-7 text-brown-mid shadow-sm hover:text-primary"
+                  className="block rounded-[1.25rem] bg-white px-5 py-4 text-base font-semibold leading-7 text-brown-mid shadow-sm hover:text-rose"
                 >
                   {source.name}
                   <span className="block text-sm font-normal text-brown-mid">

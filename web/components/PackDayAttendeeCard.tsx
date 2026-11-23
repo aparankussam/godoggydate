@@ -94,7 +94,7 @@ export default function PackDayAttendeeCard({ attendee, eventId, isHost, isYou, 
             </h2>
             {facts && <p className="mt-0.5 text-sm text-brown-mid break-words">{facts}</p>}
             {(isHost || isYou) && (
-              <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-primary">
+              <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-rose">
                 {isYou ? (isHost ? "You're hosting" : "That's you") : 'Hosting'}
               </p>
             )}

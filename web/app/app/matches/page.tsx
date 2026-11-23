@@ -362,7 +362,7 @@ export default function MatchesPage() {
                           {m.unread && <span className="sr-only"> (unread messages)</span>}
                         </p>
                         {!hasLastMsg && (
-                          <span className="shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
+                          <span className="shrink-0 rounded-full bg-primary/12 text-rose text-[10px] font-bold px-2 py-1">
                             New match
                           </span>
                         )}
@@ -374,14 +374,14 @@ export default function MatchesPage() {
                         </p>
                       )}
                       {!hasLastMsg && (
-                        <p className="text-xs text-primary font-medium mt-1">
+                        <p className="text-xs text-rose font-medium mt-1">
                           {m.chatUnlocked ? 'Open chat and say hello 👋' : `${formatPrice(CHAT_UNLOCK_PRICE_CENTS)} unlocks it forever`}
                         </p>
                       )}
                     </div>
 
                     <div className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center shadow-md ${
-                      m.chatUnlocked ? 'bg-primary text-white' : 'bg-brown-light/15 text-brown'
+                      m.chatUnlocked ? 'bg-primary text-brown' : 'bg-brown-light/15 text-brown'
                     }`}>
                       {m.chatUnlocked ? '💬' : '🔒'}
                     </div>

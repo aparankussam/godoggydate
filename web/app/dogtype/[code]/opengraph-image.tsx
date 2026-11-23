@@ -17,8 +17,8 @@ export default function OpengraphImage({ params }: { params: { code: string } })
   const type = dogtypeByCode(params.code);
   const spark = (type?.code ?? 'E')[0] === 'E';
   const background = spark
-    ? 'linear-gradient(135deg, #7A2E0E 0%, #E8633A 55%, #F5B731 100%)'
-    : 'linear-gradient(135deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
+    ? 'linear-gradient(135deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)'
+    : 'linear-gradient(135deg, #241A2E 0%, #4A3F6E 50%, #C98A5E 100%)';
 
   const name = type?.name ?? 'Dogtype';
   const tagline = type?.tagline ?? 'Find your dog’s type';

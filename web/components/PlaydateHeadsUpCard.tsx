@@ -121,7 +121,7 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
           {flagged ? '⚠️' : '🐾'} Before you meet {dogName}
           {ownerFirstName && <>{' '}<span className="font-semibold text-brown-light">· with <bdi>{ownerFirstName}</bdi></span></>}
         </span>
-        <span className="shrink-0 text-xs font-bold text-primary">
+        <span className="shrink-0 text-xs font-bold text-rose">
           {open ? 'Hide' : 'Show'} {open ? '↑' : '↓'}
         </span>
       </button>
@@ -133,11 +133,11 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
           <p className="text-xs font-semibold text-brown-light [overflow-wrap:anywhere]">{whenWhere}</p>
 
           <ul className="space-y-1.5 text-sm leading-snug text-brown">
-            <li className="flex gap-2"><span aria-hidden="true" className="text-primary">✓</span>Meet somewhere public, like a dog park.</li>
-            <li className="flex gap-2"><span aria-hidden="true" className="text-primary">✓</span>Keep leashes on until both dogs are calm.</li>
-            <li className="flex gap-2"><span aria-hidden="true" className="text-primary">✓</span>Introduce them slowly. A short sniff first, then see how it goes.</li>
+            <li className="flex gap-2"><span aria-hidden="true" className="text-rose">✓</span>Meet somewhere public, like a dog park.</li>
+            <li className="flex gap-2"><span aria-hidden="true" className="text-rose">✓</span>Keep leashes on until both dogs are calm.</li>
+            <li className="flex gap-2"><span aria-hidden="true" className="text-rose">✓</span>Introduce them slowly. A short sniff first, then see how it goes.</li>
             <li className="flex gap-2">
-              <span aria-hidden="true" className="text-primary">✓</span>
+              <span aria-hidden="true" className="text-rose">✓</span>
               <div className="min-w-0 flex-1">
                 {flagged ? (
                   <>
@@ -195,7 +195,7 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
             ) : (
               <p className="mt-1 text-[13px] leading-snug text-brown-light">
                 You haven&apos;t declared any limits.{' '}
-                <Link href="/app/profile" className="font-semibold text-primary underline underline-offset-2">
+                <Link href="/app/profile" className="font-semibold text-rose underline underline-offset-2">
                   Add them to your profile
                 </Link>
                 {' '}so the other owner is warned before you meet.
@@ -208,7 +208,7 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
           </p>
           <Link
             href="/playdate-safety"
-            className="flex min-h-[40px] items-center text-xs font-semibold text-primary underline underline-offset-2"
+            className="flex min-h-[40px] items-center text-xs font-semibold text-rose underline underline-offset-2"
           >
             How to run a first meeting →
           </Link>

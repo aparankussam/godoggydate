@@ -68,7 +68,7 @@ export default function EnablePushBanner({ userId }: { userId: string }) {
           setState(enabled ? 'none' : await getPushBannerState());
         }}
         disabled={busy}
-        className="shrink-0 rounded-full bg-primary text-white text-xs font-bold px-4 py-3 hover:scale-105 transition-transform disabled:opacity-50"
+        className="shrink-0 rounded-full bg-primary text-brown text-xs font-bold px-4 py-3 hover:scale-105 transition-transform disabled:opacity-50"
       >
         {busy ? '…' : 'Enable'}
       </button>

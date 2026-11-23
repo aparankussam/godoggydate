@@ -30,7 +30,7 @@ export default function DogPlaydatesPage() {
   return (
     <main className="min-h-screen bg-cream px-6 py-12">
       <article className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">
           Dog Playdates
         </p>
         <h1 className="mt-3 font-display text-4xl text-brown">
@@ -63,13 +63,13 @@ export default function DogPlaydatesPage() {
         <div className="mt-10 rounded-[1.5rem] bg-cream-dark px-5 py-5">
           <p className="text-sm leading-7 text-brown-light">
             Want a simpler way to screen matches? Visit the{' '}
-            <Link href="/" className="font-semibold text-primary underline underline-offset-2">
+            <Link href="/" className="font-semibold text-rose underline underline-offset-2">
               GoDoggyDate homepage
             </Link>{' '}
             or read our{' '}
             <Link
               href="/dog-socialization-tips"
-              className="font-semibold text-primary underline underline-offset-2"
+              className="font-semibold text-rose underline underline-offset-2"
             >
               dog socialization tips
             </Link>

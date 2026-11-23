@@ -54,14 +54,14 @@ export default function EarnedStickers({ dogId }: Props) {
     <section className="card rounded-[1.8rem] px-5 py-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Stickers earned</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Stickers earned</p>
           <p className="mt-0.5 text-sm text-brown-mid">
             Unlocked by booping (tapping your dog&apos;s snoot in the Snoot Boop toy) — {allTime.toLocaleString()} boop{allTime === 1 ? '' : 's'} so far.
           </p>
         </div>
         <Link
           href="/app/fun/sticker-studio"
-          className="shrink-0 rounded-full border border-primary px-3.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/5 transition-colors"
+          className="shrink-0 rounded-full border border-primary px-3.5 py-1.5 text-xs font-bold text-rose hover:bg-primary/5 transition-colors"
         >
           Use them →
         </Link>
@@ -82,7 +82,7 @@ export default function EarnedStickers({ dogId }: Props) {
       {next && (
         <p className="mt-2.5 text-[12px] text-brown-light">
           Next up: {next.emoji} {next.label} at {next.unlockAt.toLocaleString()} boops.{' '}
-          <Link href="/app/fun/snoot" className="text-primary font-bold hover:underline">Boop the snoot</Link>
+          <Link href="/app/fun/snoot" className="text-rose font-bold hover:underline">Boop the snoot</Link>
         </p>
       )}
     </section>

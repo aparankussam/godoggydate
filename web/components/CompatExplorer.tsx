@@ -266,11 +266,11 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                       {rank?.isClearTop && (
                         <p className="text-[11px] font-bold text-[#B0761A]">⭐ {dogName}&apos;s #1 easiest match</p>
                       )}
-                      <p className="text-[11px] font-semibold text-primary">
+                      <p className="text-[11px] font-semibold text-rose">
                         {vm.emoji} {vm.label}
                       </p>
                     </div>
-                    <span className="text-[11px] font-bold text-primary shrink-0">
+                    <span className="text-[11px] font-bold text-rose shrink-0">
                       {isExpanded ? 'Hide ▴' : 'See if you’d get along ▾'}
                     </span>
                   </div>
@@ -318,7 +318,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                     <a
                       href="/app/fun/snoot"
                       onClick={() => trackEvent('compat_explorer_unlock_boop_click', { code: dogtype.code })}
-                      className="flex min-h-[40px] flex-1 items-center justify-center rounded-full border border-primary/40 bg-white/70 px-3 py-2 text-center text-[12px] font-bold text-primary transition-colors hover:bg-white"
+                      className="flex min-h-[40px] flex-1 items-center justify-center rounded-full border border-primary/40 bg-white/70 px-3 py-2 text-center text-[12px] font-bold text-rose transition-colors hover:bg-white"
                     >
                       🐽 Boop {dogName}
                       {boopsToNextKey !== null && (
@@ -329,7 +329,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                       type="button"
                       onClick={handleUnlockInvite}
                       disabled={sharing}
-                      className="min-h-[40px] flex-1 rounded-full bg-primary px-3 py-2 text-center text-[12px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                      className="min-h-[40px] flex-1 rounded-full bg-primary px-3 py-2 text-center text-[12px] font-bold text-brown transition-opacity hover:opacity-90 disabled:opacity-60"
                     >
                       {sharing ? 'Preparing…' : '📤 Invite a friend to unlock'}
                     </button>
@@ -360,7 +360,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
       <a
         href="/dogtype"
         onClick={() => trackEvent('compat_explorer_browse_all_click', { code: dogtype.code })}
-        className="mt-1 inline-block py-3 text-[11px] font-bold text-primary underline underline-offset-2"
+        className="mt-1 inline-block py-3 text-[11px] font-bold text-rose underline underline-offset-2"
       >
         Browse all 16 Dogtypes →
       </a>
@@ -409,7 +409,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
                 type="button"
                 onClick={() => shareCard(expandedType.code, 'invite')}
                 disabled={sharing}
-                className="text-[13px] font-semibold text-primary disabled:opacity-60"
+                className="text-[13px] font-semibold text-rose disabled:opacity-60"
               >
                 🐾 Know another {shortName(expandedType.name)}? Invite them
               </button>
@@ -419,7 +419,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
           <a
             href={`/dogtype/${expandedType.code}`}
             onClick={() => trackEvent('compat_type_page_click', { code: dogtype.code, match_code: expandedType.code })}
-            className="text-[12px] font-bold text-primary underline underline-offset-2"
+            className="text-[12px] font-bold text-rose underline underline-offset-2"
           >
             See the full {shortName(expandedType.name)} page →
           </a>
@@ -441,7 +441,7 @@ export default function CompatExplorer({ savedProfile, userId }: Props) {
           <a
             href={`/compat/${dogtype.code}`}
             onClick={() => trackEvent('compat_link_click', { code: dogtype.code })}
-            className="mt-2 inline-block text-[11px] font-bold text-primary underline underline-offset-2"
+            className="mt-2 inline-block text-[11px] font-bold text-rose underline underline-offset-2"
           >
             See who {dogtype.name} plays with →
           </a>

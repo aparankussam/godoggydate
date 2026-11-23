@@ -409,7 +409,7 @@ export default function SwipeStack({
                 <div className="mt-4 rounded-2xl border border-primary/25 bg-white px-4 py-4 shadow-[0_8px_24px_rgba(180,83,9,0.08)]">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Why this fit</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-rose">Why this fit</p>
                       <p className="mt-1 text-sm font-semibold text-brown">{selectedDog.compat.label}</p>
                       {selectedDog.compat.microcopy && (
                         <p className="mt-0.5 text-xs text-brown-light">{selectedDog.compat.microcopy}</p>
@@ -432,7 +432,7 @@ export default function SwipeStack({
                     <div className="mt-3 space-y-2">
                       {selectedDog.compat.reasons.slice(0, 3).map((reason) => (
                         <p key={reason} className="text-sm text-brown">
-                          <span className="mr-2 font-bold text-primary">•</span>
+                          <span className="mr-2 font-bold text-rose">•</span>
                           {reason}
                         </p>
                       ))}
@@ -443,7 +443,7 @@ export default function SwipeStack({
                     type="button"
                     onClick={() => setShowBreakdown((v) => !v)}
                     aria-expanded={showBreakdown}
-                    className="mt-3 text-xs font-semibold text-primary underline underline-offset-2 transition-colors hover:text-primary-dark"
+                    className="mt-3 text-xs font-semibold text-rose underline underline-offset-2 transition-colors hover:text-primary-dark"
                   >
                     {showBreakdown ? 'Hide the math' : 'Show the math'}
                   </button>
@@ -507,7 +507,7 @@ export default function SwipeStack({
                 type="button"
                 onClick={likeFromDetails}
                 aria-label={`Woof — like ${selectedDog.name}`}
-                className="mt-6 w-full min-h-[56px] rounded-full bg-primary px-6 text-lg font-black text-white shadow-[0_16px_30px_rgba(232,99,58,0.32)] outline-none transition-transform hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.98] [WebkitTapHighlightColor:transparent]"
+                className="mt-6 w-full min-h-[56px] rounded-full bg-primary px-6 text-lg font-black text-brown shadow-[0_16px_30px_rgba(255,92,141,0.32)] outline-none transition-transform hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.98] [WebkitTapHighlightColor:transparent]"
               >
                 Woof! 🐾
               </button>
@@ -583,7 +583,7 @@ export default function SwipeStack({
               e.currentTarget.blur();
               triggerButtonAction('right');
             }}
-            className="flex-[1.3] min-h-[72px] rounded-full bg-primary px-6 text-xl font-black text-white shadow-[0_22px_42px_rgba(232,99,58,0.38)] outline-none transition-transform hover:scale-[1.02] focus:outline-none focus-visible:outline-none focus-visible:ring-0 active:scale-[0.98] [WebkitTapHighlightColor:transparent]"
+            className="flex-[1.3] min-h-[72px] rounded-full bg-primary px-6 text-xl font-black text-brown shadow-[0_22px_42px_rgba(255,92,141,0.38)] outline-none transition-transform hover:scale-[1.02] focus:outline-none focus-visible:outline-none focus-visible:ring-0 active:scale-[0.98] [WebkitTapHighlightColor:transparent]"
             aria-label="WOOF"
           >
             <span className="flex items-center justify-center gap-3">

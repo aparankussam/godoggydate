@@ -1040,7 +1040,7 @@ export default function ChatPage() {
           type="button"
           onClick={() => void sendMessage('I’m here! 🐾')}
           disabled={sending}
-          className="min-h-[40px] rounded-full bg-primary px-4 text-xs font-bold text-white shadow-sm disabled:opacity-50"
+          className="min-h-[40px] rounded-full bg-primary px-4 text-xs font-bold text-brown shadow-sm disabled:opacity-50"
         >
           I’m here
         </button>
@@ -1179,7 +1179,7 @@ export default function ChatPage() {
         </Link>
         {/* Only worth a pill when chat is NOT simply free for everyone. */}
         {!CHAT_FREE_LAUNCH_MODE && (
-          <div className="shrink-0 rounded-full bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1">
+          <div className="shrink-0 rounded-full bg-primary/10 text-rose text-[10px] font-bold px-2.5 py-1">
             {canChat ? 'Chat unlocked' : 'Chat locked'}
           </div>
         )}
@@ -1227,7 +1227,7 @@ export default function ChatPage() {
                     href={getFoundingMemberLink(authUser.uid)!}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 block text-xs font-semibold text-primary underline underline-offset-2"
+                    className="mt-3 block text-xs font-semibold text-rose underline underline-offset-2"
                   >
                     ⭐ Or become a Founding Member — $39 once. Every chat, forever, and a numbered badge.
                   </a>
@@ -1302,7 +1302,7 @@ export default function ChatPage() {
                 key={msg.id}
                 className="self-center w-full max-w-[85%] rounded-[1.25rem] border border-primary/25 bg-primary/5 px-4 py-3 shadow-sm"
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary">✅ Playdate · Confirmed</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose">✅ Playdate · Confirmed</p>
                 <p className="mt-1 text-sm font-semibold text-brown">{formatPlaydateWhen(msg.playdate)}</p>
                 <p className="text-sm text-brown-light break-words">{msg.playdate.place}</p>
                 {confirmedActions(msg.playdate)}
@@ -1323,7 +1323,7 @@ export default function ChatPage() {
                   fromMe ? 'self-end border-primary/25 bg-primary/5' : 'self-start border-border bg-white'
                 }`}
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose">
                   📅 Playdate {confirmed ? '· Confirmed' : 'proposal'}
                   <span className="font-semibold normal-case tracking-normal text-brown-light"> · from <bdi>{proposer}</bdi></span>
                 </p>
@@ -1369,7 +1369,7 @@ export default function ChatPage() {
                         type="button"
                         onClick={() => handleAcceptTap(msg)}
                         disabled={sending}
-                        className="min-h-[40px] rounded-full bg-primary px-4 text-xs font-bold text-white shadow-sm hover:scale-105 transition-transform disabled:opacity-50"
+                        className="min-h-[40px] rounded-full bg-primary px-4 text-xs font-bold text-brown shadow-sm hover:scale-105 transition-transform disabled:opacity-50"
                       >
                         Accept playdate
                       </button>
@@ -1416,7 +1416,7 @@ export default function ChatPage() {
             className="rounded-[1.25rem] border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-semibold text-brown flex items-center justify-between gap-3"
           >
             <span>🎾 How did the playdate with {dogName} go?</span>
-            <span className="text-primary shrink-0">Rate it →</span>
+            <span className="text-rose shrink-0">Rate it →</span>
           </button>
         )}
         {memoryCardStars !== null && (
@@ -1463,7 +1463,7 @@ export default function ChatPage() {
       {/* Playdate proposal form */}
       {showPlaydateForm && canChat && (
         <div className="shrink-0 border-t border-border bg-white px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary mb-2">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-rose mb-2">
             📅 {counterOfId ? 'Suggest another time' : 'Propose a playdate'}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1513,7 +1513,7 @@ export default function ChatPage() {
             <button
               onClick={proposePlaydate}
               disabled={!playdateDraft.date || !playdateDraft.place.trim() || sending}
-              className="rounded-full bg-primary px-5 py-2 text-xs font-bold text-white shadow-sm disabled:opacity-45"
+              className="rounded-full bg-primary px-5 py-2 text-xs font-bold text-brown shadow-sm disabled:opacity-45"
             >
               Send proposal
             </button>
@@ -1560,7 +1560,7 @@ export default function ChatPage() {
               setContentError(null);
               inputRef.current?.focus();
             }}
-            className="shrink-0 min-h-[40px] bg-primary/10 text-primary font-semibold text-xs rounded-full px-3 py-2 hover:bg-primary/20 transition-colors whitespace-nowrap"
+            className="shrink-0 min-h-[40px] bg-primary/10 text-rose font-semibold text-xs rounded-full px-3 py-2 hover:bg-primary/20 transition-colors whitespace-nowrap"
           >
             {p}
           </button>
@@ -1604,7 +1604,7 @@ export default function ChatPage() {
         <button
           onClick={() => sendMessage(chatInput)}
           disabled={!chatInput.trim() || sending || !canChat}
-          className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-md hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 shrink-0"
+          className="w-12 h-12 rounded-full bg-primary text-brown flex items-center justify-center shadow-md hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 shrink-0"
           aria-label="Send"
         >
           ➤

@@ -81,7 +81,7 @@ export default function PublicPageSwitch({ uid, dogName, enabled }: Props) {
           href={`/d/${toDogSlug(dogName || 'dog', uid)}`}
           target="_blank"
           aria-label={`View ${label}`}
-          className="mt-1 inline-block py-2 text-xs font-semibold text-primary underline underline-offset-2"
+          className="mt-1 inline-block py-2 text-xs font-semibold text-rose underline underline-offset-2"
         >
           View {dogName || 'your dog'}&apos;s public page →
         </Link>

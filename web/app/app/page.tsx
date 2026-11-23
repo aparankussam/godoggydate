@@ -708,7 +708,7 @@ export default function AppPage() {
               )}
               <button
                 onClick={handleSignOut}
-                className="shrink-0 whitespace-nowrap px-1 py-3 text-xs text-brown-light hover:text-primary transition-colors"
+                className="shrink-0 whitespace-nowrap px-1 py-3 text-xs text-brown-light hover:text-rose transition-colors"
               >
                 Sign out
               </button>
@@ -716,7 +716,7 @@ export default function AppPage() {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="text-xs bg-primary/10 text-primary font-semibold rounded-full px-4 min-h-[40px] hover:bg-primary/20 transition-colors"
+              className="text-xs bg-primary/10 text-rose font-semibold rounded-full px-4 min-h-[40px] hover:bg-primary/20 transition-colors"
             >
               Sign in 🐾
             </button>
@@ -749,7 +749,7 @@ export default function AppPage() {
           </p>
           <button
             onClick={() => setShowAuthModal(true)}
-            className="shrink-0 text-xs font-bold text-primary bg-white/70 hover:bg-white rounded-full px-4 min-h-[40px] transition-colors"
+            className="shrink-0 text-xs font-bold text-rose bg-white/70 hover:bg-white rounded-full px-4 min-h-[40px] transition-colors"
           >
             Sign in 🐾
           </button>
@@ -886,7 +886,7 @@ export default function AppPage() {
                     type="button"
                     disabled={locationBusy}
                     onClick={handleUseLocation}
-                    className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:opacity-60"
+                    className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-rose shadow-sm transition-colors hover:bg-primary/5 disabled:opacity-60"
                   >
                     {locationBusy ? 'Checking…' : 'Use my location'}
                   </button>
@@ -912,7 +912,7 @@ export default function AppPage() {
                     type="button"
                     disabled={locationBusy}
                     onClick={handleUseLocation}
-                    className="mt-1 min-h-[40px] text-xs font-bold text-primary underline underline-offset-2 disabled:opacity-60"
+                    className="mt-1 min-h-[40px] text-xs font-bold text-rose underline underline-offset-2 disabled:opacity-60"
                   >
                     {locationBusy ? 'Checking…' : 'Share my approximate location'}
                   </button>
@@ -937,7 +937,7 @@ export default function AppPage() {
                         <Link
                           href={item.href}
                           onClick={() => trackEvent('while_you_wait_click', { target: item.href })}
-                          className="flex min-h-[44px] items-center gap-3 py-1.5 text-brown hover:text-primary"
+                          className="flex min-h-[44px] items-center gap-3 py-1.5 text-brown hover:text-rose"
                         >
                           <span aria-hidden="true">{item.emoji}</span>
                           <span className="flex-1">{item.text}</span>
@@ -946,7 +946,7 @@ export default function AppPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/app/fun" className="mt-1 inline-block min-h-[40px] py-2 text-xs font-bold text-primary underline underline-offset-2">
+                  <Link href="/app/fun" className="mt-1 inline-block min-h-[40px] py-2 text-xs font-bold text-rose underline underline-offset-2">
                     More in the Playroom
                   </Link>
                 </div>
@@ -1022,14 +1022,14 @@ export default function AppPage() {
                         .catch(() => { /* handled inside refreshDiscoverFeed */ });
                     }
                   }}
-                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5 disabled:opacity-60"
+                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-rose shadow-sm transition-colors hover:bg-primary/5 disabled:opacity-60"
                 >
                   {feedLoading ? 'Checking…' : 'Check again'}
                 </button>
                 <button
                   type="button"
                   onClick={handleInviteFriend}
-                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5"
+                  className="rounded-full border border-primary/20 bg-white px-8 py-3 text-sm font-semibold text-rose shadow-sm transition-colors hover:bg-primary/5"
                 >
                   Invite dog parents{savedProfile?.city ? ` in ${savedProfile.city}` : ''}
                 </button>
@@ -1086,7 +1086,7 @@ export default function AppPage() {
                       type="button"
                       disabled={locationBusy}
                       onClick={handleUseLocation}
-                      className="min-h-[40px] font-bold text-primary underline underline-offset-2 disabled:opacity-60"
+                      className="min-h-[40px] font-bold text-rose underline underline-offset-2 disabled:opacity-60"
                     >
                       {locationBusy ? 'Checking…' : 'Share it'}
                     </button>

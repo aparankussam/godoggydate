@@ -52,7 +52,7 @@ export default async function PublicPackDayPage({ params }: PageProps) {
 
       <article className="card w-full max-w-md overflow-hidden">
         <div className={`px-6 py-5 ${cancelled ? 'bg-cream-dark' : 'bg-gradient-to-br from-primary/15 to-gold/15'}`}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
             {event.official ? '⭐ Official Pack Day' : 'Pack Day'} · {format.emoji} {format.label}
             {cancelled && <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-red-700">Cancelled</span>}
           </p>
@@ -86,7 +86,7 @@ export default async function PublicPackDayPage({ params }: PageProps) {
                   href={mapsSearchUrl(event)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-1 px-1.5 py-3 text-primary font-semibold underline"
+                  className="ml-1 px-1.5 py-3 text-rose font-semibold underline"
                 >
                   Map
                 </a>

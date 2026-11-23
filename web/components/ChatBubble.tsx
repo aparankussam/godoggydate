@@ -29,7 +29,7 @@ export default function ChatBubble({ text, fromMe, isSystem, time, pending }: Pr
         dir="auto"
         className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-full ${
           fromMe
-            ? 'bg-primary text-white rounded-br-sm'
+            ? 'bg-primary text-brown rounded-br-sm'
             : 'bg-white text-brown shadow-sm rounded-bl-sm'
         }`}
       >

@@ -57,7 +57,7 @@ function EventSummary({ event }: { event: SummaryEvent }) {
   return (
     <article className="card overflow-hidden">
       <div className={`px-5 py-4 ${cancelled ? 'bg-cream-dark' : 'bg-gradient-to-br from-primary/15 to-gold/15'}`}>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
           {event.official ? '⭐ Official · ' : ''}{format.emoji} {format.label}
           {cancelled && <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-red-700">Cancelled</span>}
         </p>
@@ -73,7 +73,7 @@ function EventSummary({ event }: { event: SummaryEvent }) {
             href={mapsSearchUrl(event)}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-1 px-1.5 py-3 text-primary font-semibold underline"
+            className="ml-1 px-1.5 py-3 text-rose font-semibold underline"
           >
             Map
           </a>
@@ -359,7 +359,7 @@ export default function PackDayDetail({ eventId, publicSummary }: Props) {
                     <span className="block px-2 pt-1.5 text-xs font-bold text-brown truncate">
                       {a.founding ? '⭐ ' : ''}{a.name}
                     </span>
-                    <span className="block px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-primary min-h-[1.25rem]">
+                    <span className="block px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-rose min-h-[1.25rem]">
                       {a.uid === event.hostUid ? 'Host' : ''}
                     </span>
                   </button>

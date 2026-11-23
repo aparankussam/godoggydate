@@ -17,8 +17,8 @@ interface Props {
 }
 
 // Same colours as the iPhone card (and the on-page reveal), top-left → bottom-right.
-const WON_GRADIENT = 'linear-gradient(135deg, #7A2E0E 0%, #E8633A 50%, #F5B731 100%)';
-const LOST_GRADIENT = 'linear-gradient(135deg, #241A2E 0%, #5C3D2E 50%, #9B7560 100%)';
+const WON_GRADIENT = 'linear-gradient(135deg, #7A2E0E 0%, #FF5C8D 50%, #F5B731 100%)';
+const LOST_GRADIENT = 'linear-gradient(135deg, #241A2E 0%, #4A3F6E 50%, #9B7560 100%)';
 
 const BarkleResultCard = forwardRef<HTMLDivElement, Props>(function BarkleResultCard(
   { puzzleNumber, results, won },

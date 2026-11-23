@@ -376,7 +376,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
     /* Backdrop — click outside to dismiss */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(45,26,14,0.65)' }}
+      style={{ background: 'rgba(42,31,74,0.65)' }}
       onClick={onClose}
     >
       <div
@@ -425,7 +425,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
               {chromeIntentUrl && (
                 <a
                   href={chromeIntentUrl}
-                  className="inline-flex min-h-[40px] items-center rounded-full bg-primary px-4 text-xs font-bold text-white"
+                  className="inline-flex min-h-[40px] items-center rounded-full bg-primary px-4 text-xs font-bold text-brown"
                 >
                   Open in Chrome
                 </a>
@@ -452,13 +452,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           />
           <span>
             I&apos;m 18 or older and agree to the{' '}
-            <Link href="/terms" target="_blank" className="font-semibold text-primary underline underline-offset-2">Terms</Link>
+            <Link href="/terms" target="_blank" className="font-semibold text-rose underline underline-offset-2">Terms</Link>
             {' '}and{' '}
-            <Link href="/privacy" target="_blank" className="font-semibold text-primary underline underline-offset-2">Privacy Policy</Link>.
+            <Link href="/privacy" target="_blank" className="font-semibold text-rose underline underline-offset-2">Privacy Policy</Link>.
           </span>
         </label>
         <p className="-mt-2 text-xs text-brown-light">
-          <Link href="/terms#in-plain-english" target="_blank" className="font-semibold text-primary underline underline-offset-2">
+          <Link href="/terms#in-plain-english" target="_blank" className="font-semibold text-rose underline underline-offset-2">
             Terms in plain English
           </Link>
         </p>
@@ -506,7 +506,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           ) : (
             <button
               onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-border text-brown font-bold rounded-2xl px-6 py-4 text-base hover:border-primary hover:text-primary transition-all shadow-sm"
+              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-border text-brown font-bold rounded-2xl px-6 py-4 text-base hover:border-primary hover:text-rose transition-all shadow-sm"
             >
               <GoogleLogo />
               Continue with Google

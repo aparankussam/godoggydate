@@ -3,16 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #E8633A;
-  --color-primary-light: #F0896A;
+  --color-primary: #FF5C8D;
+  --color-primary-light: #FF8FB0;
   --color-gold: #F5B731;
-  --color-cream: #FDF6EE;
-  --color-cream-dark: #F5E6D3;
-  --color-brown: #2D1A0E;
-  --color-brown-mid: #5C3D2E;
-  --color-brown-light: #80604B;
-  --color-border: #EAD9C8;
-  --font-display: var(--font-fraunces), Georgia, serif;
+  --color-cream: #FFF9EC;
+  --color-cream-dark: #F3ECDC;
+  --color-brown: #2A1F4A;
+  --color-brown-mid: #4A3F6E;
+  --color-brown-light: #5E5380;
+  --color-border: #E3D6BA;
+  --font-display: var(--font-chewy), var(--font-nunito), system-ui, sans-serif;
+  --font-hand: var(--font-caveat), cursive;
+  --color-sky: #8FC9F2;
+  --color-ink: #2A1F4A;
   --font-body: var(--font-nunito), system-ui, sans-serif;
 }
 
@@ -25,33 +28,52 @@
   h1, h2, h3 {
     font-family: var(--font-display);
   }
+  /* Chewy ships a single weight; stop the browser faking a bold on top of it. */
+  h1, h2, h3, .font-display {
+    font-weight: 400 !important;
+    font-synthesis: none;
+    letter-spacing: 0.2px;
+  }
 }
 
 @layer components {
-  .btn-primary {
-    @apply bg-[#E8633A] text-white font-bold rounded-full px-6 py-3
-           shadow-[0_4px_12px_rgba(232,99,58,0.35)]
-           hover:bg-[#C44E27] active:scale-95 transition-all;
+  /* Sky page with a quiet gingham, the "Sticker Book, grown up" backdrop. */
+  .bg-gingham {
+    background-image:
+      linear-gradient(90deg, rgba(255,255,255,0.06) 50%, transparent 50%),
+      linear-gradient(rgba(255,255,255,0.06) 50%, transparent 50%);
+    background-size: 52px 52px;
   }
+  /* The ONE pink action per screen: ink text, ink outline, hard bottom edge. */
+  .btn-primary {
+    @apply bg-[#FF5C8D] text-[#2A1F4A] font-display text-xl rounded-full px-6 py-3
+           border-[2.5px] border-[#2A1F4A]
+           shadow-[inset_0_-6px_0_#D63A6B]
+           hover:brightness-105 active:translate-y-px transition-all;
+  }
+  /* Everything else pressable: paper with a hard cream-dark bottom edge. */
   .btn-secondary {
-    @apply bg-white text-[#5C3D2E] font-semibold rounded-full px-6 py-3
-           border border-[#EAD9C8]
-           hover:border-[#E8633A] hover:text-[#E8633A] transition-all;
+    @apply bg-[#FFF9EC] text-[#2A1F4A] font-extrabold rounded-full px-6 py-3
+           border-[2.5px] border-[#2A1F4A]
+           shadow-[inset_0_-5px_0_#E3D6BA]
+           hover:brightness-95 active:translate-y-px transition-all;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-[0_4px_16px_rgba(45,26,14,0.1)];
+    @apply bg-[#FFF9EC] rounded-3xl border-2 border-[#2A1F4A]
+           shadow-[0_10px_0_rgba(42,31,74,0.12)];
   }
   .chip {
-    @apply inline-flex items-center gap-1 bg-white border border-[#EAD9C8]
-           rounded-full px-3 py-1.5 text-sm font-semibold text-[#5C3D2E]
-           cursor-pointer hover:border-[#E8633A] transition-colors;
+    @apply inline-flex items-center gap-1 bg-[#FFF9EC] border-2 border-[#2A1F4A]
+           rounded-full px-3 py-1.5 text-sm font-extrabold text-[#2A1F4A]
+           cursor-pointer hover:brightness-95 transition-all;
   }
   .chip-active {
-    @apply bg-[#E8633A] border-[#E8633A] text-white;
+    @apply bg-[#2A1F4A] border-[#2A1F4A] text-[#FFF9EC];
   }
+  /* Fit sticker: green is reserved for fit tiers, never decoration. */
   .score-ring {
-    @apply flex items-center justify-center rounded-full bg-[#F5B731]
-           text-[#2D1A0E] font-bold border-2 border-white;
+    @apply flex items-center justify-center rounded-full bg-[#6FDB9C]
+           text-[#2A1F4A] font-display border-[2.5px] border-[#2A1F4A];
   }
 }
 
@@ -101,13 +123,13 @@
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  box-shadow: 0 0 0 3px rgba(232, 99, 58, 0.35);
+  box-shadow: 0 0 0 3px rgba(255,92,141, 0.35);
 }
 a:focus-visible,
 button:focus-visible,
 summary:focus-visible,
 [role='button']:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 3px solid var(--color-ink);
   outline-offset: 2px;
 }
 

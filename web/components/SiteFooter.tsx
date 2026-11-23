@@ -20,16 +20,16 @@ export default function SiteFooter({ note }: Props) {
         </p>
         <p className="text-xs text-brown-light">
           GoDoggyDate is operated by GoBots LLC ·{' '}
-          <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">
+          <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-rose transition-colors">
             gobotsai.com
           </a>
         </p>
         <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-brown-light">
-          <Link href="/support" className="py-2.5 hover:text-primary transition-colors">Support</Link>
-          <Link href="/terms" className="py-2.5 hover:text-primary transition-colors">Terms</Link>
-          <Link href="/privacy" className="py-2.5 hover:text-primary transition-colors">Privacy</Link>
-          <Link href="/playdate-safety" className="py-2.5 hover:text-primary transition-colors">Play or Fight?</Link>
-          <Link href="/delete-account" className="py-2.5 hover:text-primary transition-colors">Delete account</Link>
+          <Link href="/support" className="py-2.5 hover:text-rose transition-colors">Support</Link>
+          <Link href="/terms" className="py-2.5 hover:text-rose transition-colors">Terms</Link>
+          <Link href="/privacy" className="py-2.5 hover:text-rose transition-colors">Privacy</Link>
+          <Link href="/playdate-safety" className="py-2.5 hover:text-rose transition-colors">Play or Fight?</Link>
+          <Link href="/delete-account" className="py-2.5 hover:text-rose transition-colors">Delete account</Link>
         </nav>
       </div>
     </footer>

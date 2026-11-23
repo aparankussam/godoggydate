@@ -23,7 +23,7 @@ export default function PackDayCard({ event, badge }: Props) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose">
             {event.official ? '⭐ Official · ' : ''}{format.emoji} {format.label}
           </p>
           <h3 className={`mt-0.5 font-display text-lg leading-tight break-words ${cancelled ? 'text-brown-mid line-through decoration-1' : 'text-brown'}`}>{event.title}</h3>
@@ -31,7 +31,7 @@ export default function PackDayCard({ event, badge }: Props) {
         {cancelled ? (
           <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-bold text-red-700">Cancelled</span>
         ) : badge && (
-          <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
+          <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-rose">
             {badge === 'hosting' ? 'Hosting' : "You're going"}
           </span>
         )}

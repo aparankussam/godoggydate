@@ -29,10 +29,10 @@ interface Props {
 // Aged-paper palette as inline hex (solid fills / solid gradient, no
 // backdrop-blur or oklch) so html2canvas captures it faithfully — same
 // rationale as WantedPosterWeb / DogtypeCard.
-const INK = '#2D1A0E';
+const INK = '#2A1F4A';
 const INK_SOFT = '#6B4E2E';
 const PAPER = '#FBF3E4';
-const SEAL = '#C44E27';
+const SEAL = '#D63A6B';
 
 const ExcuseNoteCard = forwardRef<HTMLDivElement, Props>(function ExcuseNoteCard({ note }, ref) {
   return (

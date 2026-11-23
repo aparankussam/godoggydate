@@ -61,7 +61,7 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
     <section className="bg-cream-dark py-16">
       <div className="max-w-2xl mx-auto px-6 text-center">
         <div className="inline-flex items-center gap-2 bg-white border border-border rounded-full px-4 py-2 mb-5">
-          <span className="text-sm font-semibold text-primary">⭐ Founding Members</span>
+          <span className="text-sm font-semibold text-rose">⭐ Founding Members</span>
         </div>
         <h2 className="font-display text-3xl md:text-4xl text-brown mb-3">
           {pitch}

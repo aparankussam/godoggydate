@@ -346,7 +346,7 @@ export default function MessagesPage() {
                     <div className="flex items-center justify-between">
                       <p className={`truncate ${c.unread ? 'font-black text-brown' : 'font-bold text-brown'}`}>{name}</p>
                       {c.isNew && (
-                        <span className="ml-2 shrink-0 rounded-full bg-primary/12 text-primary text-[10px] font-bold px-2 py-1">
+                        <span className="ml-2 shrink-0 rounded-full bg-primary/12 text-rose text-[10px] font-bold px-2 py-1">
                           New
                         </span>
                       )}
@@ -357,7 +357,7 @@ export default function MessagesPage() {
                       )}
                     </div>
                     <p className={`text-xs truncate mt-1 ${
-                      c.isNew ? 'text-primary font-medium' : c.unread ? 'text-brown font-semibold' : 'text-brown-light'
+                      c.isNew ? 'text-rose font-medium' : c.unread ? 'text-brown font-semibold' : 'text-brown-light'
                     }`}>
                       {c.isNew
                         ? (c.chatUnlocked

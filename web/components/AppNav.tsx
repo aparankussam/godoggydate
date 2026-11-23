@@ -120,7 +120,7 @@ export default function AppNav({ unreadMessages = 0, unreadMatches = 0, househol
       </aside>
 
       {/* ── Mobile: bottom tab bar (matches the native app) ──────────────── */}
-      <nav className={`lg:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/96 backdrop-blur-xl border-t border-border shadow-[0_-10px_30px_rgba(45,26,14,0.08)] ${hideBottomBar ? 'hidden' : 'flex'} z-40 pb-safe`}>
+      <nav className={`lg:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/96 backdrop-blur-xl border-t border-border shadow-[0_-10px_30px_rgba(42,31,74,0.08)] ${hideBottomBar ? 'hidden' : 'flex'} z-40 pb-safe`}>
         {tabs.map((tab) => {
           const count = 'badge' in tab ? badges[tab.badge] : 0;
           const active = isActive(tab.href);
@@ -130,7 +130,7 @@ export default function AppNav({ unreadMessages = 0, unreadMatches = 0, househol
               href={tab.href}
               aria-current={active ? 'page' : undefined}
               className={`flex-1 py-2.5 flex flex-col items-center gap-1 transition-colors relative ${
-                active ? 'text-primary' : 'text-brown-light hover:text-brown'
+                active ? 'text-rose' : 'text-brown-light hover:text-brown'
               }`}
             >
               <span className={`relative text-2xl leading-none rounded-full px-3 py-1 transition-all ${

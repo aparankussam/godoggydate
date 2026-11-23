@@ -34,7 +34,7 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
           <button
             type="button"
             onClick={onEditProfile}
-            className="mt-2 text-xs font-bold text-primary underline underline-offset-2"
+            className="mt-2 text-xs font-bold text-rose underline underline-offset-2"
           >
             Add birth date
           </button>

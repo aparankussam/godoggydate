@@ -46,8 +46,8 @@ interface Props {
 function gradientFor(code: string): string {
   const spark = code[0] === 'E';
   return spark
-    ? 'linear-gradient(160deg, #7A2E0E 0%, #E8633A 55%, #F5B731 100%)'
-    : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
+    ? 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)'
+    : 'linear-gradient(160deg, #241A2E 0%, #4A3F6E 50%, #C98A5E 100%)';
 }
 
 // Animation anchors (ms). Kept in JS so the "reveal button" timer below stays in

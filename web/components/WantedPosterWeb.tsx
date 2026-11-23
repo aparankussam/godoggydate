@@ -125,7 +125,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
   return (
     <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">🤠 {dogName}&apos;s Wanted Poster</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Every &ldquo;crime&rdquo; is one of {dogName}&apos;s own real traits, reworded into frontier comedy. It&apos;s
@@ -272,7 +272,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary hover:bg-primary/5 transition-colors motion-reduce:transition-none"
+              className="rounded-full border border-primary px-4 py-2 text-sm font-bold text-rose hover:bg-primary/5 transition-colors motion-reduce:transition-none"
             >
               🖼 Use a photo from your device
             </button>
@@ -299,7 +299,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
         </div>
       )}
 
-      {mugshotError && <p className="mt-2 text-xs text-primary">{mugshotError}</p>}
+      {mugshotError && <p className="mt-2 text-xs text-rose">{mugshotError}</p>}
 
       <button
         type="button"

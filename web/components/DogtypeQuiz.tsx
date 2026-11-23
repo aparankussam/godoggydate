@@ -349,7 +349,7 @@ export default function DogtypeQuiz() {
           <button
             type="button"
             onClick={goBack}
-            className="min-h-[44px] pr-3 text-sm font-semibold text-brown-light hover:text-primary transition-colors"
+            className="min-h-[44px] pr-3 text-sm font-semibold text-brown-light hover:text-rose transition-colors"
             aria-label={qIndex === 0 ? 'Back to name' : 'Back to previous question'}
           >
             ← Back
@@ -398,8 +398,8 @@ export default function DogtypeQuiz() {
 
   const spark = result.code[0] === 'E';
   const heroGradient = spark
-    ? 'linear-gradient(160deg, #7A2E0E 0%, #E8633A 55%, #F5B731 100%)'
-    : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 50%, #C98A5E 100%)';
+    ? 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)'
+    : 'linear-gradient(160deg, #241A2E 0%, #4A3F6E 50%, #C98A5E 100%)';
 
   return (
     <div className="max-w-xl mx-auto">
@@ -471,13 +471,13 @@ export default function DogtypeQuiz() {
       </div>
 
       <div className="mt-6 flex items-center justify-center gap-6 text-sm">
-        <Link href={`/dogtype/${result.code}`} className="font-semibold text-brown-mid hover:text-primary transition-colors">
+        <Link href={`/dogtype/${result.code}`} className="font-semibold text-brown-mid hover:text-rose transition-colors">
           Read all about the {result.name.replace(/^The /, '')}
         </Link>
         <button
           type="button"
           onClick={retake}
-          className="font-semibold text-brown-light hover:text-primary transition-colors underline underline-offset-2"
+          className="font-semibold text-brown-light hover:text-rose transition-colors underline underline-offset-2"
         >
           Retake the quiz
         </button>

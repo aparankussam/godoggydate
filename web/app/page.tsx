@@ -139,11 +139,11 @@ export default function HomePage() {
             className="h-32 w-full object-cover object-[50%_26%] sm:h-52"
           />
         </div>
-        <div className="inline-flex items-center gap-2 bg-[rgba(232,99,58,0.1)] border border-[rgba(232,99,58,0.2)] rounded-full px-4 py-1.5 mb-4 md:mb-6">
-          <span className="text-sm font-semibold text-primary">🐕 The local dog playdate app</span>
+        <div className="inline-flex items-center gap-2 bg-[rgba(255,92,141,0.1)] border border-[rgba(255,92,141,0.2)] rounded-full px-4 py-1.5 mb-4 md:mb-6">
+          <span className="text-sm font-semibold text-rose">🐕 The local dog playdate app</span>
         </div>
         <h1 className="font-display text-4xl md:text-7xl text-brown leading-tight mb-4 md:mb-6">
-          Your dog&apos;s <span className="text-primary">whole life</span>,<br className="hidden md:block" />{' '}
+          Your dog&apos;s <span className="text-rose">whole life</span>,<br className="hidden md:block" />{' '}
           in one place
         </h1>
         <p className="text-base md:text-xl text-brown-light max-w-2xl mx-auto mb-6 md:mb-10 leading-relaxed">
@@ -181,9 +181,9 @@ export default function HomePage() {
           )}
         </div>
         <p className="mt-3 text-sm text-brown-light">
-          The Dogtype quiz takes 90 seconds, no signup. Also free without an account: <Link href="/excuse" className="font-semibold text-primary underline underline-offset-2">Dog Excuse Note</Link> · <Link href="/barkle" className="font-semibold text-primary underline underline-offset-2">Barkle (daily breed puzzle)</Link>.
+          The Dogtype quiz takes 90 seconds, no signup. Also free without an account: <Link href="/excuse" className="font-semibold text-rose underline underline-offset-2">Dog Excuse Note</Link> · <Link href="/barkle" className="font-semibold text-rose underline underline-offset-2">Barkle (daily breed puzzle)</Link>.
         </p>
-        <p className="mt-4 text-sm font-semibold text-primary">You get their whole life. They get you for all of theirs. 🐾</p>
+        <p className="mt-4 text-sm font-semibold text-rose">You get their whole life. They get you for all of theirs. 🐾</p>
         <p className="mt-2 text-sm text-brown-light">
           Built around who your dog is — not an endless feed
         </p>
@@ -204,7 +204,7 @@ export default function HomePage() {
                 <div className="score-ring w-11 h-11 text-sm">96</div>
                 <div>
                   <p className="font-display text-xl text-brown">Kaju, Adult</p>
-                  <p className="text-xs text-primary font-semibold uppercase tracking-wide mb-0.5">Founder Dog</p>
+                  <p className="text-xs text-rose font-semibold uppercase tracking-wide mb-0.5">Founder Dog</p>
                   <p className="text-sm text-brown-light">Mini Dachshund · 0.1 mi away</p>
                 </div>
               </div>
@@ -255,7 +255,7 @@ export default function HomePage() {
           {steps.map((s) => (
             <div key={s.n} className="flex gap-5">
               {/* Fixed-width numeral column so every step's text starts at the same x. */}
-              <span className="w-16 shrink-0 font-display text-5xl text-[rgba(232,99,58,0.2)] leading-none tabular-nums">
+              <span className="w-16 shrink-0 font-display text-5xl text-[rgba(255,92,141,0.2)] leading-none tabular-nums">
                 {s.n}
               </span>
               <div className="min-w-0">
@@ -296,17 +296,17 @@ export default function HomePage() {
               © <CopyrightYear /> GoDoggyDate. Made with ❤️ for dogs everywhere.
             </p>
             <p className="mt-1 text-xs text-brown-light/90">
-              GoDoggyDate is operated by GoBots LLC · <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors">gobotsai.com</a>
+              GoDoggyDate is operated by GoBots LLC · <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-rose transition-colors">gobotsai.com</a>
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-brown-light">
-            <Link href="/dogtype" className="py-2.5 hover:text-primary transition-colors">The 16 Dogtypes</Link>
-            <Link href="/playdate-safety" className="py-2.5 hover:text-primary transition-colors">Play or Fight?</Link>
-            <Link href="/dog-playdates" className="py-2.5 hover:text-primary transition-colors">Dog Playdates</Link>
-            <Link href="/dog-socialization-tips" className="py-2.5 hover:text-primary transition-colors">Socialization Tips</Link>
-            <Link href="/support" className="py-2.5 hover:text-primary transition-colors">Support</Link>
-            <Link href="/privacy" className="py-2.5 hover:text-primary transition-colors">Privacy</Link>
-            <Link href="/terms" className="py-2.5 hover:text-primary transition-colors">Terms</Link>
+            <Link href="/dogtype" className="py-2.5 hover:text-rose transition-colors">The 16 Dogtypes</Link>
+            <Link href="/playdate-safety" className="py-2.5 hover:text-rose transition-colors">Play or Fight?</Link>
+            <Link href="/dog-playdates" className="py-2.5 hover:text-rose transition-colors">Dog Playdates</Link>
+            <Link href="/dog-socialization-tips" className="py-2.5 hover:text-rose transition-colors">Socialization Tips</Link>
+            <Link href="/support" className="py-2.5 hover:text-rose transition-colors">Support</Link>
+            <Link href="/privacy" className="py-2.5 hover:text-rose transition-colors">Privacy</Link>
+            <Link href="/terms" className="py-2.5 hover:text-rose transition-colors">Terms</Link>
           </div>
         </div>
       </footer>

@@ -181,7 +181,7 @@ export default function StickerStudioPage() {
   return (
     <div className="min-h-screen bg-cream">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
-        <Link href="/app/fun" className="text-sm font-bold text-primary hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
+        <Link href="/app/fun" className="text-sm font-bold text-rose hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
         <span className="font-display text-xl text-brown">🎨 Sticker Studio</span>
         <span className="w-16" />
       </header>
@@ -193,7 +193,7 @@ export default function StickerStudioPage() {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          className="relative rounded-3xl overflow-hidden bg-cream-dark shadow-[0_6px_24px_rgba(45,26,14,0.14)] touch-none select-none"
+          className="relative rounded-3xl overflow-hidden bg-cream-dark shadow-[0_6px_24px_rgba(42,31,74,0.14)] touch-none select-none"
           style={{ width: CANVAS, height: CANVAS }}
         >
           {photoUri ? (
@@ -318,7 +318,7 @@ export default function StickerStudioPage() {
               <p className="text-[12px] text-brown-light text-center">
                 Next: {next.emoji} {next.label} at {next.unlockAt.toLocaleString()} boops
                 {' · '}
-                <Link href="/app/fun/snoot" className="text-primary font-bold hover:underline">keep booping</Link>
+                <Link href="/app/fun/snoot" className="text-rose font-bold hover:underline">keep booping</Link>
               </p>
             )}
 

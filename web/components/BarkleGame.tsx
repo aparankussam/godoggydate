@@ -319,7 +319,7 @@ export default function BarkleGame() {
                 i === clues.length - 1 && !finished ? 'animate-fade-in-up' : ''
               }`}
             >
-              <span className="font-display text-primary font-bold shrink-0">{i + 1}.</span>
+              <span className="font-display text-rose font-bold shrink-0">{i + 1}.</span>
               <span>{clue}</span>
             </li>
           ))}
@@ -411,8 +411,8 @@ export default function BarkleGame() {
             style={{
               background:
                 status === 'won'
-                  ? 'linear-gradient(160deg, #7A2E0E 0%, #E8633A 55%, #F5B731 100%)'
-                  : 'linear-gradient(160deg, #241A2E 0%, #5C3D2E 55%, #9B7560 100%)',
+                  ? 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)'
+                  : 'linear-gradient(160deg, #241A2E 0%, #4A3F6E 55%, #9B7560 100%)',
             }}
           >
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">

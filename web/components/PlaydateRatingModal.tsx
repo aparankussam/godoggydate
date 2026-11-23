@@ -65,7 +65,7 @@ export default function PlaydateRatingModal({ dogName, onSubmit, onDismiss }: Pr
               onClick={() => setWouldMeetAgain(true)}
               className={`flex-1 rounded-full py-2.5 text-sm font-semibold border transition-colors ${
                 wouldMeetAgain === true
-                  ? 'bg-primary text-white border-primary'
+                  ? 'bg-primary text-brown border-primary'
                   : 'bg-cream border-border text-brown'
               }`}
             >

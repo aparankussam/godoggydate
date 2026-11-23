@@ -76,7 +76,7 @@ export default function BlockedList({ userId }: Props) {
             <button
               type="button"
               onClick={() => void load()}
-              className="mt-1 min-h-[40px] text-sm font-semibold text-primary underline underline-offset-2"
+              className="mt-1 min-h-[40px] text-sm font-semibold text-rose underline underline-offset-2"
             >
               Try again
             </button>
@@ -107,7 +107,7 @@ export default function BlockedList({ userId }: Props) {
                     type="button"
                     onClick={() => { setConfirmId(m.targetUserId); setFailedId(null); setNotice(null); }}
                     aria-label={`Unblock ${name}`}
-                    className="shrink-0 min-h-[44px] rounded-full border border-border bg-white px-4 text-xs font-bold text-brown hover:border-primary hover:text-primary"
+                    className="shrink-0 min-h-[44px] rounded-full border border-border bg-white px-4 text-xs font-bold text-brown hover:border-primary hover:text-rose"
                   >
                     Unblock
                   </button>
@@ -128,7 +128,7 @@ export default function BlockedList({ userId }: Props) {
                       type="button"
                       onClick={() => void unblock(m)}
                       disabled={busyId === m.targetUserId}
-                      className="min-h-[44px] rounded-full bg-primary px-4 text-xs font-bold text-white disabled:opacity-50"
+                      className="min-h-[44px] rounded-full bg-primary px-4 text-xs font-bold text-brown disabled:opacity-50"
                     >
                       {busyId === m.targetUserId ? 'Unblocking…' : `Unblock ${name}`}
                     </button>

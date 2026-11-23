@@ -235,7 +235,7 @@ export default function TodayPanel({ dogId, savedProfile, variant, onEditProfile
         <p className="text-sm font-bold text-brown">Today</p>
         <Link
           href="/app/profile"
-          className="text-xs font-bold text-primary transition-colors hover:text-primary/80"
+          className="text-xs font-bold text-rose transition-colors hover:text-rose/80"
         >
           All reminders
         </Link>
@@ -286,7 +286,7 @@ export default function TodayPanel({ dogId, savedProfile, variant, onEditProfile
             <button
               type="button"
               onClick={() => handleProfileClick(profilePrompt)}
-              className="mt-2 text-xs font-bold text-primary underline underline-offset-2"
+              className="mt-2 text-xs font-bold text-rose underline underline-offset-2"
             >
               {profilePrompt.cta}
             </button>

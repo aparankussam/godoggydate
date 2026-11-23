@@ -252,7 +252,7 @@ export default function SnootPage() {
       `}</style>
 
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-border px-5 h-14 flex items-center justify-between">
-        <Link href="/app/fun" className="text-sm font-bold text-primary hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
+        <Link href="/app/fun" className="text-sm font-bold text-rose hover:opacity-80 py-3 pr-4 -my-3 -mr-4">‹ Playroom</Link>
         <span className="font-display text-xl text-brown">🐽 Snoot Boop</span>
         <span className="w-16" />
       </header>
@@ -289,7 +289,7 @@ export default function SnootPage() {
             onClick={boop}
             disabled={!ready}
             aria-label={`Boop ${dogName}'s snoot. ${state.allTime} boop${state.allTime === 1 ? '' : 's'} so far.`}
-            className="relative rounded-full overflow-hidden bg-white border-4 border-white shadow-[0_10px_30px_rgba(45,26,14,0.18)] active:cursor-pointer select-none touch-manipulation disabled:opacity-60"
+            className="relative rounded-full overflow-hidden bg-white border-4 border-white shadow-[0_10px_30px_rgba(42,31,74,0.18)] active:cursor-pointer select-none touch-manipulation disabled:opacity-60"
             style={{ width: 240, height: 240, WebkitTapHighlightColor: 'transparent' }}
           >
             {photo ? (
@@ -344,7 +344,7 @@ export default function SnootPage() {
           <div className="h-2 rounded-full bg-cream-dark overflow-hidden">
             <div
               className="h-full rounded-full transition-[width] duration-500"
-              style={{ width: `${energyPct}%`, backgroundColor: outOfZoomies ? '#9B7560' : '#E8633A' }}
+              style={{ width: `${energyPct}%`, backgroundColor: outOfZoomies ? '#9B7560' : '#FF5C8D' }}
             />
           </div>
           {outOfZoomies && (
@@ -366,7 +366,7 @@ export default function SnootPage() {
             <Link
               href="/app/fun/sticker-studio"
               onClick={() => feedback.tap()}
-              className="rounded-full border border-primary px-5 py-3 text-sm font-bold text-primary hover:bg-primary/5 transition-colors"
+              className="rounded-full border border-primary px-5 py-3 text-sm font-bold text-rose hover:bg-primary/5 transition-colors"
             >
               🎨 Sticker Studio · {stickerCount}
             </Link>
@@ -396,7 +396,7 @@ export default function SnootPage() {
             paddingTop: 36,
             paddingLeft: 20,
             paddingRight: 20,
-            background: 'linear-gradient(160deg, #5C3D2E 0%, #B45309 60%, #E8633A 100%)',
+            background: 'linear-gradient(160deg, #4A3F6E 0%, #B45309 60%, #FF5C8D 100%)',
             fontFamily: 'Georgia, serif',
           }}
         >

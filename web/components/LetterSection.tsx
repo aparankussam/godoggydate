@@ -91,7 +91,7 @@ export default function LetterSection({ savedProfile, userId }: Props) {
   return (
     <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
           {milestone.emoji} {milestone.isActive ? `It's ${dogName}'s ${kindLabel}` : `${dogName}'s ${kindLabel} is ${when}`}
         </p>
         <h2 className="font-display text-xl text-brown leading-tight">💌 The {kindLabel} Letter</h2>
@@ -113,7 +113,7 @@ export default function LetterSection({ savedProfile, userId }: Props) {
       )}
 
       {error && (
-        <p className="mt-2 text-[13px] text-primary font-semibold text-center">{error}</p>
+        <p className="mt-2 text-[13px] text-rose font-semibold text-center">{error}</p>
       )}
 
       {letter && (

@@ -151,7 +151,7 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
   return (
     <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Just for fun</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Just for fun</p>
         <h2 className="font-display text-xl text-brown leading-tight">⭐ My Human: A Review</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           {dogName} would like to review their human — deadpan star rating, honest pros, and a few gentle
@@ -191,7 +191,7 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
       )}
 
       {error && (
-        <p className="mt-2 text-[13px] text-primary font-semibold text-center">{error}</p>
+        <p className="mt-2 text-[13px] text-rose font-semibold text-center">{error}</p>
       )}
 
       {review && (

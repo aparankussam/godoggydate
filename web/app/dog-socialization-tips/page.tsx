@@ -30,7 +30,7 @@ export default function DogSocializationTipsPage() {
   return (
     <main className="min-h-screen bg-cream px-6 py-12">
       <article className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">
           Dog Socialization
         </p>
         <h1 className="mt-3 font-display text-4xl text-brown">
@@ -57,7 +57,7 @@ export default function DogSocializationTipsPage() {
             Before a first meeting, read the{' '}
             <Link
               href="/playdate-safety"
-              className="font-semibold text-primary underline underline-offset-2"
+              className="font-semibold text-rose underline underline-offset-2"
             >
               play-or-fight first-meeting reference
             </Link>{' '}
@@ -68,12 +68,12 @@ export default function DogSocializationTipsPage() {
             Looking for compatible dogs instead of random encounters? Read our guide to{' '}
             <Link
               href="/dog-playdates"
-              className="font-semibold text-primary underline underline-offset-2"
+              className="font-semibold text-rose underline underline-offset-2"
             >
               safer dog playdates
             </Link>{' '}
             or explore{' '}
-            <Link href="/" className="font-semibold text-primary underline underline-offset-2">
+            <Link href="/" className="font-semibold text-rose underline underline-offset-2">
               GoDoggyDate
             </Link>
             .

@@ -91,7 +91,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
   return (
     <section className="rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/10 to-primary/5 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Dogtype</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Dogtype</p>
         <h2 className="font-display text-xl text-brown leading-tight">
           {dogtype.emoji} {dogtype.name}
         </h2>
@@ -154,7 +154,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
       <button
         type="button"
         onClick={() => setShowAxes((v) => !v)}
-        className="mt-1 py-3 text-xs font-bold text-primary underline underline-offset-2"
+        className="mt-1 py-3 text-xs font-bold text-rose underline underline-offset-2"
       >
         {showAxes ? 'Hide the read' : 'How we read this'}
       </button>

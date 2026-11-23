@@ -761,7 +761,7 @@ export default function ProfilePage() {
               className="flex min-h-[64px] items-center justify-between gap-3 px-5 py-3"
             >
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Pack Day 🌳</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Pack Day 🌳</p>
                 <p className="font-display text-lg text-brown leading-tight">Join or host an open group playdate at a public place</p>
               </div>
               <span className="text-2xl" aria-hidden="true">→</span>
@@ -772,7 +772,7 @@ export default function ProfilePage() {
               className="flex min-h-[64px] items-center justify-between gap-3 px-5 py-3"
             >
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">The Playroom 🎉</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">The Playroom 🎉</p>
                 <p className="font-display text-lg text-brown leading-tight">Roast, apology, texts, review, quiz, plaque &amp; more</p>
               </div>
               <span className="text-2xl" aria-hidden="true">→</span>

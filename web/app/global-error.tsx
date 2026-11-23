@@ -25,14 +25,14 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           justifyContent: 'center',
           padding: '4rem 1.5rem',
           textAlign: 'center',
-          background: '#FDF6EE',
-          color: '#2D1A0E',
+          background: '#FFF9EC',
+          color: '#2A1F4A',
           fontFamily: 'system-ui, sans-serif',
         }}
       >
         <p style={{ fontSize: '3.5rem', margin: 0 }} aria-hidden="true">🐾</p>
         <h1 style={{ fontFamily: 'Georgia, serif', fontSize: '2rem', margin: '1rem 0 0.5rem' }}>Something went sideways</h1>
-        <p style={{ maxWidth: '28rem', color: '#5C3D2E', margin: 0 }}>
+        <p style={{ maxWidth: '28rem', color: '#4A3F6E', margin: 0 }}>
           GoDoggyDate hit a snag loading. Give it another go.
         </p>
         <button
@@ -40,7 +40,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           onClick={reset}
           style={{
             marginTop: '2rem',
-            background: '#E8633A',
+            background: '#FF5C8D',
             color: '#fff',
             fontWeight: 700,
             border: 0,

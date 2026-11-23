@@ -84,7 +84,7 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
                     aria-pressed={size === s.value}
                     className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                       size === s.value
-                        ? 'border-primary bg-primary text-white'
+                        ? 'border-primary bg-primary text-brown'
                         : 'border-border bg-white text-brown hover:bg-cream-dark/60'
                     }`}
                   >
@@ -189,7 +189,7 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
                       type="button"
                       onClick={() => setOpenId(open ? null : dog.id)}
                       aria-expanded={open}
-                      className="self-start text-[11px] font-semibold text-primary underline underline-offset-2 transition-colors hover:text-primary-dark"
+                      className="self-start text-[11px] font-semibold text-rose underline underline-offset-2 transition-colors hover:text-primary-dark"
                     >
                       {open ? 'Hide the math' : 'Show the math'}
                     </button>

@@ -24,7 +24,7 @@ export default function TermsPage() {
     <main className="min-h-screen bg-cream">
       <div className="px-6 py-10">
       <div className="mx-auto max-w-3xl rounded-[2rem] bg-white px-6 py-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Terms</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose">Terms</p>
         <h1 className="mt-3 font-display text-4xl text-brown">Terms of Service</h1>
         <p className="mt-2 text-xs text-brown-light">Last updated: November 2026</p>
 
@@ -74,11 +74,11 @@ export default function TermsPage() {
 
           <p><strong className="text-brown">What&apos;s for sale:</strong> GoDoggyDate is free to use during early access, including chat. Founding Member is a numbered status limited to {FOUNDING_TOTAL} members in total. The first {FOUNDING_FREE_SPOTS} dogs with a profile receive it free. After that it is a one-time $39 purchase, limited to the next {FOUNDING_PAID_SPOTS} members (#{FOUNDING_FREE_SPOTS + 1}–{FOUNDING_TOTAL}), and then Founding Member closes for good. Whether free or paid, it includes every future Pro feature at no extra cost for as long as GoDoggyDate operates. Pro features are not live yet, and Founding Member is not a guarantee that the service will continue. Features and pricing may change during early access. Any future subscription will show its price and renewal terms before you pay.</p>
 
-          <p><strong className="text-brown">Refunds:</strong> a Founding Member purchase is refundable for any reason within 14 days. A refund or chargeback ends the Founding Member status that payment bought, and its number is retired rather than given to someone else. Free Founding Member status involves no payment, so refunds don&apos;t apply to it. To request a refund, contact us at <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-primary underline underline-offset-2">godoggydate@gobotsai.com</a>.</p>
+          <p><strong className="text-brown">Refunds:</strong> a Founding Member purchase is refundable for any reason within 14 days. A refund or chargeback ends the Founding Member status that payment bought, and its number is retired rather than given to someone else. Free Founding Member status involves no payment, so refunds don&apos;t apply to it. To request a refund, contact us at <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-rose underline underline-offset-2">godoggydate@gobotsai.com</a>.</p>
 
           <p><strong className="text-brown">Governing law:</strong> these terms are governed by the laws of the State of Michigan, without regard to conflict-of-law principles.</p>
 
-          <p>Questions about these terms can be directed to the GoDoggyDate team at <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-primary underline underline-offset-2">godoggydate@gobotsai.com</a> or through <a href="https://gobotsai.com" className="font-semibold text-primary underline underline-offset-2">gobotsai.com</a>.</p>
+          <p>Questions about these terms can be directed to the GoDoggyDate team at <a href="mailto:godoggydate@gobotsai.com" className="font-semibold text-rose underline underline-offset-2">godoggydate@gobotsai.com</a> or through <a href="https://gobotsai.com" className="font-semibold text-rose underline underline-offset-2">gobotsai.com</a>.</p>
         </div>
       </div>
       </div>

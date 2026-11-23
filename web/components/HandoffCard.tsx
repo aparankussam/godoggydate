@@ -138,7 +138,7 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-rose">
             Care sheet
           </p>
           <p className="font-display text-2xl text-brown leading-tight truncate">{profile.name}</p>

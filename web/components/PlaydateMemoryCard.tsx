@@ -36,7 +36,7 @@ export default function PlaydateMemoryCard({ dogName, dogBreed, photos, stars, i
     <div
       ref={innerRef}
       className="relative w-[340px] max-w-full aspect-[9/16] rounded-[2rem] overflow-hidden shadow-2xl"
-      style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #E8633A 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #3D1F0A 0%, #B45309 55%, #FF5C8D 100%)' }}
     >
       <div className="absolute top-5 left-5 z-10 rounded-full bg-black/25 backdrop-blur-sm px-3 py-1.5">
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gold">Playdate Confirmed</p>
@@ -58,7 +58,7 @@ export default function PlaydateMemoryCard({ dogName, dogBreed, photos, stars, i
         )}
         <div
           className="absolute inset-0"
-          style={{ background: 'linear-gradient(to top, rgba(45,26,14,0.95) 0%, rgba(45,26,14,0.5) 40%, transparent 75%)' }}
+          style={{ background: 'linear-gradient(to top, rgba(42,31,74,0.95) 0%, rgba(42,31,74,0.5) 40%, transparent 75%)' }}
         />
       </div>
 

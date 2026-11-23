@@ -123,7 +123,7 @@ export default function DiptychSection({ savedProfile }: Props) {
   return (
     <section className="rounded-2xl border border-border bg-cream-dark/30 p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">National Dog Day 🐾</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">National Dog Day 🐾</p>
         <h2 className="font-display text-xl text-brown leading-tight">Day 1 vs Day N</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Two of your own photos, then vs now, with the real number of days since your earliest one. Pick the
@@ -192,7 +192,7 @@ export default function DiptychSection({ savedProfile }: Props) {
           className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-brown focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         {dateValue && days === null && earliestDate && (
-          <p className="mt-1.5 text-xs text-primary">
+          <p className="mt-1.5 text-xs text-rose">
             {earliestDate.getFullYear() < MIN_BIRTH_YEAR
               ? `That date is before ${MIN_BIRTH_YEAR} — pick the day your earliest photo was actually taken.`
               : 'That date is in the future — pick the day your earliest photo was actually taken.'}

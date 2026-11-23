@@ -30,7 +30,7 @@ function CelebrationCard({
     <div
       ref={innerRef}
       className="rounded-2xl p-6 text-center text-white"
-      style={{ background: 'linear-gradient(155deg, #B45309 0%, #E8633A 55%, #F5B731 100%)' }}
+      style={{ background: 'linear-gradient(155deg, #B45309 0%, #FF5C8D 55%, #F5B731 100%)' }}
     >
       <div className="text-5xl" aria-hidden="true">{milestone.emoji}</div>
       <p className="mt-2 font-display text-2xl leading-tight">{milestone.title}</p>
@@ -89,7 +89,7 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   if (celebrating) {
     return (
       <section className="card rounded-[1.8rem] px-5 py-5 flex flex-col gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary self-start">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose self-start">
           🎉 Today
         </p>
         <CelebrationCard milestone={celebrating} dogName={dogName} innerRef={cardRef} />
