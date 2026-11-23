@@ -23,10 +23,12 @@ interface Props {
   compat: DogtypeCompat;
 }
 
-const INK = '#FFFFFF';
-const INK_SOFT = 'rgba(255,255,255,0.85)';
-const INK_FAINT = 'rgba(255,255,255,0.6)';
-const RULE = 'rgba(255,255,255,0.15)';
+// Sticker Book palette: paper card, ink outline and text (solid colours so
+// html2canvas captures it exactly).
+const INK = '#2A1F4A';
+const INK_SOFT = '#4A3F6E';
+const INK_FAINT = '#5E5380';
+const RULE = '#E3D6BA';
 
 function DogPole({ type, name }: { type: Dogtype; name: string }) {
   return (
@@ -36,8 +38,8 @@ function DogPole({ type, name }: { type: Dogtype; name: string }) {
           width: 92,
           height: 92,
           borderRadius: 46,
-          background: 'rgba(255,255,255,0.12)',
-          border: '1px solid rgba(255,255,255,0.25)',
+          background: '#DCEEFB',
+          border: '2px solid #2A1F4A',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -47,7 +49,7 @@ function DogPole({ type, name }: { type: Dogtype; name: string }) {
         <span style={{ fontSize: 52, lineHeight: 1 }}>{type.emoji}</span>
       </div>
       <p
-        style={{ marginTop: 8, fontFamily: 'var(--font-display, Georgia, serif)', fontSize: 18, color: INK, textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        style={{ marginTop: 8, fontFamily: 'var(--font-display, system-ui, sans-serif)', fontSize: 18, color: INK, textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
       >
         {name}
       </p>
@@ -72,7 +74,8 @@ const DogtypeCompatCard = forwardRef<HTMLDivElement, Props>(function DogtypeComp
         borderRadius: 24,
         overflow: 'hidden',
         padding: '22px 20px 18px',
-        background: 'linear-gradient(135deg, #3A2416 0%, #7A3B1E 55%, #C98A5E 100%)',
+        background: '#FFF9EC',
+        border: '2.5px solid #2A1F4A',
       }}
     >
       <p style={{ color: INK_SOFT, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', textAlign: 'center' }}>
@@ -88,7 +91,7 @@ const DogtypeCompatCard = forwardRef<HTMLDivElement, Props>(function DogtypeComp
       </div>
 
       <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${RULE}`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <p style={{ color: INK, fontFamily: 'var(--font-display, Georgia, serif)', fontSize: 24, lineHeight: 1.12, textAlign: 'center' }}>
+        <p style={{ color: INK, fontFamily: 'var(--font-display, system-ui, sans-serif)', fontSize: 24, lineHeight: 1.12, textAlign: 'center' }}>
           {compat.headline}
         </p>
         <p style={{ color: INK_SOFT, fontSize: 14, lineHeight: 1.43, textAlign: 'center', marginTop: 8 }}>
@@ -100,7 +103,7 @@ const DogtypeCompatCard = forwardRef<HTMLDivElement, Props>(function DogtypeComp
       </div>
 
       <div style={{ marginTop: 18, paddingTop: 12, borderTop: `1px solid ${RULE}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <p style={{ color: INK, fontFamily: 'var(--font-display, Georgia, serif)', fontSize: 14 }}>GoDoggyDate</p>
+        <p style={{ color: INK, fontFamily: 'var(--font-display, system-ui, sans-serif)', fontSize: 14 }}>GoDoggyDate</p>
         <p style={{ color: INK_FAINT, fontSize: 10 }}>What&apos;s your dog? · godoggydate.com/dogtype</p>
       </div>
     </div>

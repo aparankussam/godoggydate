@@ -690,6 +690,21 @@ export default function ChatPage() {
     confirmedPlaydates
       .filter((p) => p.date >= todayIso)
       .sort((a, b) => (a.date + (a.time ?? '')).localeCompare(b.date + (b.time ?? '')))[0] ?? null;
+  // Exactly one pink action in the thread. The proposal form's "Send proposal"
+  // when it is open; else the newest proposal waiting on me ("Accept playdate");
+  // else "I'm here" on the soonest upcoming playdate. Two waiting proposals, or a
+  // confirmed ticket beside a new proposal, used to put two pinks on screen.
+  const pinkProposalId = showPlaydateForm
+    ? null
+    : ([...messages].reverse().find((m) =>
+        m.type === 'playdate_proposal' && !!m.playdate && !m.moderated
+        && m.fromUserId !== authUser?.uid
+        && !confirmedPlaydateKeys.has(playdateKey(m.playdate))
+        && !(hasIsoDate(m.playdate) && m.playdate.date < todayIso)
+        && !responses[m.id],
+      )?.id ?? null);
+  const pinkPlaydateKey =
+    !showPlaydateForm && !pinkProposalId && upcomingPlaydate ? playdateKey(upcomingPlaydate) : null;
   // A rating is only honest once the meetup has actually happened. This used to
   // fire the moment a playdate was CONFIRMED — so a date a week out prompted
   // "How did it go?". An unknown (free-text) date never counts as past.
@@ -1041,7 +1056,7 @@ export default function ChatPage() {
           type="button"
           onClick={() => void sendMessage('I’m here! 🐾')}
           disabled={sending}
-          className={TICKET_PINK}
+          className={playdateKey(p) === pinkPlaydateKey ? TICKET_PINK : TICKET_CREAM}
         >
           <PawIcon />
           I’m here
@@ -1318,9 +1333,8 @@ export default function ChatPage() {
             const passed = hasIsoDate(msg.playdate) && msg.playdate.date < todayIso;
             const response = responses[msg.id];
             const proposer = fromMe ? 'you' : (otherOwnerFirstName ?? dogName);
-            // Exactly one pink action in the thread: Accept, unless the
-            // proposal form is open (its "Send proposal" is the pink then).
-            const acceptClass = showPlaydateForm ? TICKET_CREAM : TICKET_PINK;
+            // Exactly one pink action in the thread (see pinkProposalId).
+            const acceptClass = msg.id === pinkProposalId ? TICKET_PINK : TICKET_CREAM;
             const awaitingMe = !fromMe && !confirmed && !passed && !response;
             return (
               <PlaydateTicket

@@ -711,7 +711,9 @@ export default function AppPage() {
         </svg>
       ),
     },
-    {
+    // Only a nudge while neither date is on file: it used to show to owners who
+    // had just entered both in onboarding.
+    ...(savedProfile?.birthMonth || savedProfile?.adoptionDate ? [] : [{
       href: '/app/profile',
       text: `Add ${dogName || 'your dog'}’s birthday or Gotcha Day`,
       icon: (
@@ -722,7 +724,7 @@ export default function AppPage() {
           <path d="M3.8 15.8c1.9 0 1.9-1.7 4.1-1.7s2.2 1.7 4.1 1.7 1.9-1.7 4.1-1.7 2.2 1.7 4.1 1.7" fill="none" stroke="#FFF9EC" strokeWidth="1.9" strokeLinecap="round" />
         </svg>
       ),
-    },
+    }]),
     {
       href: '/app/pack/new',
       text: `Host the first Pack Day${savedProfile?.city ? ` in ${savedProfile.city}` : ''}`,
@@ -889,7 +891,7 @@ export default function AppPage() {
 
       {/* ── First-match celebration toast ────────────────────────────────── */}
       {showRetentionHook && (
-        <div className="fixed bottom-24 left-1/2 z-40 flex w-80 -translate-x-1/2 items-center gap-3 rounded-2xl border-2 border-brown bg-cream px-5 py-3 shadow-[0_6px_0_rgba(42,31,74,0.18)]">
+        <div className="fixed bottom-24 left-1/2 z-40 flex w-80 -translate-x-1/2 items-center lg:bottom-8 lg:ml-32 gap-3 rounded-2xl border-2 border-brown bg-cream px-5 py-3 shadow-[0_6px_0_rgba(42,31,74,0.18)]">
           <span className="text-2xl shrink-0" aria-hidden="true">🎉</span>
           <p className="flex-1 text-sm font-extrabold">Mutual woof! Say hi first — someone has to, and dogs can&apos;t type.</p>
           <button
@@ -1139,12 +1141,12 @@ export default function AppPage() {
                       type="button"
                       onClick={handleShareRecruitCard}
                       disabled={sharingRecruitCard}
-                      className="btn-secondary mt-2.5 flex h-12 w-full items-center justify-center gap-2 px-2 pb-1 text-[15px] font-black leading-tight disabled:opacity-60"
+                      className="btn-secondary mt-2.5 flex min-h-12 w-full items-center justify-center gap-2 px-2 pb-1.5 pt-1 text-[15px] font-black leading-tight disabled:opacity-60"
                     >
                       <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" className="shrink-0">
                         <path d="M12 15.2V3.8M7 8.2l5-4.6 5 4.6M4.6 12.8v5.4a2 2 0 0 0 2 2h10.8a2 2 0 0 0 2-2v-5.4" fill="none" stroke="#2A1F4A" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                      {sharingRecruitCard ? 'Preparing…' : `Share ${dogName}'s Card`}
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{sharingRecruitCard ? 'Preparing…' : `Share ${dogName}'s Card`}</span>
                     </button>
                   </div>
                   {/* The share export still captures the real Trading Card; it stays

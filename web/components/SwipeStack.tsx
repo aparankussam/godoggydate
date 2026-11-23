@@ -368,9 +368,11 @@ export default function SwipeStack({
                   <div className="flex flex-col gap-3 px-3.5 pb-4 pt-3">
                     {/* Name, place, facts */}
                     <div>
-                      <div className="flex items-center justify-between gap-2.5">
-                        <p className="min-w-0 truncate font-display text-[30px] leading-none">{selectedDog.name}</p>
-                        <PlaceTicket text={detailsPlace} className="max-w-[60%] shrink" />
+                      {/* Wraps: the place ticket drops under a long name instead of
+                          cutting the name to "RJTaco6…" right under the full one in the header. */}
+                      <div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-2">
+                        <p className="min-w-0 max-w-full truncate font-display text-[30px] leading-none">{selectedDog.name}</p>
+                        <PlaceTicket text={detailsPlace} className="max-w-full shrink" />
                       </div>
                       <p className="mt-1 text-sm font-black leading-snug [overflow-wrap:anywhere]">
                         {/* Words, each separate: "M" is Medium, never Male. */}

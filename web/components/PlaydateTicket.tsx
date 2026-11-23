@@ -72,8 +72,10 @@ interface Props {
 export default function PlaydateTicket({ align, header, when, place, status, actions, time }: Props) {
   const self = align === 'end' ? 'self-end' : align === 'center' ? 'self-center' : 'self-start';
   return (
+    // shrink-0: the thread is a fixed-height flex column, and an overflow-hidden
+    // item there shrinks to fit, which clipped the actions off the bottom.
     <div
-      className={`${self} relative w-full max-w-[26rem] overflow-hidden rounded-[15px] border-2 border-brown bg-cream shadow-[0_4px_0_rgba(42,31,74,0.16)]`}
+      className={`${self} relative w-full shrink-0 max-w-[26rem] overflow-hidden rounded-[15px] border-2 border-brown bg-cream shadow-[0_4px_0_rgba(42,31,74,0.16)]`}
     >
       <div className="flex items-center gap-2 bg-brown px-4 py-2.5 text-cream">
         <TicketGlyph />
