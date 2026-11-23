@@ -34,7 +34,7 @@ const EYEBROW: Record<RevealVariant, string> = {
 
 export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true, compact = false, onOpenMore }: Props) {
   useEffect(() => {
-    trackEvent('dogtype_reveal_shown', { context: showTease ? 'modal' : 'sheet', variant });
+    trackEvent('dogtype_reveal_shown', { context: compact ? 'modal' : showTease ? 'profile_new' : 'profile', variant });
   }, [showTease, variant]);
   const type = dogtypeByCode(otherCode);
   const compat = dogtypeCompat(ownCode, otherCode);
