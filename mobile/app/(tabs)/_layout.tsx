@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import { useSession } from '../../lib/session';
 import { subscribeUnreadCount } from '../../lib/matches';
@@ -23,22 +24,40 @@ function useUnreadMatchesBadge(): string | number | undefined {
   return count > 9 ? '9+' : count;
 }
 
+type Glyph =
+  | { set: 'ion'; name: ComponentProps<typeof Ionicons>['name'] }
+  | { set: 'mci'; name: ComponentProps<typeof MaterialCommunityIcons>['name'] };
+
+/** Filled chunky glyphs, same meaning as web/components/AppNav.tsx:
+ *  paw = Discover, tree = Pack Day, heart = Matches, dog = Profile. */
+const GLYPHS: Record<'discover' | 'pack' | 'matches' | 'profile', Glyph> = {
+  discover: { set: 'ion', name: 'paw' },
+  pack: { set: 'mci', name: 'tree' },
+  matches: { set: 'ion', name: 'heart' },
+  profile: { set: 'mci', name: 'dog' },
+};
+
 function TabIcon({
-  emoji,
+  glyph,
   label,
   focused,
 }: {
-  emoji: string;
+  glyph: Glyph;
   label: string;
   focused: boolean;
 }) {
+  // Selected = ink pill with a paper icon; otherwise a plain ink icon.
+  const color = focused ? colors.paper : colors.ink;
   return (
     <View style={styles.tabIcon}>
-      <Text style={styles.emoji}>{emoji}</Text>
-      <Text
-        style={[styles.label, focused && styles.labelActive]}
-        numberOfLines={1}
-      >
+      <View style={[styles.pill, focused && styles.pillActive]}>
+        {glyph.set === 'ion' ? (
+          <Ionicons name={glyph.name} size={23} color={color} />
+        ) : (
+          <MaterialCommunityIcons name={glyph.name} size={25} color={color} />
+        )}
+      </View>
+      <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -54,14 +73,16 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: styles.tabBar,
+        sceneStyle: { backgroundColor: colors.sky },
       }}
     >
       <Tabs.Screen
         name="discover"
         options={{
           title: 'Discover',
+          tabBarAccessibilityLabel: 'Discover',
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🐾" label="Discover" focused={focused} />
+            <TabIcon glyph={GLYPHS.discover} label="Discover" focused={focused} />
           ),
         }}
       />
@@ -69,8 +90,9 @@ export default function TabsLayout() {
         name="pack"
         options={{
           title: 'Pack Day',
+          tabBarAccessibilityLabel: 'Pack Day',
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🌳" label="Pack Day" focused={focused} />
+            <TabIcon glyph={GLYPHS.pack} label="Pack Day" focused={focused} />
           ),
         }}
       />
@@ -78,8 +100,9 @@ export default function TabsLayout() {
         name="matches"
         options={{
           title: 'Matches',
+          tabBarAccessibilityLabel: 'Matches',
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="💛" label="Matches" focused={focused} />
+            <TabIcon glyph={GLYPHS.matches} label="Matches" focused={focused} />
           ),
           tabBarBadge: matchesBadge,
           tabBarBadgeStyle: styles.badge,
@@ -89,8 +112,9 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          tabBarAccessibilityLabel: 'Profile',
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🐕" label="Profile" focused={focused} />
+            <TabIcon glyph={GLYPHS.profile} label="Profile" focused={focused} />
           ),
         }}
       />
@@ -100,37 +124,45 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#fff',
-    borderTopColor: 'rgba(0,0,0,0.08)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    height: 64,
+    backgroundColor: colors.paper,
+    borderTopColor: colors.ink,
+    borderTopWidth: 2,
+    height: 74,
+    paddingTop: 6,
     paddingBottom: 8,
   },
   tabIcon: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 6,
-    width: 72,
+    width: 80,
   },
-  emoji: {
-    fontSize: 22,
-    lineHeight: 26,
+  pill: {
+    width: 52,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillActive: {
+    backgroundColor: colors.ink,
   },
   label: {
-    fontFamily: fonts.body,
-    fontSize: 10,
-    color: colors.brownLight,
-    marginTop: 2,
-    letterSpacing: 0.2,
-  },
-  labelActive: {
-    color: colors.primary,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    lineHeight: 15,
+    color: colors.ink,
+    marginTop: 3,
   },
   badge: {
-    backgroundColor: colors.primary,
-    color: '#fff',
-    fontFamily: fonts.bold,
-    fontSize: 10,
+    backgroundColor: colors.ink,
+    color: colors.paper,
+    fontFamily: fonts.black,
+    fontSize: 12,
+    borderWidth: 2,
+    borderColor: colors.paper,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    lineHeight: 18,
   },
 });

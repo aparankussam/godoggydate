@@ -8,11 +8,13 @@
 // artifact that gets posted.
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts, radius } from '../constants/theme';
+import { colors, fonts } from '../constants/theme';
+import { PawCoin, PrimaryButton, SecondaryButton, SkyBackground, StickerDog } from '../components/sticker';
 import { useSession } from '../lib/session';
 import { getHeroPhoto } from '../lib/photos';
 import { captureAndShare } from '../lib/shareCard';
@@ -94,80 +96,131 @@ export default function DogtypeRevealScreen() {
   // No computable type yet — send them to finish the profile rather than fake one.
   if (!dogtype) {
     return (
-      <View style={styles.container}>
-        <LinearGradient colors={['#241A2E', '#4A3F6E', '#C98A5E']} style={StyleSheet.absoluteFill} />
+      <SafeAreaView style={styles.container}>
+        <SkyBackground />
         <View style={styles.center}>
-          <Text style={styles.emptyEmoji}>🐾</Text>
-          <Text style={styles.emptyTitle}>Almost there</Text>
-          <Text style={styles.emptyBody}>
-            Add {dogName === 'Your dog' ? 'your dog' : dogName}&apos;s energy, play style, and temperament and
-            we&apos;ll reveal their Dogtype.
-          </Text>
-          <Pressable style={styles.primaryButton} onPress={() => router.replace('/(tabs)/profile')}>
-            <Text style={styles.primaryText}>Finish the profile</Text>
-          </Pressable>
+          <View style={styles.emptyCard}>
+            <StickerDog size={96} label="A drawn sticker dog standing in for your dog" />
+            <Text style={styles.emptyTitle}>Almost there</Text>
+            <Text style={styles.emptyBody}>
+              Add {dogName === 'Your dog' ? 'your dog' : dogName}&apos;s energy, play style, and temperament and
+              we&apos;ll reveal their Dogtype.
+            </Text>
+            <PrimaryButton
+              label="Finish the profile"
+              onPress={() => router.replace('/(tabs)/profile')}
+              style={styles.fullWidth}
+            />
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.04] });
-  const pulseOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
+  const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] });
+  const pulseRotate = pulse.interpolate({ inputRange: [0, 1], outputRange: ['-8deg', '8deg'] });
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={dogtype.code[0] === 'E' ? ['#7A2E0E', '#B8431F', '#241A2E'] : ['#241A2E', '#3C2A3E', '#4A3F6E']}
-        style={StyleSheet.absoluteFill}
-      />
+    <SafeAreaView style={styles.container}>
+      <SkyBackground />
 
       {phase === 'reading' ? (
         <View style={styles.center}>
-          <Animated.Text style={[styles.readingEmoji, { opacity: pulseOpacity, transform: [{ scale: pulseScale }] }]}>
-            🔮
-          </Animated.Text>
+          <Animated.View style={{ transform: [{ scale: pulseScale }, { rotate: pulseRotate }] }}>
+            <PawCoin size={96} />
+          </Animated.View>
           <Text style={styles.readingText}>Reading {dogName}&apos;s Dogtype…</Text>
           <Text style={styles.readingSub}>From everything you told us about them.</Text>
         </View>
       ) : (
-        <View style={styles.revealed}>
+        <ScrollView contentContainerStyle={styles.revealed} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <PawCoin size={30} />
+            <Text style={styles.headerTitle} accessibilityRole="header" numberOfLines={2}>
+              {dogName}, meet your Dogtype
+            </Text>
+          </View>
+
           <Animated.View style={{ opacity: revealOpacity, transform: [{ scale: revealScale }] }}>
             <DogtypeCard ref={cardRef} dogtype={dogtype} dogName={dogName} photoUrl={photo ?? undefined} />
           </Animated.View>
 
+          <Text style={styles.note}>Dogtype is a playful read, not a score.</Text>
+
           <View style={styles.actions}>
-            <Pressable style={[styles.primaryButton, sharing && { opacity: 0.6 }]} onPress={handleShare} disabled={sharing}>
-              <Text style={styles.primaryText}>{sharing ? 'Preparing…' : `📤 Share ${dogName}'s Dogtype`}</Text>
-            </Pressable>
-            <Pressable onPress={() => router.replace('/(tabs)/profile')}>
-              <Text style={styles.secondaryText}>See {dogName}&apos;s whole profile</Text>
-            </Pressable>
+            <PrimaryButton
+              label={sharing ? 'Preparing…' : `Share ${dogName}'s Dogtype`}
+              icon={sharing ? undefined : <Ionicons name="share-outline" size={24} color={colors.ink} />}
+              onPress={handleShare}
+              disabled={sharing}
+              style={styles.fullWidth}
+            />
+            <SecondaryButton
+              label={`See ${dogName}'s whole profile`}
+              onPress={() => router.replace('/(tabs)/profile')}
+              style={styles.fullWidth}
+            />
           </View>
-        </View>
+        </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.brown },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  readingEmoji: { fontSize: 72 },
-  readingText: { fontFamily: fonts.display, fontSize: 26, color: '#fff', marginTop: 24, textAlign: 'center' },
-  readingSub: { fontFamily: fonts.body, fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 8, textAlign: 'center' },
-  revealed: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  actions: { width: '100%', paddingHorizontal: 28, marginTop: 24, gap: 14, alignItems: 'center' },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 15,
-    paddingHorizontal: 28,
-    alignItems: 'center',
-    alignSelf: 'stretch',
+  container: { flex: 1, backgroundColor: colors.sky },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  readingText: {
+    fontFamily: fonts.display,
+    fontSize: 28,
+    lineHeight: 32,
+    color: colors.ink,
+    marginTop: 28,
+    textAlign: 'center',
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
-  secondaryText: { fontFamily: fonts.semibold, fontSize: 14, color: 'rgba(255,255,255,0.85)' },
-  emptyEmoji: { fontSize: 56 },
-  emptyTitle: { fontFamily: fonts.display, fontSize: 26, color: '#fff', marginTop: 16 },
-  emptyBody: { fontFamily: fonts.body, fontSize: 15, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 22, marginTop: 8, marginBottom: 24 },
+  readingSub: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink, marginTop: 8, textAlign: 'center' },
+  revealed: { flexGrow: 1, alignItems: 'center', paddingTop: 6, paddingBottom: 32 },
+  header: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  headerTitle: { flex: 1, fontFamily: fonts.display, fontSize: 24, lineHeight: 28, color: colors.ink },
+  note: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.ink,
+    marginTop: 14,
+    textAlign: 'center',
+  },
+  actions: { alignSelf: 'stretch', paddingHorizontal: 18, marginTop: 16, gap: 12 },
+  fullWidth: { alignSelf: 'stretch' },
+  emptyCard: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 4,
+  },
+  emptyTitle: { fontFamily: fonts.display, fontSize: 28, lineHeight: 32, color: colors.ink, marginTop: 12 },
+  emptyBody: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.brownMid,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginTop: 8,
+    marginBottom: 20,
+  },
 });

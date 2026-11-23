@@ -5,9 +5,11 @@
 // is needed), then accepts the invite. +native-intent.tsx maps the website's
 // /app/household/join?code=… to this screen.
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { colors, fonts, radius } from '../../constants/theme';
+import { PawCoin, PrimaryButton, SkyBackground } from '../../components/sticker';
 import { homeRouteFor, useSession } from '../../lib/session';
 import {
   clearPendingHouseholdInvite,
@@ -52,35 +54,34 @@ export default function HouseholdJoinScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <SkyBackground />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >
-        <Text style={styles.emoji}>🐾</Text>
+        <PawCoin size={56} />
         <Text style={styles.title}>Join a household</Text>
         <Text style={styles.body}>
-          You&apos;ve been invited to help look after someone&apos;s dog — reminders, everything, no dog of your own required.
+          You&apos;ve been invited to help look after someone&apos;s dog: reminders, everything, no dog of your own required.
         </Text>
 
         {joined ? (
           <View style={styles.successBox}>
-            <Text style={styles.successText}>You&apos;re in! 🐾</Text>
+            <Text style={styles.successText}>You&apos;re in!</Text>
           </View>
         ) : loading ? (
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={colors.ink} size="large" />
         ) : !user ? (
-          <Pressable style={styles.primaryButton} onPress={() => router.replace('/welcome')}>
-            <Text style={styles.primaryText}>Sign in to join</Text>
-          </Pressable>
+          <PrimaryButton label="Sign in to join" onPress={() => router.replace('/welcome')} style={styles.primaryButton} />
         ) : (
           <View style={styles.formBox}>
-            <HouseholdJoinForm initialCode={linkCode} onJoined={handleJoined} />
+            <HouseholdJoinForm initialCode={linkCode} onJoined={handleJoined} primary />
           </View>
         )}
 
         {!joined && (
-          <Pressable style={styles.notNow} onPress={handleNotNow} hitSlop={8}>
+          <Pressable style={styles.notNow} onPress={handleNotNow} hitSlop={8} accessibilityRole="button">
             <Text style={styles.notNowText}>Not now</Text>
           </Pressable>
         )}
@@ -90,43 +91,43 @@ export default function HouseholdJoinScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
+  container: { flex: 1, backgroundColor: colors.sky },
   content: {
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 40,
     gap: 16,
   },
-  emoji: { fontSize: 48 },
-  title: { fontFamily: fonts.display, fontSize: 28, color: colors.brown, textAlign: 'center' },
+  title: { fontFamily: fonts.display, fontSize: 32, lineHeight: 36, color: colors.ink, textAlign: 'center' },
   body: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownLight,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    lineHeight: 21,
+    color: colors.ink,
     textAlign: 'center',
-    maxWidth: 320,
+    maxWidth: 330,
   },
-  formBox: { width: '100%', maxWidth: 320 },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    alignItems: 'center',
+  formBox: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 24,
+    padding: 16,
   },
-  primaryText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
+  primaryButton: { alignSelf: 'stretch' },
   successBox: {
-    backgroundColor: '#E2F2E9',
-    borderWidth: 1,
-    borderColor: '#BBE3CC',
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
     borderRadius: radius.lg,
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  successText: { fontFamily: fonts.semibold, fontSize: 14, color: '#1F7A4D' },
-  notNow: { paddingVertical: 8 },
-  notNowText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownLight },
+  successText: { fontFamily: fonts.display, fontSize: 22, color: colors.ink },
+  notNow: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
+  notNowText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
 });

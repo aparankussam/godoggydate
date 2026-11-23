@@ -94,18 +94,18 @@ export default function RootLayout() {
   if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.sky }}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.ink} />
       </View>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.sky }}>
       <StripeProvider publishableKey={stripePublishableKey}>
         <SessionProvider>
           <PushBootstrap />
           <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.sky } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="welcome" />
             <Stack.Screen name="onboarding" />

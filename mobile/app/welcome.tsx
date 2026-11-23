@@ -1,13 +1,18 @@
-import { Alert, Linking, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { colors, fonts, radius } from '../constants/theme';
+import { PawCoin, PrimaryButton, SecondaryButton, SkyBackground, StickerDog, Tag, Tape } from '../components/sticker';
 import { homeRouteFor, routeAfterSignIn, useSession } from '../lib/session';
 import { wasTermsAcceptedOnDevice } from '../lib/account';
 import { webUrl } from '../lib/webLinks';
 import { signInWithGoogleNative } from '../lib/googleAuth';
 import { isAppleSignInAvailable, signInWithAppleNative } from '../lib/appleAuth';
+
+const TRUST = ['Adults 18+', 'Approximate location only', "Each owner's limits shown up front", 'Meet in public places'];
 
 function openLegalLink(path: string) {
   Linking.openURL(webUrl(path)).catch(() => {
@@ -168,126 +173,118 @@ export default function WelcomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SkyBackground />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>Your dog&apos;s whole life</Text>
-          <Text style={styles.title}>GoDoggyDate</Text>
-          <Text style={styles.subtitle}>
-            Reveal your dog&apos;s Dogtype, hear what they&apos;re thinking today, and celebrate every milestone —
-            then find playmates who actually fit. The home for your dog&apos;s whole life.
-          </Text>
+        <View style={styles.header}>
+          <PawCoin size={34} />
+          <Text style={styles.wordmark} accessibilityRole="header">GoDoggyDate</Text>
+        </View>
 
-          <View style={styles.agreeRow}>
-            <Pressable
-              onPress={toggleAgreed}
-              hitSlop={10}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: agreed }}
-              accessibilityLabel="I'm 18 or older and agree to the Terms and Privacy Policy"
-              style={[
-                styles.checkbox,
-                agreed && styles.checkboxChecked,
-                showAgreeHint && !agreed && styles.checkboxAlert,
-              ]}
-            >
-              {agreed && <Text style={styles.checkboxMark}>✓</Text>}
-            </Pressable>
-            <Text style={styles.agreeText} onPress={toggleAgreed}>
-              I&apos;m 18 or older and agree to the{' '}
-              <Text style={styles.agreeLink} accessibilityRole="link" onPress={() => openLegalLink('/terms')}>
-                Terms
-              </Text>
-              {' '}and{' '}
-              <Text style={styles.agreeLink} accessibilityRole="link" onPress={() => openLegalLink('/privacy')}>
-                Privacy Policy
-              </Text>
-              .
-            </Text>
+        {/* Sample card: no photo ships with the app, so the drawn sticker dog stands in. */}
+        <View style={styles.hero}>
+          <View style={styles.polaroid} accessible accessibilityLabel="Sample card: your dog's Dogtype could be The Zoomie Menace">
+            <Tape width={84} height={22} angle={-5} style={styles.polaroidTape} />
+            <View style={styles.slot}>
+              <StickerDog size={128} />
+            </View>
+            <View style={styles.caption}>
+              <Text style={styles.captionName}>Your dog?</Text>
+              <Text style={styles.captionMeta}>Dogtype: ?</Text>
+            </View>
+            <Tag label="Sample card" tilt={-3} style={styles.sampleTag} />
           </View>
-          {showAgreeHint && !agreed && (
-            <Text style={styles.agreeHint} accessibilityLiveRegion="polite">
-              Tick the box above to continue.
+
+          <View style={styles.typeTag} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Text style={styles.typeTagHead}>A sample Dogtype</Text>
+            <Text style={styles.typeTagName} numberOfLines={1}>The Zoomie Menace</Text>
+            <Text style={styles.typeTagLine}>Maximum dog.</Text>
+          </View>
+        </View>
+
+        <Text style={styles.title}>Find a dog who{'\n'}plays like yours.</Text>
+        <Text style={styles.subtitle}>
+          <Text style={styles.subtitleLead}>Playdates for your dog</Text> with compatible dogs nearby. Friendship
+          between dogs, not dating.
+        </Text>
+
+        <View style={styles.agreeRow}>
+          <Pressable
+            onPress={toggleAgreed}
+            hitSlop={10}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreed }}
+            accessibilityLabel="I'm 18 or older and agree to the Terms and Privacy Policy"
+            style={[
+              styles.checkbox,
+              agreed && styles.checkboxChecked,
+              showAgreeHint && !agreed && styles.checkboxAlert,
+            ]}
+          >
+            {agreed && <Ionicons name="checkmark-sharp" size={18} color={colors.paper} />}
+          </Pressable>
+          <Text style={styles.agreeText} onPress={toggleAgreed}>
+            I&apos;m 18 or older and agree to the{' '}
+            <Text style={styles.agreeLink} accessibilityRole="link" onPress={() => openLegalLink('/terms')}>
+              Terms
             </Text>
+            {' '}and{' '}
+            <Text style={styles.agreeLink} accessibilityRole="link" onPress={() => openLegalLink('/privacy')}>
+              Privacy Policy
+            </Text>
+            .
+          </Text>
+        </View>
+        {showAgreeHint && !agreed && (
+          <View style={styles.agreeHint} accessibilityLiveRegion="polite">
+            <Text style={styles.agreeHintText}>Tick the box above to continue.</Text>
+          </View>
+        )}
+
+        <View style={styles.ctaGroup}>
+          <PrimaryButton
+            label={hasRestoredGuestSession ? 'Resume as Guest' : 'Continue as Guest'}
+            onPress={handleGuestPress}
+            disabled={authBusy}
+            style={!agreed && styles.buttonDim}
+          />
+
+          <SecondaryButton
+            label="Sign in with Google"
+            icon={<Ionicons name="logo-google" size={18} color={colors.ink} />}
+            onPress={handleGooglePress}
+            disabled={!googleConfigured || authBusy}
+            style={!agreed && googleConfigured && !authBusy && styles.buttonDim}
+          />
+
+          {appleAvailable && Platform.OS === 'ios' && (
+            <View style={(!agreed || authBusy) && styles.buttonDim}>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={radius.full}
+                style={styles.appleButton}
+                onPress={handleApplePress}
+              />
+            </View>
           )}
-
-          <View style={styles.ctaGroup}>
-            <Pressable
-              style={[styles.secondaryButton, (!googleConfigured || authBusy || !agreed) && styles.buttonDisabled]}
-              onPress={handleGooglePress}
-              disabled={!googleConfigured || authBusy}
-              accessibilityState={{ disabled: !googleConfigured || authBusy || !agreed }}
-            >
-              <Text style={styles.secondaryText}>Sign in with Google</Text>
-            </Pressable>
-
-            {appleAvailable && Platform.OS === 'ios' && (
-              <View style={(!agreed || authBusy) && styles.buttonDisabled}>
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={radius.full}
-                  style={styles.appleButton}
-                  onPress={handleApplePress}
-                />
-              </View>
-            )}
-
-            <Pressable
-              style={[styles.primaryButton, (authBusy || !agreed) && styles.buttonDisabled]}
-              disabled={authBusy}
-              onPress={handleGuestPress}
-              accessibilityState={{ disabled: authBusy || !agreed }}
-            >
-              <Text style={styles.primaryText}>
-                {hasRestoredGuestSession ? 'Resume as Guest' : 'Continue as Guest'}
-              </Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.helperText}>
-            {hasRestoredGuestSession
-              ? 'A guest session was restored on this device. You can resume setup or switch to Google or Apple sign-in.'
-              : 'Sign in with Apple or Google to save your matches across devices, or continue as a guest to start exploring.'}
-          </Text>
         </View>
 
-        <View style={styles.previewCard}>
-          <Text style={styles.previewBadge}>🌪️ EROB</Text>
-          <Text style={styles.previewName}>The Zoomie Menace</Text>
-          <Text style={styles.previewMeta}>Maximum dog · one of 16 Dogtypes</Text>
-          <View style={styles.previewTags}>
-            {['⚡ Spark', '🤼 Rowdy', '🎉 Outgoing', '🚀 Bold'].map((item) => (
-              <View key={item} style={styles.previewTag}>
-                <Text style={styles.previewTagText}>{item}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        <Text style={styles.helperText}>
+          {hasRestoredGuestSession
+            ? 'A guest session was restored on this device. You can resume setup or switch to Google or Apple sign-in.'
+            : 'Sign in with Apple or Google to keep your matches across devices, or continue as a guest to start exploring.'}
+        </Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
-          <View style={styles.step}>
-            <Text style={styles.stepNumber}>01</Text>
-            <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Build your dog&apos;s profile</Text>
-              <Text style={styles.stepText}>Add photos, personality, play style, and their birthday.</Text>
+        <View style={styles.trust} accessibilityLabel="What to know">
+          {/* Paper continues past the end so an overscroll bounce never shows a gap. */}
+          <View pointerEvents="none" style={styles.trustTail} />
+          {TRUST.map((item) => (
+            <View key={item} style={styles.trustRow}>
+              <View style={styles.trustDot} />
+              <Text style={styles.trustText}>{item}</Text>
             </View>
-          </View>
-          <View style={styles.step}>
-            <Text style={styles.stepNumber}>02</Text>
-            <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Reveal their Dogtype &amp; the Playroom</Text>
-              <Text style={styles.stepText}>A shareable identity card, a Playroom full of cards made from their real profile, and every milestone.</Text>
-            </View>
-          </View>
-          <View style={styles.step}>
-            <Text style={styles.stepNumber}>03</Text>
-            <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Find playmates who actually fit</Text>
-              <Text style={styles.stepText}>When you&apos;re ready, match with compatible dogs nearby — no random swipes.</Text>
-            </View>
-          </View>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -297,215 +294,261 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sky,
   },
   scrollContent: {
-    padding: 24,
-    paddingBottom: 40,
+    flexGrow: 1,
+    paddingTop: 6,
   },
-  heroCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: 24,
-    ...shadow.card,
-    marginBottom: 18,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 50,
+    paddingHorizontal: 16,
   },
-  eyebrow: {
-    fontFamily: fonts.bold,
-    color: colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  wordmark: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    lineHeight: 30,
+    color: colors.ink,
+    letterSpacing: 0.3,
+  },
+  hero: {
+    height: 292,
+    marginTop: 8,
+    marginHorizontal: 16,
+  },
+  polaroid: {
+    position: 'absolute',
+    left: 28,
+    right: 40,
+    top: 24,
+    backgroundColor: colors.paper,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
+    paddingTop: 9,
+    paddingHorizontal: 9,
+    transform: [{ rotate: '2deg' }],
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  polaroidTape: {
+    top: -11,
+    left: 22,
+  },
+  slot: {
+    height: 172,
+    borderRadius: 3,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.ink,
+    backgroundColor: colors.note,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  caption: {
+    paddingTop: 6,
+    paddingBottom: 10,
+    alignItems: 'center',
+  },
+  captionName: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    lineHeight: 30,
+    color: colors.ink,
+  },
+  captionMeta: {
+    fontFamily: fonts.black,
+    fontSize: 13,
+    lineHeight: 16,
+    color: colors.ink,
+  },
+  sampleTag: {
+    position: 'absolute',
+    right: -12,
+    top: 160,
+  },
+  typeTag: {
+    position: 'absolute',
+    right: -4,
+    top: 0,
+    width: 168,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 9,
+    overflow: 'hidden',
+    alignItems: 'center',
+    transform: [{ rotate: '4deg' }],
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+  typeTagHead: {
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    backgroundColor: colors.ink,
+    color: colors.paper,
+    fontFamily: fonts.black,
     fontSize: 12,
-    marginBottom: 8,
+    lineHeight: 15,
+    paddingTop: 3,
+    paddingBottom: 4,
+  },
+  typeTagName: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    lineHeight: 24,
+    color: colors.ink,
+    paddingTop: 3,
+    paddingHorizontal: 4,
+  },
+  typeTagLine: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    lineHeight: 16,
+    color: colors.brownMid,
+    paddingBottom: 6,
   },
   title: {
+    marginHorizontal: 18,
+    marginTop: 4,
     fontFamily: fonts.display,
-    fontSize: 34,
-    color: colors.brown,
-    marginBottom: 10,
+    fontSize: 36,
+    lineHeight: 38,
+    color: colors.ink,
+    letterSpacing: 0.2,
   },
   subtitle: {
-    fontFamily: fonts.body,
+    marginHorizontal: 18,
+    marginTop: 6,
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: colors.brownLight,
-    lineHeight: 22,
-    marginBottom: 22,
+    lineHeight: 20,
+    color: colors.brownMid,
   },
-  ctaGroup: {
-    gap: 10,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadow.button,
-  },
-  secondaryButton: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  appleButton: {
-    height: 52,
-    width: '100%',
-    marginBottom: 10,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  primaryText: {
-    fontFamily: fonts.bold,
-    color: colors.white,
-    fontSize: 16,
-  },
-  secondaryText: {
-    fontFamily: fonts.bold,
-    color: colors.brown,
-    fontSize: 16,
-  },
-  helperText: {
-    fontFamily: fonts.body,
-    color: colors.brownLight,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 14,
-    textAlign: 'left',
+  subtitleLead: {
+    fontFamily: fonts.black,
+    color: colors.ink,
   },
   agreeRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    marginBottom: 14,
+    marginTop: 18,
+    marginHorizontal: 18,
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 1,
   },
   checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.ink,
   },
   checkboxAlert: {
-    borderColor: '#DC2626',
-  },
-  checkboxMark: {
-    color: colors.white,
-    fontSize: 14,
-    fontFamily: fonts.bold,
+    borderWidth: 3,
   },
   agreeText: {
     flex: 1,
-    fontFamily: fonts.body,
-    color: colors.brownMid,
-    fontSize: 13,
-    lineHeight: 19,
+    fontFamily: fonts.bold,
+    color: colors.ink,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingTop: 2,
   },
   agreeLink: {
-    fontFamily: fonts.semibold,
-    color: colors.primary,
+    fontFamily: fonts.black,
+    color: colors.ink,
     textDecorationLine: 'underline',
   },
   agreeHint: {
-    fontFamily: fonts.semibold,
-    color: '#DC2626',
-    fontSize: 12,
-    marginTop: -6,
-    marginBottom: 12,
-  },
-  previewCard: {
-    backgroundColor: colors.brown,
-    borderRadius: radius.xl,
-    padding: 20,
-    marginBottom: 18,
-  },
-  previewBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(245,183,49,0.18)',
-    color: colors.goldLight,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    marginTop: 8,
+    marginLeft: 54,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  agreeHintText: {
+    fontFamily: fonts.black,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  ctaGroup: {
+    gap: 12,
+    marginTop: 16,
+    marginHorizontal: 18,
+  },
+  appleButton: {
+    height: 52,
+    width: '100%',
+  },
+  buttonDim: {
+    opacity: 0.7,
+  },
+  helperText: {
+    marginHorizontal: 18,
+    marginTop: 12,
+    marginBottom: 22,
     fontFamily: fonts.bold,
-    fontSize: 12,
-    marginBottom: 12,
+    color: colors.brownMid,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
-  previewName: {
-    fontFamily: fonts.display,
-    color: colors.white,
-    fontSize: 28,
-    marginBottom: 4,
+  trust: {
+    flexGrow: 1,
+    backgroundColor: colors.paper,
+    borderTopWidth: 2.5,
+    borderLeftWidth: 2.5,
+    borderRightWidth: 2.5,
+    borderColor: colors.ink,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    marginHorizontal: -2,
+    paddingHorizontal: 28,
+    paddingTop: 18,
+    paddingBottom: 40,
   },
-  previewMeta: {
-    fontFamily: fonts.body,
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 14,
-    marginBottom: 14,
+  trustTail: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '100%',
+    height: 1000,
+    backgroundColor: colors.paper,
   },
-  previewTags: {
+  trustRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
   },
-  previewTag: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  trustDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.ink,
   },
-  previewTagText: {
-    fontFamily: fonts.body,
-    color: colors.white,
-    fontSize: 12,
-  },
-  section: {
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.xl,
-    padding: 20,
-  },
-  sectionTitle: {
-    fontFamily: fonts.display,
-    fontSize: 26,
-    color: colors.brown,
-    marginBottom: 16,
-  },
-  step: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  stepNumber: {
-    width: 42,
-    fontFamily: fonts.display,
-    fontSize: 28,
-    color: colors.primaryLight,
-  },
-  stepBody: {
-    flex: 1,
-    paddingTop: 4,
-  },
-  stepTitle: {
+  trustText: {
     fontFamily: fonts.bold,
-    fontSize: 16,
-    color: colors.brown,
-    marginBottom: 4,
-  },
-  stepText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.brownLight,
+    fontSize: 15.5,
+    lineHeight: 30,
+    color: colors.ink,
   },
 });
