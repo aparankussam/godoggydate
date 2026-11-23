@@ -28,7 +28,7 @@ import { PrimaryButton, SkyBackground, StickerDog, Tape } from '../../components
 import { colors, fonts } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
 import { foundingBadgeLabel } from '../../../shared/founding';
-import { temperamentLabel } from '../../../shared/temperament';
+import { uniqueTemperament } from '../../../shared/temperament';
 
 // Mirrors mobile/components/SwipeCard.tsx's heroIndexFor — the photo this
 // screen should open on: the owner's cover pick (or AI hero), clamped to the
@@ -120,7 +120,7 @@ export default function MatchedDogProfileScreen() {
   const ownType = ownProfile ? computeDogtype(ownProfile) : null;
   const otherType = profile ? computeDogtype(profile) : null;
   const entry = otherType ? ledger[otherType.code] : undefined;
-  const entryUnseen = !!entry && entry.dogId !== null && !entry.seen;
+  const entryUnseen = !!entry && entry.dogId !== null && entry.dogId === otherUserId && !entry.seen;
   // Latch: marking it seen must not flip this card back to "met" while it's on screen.
   const [unseen, setUnseen] = useState(false);
   useEffect(() => {
@@ -281,7 +281,7 @@ export default function MatchedDogProfileScreen() {
             <View style={styles.tagSection}>
               <Text style={styles.sectionLabel}>Temperament</Text>
               <View style={styles.tagRow}>
-                {profile.temperament!.map(temperamentLabel).map((t) => (
+                {uniqueTemperament(profile.temperament!).map((t) => (
                   <View key={t} style={styles.tag}><Text style={styles.tagText}>{t}</Text></View>
                 ))}
               </View>

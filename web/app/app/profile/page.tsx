@@ -57,7 +57,7 @@ import ProfileGroup from '../../../components/ProfileGroup';
 import PublicPageSwitch from '../../../components/PublicPageSwitch';
 import BlockedList from '../../../components/BlockedList';
 import FirstNameSwitch from '../../../components/FirstNameSwitch';
-import { temperamentLabel } from '../../../../shared/temperament';
+import { uniqueTemperament } from '../../../../shared/temperament';
 
 // What stops this profile from counting as complete, in plain words. Mirrors
 // the checks in shared/profile.ts isProfileComplete so the list and the status
@@ -837,7 +837,7 @@ export default function ProfilePage() {
               <div className="px-4 py-3">
                 <p className="text-sm text-brown-mid mb-2">Temperament</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {savedProfile.temperament!.map(temperamentLabel).map((t) => (
+                  {uniqueTemperament(savedProfile.temperament!).map((t) => (
                     <span key={t} className="chip text-xs">{t}</span>
                   ))}
                 </div>

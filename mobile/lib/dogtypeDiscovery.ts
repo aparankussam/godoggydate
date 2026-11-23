@@ -18,6 +18,9 @@ import { trackEvent } from './analytics';
 import type { MatchItem } from './matches';
 
 const key = (uid: string) => progressKeys.dogtypes(uid);
+// Set once the existing matches have been folded in. A live match made before that
+// must not turn the first fill into a wave of "New Dogtype" tags.
+const filledKey = (uid: string) => `godoggydate.dogtypes.filled.${uid}`;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
@@ -40,11 +43,11 @@ export async function loadDiscoveries(uid: string): Promise<DogtypeLedger> {
   }
 }
 
-async function write(uid: string, fn: (ledger: DogtypeLedger | undefined, firstFill: boolean) => DogtypeLedger | undefined) {
+async function write(uid: string, fn: (ledger: DogtypeLedger | undefined) => DogtypeLedger | undefined) {
   try {
     await updateStoredJSON(key(uid), (raw) => {
       const current = normalizeDogtypes(raw);
-      const next = fn(current, !current || !Object.values(current).some((e) => e.dogId !== null));
+      const next = fn(current);
       return next === undefined ? undefined : next;
     });
     markProgressDirty(uid);
@@ -78,7 +81,14 @@ export async function discoverFromMatches(
   dogs: { code: string; dogId: string; dogName: string; at: number }[],
 ): Promise<void> {
   if (!uid || dogs.length === 0) return;
-  await write(uid, (l, firstFill) => {
+  let filled = false;
+  try {
+    filled = (await readStoredJSON(filledKey(uid))) === true;
+  } catch {
+    filled = false;
+  }
+  await write(uid, (l) => {
+    const firstFill = !filled;
     let next = l;
     let changed = false;
     for (const d of dogs) {
@@ -89,6 +99,13 @@ export async function discoverFromMatches(
     }
     return changed ? next : undefined;
   });
+  if (!filled) {
+    try {
+      await updateStoredJSON(filledKey(uid), () => true);
+    } catch {
+      /* the next load fills again, still quietly */
+    }
+  }
 }
 
 export function discoverFromItems(uid: string, items: MatchItem[]): void {

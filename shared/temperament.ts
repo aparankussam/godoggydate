@@ -11,3 +11,8 @@ export const TEMPERAMENT_LEGACY: Record<string, string> = {
 export function temperamentLabel(value: string): string {
   return TEMPERAMENT_LEGACY[value] ?? value;
 }
+
+/** Display labels with legacy values mapped and duplicates removed. */
+export function uniqueTemperament(values: readonly string[]): string[] {
+  return Array.from(new Set(values.map(temperamentLabel)));
+}

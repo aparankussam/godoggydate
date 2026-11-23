@@ -94,6 +94,9 @@ export default function ProfileTab() {
   const [activePhoto, setActivePhoto] = useState(0);
   const [section, setSection] = useState<ProfileSection>(initialSection);
   const [sheet, setSheet] = useState<'share' | 'settings' | null>(null);
+  useEffect(() => {
+    if (tabParam === 'about' || tabParam === 'dates' || tabParam === 'dogtype' || tabParam === 'care') setSection(tabParam);
+  }, [tabParam]);
   // Optimistic cover (index + focal point) so the "★ Cover" indicator and the
   // crop move the instant they're set, without waiting on the Firestore
   // round-trip / session refresh. Cleared when the editor saves, which writes

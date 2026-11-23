@@ -30,6 +30,7 @@ import {
   plain,
   vaccinationLine,
 } from './discover/DiscoverBits';
+import { uniqueTemperament } from '../../shared/temperament';
 
 interface Props {
   dog: DiscoverDog | null;
@@ -96,7 +97,7 @@ function DetailsBody({ dog, onClose, onLike, onPass, onReport }: Props & { dog: 
   const prompts = dog.prompts.filter((p) => p.answer?.trim());
   const chipGroups = [
     { label: 'Plays', items: dog.playStyles },
-    { label: 'Is', items: dog.temperament },
+    { label: 'Is', items: uniqueTemperament(dog.temperament ?? []) },
   ].filter((g) => g.items.length > 0);
 
   return (

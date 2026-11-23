@@ -474,13 +474,13 @@ test('mergeDogtypes is commutative, associative and idempotent', () => {
   assert.deepEqual(m(x, x), m(x));
 });
 
-test('discoveredOrder lists dog-met types and the current own type by time; old own types hide', () => {
+test('discoveredOrder puts the current own type first, then met types by time; old own types hide', () => {
   let l = addDiscovery(undefined, 'EGOB', { at: 50, dogId: 'd1', dogName: 'Biscuit' });
   l = setOwnType(l, 'EROB', 10);
   l = setOwnType(l, 'ZROM', 20);
   assert.deepEqual(discoveredOrder(l, 'ZROM'), ['ZROM', 'EGOB']);
   l = addDiscovery(l, 'EROB', { at: 60, dogId: 'd2', dogName: 'Rex' });
-  assert.deepEqual(discoveredOrder(l, 'ZROM'), ['EROB', 'ZROM', 'EGOB']);
+  assert.deepEqual(discoveredOrder(l, 'ZROM'), ['ZROM', 'EROB', 'EGOB']);
 });
 
 test('markSeen flips seen, and merge/normalize carry dogtypes through the doc', () => {
@@ -488,4 +488,16 @@ test('markSeen flips seen, and merge/normalize carry dogtypes through the doc', 
   assert.equal(l.EGOB.seen, true);
   const doc = normalizeProgress({ dogtypes: l });
   assert.deepEqual(mergeProgress(doc, {}).dogtypes, l);
+});
+
+test('discoveredOrder always counts and lists the own type first, even before it is stored', () => {
+  const l = addDiscovery(undefined, 'EGOB', { at: 5, dogId: 'd1', dogName: 'Biscuit' });
+  assert.deepEqual(discoveredOrder(l, 'EROB'), ['EROB', 'EGOB']);
+  assert.deepEqual(discoveredOrder(undefined, 'EROB'), ['EROB']);
+});
+
+test('mergeDogtypes tie-breaks on dogName so it is order independent', () => {
+  const a = { EGOB: { at: 1, dogId: 'd', dogName: 'Alpha', seen: false } };
+  const b = { EGOB: { at: 1, dogId: 'd', dogName: 'Beta', seen: false } };
+  assert.deepEqual(mergeDogtypes(a, b), mergeDogtypes(b, a));
 });

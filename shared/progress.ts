@@ -285,7 +285,12 @@ export function normalizeDogtypes(raw: unknown): DogtypeLedger | undefined {
 function mergeDiscovery(a: DogtypeDiscovery, b: DogtypeDiscovery): DogtypeDiscovery {
   const withDog = [a, b]
     .filter((d) => d.dogId !== null)
-    .sort((x, y) => x.at - y.at || String(x.dogId).localeCompare(String(y.dogId)))[0];
+    .sort(
+      (x, y) =>
+        x.at - y.at ||
+        String(x.dogId).localeCompare(String(y.dogId)) ||
+        String(x.dogName).localeCompare(String(y.dogName)),
+    )[0];
   const out: DogtypeDiscovery = {
     at: Math.min(a.at, b.at),
     dogId: withDog ? withDog.dogId : null,
@@ -328,12 +333,12 @@ export function markSeen(ledger: DogtypeLedger | undefined, code: string): Dogty
   return { ...ledger, [code]: { ...cur, seen: true } };
 }
 
-/** Codes you've met (via a dog) plus your current own type, oldest first; own type first on ties. */
+/** Your current own type first (always counted, stored or not), then types met via a dog, oldest first. */
 export function discoveredOrder(ledger: DogtypeLedger | undefined, ownCode?: string): string[] {
-  if (!ledger) return [];
-  return Object.keys(ledger)
-    .filter((c) => ledger[c].dogId !== null || c === ownCode)
-    .sort((a, b) => ledger[a].at - ledger[b].at || (a === ownCode ? -1 : b === ownCode ? 1 : a.localeCompare(b)));
+  const met = Object.keys(ledger ?? {})
+    .filter((c) => c !== ownCode && ledger![c].dogId !== null)
+    .sort((a, b) => ledger![a].at - ledger![b].at || a.localeCompare(b));
+  return ownCode ? [ownCode, ...met] : met;
 }
 
 // ── Adventure Passport ───────────────────────────────────────────────────────

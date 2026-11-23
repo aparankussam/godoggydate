@@ -16,6 +16,8 @@ import {
 import { markProgressDirty, onProgressChange } from './progressSync';
 
 const key = (uid: string) => progressKeys.dogtypes(uid);
+// Set once the existing matches have been folded in (see mobile twin).
+const filledKey = (uid: string) => `godoggydate.dogtypes.filled.${uid}`;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
@@ -42,13 +44,12 @@ export function loadDiscoveries(uid: string): DogtypeLedger {
   }
 }
 
-function write(uid: string, fn: (ledger: DogtypeLedger | undefined, firstFill: boolean) => DogtypeLedger | undefined): void {
+function write(uid: string, fn: (ledger: DogtypeLedger | undefined) => DogtypeLedger | undefined): void {
   if (!hasStorage() || !uid) return;
   try {
     const current = loadDiscoveries(uid);
     const hasCurrent = Object.keys(current).length > 0;
-    const firstFill = !hasCurrent || !Object.values(current).some((e) => e.dogId !== null);
-    const next = fn(hasCurrent ? current : undefined, firstFill);
+    const next = fn(hasCurrent ? current : undefined);
     if (next === undefined) return;
     window.localStorage.setItem(key(uid), JSON.stringify(next));
     markProgressDirty(uid);
@@ -69,7 +70,14 @@ export function discoverFromMatches(
   dogs: { code: string; dogId: string; dogName: string; at: number }[],
 ): void {
   if (dogs.length === 0) return;
-  write(uid, (l, firstFill) => {
+  let filled = false;
+  try {
+    filled = hasStorage() && window.localStorage.getItem(filledKey(uid)) === 'true';
+  } catch {
+    filled = false;
+  }
+  write(uid, (l) => {
+    const firstFill = !filled;
     let next = l;
     let changed = false;
     for (const d of dogs) {
@@ -79,6 +87,13 @@ export function discoverFromMatches(
     }
     return changed ? next : undefined;
   });
+  if (!filled && hasStorage()) {
+    try {
+      window.localStorage.setItem(filledKey(uid), 'true');
+    } catch {
+      /* the next load fills again, still quietly */
+    }
+  }
 }
 
 export function discoverFromProfiles(
