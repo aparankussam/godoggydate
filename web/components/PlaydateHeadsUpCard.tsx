@@ -109,46 +109,46 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
   return (
     <section
       aria-label={`Before you meet ${dogName}`}
-      className="shrink-0 border-t border-border bg-white px-4 py-3 w-full lg:max-w-3xl lg:mx-auto"
+      className="shrink-0 border-t-2 border-brown bg-cream-dark px-4 py-2 w-full lg:max-w-3xl lg:mx-auto"
     >
       <button
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex min-h-[40px] w-full items-center justify-between gap-3 text-left"
+        className="flex min-h-[44px] w-full items-center justify-between gap-3 text-left"
       >
-        <span className="min-w-0 text-sm font-bold text-brown [overflow-wrap:anywhere]">
-          {flagged ? '⚠️' : '🐾'} Before you meet {dogName}
-          {ownerFirstName && <>{' '}<span className="font-semibold text-brown-light">· with <bdi>{ownerFirstName}</bdi></span></>}
+        <span className="min-w-0 text-[15px] font-black text-brown [overflow-wrap:anywhere]">
+          Before you meet {dogName}
+          {ownerFirstName && <>{' '}<span className="font-extrabold text-brown-mid">· with <bdi>{ownerFirstName}</bdi></span></>}
         </span>
-        <span className="shrink-0 text-xs font-bold text-rose">
-          {open ? 'Hide' : 'Show'} {open ? '↑' : '↓'}
+        <span className="shrink-0 text-xs font-black text-brown-mid underline underline-offset-2">
+          {open ? 'Hide' : 'Show'}
         </span>
       </button>
 
       {open && (
         // Capped and scrollable: on a phone the thread must keep room to breathe
         // and the message box must stay on screen.
-        <div className="mt-1 max-h-[30dvh] space-y-2 overflow-y-auto">
-          <p className="text-xs font-semibold text-brown-light [overflow-wrap:anywhere]">{whenWhere}</p>
+        <div className="mt-1 max-h-[24dvh] space-y-2 overflow-y-auto">
+          <p className="text-sm font-extrabold text-brown-mid [overflow-wrap:anywhere]">{whenWhere}</p>
 
-          <ul className="space-y-1.5 text-sm leading-snug text-brown">
-            <li className="flex gap-2"><span aria-hidden="true" className="text-rose">✓</span>Meet somewhere public, like a dog park.</li>
-            <li className="flex gap-2"><span aria-hidden="true" className="text-rose">✓</span>Keep leashes on until both dogs are calm.</li>
-            <li className="flex gap-2"><span aria-hidden="true" className="text-rose">✓</span>Introduce them slowly. A short sniff first, then see how it goes.</li>
+          <ul className="space-y-1.5 text-sm font-bold leading-snug text-brown">
+            <li className="flex gap-2"><span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />Meet somewhere public, like a dog park.</li>
+            <li className="flex gap-2"><span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />Keep leashes on until both dogs are calm.</li>
+            <li className="flex gap-2"><span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />Introduce them slowly. A short sniff first, then see how it goes.</li>
             <li className="flex gap-2">
-              <span aria-hidden="true" className="text-rose">✓</span>
+              <span aria-hidden="true" className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />
               <div className="min-w-0 flex-1">
                 {flagged ? (
                   <>
-                    <span className="font-semibold">What the other owner asked for:</span>
+                    <span className="font-black">What the other owner asked for:</span>
                     <ul className="mt-1 space-y-1">
                       {theirLimits.map((limit) => (
                         <li
                           key={limit.id}
-                          className={`rounded-xl px-2.5 py-1.5 text-[13px] leading-snug [overflow-wrap:anywhere] ${
+                          className={`rounded-xl px-2.5 py-1.5 text-sm leading-snug [overflow-wrap:anywhere] ${
                             limit.severity === 'caution'
-                              ? 'border border-amber-300 bg-amber-50 font-semibold text-amber-950'
+                              ? 'border-2 border-amber bg-cream font-black text-brown'
                               : 'bg-cream text-brown'
                           }`}
                         >
@@ -159,7 +159,7 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
                         </li>
                       ))}
                       {unvaccinated && (
-                        <li className="rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[13px] font-semibold leading-snug text-amber-950 [overflow-wrap:anywhere]">
+                        <li className="rounded-xl border-2 border-amber bg-cream px-2.5 py-1.5 text-sm font-black leading-snug text-brown [overflow-wrap:anywhere]">
                           {dogName}&apos;s owner marked {dogName} as not currently vaccinated.
                         </li>
                       )}
@@ -167,8 +167,8 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
                   </>
                 ) : (
                   <>
-                    <span className="font-semibold">What the other owner asked for:</span>{' '}
-                    <span className="text-brown-light">
+                    <span className="font-black">What the other owner asked for:</span>{' '}
+                    <span className="text-brown-mid">
                       nothing. That means nothing was flagged, not that anything was checked.
                     </span>
                   </>
@@ -179,23 +179,23 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
 
           {/* The mirror: what the other owner can see about your dog. It's what
               makes the card a mutual disclosure rather than a dossier. */}
-          <div className="rounded-xl bg-cream px-3 py-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brown-light">
+          <div className="rounded-xl border-2 border-border bg-cream px-3 py-2">
+            <p className="text-xs font-black text-brown-mid">
               What {dogName}&apos;s owner sees about {myProfile?.name ?? 'your dog'}
             </p>
             {myLimits.length > 0 ? (
-              <ul className="mt-1 space-y-0.5 text-[13px] leading-snug text-brown">
+              <ul className="mt-1 space-y-0.5 text-sm font-bold leading-snug text-brown">
                 {myLimits.map((limit) => (
-                  <li key={limit.id} className={`[overflow-wrap:anywhere] ${limit.severity === 'caution' ? 'font-semibold text-amber-950' : ''}`}>
+                  <li key={limit.id} className={`[overflow-wrap:anywhere] ${limit.severity === 'caution' ? 'font-black underline decoration-amber decoration-2 underline-offset-2' : ''}`}>
                     {limit.text}
                     {limit.severity === 'caution' && limit.detail && <span className="font-normal">. {limit.detail}.</span>}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-1 text-[13px] leading-snug text-brown-light">
+              <p className="mt-1 text-sm font-bold leading-snug text-brown-mid">
                 You haven&apos;t declared any limits.{' '}
-                <Link href="/app/profile" className="font-semibold text-rose underline underline-offset-2">
+                <Link href="/app/profile" className="font-black text-rose underline underline-offset-2">
                   Add them to your profile
                 </Link>
                 {' '}so the other owner is warned before you meet.
@@ -203,14 +203,14 @@ export default function PlaydateHeadsUpCard({ dogName, otherProfile, myProfile, 
             )}
           </div>
 
-          <p className="text-xs leading-relaxed text-brown-light">
+          <p className="text-xs font-bold leading-relaxed text-brown-mid">
             This is what each owner typed about their own dog. GoDoggyDate doesn&apos;t verify any of it.
           </p>
           <Link
             href="/playdate-safety"
-            className="flex min-h-[40px] items-center text-xs font-semibold text-rose underline underline-offset-2"
+            className="flex min-h-[44px] items-center text-sm font-black text-rose underline underline-offset-2"
           >
-            How to run a first meeting →
+            How to run a first meeting
           </Link>
         </div>
       )}

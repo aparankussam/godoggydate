@@ -30,6 +30,7 @@ import { getChatUnlockPitch } from '../../../../../shared/utils/stripe';
 import { hasRatedPlaydate, submitPlaydateRating } from '../../../../lib/ratings';
 import PlaydateRatingModal from '../../../../components/PlaydateRatingModal';
 import PlaydateMemoryCard from '../../../../components/PlaydateMemoryCard';
+import PlaydateTicket, { TICKET_PINK, TICKET_CREAM, TICKET_QUIET, PawIcon } from '../../../../components/PlaydateTicket';
 import PlaydateHeadsUpCard, { playdateConflicts } from '../../../../components/PlaydateHeadsUpCard';
 import { SafetySheet } from '../../../../components/ReportProfileMenu';
 import { shareOrDownloadCard } from '../../../../lib/shareCard';
@@ -97,7 +98,7 @@ function hasIsoDate(p: PlaydateDetails): boolean {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const SAFETY_TIP = '🐾 Tip: Always meet in a public place for your first playdate.';
+const SAFETY_TIP = 'always meet in a public place for your first playdate.';
 const MATCH_THREAD_PREVIEW = 'New message';
 const MAX_MESSAGE_LENGTH = 1000;
 /** How many messages the thread loads at first, and per "Load earlier messages". */
@@ -214,7 +215,7 @@ function ChatNotice({ emoji, title, children }: { emoji: string; title: string; 
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
       <span className="text-5xl" aria-hidden="true">{emoji}</span>
-      <h1 className="font-display text-2xl text-brown">{title}</h1>
+      <h1 className="font-display text-3xl text-brown">{title}</h1>
       {children}
     </div>
   );
@@ -955,9 +956,9 @@ export default function ChatPage() {
   if (loadError) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-4xl">😕</span>
-        <p className="font-display text-2xl text-brown">Couldn&apos;t load this chat</p>
-        <p className="text-brown-light text-sm">Check your connection and try again.</p>
+        <span className="text-4xl" aria-hidden="true">😕</span>
+        <p className="font-display text-3xl text-brown">Couldn&apos;t load this chat</p>
+        <p className="text-brown-mid text-sm font-bold">Check your connection and try again.</p>
         <button
           onClick={() => {
             setLoadingProfile(true);
@@ -974,7 +975,7 @@ export default function ChatPage() {
   if (endState === 'left') {
     return (
       <ChatNotice emoji="👋" title="This dog parent has left GoDoggyDate">
-        <p className="max-w-xs text-sm leading-relaxed text-brown-light">
+        <p className="max-w-xs text-sm font-bold leading-relaxed text-brown-mid">
           They’re no longer on GoDoggyDate, so this chat isn’t available any more.
         </p>
         <Link href="/app/matches" className="btn-primary px-8 py-3">Back to Matches</Link>
@@ -988,7 +989,7 @@ export default function ChatPage() {
   if (endState !== null || blockedMe || sendDenied) {
     return (
       <ChatNotice emoji="💬" title="This conversation is no longer available">
-        <p className="max-w-xs text-sm leading-relaxed text-brown-light">
+        <p className="max-w-xs text-sm font-bold leading-relaxed text-brown-mid">
           You can find your other matches in Matches.
         </p>
         <Link href="/app/matches" className="btn-primary px-8 py-3">Back to Matches</Link>
@@ -999,11 +1000,11 @@ export default function ChatPage() {
   if (blockedByMe) {
     return (
       <ChatNotice emoji="🚫" title={`You blocked ${dogName}`}>
-        <p className="max-w-xs text-sm leading-relaxed text-brown-light">
+        <p className="max-w-xs text-sm font-bold leading-relaxed text-brown-mid">
           They can’t see you or message you, and you won’t see them. They weren’t told.
         </p>
         {unblockError && (
-          <p role="alert" className="text-xs font-semibold text-red-600">
+          <p role="alert" className="text-sm font-black text-rose">
             That didn’t go through. Check your connection and try again.
           </p>
         )}
@@ -1016,7 +1017,7 @@ export default function ChatPage() {
           >
             {unblocking ? 'Unblocking…' : `Unblock ${dogName}`}
           </button>
-          <Link href="/app/messages" className="py-2 text-sm text-brown-light hover:text-brown">Back to Messages</Link>
+          <Link href="/app/messages" className="flex min-h-[44px] items-center justify-center py-2 text-sm font-black text-brown-mid underline underline-offset-2 hover:text-brown">Back to Messages</Link>
         </div>
       </ChatNotice>
     );
@@ -1025,7 +1026,7 @@ export default function ChatPage() {
   const dogPhoto = getPrimaryRenderablePhoto(otherProfile?.photos);
   // <bdi>: a name in another script (Arabic, Hebrew) must not reorder the text around it.
   const ownerLabel = otherOwnerFirstName
-    ? <><bdi>{otherOwnerFirstName}</bdi> · <bdi>{dogName}</bdi>&apos;s owner</>
+    ? <>with <bdi>{otherOwnerFirstName}</bdi></>
     : null;
   // Starter ideas only before anyone has said anything.
   const showStarters = canChat && messagesLoaded && messages.length === 0;
@@ -1035,36 +1036,37 @@ export default function ChatPage() {
     const upcoming = hasIsoDate(p) && p.date >= todayIso;
     if (!upcoming) return null;
     return (
-      <div className="mt-2.5 flex flex-wrap gap-2">
+      <>
         <button
           type="button"
           onClick={() => void sendMessage('I’m here! 🐾')}
           disabled={sending}
-          className="min-h-[40px] rounded-full bg-primary px-4 text-xs font-bold text-brown shadow-sm disabled:opacity-50"
+          className={TICKET_PINK}
         >
+          <PawIcon />
           I’m here
         </button>
         <button
           type="button"
           onClick={() => void sendMessage('Running a few minutes late. See you soon! ⏰')}
           disabled={sending}
-          className="min-h-[40px] rounded-full bg-gold/25 px-4 text-xs font-bold text-brown disabled:opacity-50"
+          className={TICKET_CREAM}
         >
           Running late
         </button>
         <button
           type="button"
           onClick={() => handleAddToCalendar(p)}
-          className="min-h-[40px] rounded-full border border-border bg-white px-4 text-xs font-bold text-brown"
+          className={TICKET_CREAM}
         >
-          📆 Add to calendar
+          Add to calendar
         </button>
-      </div>
+      </>
     );
   };
 
   return (
-    <div className="flex flex-col h-screen h-dvh bg-cream">
+    <div className="flex flex-col h-screen h-dvh bg-sky bg-gingham">
 
       {showRatingModal && (
         <PlaydateRatingModal
@@ -1090,25 +1092,25 @@ export default function ChatPage() {
       {/* Limits cross: say so before accepting. Only when they do. */}
       {acceptCandidate && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-brown/50"
           onClick={() => setAcceptCandidate(null)}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="accept-sheet-title"
-            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white px-5 pt-6 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl"
+            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl border-2 border-brown bg-cream px-5 pt-6 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="accept-sheet-title" className="text-center font-display text-xl text-brown">Before you accept</h2>
-            <p className="mt-1 text-center text-xs text-brown-light">
+            <h2 id="accept-sheet-title" className="text-center font-display text-2xl text-brown">Before you accept</h2>
+            <p className="mt-1 text-center text-sm font-bold text-brown-mid">
               What you and {dogName}&apos;s owner each said about your dogs:
             </p>
             <ul className="mt-3 space-y-2">
               {conflicts.map((limit) => (
                 <li
                   key={limit.id}
-                  className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold leading-snug text-amber-950 [overflow-wrap:anywhere]"
+                  className="rounded-xl border-2 border-amber bg-cream px-3 py-2 text-sm font-black leading-snug text-brown [overflow-wrap:anywhere]"
                 >
                   {limit.text}
                   {limit.detail && <span className="font-normal">. {limit.detail}.</span>}
@@ -1132,7 +1134,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => setAcceptCandidate(null)}
-                className="min-h-[44px] w-full py-2 text-sm text-brown-light hover:text-brown"
+                className="btn-secondary min-h-[46px] w-full py-2 text-sm"
               >
                 Not now
               </button>
@@ -1143,43 +1145,43 @@ export default function ChatPage() {
 
       {/* Send-failure toast */}
       {sendError && (
-        <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white text-sm font-semibold rounded-full px-5 py-2.5 shadow-lg max-w-[90vw] text-center">
+        <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-brown text-cream border-2 border-cream text-sm font-black rounded-full px-5 py-2.5 shadow-lg max-w-[90vw] text-center">
           {sendError}
         </div>
       )}
 
       {/* Header */}
-      <header className="shrink-0 z-40 bg-white/95 backdrop-blur border-b border-border px-4 h-16 flex items-center gap-3">
+      <header className="shrink-0 z-40 bg-cream border-b-2 border-brown pl-1 pr-2.5 h-[62px] flex items-center gap-2.5">
         <Link
           href="/app/messages"
-          className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center text-2xl text-brown-light hover:text-brown transition-colors"
+          className="flex h-11 w-11 shrink-0 items-center justify-center"
           aria-label="Back"
         >
-          ←
+          <svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#2A1F4A" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 5L7.5 12l7 7" /></svg>
         </Link>
         <Link
           href={`/app/dog/${matchId}`}
           aria-label={`View ${dogName}'s profile`}
-          className="flex items-center gap-3 flex-1 min-w-0"
+          className="flex items-center gap-2.5 flex-1 min-w-0"
         >
-          <div className="w-11 h-11 rounded-[0.9rem] overflow-hidden bg-gradient-to-br from-gold to-primary shrink-0 flex items-center justify-center shadow-sm">
+          <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-brown bg-note shrink-0 flex items-center justify-center shadow-[0_2px_0_rgba(42,31,74,0.2)]">
             {dogPhoto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={dogPhoto} alt={dogName} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-xl">🐕</span>
+              <span className="text-xl" aria-hidden="true">🐕</span>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-brown leading-tight truncate">{dogName}</p>
+            <p className="font-display text-[22px] text-brown leading-[1.05] truncate">{dogName}</p>
             {(ownerLabel ?? otherProfile?.breed) && (
-              <p className="text-xs text-brown-light truncate">{ownerLabel ?? otherProfile?.breed}</p>
+              <p className="text-[13px] font-extrabold leading-tight text-brown-mid truncate">{ownerLabel ?? otherProfile?.breed}</p>
             )}
           </div>
         </Link>
         {/* Only worth a pill when chat is NOT simply free for everyone. */}
         {!CHAT_FREE_LAUNCH_MODE && (
-          <div className="shrink-0 rounded-full bg-primary/10 text-rose text-[10px] font-bold px-2.5 py-1">
+          <div className="shrink-0 rounded-full border-2 border-brown bg-kraft text-brown text-xs font-black px-2.5 py-1">
             {canChat ? 'Chat unlocked' : 'Chat locked'}
           </div>
         )}
@@ -1187,18 +1189,19 @@ export default function ChatPage() {
           onClick={handleToggleBestFriend}
           disabled={togglingBestFriend}
           aria-label={myBestFriendMatchId === matchId ? 'Remove Best Friend' : `Make ${dogName} Best Friend`}
+          aria-pressed={myBestFriendMatchId === matchId}
           title={myBestFriendMatchId === matchId ? 'Best Friend' : 'Make Best Friend'}
-          className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full hover:bg-cream transition-colors disabled:opacity-50 text-lg"
+          className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full hover:bg-cream-dark transition-colors disabled:opacity-50 text-lg text-brown"
         >
           {myBestFriendMatchId === matchId ? '⭐' : '☆'}
         </button>
         <button
           onClick={() => setShowReportMenu(true)}
-          className="shrink-0 w-10 h-10 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-brown-light hover:text-brown"
+          className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full border-2 border-brown bg-cream hover:bg-cream-dark transition-colors"
           aria-label="More options"
           aria-haspopup="dialog"
         >
-          •••
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="#2A1F4A"><circle cx="5" cy="12" r="2.1" /><circle cx="12" cy="12" r="2.1" /><circle cx="19" cy="12" r="2.1" /></svg>
         </button>
       </header>
 
@@ -1207,18 +1210,18 @@ export default function ChatPage() {
           sidebar read as a log file, not a conversation. Mobile unchanged. */}
       <div ref={messagesRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-3 w-full lg:max-w-3xl lg:mx-auto">
         {!canChat && (
-          <div className="rounded-[1.5rem] border border-border bg-white px-4 py-4 text-center shadow-sm">
+          <div className="rounded-[1.5rem] border-2 border-brown bg-cream px-4 py-4 text-center shadow-[0_4px_0_rgba(42,31,74,0.16)]">
             {isSeedUserId(otherUserId) ? (
               <>
-                <p className="font-semibold text-brown">Demo profile</p>
-                <p className="mt-2 text-sm leading-relaxed text-brown-light">
+                <p className="font-display text-xl text-brown">Demo profile</p>
+                <p className="mt-2 text-sm font-bold leading-relaxed text-brown-mid">
                   This is a sample profile used to preview the app and isn&apos;t available for chat unlocks.
                 </p>
               </>
             ) : (
               <>
-                <p className="font-semibold text-brown">Unlock chat with {dogName}</p>
-                <p className="mt-2 mb-4 text-sm leading-relaxed text-brown-light">
+                <p className="font-display text-xl text-brown">Unlock chat with {dogName}</p>
+                <p className="mt-2 mb-4 text-sm font-bold leading-relaxed text-brown-mid">
                   {getChatUnlockPitch()}
                 </p>
                 <ChatUnlockPanel matchId={matchId} dogName={dogName} />
@@ -1227,15 +1230,15 @@ export default function ChatPage() {
                     href={getFoundingMemberLink(authUser.uid)!}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 block text-xs font-semibold text-rose underline underline-offset-2"
+                    className="mt-3 flex min-h-[44px] items-center justify-center text-sm font-black text-rose underline underline-offset-2"
                   >
-                    ⭐ Or become a Founding Member — $39 once. Every chat, forever, and a numbered badge.
+                    Or become a Founding Member — $39 once. Every chat, forever, and a numbered badge.
                   </a>
                 )}
               </>
             )}
-            <p className="mt-3 text-xs leading-relaxed text-brown-light">
-              {SAFETY_TIP}
+            <p className="mt-3 text-[13px] font-bold leading-relaxed text-brown-mid">
+              <span className="font-black text-brown">Tip:</span> {SAFETY_TIP}
             </p>
           </div>
         )}
@@ -1243,9 +1246,9 @@ export default function ChatPage() {
             actually on the calendar — otherwise the two say the same thing
             twice and the one that matters reads as boilerplate. */}
         {canChat && !upcomingPlaydate && (
-          <div className="rounded-[1.25rem] border border-primary/15 bg-primary/5 px-4 py-3 text-sm leading-relaxed text-brown-light">
-            {SAFETY_TIP}
-          </div>
+          <p className="order-last px-2 text-center text-[13px] font-bold leading-snug text-brown-mid">
+            <span className="font-black text-brown">Tip:</span> {SAFETY_TIP}
+          </p>
         )}
         {canChat && hasEarlier && (
           <div className="flex flex-col items-center gap-1">
@@ -1253,12 +1256,12 @@ export default function ChatPage() {
               type="button"
               onClick={loadEarlierMessages}
               disabled={loadingEarlier}
-              className="min-h-[40px] rounded-full border border-border bg-white px-4 text-xs font-bold text-brown shadow-sm disabled:opacity-50"
+              className="btn-secondary min-h-[44px] px-4 py-1 text-sm disabled:opacity-50"
             >
               {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
             </button>
             {earlierError && (
-              <p role="alert" className="text-xs font-semibold text-red-600">
+              <p role="alert" className="text-sm font-black text-rose">
                 Couldn’t load earlier messages. Check your connection and try again.
               </p>
             )}
@@ -1266,11 +1269,11 @@ export default function ChatPage() {
         )}
         {messages.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-16">
-            <span className="text-5xl">👋</span>
-            <p className="font-display text-2xl text-brown">
+            <span className="text-5xl" aria-hidden="true">🐕</span>
+            <p className="font-display text-3xl text-brown">
               {canChat ? 'Someone has to text first' : 'Chat is locked'}
             </p>
-            <p className="text-brown-light text-sm max-w-xs leading-relaxed">
+            <p className="text-brown-mid text-sm font-bold max-w-xs leading-relaxed">
               {canChat
                 ? `And dogs can't type, so it's on you. Say hi to ${dogName}.`
                 : `Unlock this match above to send ${dogName} your first message.`}
@@ -1285,12 +1288,12 @@ export default function ChatPage() {
             return (
               <div
                 key={msg.id}
-                className={`max-w-[80%] rounded-[1.25rem] border border-dashed border-border bg-cream-dark px-4 py-2.5 ${
+                className={`max-w-[80%] rounded-[1.25rem] border-2 border-dashed border-brown bg-cream-dark px-4 py-2.5 ${
                   fromMe ? 'self-end' : 'self-start'
                 }`}
               >
-                <p className="text-sm italic text-brown-light">{msg.text}</p>
-                <p className="mt-1 text-[10px] text-brown-light">{formatTime(msg.createdAt)}</p>
+                <p className="text-sm italic font-bold text-brown-mid">{msg.text}</p>
+                <p className="mt-1 text-xs font-bold text-brown-mid">{formatTime(msg.createdAt)}</p>
               </div>
             );
           }
@@ -1298,16 +1301,15 @@ export default function ChatPage() {
             // Its proposal card already says "Confirmed"; the raw text would be a duplicate.
             if (proposalKeys.has(playdateKey(msg.playdate))) return null;
             return (
-              <div
+              <PlaydateTicket
                 key={msg.id}
-                className="self-center w-full max-w-[85%] rounded-[1.25rem] border border-primary/25 bg-primary/5 px-4 py-3 shadow-sm"
-              >
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose">✅ Playdate · Confirmed</p>
-                <p className="mt-1 text-sm font-semibold text-brown">{formatPlaydateWhen(msg.playdate)}</p>
-                <p className="text-sm text-brown-light break-words">{msg.playdate.place}</p>
-                {confirmedActions(msg.playdate)}
-                <p className="mt-1.5 text-[10px] text-brown-light">{formatTime(msg.createdAt)}</p>
-              </div>
+                align="center"
+                header="Playdate · Confirmed"
+                when={formatPlaydateWhen(msg.playdate)}
+                place={msg.playdate.place}
+                actions={confirmedActions(msg.playdate)}
+                time={formatTime(msg.createdAt)}
+              />
             );
           }
           if (msg.type === 'playdate_proposal' && msg.playdate) {
@@ -1316,84 +1318,82 @@ export default function ChatPage() {
             const passed = hasIsoDate(msg.playdate) && msg.playdate.date < todayIso;
             const response = responses[msg.id];
             const proposer = fromMe ? 'you' : (otherOwnerFirstName ?? dogName);
+            // Exactly one pink action in the thread: Accept, unless the
+            // proposal form is open (its "Send proposal" is the pink then).
+            const acceptClass = showPlaydateForm ? TICKET_CREAM : TICKET_PINK;
+            const awaitingMe = !fromMe && !confirmed && !passed && !response;
             return (
-              <div
+              <PlaydateTicket
                 key={msg.id}
-                className={`max-w-[85%] rounded-[1.25rem] border px-4 py-3 shadow-sm ${
-                  fromMe ? 'self-end border-primary/25 bg-primary/5' : 'self-start border-border bg-white'
-                }`}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-rose">
-                  📅 Playdate {confirmed ? '· Confirmed' : 'proposal'}
-                  <span className="font-semibold normal-case tracking-normal text-brown-light"> · from <bdi>{proposer}</bdi></span>
-                </p>
-                <p className="mt-1 text-sm font-semibold text-brown">
-                  {formatPlaydateWhen(msg.playdate)}
-                </p>
-                <p className="text-sm text-brown-light break-words">{msg.playdate.place}</p>
-                {confirmed && confirmedActions(msg.playdate)}
-                {!fromMe && !confirmed && passed && (
-                  <p className="mt-2 text-xs font-semibold text-brown-light">This date has passed.</p>
-                )}
-                {fromMe && !confirmed && !passed && (
-                  <p className="mt-2 text-xs text-brown-light">Waiting for {otherOwnerFirstName ?? dogName} to reply.</p>
-                )}
-                {!fromMe && !confirmed && !passed && response && (
-                  <p className="mt-2 text-xs font-semibold text-brown-light">
-                    {response === 'declined' ? 'You declined this one.' : 'You suggested another time.'}
-                  </p>
-                )}
-                {!fromMe && !confirmed && !passed && !response && (
-                  confirmDeclineId === msg.id ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-brown">Let {otherOwnerFirstName ?? dogName} know you can’t make it?</span>
-                      <button
-                        type="button"
-                        onClick={() => void handleDecline(msg)}
-                        disabled={sending}
-                        className="min-h-[40px] rounded-full bg-brown px-4 text-xs font-bold text-white disabled:opacity-50"
-                      >
-                        Yes, decline
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDeclineId(null)}
-                        className="min-h-[40px] rounded-full px-3 text-xs font-semibold text-brown-light"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleAcceptTap(msg)}
-                        disabled={sending}
-                        className="min-h-[40px] rounded-full bg-primary px-4 text-xs font-bold text-brown shadow-sm hover:scale-105 transition-transform disabled:opacity-50"
-                      >
-                        Accept playdate
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSuggestAnotherTime(msg)}
-                        disabled={sending}
-                        className="min-h-[40px] rounded-full border border-border bg-white px-4 text-xs font-bold text-brown disabled:opacity-50"
-                      >
-                        Suggest another time
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDeclineId(msg.id)}
-                        disabled={sending}
-                        className="min-h-[40px] rounded-full px-3 text-xs font-semibold text-brown-light hover:text-brown disabled:opacity-50"
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  )
-                )}
-                <p className="mt-1.5 text-[10px] text-brown-light">{formatTime(msg.createdAt)}</p>
-              </div>
+                align={fromMe ? 'end' : 'start'}
+                header={confirmed ? 'Playdate · Confirmed' : <>Playdate proposal · from <bdi>{proposer}</bdi></>}
+                when={formatPlaydateWhen(msg.playdate)}
+                place={msg.playdate.place}
+                time={formatTime(msg.createdAt)}
+                status={
+                  <>
+                    {!fromMe && !confirmed && passed && <p>This date has passed.</p>}
+                    {fromMe && !confirmed && !passed && <p>Waiting for {otherOwnerFirstName ?? dogName} to reply.</p>}
+                    {!fromMe && !confirmed && !passed && response && (
+                      <p>{response === 'declined' ? 'You declined this one.' : 'You suggested another time.'}</p>
+                    )}
+                  </>
+                }
+                actions={
+                  confirmed ? confirmedActions(msg.playdate)
+                    : awaitingMe ? (
+                      confirmDeclineId === msg.id ? (
+                        <>
+                          <p className="text-sm font-black text-brown">Let {otherOwnerFirstName ?? dogName} know you can’t make it?</p>
+                          <button
+                            type="button"
+                            onClick={() => void handleDecline(msg)}
+                            disabled={sending}
+                            className={TICKET_CREAM}
+                          >
+                            Yes, decline
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeclineId(null)}
+                            className={TICKET_QUIET}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleAcceptTap(msg)}
+                            disabled={sending}
+                            className={acceptClass}
+                          >
+                            <PawIcon />
+                            Accept playdate
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSuggestAnotherTime(msg)}
+                            disabled={sending}
+                            className={TICKET_CREAM}
+                          >
+                            <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2A1F4A" strokeWidth="2.4" className="shrink-0"><circle cx="12" cy="12" r="9" /><path d="M12 7v5.2l3.4 2.1" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            Suggest another time
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeclineId(msg.id)}
+                            disabled={sending}
+                            className={TICKET_QUIET}
+                          >
+                            Decline
+                          </button>
+                        </>
+                      )
+                    ) : null
+                }
+              />
             );
           }
           return (
@@ -1413,10 +1413,10 @@ export default function ChatPage() {
         {showRatingBanner && (
           <button
             onClick={() => setShowRatingModal(true)}
-            className="rounded-[1.25rem] border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-semibold text-brown flex items-center justify-between gap-3"
+            className="min-h-[48px] rounded-[1.25rem] border-2 border-brown bg-kraft px-4 py-3 text-sm font-black text-brown flex items-center justify-between gap-3"
           >
-            <span>🎾 How did the playdate with {dogName} go?</span>
-            <span className="text-rose shrink-0">Rate it →</span>
+            <span>How did the playdate with {dogName} go?</span>
+            <span className="shrink-0 underline underline-offset-2">Rate it</span>
           </button>
         )}
         {memoryCardStars !== null && (
@@ -1434,11 +1434,11 @@ export default function ChatPage() {
                 disabled={sharingMemoryCard}
                 className="btn-secondary px-5 py-2 text-sm disabled:opacity-50"
               >
-                {sharingMemoryCard ? 'Rendering…' : '📤 Share this memory'}
+                {sharingMemoryCard ? 'Rendering…' : 'Share this memory'}
               </button>
               <button
                 onClick={() => setMemoryCardStars(null)}
-                className="px-5 py-2 text-sm text-brown-light hover:text-brown transition-colors"
+                className="min-h-[44px] px-5 py-2 text-sm font-black text-brown-mid hover:text-brown transition-colors"
               >
                 Dismiss
               </button>
@@ -1462,9 +1462,9 @@ export default function ChatPage() {
 
       {/* Playdate proposal form */}
       {showPlaydateForm && canChat && (
-        <div className="shrink-0 border-t border-border bg-white px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-rose mb-2">
-            📅 {counterOfId ? 'Suggest another time' : 'Propose a playdate'}
+        <div className="shrink-0 border-t-2 border-brown bg-cream px-4 py-3">
+          <p className="text-sm font-black text-brown mb-2">
+            {counterOfId ? 'Suggest another time' : 'Propose a playdate'}
           </p>
           <div className="flex flex-wrap gap-2">
             <input
@@ -1473,14 +1473,14 @@ export default function ChatPage() {
               min={playdateDateBounds().min}
               max={playdateDateBounds().max}
               onChange={(e) => { setPlaydateDraft((d) => ({ ...d, date: e.target.value })); setPlaydateProblem(null); }}
-              className="bg-cream rounded-xl px-3 py-2 text-sm text-brown outline-none border border-transparent focus:border-primary/30"
+              className="bg-[#FFFDF6] rounded-xl px-3 min-h-[44px] py-2 text-sm font-bold text-brown outline-none border-2 border-brown focus:ring-2 focus:ring-primary"
               aria-label="Playdate date"
             />
             <input
               type="time"
               value={playdateDraft.time}
               onChange={(e) => { setPlaydateDraft((d) => ({ ...d, time: e.target.value })); setPlaydateProblem(null); }}
-              className="bg-cream rounded-xl px-3 py-2 text-sm text-brown outline-none border border-transparent focus:border-primary/30"
+              className="bg-[#FFFDF6] rounded-xl px-3 min-h-[44px] py-2 text-sm font-bold text-brown outline-none border-2 border-brown focus:ring-2 focus:ring-primary"
               aria-label="Playdate time"
             />
             <input
@@ -1493,19 +1493,19 @@ export default function ChatPage() {
                 setPlaydateProblem(null);
                 if (contentError === 'playdate') setContentError(null);
               }}
-              className="flex-1 min-w-[10rem] bg-cream rounded-xl px-3 py-2 text-sm text-brown placeholder:text-brown-light outline-none border border-transparent focus:border-primary/30"
+              className="flex-1 min-w-[10rem] bg-[#FFFDF6] rounded-xl px-3 min-h-[44px] py-2 text-sm font-bold text-brown placeholder:text-brown-light outline-none border-2 border-brown focus:ring-2 focus:ring-primary"
               aria-label="Playdate place"
               aria-invalid={contentError === 'playdate'}
               aria-describedby={contentError === 'playdate' ? 'playdate-content-error' : undefined}
             />
           </div>
           {contentError === 'playdate' && (
-            <p id="playdate-content-error" role="alert" className="mt-2 text-xs font-semibold text-red-600">
+            <p id="playdate-content-error" role="alert" className="mt-2 text-sm font-black text-rose">
               {CONTENT_FILTER_MESSAGE}
             </p>
           )}
           {playdateProblem && (
-            <p role="alert" className="mt-2 text-xs font-semibold text-red-600">
+            <p role="alert" className="mt-2 text-sm font-black text-rose">
               {playdateProblem.message}
             </p>
           )}
@@ -1513,7 +1513,7 @@ export default function ChatPage() {
             <button
               onClick={proposePlaydate}
               disabled={!playdateDraft.date || !playdateDraft.place.trim() || sending}
-              className="rounded-full bg-primary px-5 py-2 text-xs font-bold text-brown shadow-sm disabled:opacity-45"
+              className="btn-primary min-h-[44px] px-6 py-1 text-lg disabled:opacity-45"
             >
               Send proposal
             </button>
@@ -1524,7 +1524,7 @@ export default function ChatPage() {
                 setCounterOfId(null);
                 if (contentError === 'playdate') setContentError(null);
               }}
-              className="rounded-full px-4 py-2 text-xs font-semibold text-brown-light hover:text-brown"
+              className="btn-secondary min-h-[44px] px-5 py-1 text-sm"
             >
               Cancel
             </button>
@@ -1536,7 +1536,7 @@ export default function ChatPage() {
       {!online && (
         <div
           role="status"
-          className="shrink-0 border-t border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-950 w-full lg:max-w-3xl lg:mx-auto"
+          className="shrink-0 border-t-2 border-brown bg-cream px-4 py-2 text-center text-sm font-black text-brown w-full lg:max-w-3xl lg:mx-auto"
         >
           You’re offline. Messages will send when you’re back online.
         </div>
@@ -1544,13 +1544,14 @@ export default function ChatPage() {
 
       {/* Quick actions. The starter ideas fill the box for editing, and only
           show before the first message. */}
-      <div className="shrink-0 overflow-x-auto flex gap-2 px-4 py-2.5 bg-white border-t border-border w-full lg:max-w-3xl lg:mx-auto">
+      <div className="shrink-0 overflow-x-auto flex gap-2 px-3.5 pt-2.5 pb-1.5 bg-cream border-t-[2.5px] border-brown rounded-t-[20px] w-full lg:max-w-3xl lg:mx-auto">
         <button
           onClick={() => setShowPlaydateForm((v) => !v)}
           disabled={!canChat || sending}
-          className="shrink-0 min-h-[40px] bg-gold/20 text-brown font-semibold text-xs rounded-full px-3 py-2 hover:bg-gold/30 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-45"
+          className="btn-secondary shrink-0 inline-flex items-center gap-2 min-h-[44px] !px-3 !py-0 pb-1 text-[13px] font-black whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-45"
         >
-          📅 Propose playdate
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" className="shrink-0"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v1.6a2.4 2.4 0 0 0 0 4.8v1.6A2.5 2.5 0 0 1 17.5 18h-11A2.5 2.5 0 0 1 4 15.5v-1.6a2.4 2.4 0 0 0 0-4.8z" fill="#2A1F4A" /><path d="M13 5.5v12" fill="none" stroke="#FFF9EC" strokeWidth="1.6" strokeDasharray="2.4 2.4" /></svg>
+          Propose playdate
         </button>
         {showStarters && buildSmartPromptsFromProfile(otherProfile).map((p) => (
           <button
@@ -1560,7 +1561,7 @@ export default function ChatPage() {
               setContentError(null);
               inputRef.current?.focus();
             }}
-            className="shrink-0 min-h-[40px] bg-primary/10 text-rose font-semibold text-xs rounded-full px-3 py-2 hover:bg-primary/20 transition-colors whitespace-nowrap"
+            className="btn-secondary shrink-0 min-h-[44px] !px-3 !py-0 pb-1 text-[13px] font-extrabold whitespace-nowrap"
           >
             {p}
           </button>
@@ -1572,17 +1573,17 @@ export default function ChatPage() {
         <p
           id="chat-content-error"
           role="alert"
-          className="shrink-0 bg-white px-5 pt-2 text-xs font-semibold text-red-600 w-full lg:max-w-3xl lg:mx-auto"
+          className="shrink-0 bg-cream px-5 pt-2 text-sm font-black text-rose w-full lg:max-w-3xl lg:mx-auto"
         >
           {CONTENT_FILTER_MESSAGE}
         </p>
       )}
-      <div className="shrink-0 flex gap-2 px-4 py-3 bg-white border-t border-border pb-safe w-full lg:max-w-3xl lg:mx-auto">
+      <div className="shrink-0 flex gap-2.5 px-3.5 pt-1.5 pb-3 bg-cream pb-safe w-full lg:max-w-3xl lg:mx-auto">
         <input
           ref={inputRef}
           onFocus={() => setInputFocused(true)}
           onBlur={() => setInputFocused(false)}
-          className="flex-1 bg-cream rounded-full px-4 py-3 text-sm text-brown placeholder:text-brown-light outline-none border border-transparent focus:border-primary/30"
+          className="flex-1 min-w-0 min-h-[46px] bg-[#FFFDF6] rounded-full px-4 text-[15px] font-extrabold text-brown placeholder:text-brown-light placeholder:font-extrabold outline-none border-2 border-brown shadow-[inset_0_2px_0_rgba(42,31,74,0.08)] focus:ring-2 focus:ring-primary"
           placeholder={`Message ${dogName}…`}
           value={chatInput}
           aria-invalid={contentError === 'message'}
@@ -1604,10 +1605,10 @@ export default function ChatPage() {
         <button
           onClick={() => sendMessage(chatInput)}
           disabled={!chatInput.trim() || sending || !canChat}
-          className="w-12 h-12 rounded-full bg-primary text-brown flex items-center justify-center shadow-md hover:scale-105 transition-transform disabled:opacity-40 disabled:scale-100 shrink-0"
+          className="btn-secondary !p-0 pb-0.5 w-[46px] h-[46px] flex items-center justify-center disabled:opacity-40 shrink-0"
           aria-label="Send"
         >
-          ➤
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2A1F4A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V6M6.5 11.5 12 6l5.5 5.5" /></svg>
         </button>
       </div>
     </div>
