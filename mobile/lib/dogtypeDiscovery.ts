@@ -14,6 +14,7 @@ import {
   type DogtypeLedger,
 } from '../../shared/progress';
 import { markProgressDirty, onProgressChange, readStoredJSON, updateStoredJSON } from './progressSync';
+import { trackEvent } from './analytics';
 import type { MatchItem } from './matches';
 
 const key = (uid: string) => progressKeys.dogtypes(uid);
@@ -67,6 +68,7 @@ export async function discoverFromMatch(
   const before = await loadDiscoveries(uid);
   const isNew = !before[d.code] || before[d.code].dogId === null;
   await write(uid, (l) => addDiscovery(l, d.code, { at: d.at, dogId: d.dogId, dogName: d.dogName, seen: true }));
+  if (isNew) trackEvent('dogtype_discovered', { source: 'live' });
   return { isNew };
 }
 
@@ -83,6 +85,7 @@ export async function discoverFromMatches(
       if (next?.[d.code]?.dogId) continue;
       next = addDiscovery(next, d.code, { at: d.at, dogId: d.dogId, dogName: d.dogName, seen: firstFill });
       changed = true;
+      trackEvent('dogtype_discovered', { source: firstFill ? 'first_fill' : 'matches' });
     }
     return changed ? next : undefined;
   });

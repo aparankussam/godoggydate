@@ -126,9 +126,10 @@ All of these fire on both web and mobile. The AI features (roast, apology, texts
 
 Other events in the same family:
 
-- Web and mobile: `adventures_open`, `adventure_stamped`, `barkle_complete`, `snoot_open`, `snoot_milestone`, `sticker_studio_open`, `dogquiz_setup_start`, `dogquiz_key_set`, `dogquiz_key_redo`, `dogquiz_guest_start`, `dogquiz_guest_scored`, `compat_explorer_view`, `compat_explorer_browse_all_click`, `compat_explorer_unlock_boop_click`, `compat_explorer_unlock_invite`, `compat_explorer_unlock_invite_shared`.
-- Web only: `fun_hub_open`, `fun_hub_click`, `wanted_mugshot_change`, `compat_detail_open`, `compat_link_click`, `compat_type_page_click`, `compat_share_click`, `compat_shared`, `compat_invite_click`, `compat_invite_shared`.
-- Mobile only: `fun_open`, `barkle_open`, `wanted_open`, `excuse_share_click`, `excuse_shared`, `dogtype_reveal_open`, `dogtype_reveal_cta`, `dogtype_compat_share_click`, `dogtype_compat_shared`, `compat_explorer_cta_click`, `compat_explorer_detail_open`, `compat_explorer_invite_click`, `compat_explorer_invite_shared`, `compat_explorer_type_page_click`.
+- Web and mobile: `adventures_open`, `adventure_stamped`, `barkle_complete`, `snoot_open`, `snoot_milestone`, `sticker_studio_open`, `dogquiz_setup_start`, `dogquiz_key_set`, `dogquiz_key_redo`, `dogquiz_guest_start`, `dogquiz_guest_scored`.
+- Web only: `fun_hub_open`, `fun_hub_click`, `wanted_mugshot_change`.
+- Mobile only: `fun_open`, `barkle_open`, `wanted_open`, `excuse_share_click`, `excuse_shared`, `dogtype_reveal_open`, `dogtype_reveal_cta`.
+- Dogtype discovery (web and mobile): `dogtype_discovered` (`source`: live, matches or first_fill), `dogtype_reveal_shown` (`context`: modal or sheet), `dogtype_tile_tap` (`discovered`: true or false). The type code is never sent for a hidden tile.
 
 ### Recommended custom dimensions
 

@@ -31,7 +31,7 @@ import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
 import PushPermissionCard from '../../components/PushPermissionCard';
 import DogtypeSection from '../../components/DogtypeSection';
-import CompatExplorer from '../../components/CompatExplorer';
+import DogtypeCollection from '../../components/DogtypeCollection';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
 import LetterSection from '../../components/LetterSection';
@@ -605,7 +605,7 @@ export default function ProfileTab() {
             <DogtypeSection savedProfile={profile} />
             {/* C5: stickers unlocked by booping; renders nothing until one is. */}
             <EarnedStickers dogId={user.uid} />
-            <CompatExplorer savedProfile={profile} userId={user.uid} />
+            <DogtypeCollection savedProfile={profile} userId={user.uid} />
             <LifeStageCard savedProfile={profile} onEditProfile={() => openEditor('birthday')} />
             <MilestonesCard savedProfile={profile} userId={user.uid} />
             <LetterSection savedProfile={profile} userId={user.uid} />

@@ -127,8 +127,6 @@ export default function DogtypeSection({ savedProfile }: Props) {
         <Text style={styles.storyText}>{sharingStory ? 'Preparing…' : 'Share as Story'}</Text>
       </Pressable>
 
-      {/* "Plays well with" now lives in the CompatExplorer (tap-to-reveal +
-          real density), mounted right after this section on the profile. */}
 
       {/* How the type was read — the four real axes */}
       <Pressable onPress={() => setShowAxes((v) => !v)}>

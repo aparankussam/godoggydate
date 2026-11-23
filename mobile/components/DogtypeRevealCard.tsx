@@ -4,7 +4,9 @@
 // match screen and, later, as a sheet for a match you weren't there for. It only
 // ever receives a type you've just met (or your own), never a hidden one.
 
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { trackEvent } from '../lib/analytics';
 import { colors, fonts } from '../constants/theme';
 import { dogtypeByCode, dogtypeCompat, dogtypeReasons } from '../../shared/dogtype';
 
@@ -28,6 +30,9 @@ const EYEBROW: Record<RevealVariant, string> = {
 };
 
 export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true }: Props) {
+  useEffect(() => {
+    trackEvent('dogtype_reveal_shown', { context: showTease ? 'modal' : 'sheet', variant });
+  }, [showTease, variant]);
   const type = dogtypeByCode(otherCode);
   const compat = dogtypeCompat(ownCode, otherCode);
   if (!type || !compat) return null;
