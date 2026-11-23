@@ -363,6 +363,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab');
     if (t === 'about' || t === 'dates' || t === 'dogtype' || t === 'care') setSection(t);
+    if (new URLSearchParams(window.location.search).get('share') === '1') setSheet('share');
   }, []);
 
   useEffect(() => {
