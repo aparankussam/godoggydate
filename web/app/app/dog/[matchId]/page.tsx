@@ -23,6 +23,10 @@ import { foundingBadgeLabel } from '../../../../../shared/founding';
 import { otherUserIdFromMatchId } from '../../../../../shared/playdates';
 import SignInGate from '../../../../components/SignInGate';
 import { uniqueTemperament } from '../../../../../shared/temperament';
+import DogtypeRevealCard from '../../../../components/dogtype/DogtypeRevealCard';
+import { computeDogtype, dogtypeByCode } from '../../../../../shared/dogtype';
+import { discoveredOrder, type DogtypeDogMap, type DogtypeLedger } from '../../../../../shared/progress';
+import { effectiveCode, loadDiscoveries, loadDogSnapshots, markDiscoverySeen, onDiscoveriesChange } from '../../../../lib/dogtypeDiscovery';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -44,6 +48,40 @@ export default function MatchedDogProfilePage() {
   const [unavailable, setUnavailable] = useState<Unavailable | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [otherUid, setOtherUid] = useState<string | null>(null);
+  const [ownProfile, setOwnProfile] = useState<SavedDogProfile | null>(null);
+  const [ledger, setLedger] = useState<DogtypeLedger>({});
+  const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
+  const [unseen, setUnseen] = useState(false);
+
+  // Your own dog and your Dogtype ledger, for the reveal card below.
+  useEffect(() => {
+    const uid = authUser?.uid;
+    if (!uid) return undefined;
+    let cancelled = false;
+    getDoc(doc(getFirebase().db, 'dogs', uid))
+      .then((snap) => { if (!cancelled && snap.exists()) setOwnProfile(snap.data() as SavedDogProfile); })
+      .catch(() => {});
+    const load = () => {
+      setLedger(loadDiscoveries(uid));
+      setSnapshots(loadDogSnapshots(uid));
+    };
+    load();
+    const off = onDiscoveriesChange(load);
+    return () => { cancelled = true; off(); };
+  }, [authUser?.uid]);
+
+  // The type this dog had when we first saw it, not whatever its owner edited it into since.
+  const ownType = ownProfile ? computeDogtype(ownProfile) : null;
+  const otherCode = profile && otherUid ? effectiveCode(snapshots, otherUid, profile) : null;
+  const otherType = otherCode ? dogtypeByCode(otherCode) : null;
+  const entry = otherType ? ledger[otherType.code] : undefined;
+  const entryUnseen = !!entry && entry.dogId !== null && entry.dogId === otherUid && !entry.seen;
+  // Latch: marking it seen must not flip this card back to "met" while it is on screen.
+  useEffect(() => {
+    if (!entryUnseen) return;
+    setUnseen(true);
+    if (authUser?.uid && otherType) markDiscoverySeen(authUser.uid, otherType.code);
+  }, [entryUnseen, authUser?.uid, otherType?.code]);
 
   useEffect(() => {
     const { auth } = getFirebase();
@@ -247,6 +285,19 @@ export default function MatchedDogProfilePage() {
             </span>
           )}
         </div>
+
+        {/* Dogtype: this dog's type and how it gets along with yours. Only ever a dog you've matched. */}
+        {ownType && otherType && profile && (
+          <DogtypeRevealCard
+            ownName={ownProfile?.name?.trim() || 'Your dog'}
+            ownCode={ownType.code}
+            otherName={profile.name}
+            otherCode={otherType.code}
+            discovered={discoveredOrder(ledger, ownType.code).length}
+            variant={ownType.code === otherType.code ? 'same' : unseen ? 'new' : 'met'}
+            showTease={unseen}
+          />
+        )}
 
         {/* Vibe Check: archetype type card + bio + Mutt Meter (breed guess) */}
         {vibeCheck && (

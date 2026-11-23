@@ -24,7 +24,7 @@ export default function VibeTypeCard({ archetype }: Props) {
       className="w-full text-left rounded-2xl border-2 border-brown bg-paper px-4 py-3 transition-all hover:brightness-95"
     >
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light mb-1.5">
-        ✨ Vibe Check · a playful AI read
+        ✨ Vibe Check · a photo read, just for fun
       </p>
       <div className="flex items-center gap-3">
         <span className="shrink-0 text-2xl" aria-hidden="true">✨</span>

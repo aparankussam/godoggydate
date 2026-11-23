@@ -22,7 +22,8 @@ import { BLOCKS_CHANGED_EVENT, getBlockedUserIds } from '../../../lib/blocks';
 import { getEntitlements } from '../../../lib/entitlements';
 import EnablePushBanner from '../../../components/EnablePushBanner';
 import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
-import { discoverFromProfiles } from '../../../lib/dogtypeDiscovery';
+import { discoverFromProfiles, effectiveCode, loadDiscoveries, loadDogSnapshots, onDiscoveriesChange } from '../../../lib/dogtypeDiscovery';
+import type { DogtypeDogMap, DogtypeLedger } from '../../../../shared/progress';
 import SignInGate from '../../../components/SignInGate';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
 
@@ -216,6 +217,18 @@ function loadMatches(
 export default function MatchesPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [ledger, setLedger] = useState<DogtypeLedger>({});
+  const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
+  useEffect(() => {
+    const uid = authUser?.uid;
+    if (!uid) return undefined;
+    const load = () => {
+      setLedger(loadDiscoveries(uid));
+      setSnapshots(loadDogSnapshots(uid));
+    };
+    load();
+    return onDiscoveriesChange(load);
+  }, [authUser?.uid]);
   const [matches, setMatches] = useState<MatchWithProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -334,6 +347,9 @@ export default function MatchesPage() {
               const name  = dog?.name ?? 'Mystery Dog';
               const breed = dog?.breed ?? 'Unknown breed';
               const hasLastMsg = !!m.lastMessage;
+              const typeCode = effectiveCode(snapshots, m.otherDogId, dog);
+              const typeEntry = typeCode ? ledger[typeCode] : undefined;
+              const newType = !!typeEntry && typeEntry.dogId === m.otherDogId && !typeEntry.seen;
 
               return (
                 <div
@@ -374,9 +390,9 @@ export default function MatchesPage() {
                       </p>
                       <div className="flex items-center gap-2">
                         <p className="min-w-0 text-sm font-bold text-brown-mid truncate">{breed}</p>
-                        {!hasLastMsg && (
+                        {(newType || !hasLastMsg) && (
                           <span className="shrink-0 rounded-full bg-kraft border-2 border-brown text-brown text-xs font-black px-2 py-0.5 -rotate-2">
-                            New match
+                            {newType ? 'New Dogtype' : 'New match'}
                           </span>
                         )}
                       </div>

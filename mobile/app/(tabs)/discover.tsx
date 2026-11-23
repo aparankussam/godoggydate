@@ -52,6 +52,9 @@ import { trackEvent } from '../../lib/analytics';
 import { useSession } from '../../lib/session';
 import { requestApproxLocation, type LocationStatus } from '../../lib/location';
 import { isPubliclyDiscoverable } from '../../../shared/profile';
+import { doc, getDoc } from 'firebase/firestore';
+import { getFirebase } from '../../lib/firebase';
+import type { SavedDogProfile } from '../../lib/profile';
 import * as Haptics from 'expo-haptics';
 
 /**
@@ -310,7 +313,10 @@ export default function DiscoverTab() {
         let reveal: MatchReveal | null = null;
         try {
           const own = profileRef.current ? computeDogtype(profileRef.current) : null;
-          const other = computeDogtype(fresh);
+          // The deck's copy of a dog lacks behavior flags, so read the full profile: the type must be
+          // the same one the Matches tab and the other owner's own profile compute.
+          const otherSnap = await getDoc(doc(getFirebase().db, 'dogs', fresh.ownerId ?? fresh.id));
+          const other = otherSnap.exists() ? computeDogtype(otherSnap.data() as SavedDogProfile) : null;
           if (own && other) {
             const { isNew } = await discoverFromMatch(uid, { code: other.code, dogId: fresh.id, dogName: fresh.name, at: Date.now() });
             const ledger = await loadDiscoveries(uid);
