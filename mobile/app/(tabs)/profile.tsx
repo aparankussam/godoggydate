@@ -449,6 +449,62 @@ export default function ProfileTab() {
             </Pressable>
           ) : null}
           <View style={styles.cardBody}>
+            {/* Tap a thumbnail to make it the main photo. Shows ALL photos so
+                photo 0 stays re-selectable; the active one is highlighted. */}
+            {photos.length > 1 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoStrip}>
+                {photos.map((url: string, i: number) => (
+                  <Pressable
+                    key={i}
+                    onPress={() => setActivePhoto(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show photo ${i + 1} of ${profile.name}`}
+                    accessibilityState={{ selected: i === safeActive }}
+                    style={[styles.photoStripItem, i === safeActive && styles.photoStripItemActive]}
+                  >
+                    <Image source={{ uri: url }} style={styles.photoStripImage} />
+                    {i === currentCover && (
+                      <View style={styles.coverBadge}><Glyph name="star" size={13} color={colors.cream} /></View>
+                    )}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+            {/* Cover-photo pick: make the selected photo the one that leads on
+                the profile + swipe deck (instead of always the first upload).
+                A new pick starts centred; once it's the cover, the owner can
+                drag what part of it shows (C4). */}
+            {photos.length > 0 && (
+              activeIsCover ? (
+                <View style={styles.coverRow}>
+                  {photos.length > 1 && (
+                    <View style={styles.coverHintRow}>
+                      <Glyph name="star" size={15} />
+                      <Text style={styles.coverHint}>This is {profile.name}&apos;s cover photo</Text>
+                    </View>
+                  )}
+                  <PaperButton
+                    small
+                    icon="crop"
+                    label="Adjust the crop"
+                    disabled={savingCover}
+                    onPress={() => setCoverSheetOpen(true)}
+                    style={styles.coverButton}
+                    accessibilityLabel="Adjust what part of the cover photo shows on cards"
+                  />
+                </View>
+              ) : (
+                <PaperButton
+                  small
+                  icon="star"
+                  label={savingCover ? 'Saving…' : 'Make this the cover photo'}
+                  disabled={savingCover}
+                  onPress={() => handleMakeCover(safeActive)}
+                  style={styles.coverButton}
+                  accessibilityLabel={`Make photo ${safeActive + 1} the cover photo`}
+                />
+              )
+            )}
             <View style={styles.nameRow}>
               <Text style={[styles.name, styles.nameFlex]} numberOfLines={1}>{profile.name}</Text>
               <PaperButton small icon="pencil" label="Edit" onPress={() => openEditor()} accessibilityLabel="Edit profile" />
@@ -527,65 +583,6 @@ export default function ProfileTab() {
 
             <ProfileDetailsCard profile={profile} hideIdentity />
             <LifeStageCard savedProfile={profile} onEditProfile={() => openEditor('birthday')} />
-            <View style={styles.photosBlock}>
-              <Heading size={22}>Photos</Heading>
-            {/* Tap a thumbnail to make it the main photo. Shows ALL photos so
-                photo 0 stays re-selectable; the active one is highlighted. */}
-            {photos.length > 1 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoStrip}>
-                {photos.map((url: string, i: number) => (
-                  <Pressable
-                    key={i}
-                    onPress={() => setActivePhoto(i)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Show photo ${i + 1} of ${profile.name}`}
-                    accessibilityState={{ selected: i === safeActive }}
-                    style={[styles.photoStripItem, i === safeActive && styles.photoStripItemActive]}
-                  >
-                    <Image source={{ uri: url }} style={styles.photoStripImage} />
-                    {i === currentCover && (
-                      <View style={styles.coverBadge}><Glyph name="star" size={13} color={colors.cream} /></View>
-                    )}
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-            {/* Cover-photo pick: make the selected photo the one that leads on
-                the profile + swipe deck (instead of always the first upload).
-                A new pick starts centred; once it's the cover, the owner can
-                drag what part of it shows (C4). */}
-            {photos.length > 0 && (
-              activeIsCover ? (
-                <View style={styles.coverRow}>
-                  {photos.length > 1 && (
-                    <View style={styles.coverHintRow}>
-                      <Glyph name="star" size={15} />
-                      <Text style={styles.coverHint}>This is {profile.name}&apos;s cover photo</Text>
-                    </View>
-                  )}
-                  <PaperButton
-                    small
-                    icon="crop"
-                    label="Adjust the crop"
-                    disabled={savingCover}
-                    onPress={() => setCoverSheetOpen(true)}
-                    style={styles.coverButton}
-                    accessibilityLabel="Adjust what part of the cover photo shows on cards"
-                  />
-                </View>
-              ) : (
-                <PaperButton
-                  small
-                  icon="star"
-                  label={savingCover ? 'Saving…' : 'Make this the cover photo'}
-                  disabled={savingCover}
-                  onPress={() => handleMakeCover(safeActive)}
-                  style={styles.coverButton}
-                  accessibilityLabel={`Make photo ${safeActive + 1} the cover photo`}
-                />
-              )
-            )}
-            </View>
           </>
         )}
 
@@ -784,7 +781,6 @@ const styles = StyleSheet.create({
   menuItemActive: { backgroundColor: colors.ink },
   menuText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
   menuTextActive: { color: colors.paper },
-  photosBlock: { gap: 10, marginTop: 8 },
   container: { flex: 1, backgroundColor: colors.sky },
   content: { padding: 16, paddingBottom: 48 },
   gateContainer: {
