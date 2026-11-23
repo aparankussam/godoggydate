@@ -21,9 +21,9 @@ import { getRenderablePhotos } from '../../lib/photos';
 import { Ionicons } from '@expo/vector-icons';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import DogtypeRevealCard from '../../components/DogtypeRevealCard';
-import { effectiveCode, loadDiscoveries, loadDogSnapshots, markDiscoverySeen, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
+import { effectiveCode, loadDiscoveries, loadDogSnapshots, loadRevealed, markDiscoverySeen, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
 import { computeDogtype, dogtypeByCode } from '../../../shared/dogtype';
-import { discoveredOrder, type DogtypeDogMap, type DogtypeLedger } from '../../../shared/progress';
+import { discoveredCount, type DogtypeDogMap, type DogtypeLedger } from '../../../shared/progress';
 import { PrimaryButton, SkyBackground, StickerDog, Tape } from '../../components/sticker';
 import { colors, fonts } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
@@ -55,6 +55,7 @@ export default function MatchedDogProfileScreen() {
   const { user, profile: ownProfile, loading: sessionLoading } = useSession();
   const [ledger, setLedger] = useState<DogtypeLedger>({});
   const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
+  const [ownRevealed, setOwnRevealed] = useState(false);
 
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
@@ -117,6 +118,7 @@ export default function MatchedDogProfileScreen() {
     const load = () => {
       void loadDiscoveries(uid).then(setLedger);
       void loadDogSnapshots(uid).then(setSnapshots);
+      void loadRevealed(uid).then(setOwnRevealed);
     };
     load();
     return onDiscoveriesChange(load);
@@ -258,9 +260,10 @@ export default function MatchedDogProfileScreen() {
               ownCode={ownType.code}
               otherName={profile.name}
               otherCode={otherType.code}
-              discovered={discoveredOrder(ledger, ownType.code).length}
+              discovered={discoveredCount(ledger, ownType.code, ownRevealed)}
               variant={ownType.code === otherType.code ? 'same' : unseen ? 'new' : 'met'}
               showTease={unseen}
+              sealed={ownType.code === otherType.code && !ownRevealed}
             />
           )}
 

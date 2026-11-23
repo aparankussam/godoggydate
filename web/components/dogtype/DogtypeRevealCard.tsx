@@ -22,6 +22,8 @@ interface Props {
   showTease?: boolean;
   compact?: boolean;
   onOpenMore?: () => void;
+  /** Same type as yours, but you haven't watched your own reveal yet: name nothing. */
+  sealed?: boolean;
 }
 
 const EYEBROW: Record<RevealVariant, string> = {
@@ -30,7 +32,7 @@ const EYEBROW: Record<RevealVariant, string> = {
   same: 'Same Dogtype as yours',
 };
 
-export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true, compact = false, onOpenMore }: Props) {
+export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true, compact = false, onOpenMore, sealed = false }: Props) {
   useEffect(() => {
     trackEvent('dogtype_reveal_shown', { context: compact ? 'modal' : showTease ? 'profile_new' : 'profile', variant });
   }, [compact, showTease, variant]);
@@ -38,15 +40,16 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
   const type = dogtypeByCode(otherCode);
   const compat = dogtypeCompat(ownCode, otherCode);
   if (!type || !compat) return null;
+  const maskName = sealed;
   const reasons = dogtypeReasons(ownCode, otherCode);
   const hidden = Math.max(0, 16 - discovered);
   const vibeLabel = `Personality vibe · ${compat.vibe === 'great' ? 'Great' : compat.vibe === 'spicy' ? 'Spicy, take it slow' : 'Good potential'}`;
-  const headline = variant === 'same' ? `${otherName} is a ${type.name.replace(/^The /, '')} too` : type.name;
+  const headline = sealed ? `Same Dogtype as ${ownName}` : variant === 'same' ? `${otherName} is a ${type.name.replace(/^The /, '')} too` : type.name;
 
   return (
     <section className="rounded-3xl border-2 border-brown bg-paper p-4 shadow-[0_6px_0_rgba(42,31,74,0.14)]">
       <div className="flex items-center gap-2">
-        <p className="flex-1 text-xs font-extrabold uppercase tracking-[0.08em] text-rose">{EYEBROW[variant]}</p>
+        <p className="flex-1 text-xs font-extrabold uppercase tracking-[0.08em] text-rose">{maskName ? `Same Dogtype as ${ownName}` : EYEBROW[variant]}</p>
         {variant === 'new' && (
           <span className="rounded-full bg-brown px-2.5 py-0.5 text-xs font-black text-paper" aria-label={`${discovered} of 16 discovered`}>
             {discovered} of 16
@@ -56,15 +59,15 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
 
       <div className="mt-3 flex items-center gap-3.5">
         <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full border-[3px] border-brown bg-note text-4xl" aria-hidden="true">
-          {type.emoji}
+          {maskName ? '?' : type.emoji}
         </div>
         <div className="min-w-0">
           {variant !== 'same' && <p className="text-sm font-extrabold text-brown-mid">{otherName} is</p>}
-          <h3 className="font-display text-[28px] leading-tight text-brown">{headline}</h3>
-          <p className="font-hand text-[21px] leading-tight text-brown">{type.tagline}</p>
+          <h3 className="font-display text-[28px] leading-tight text-brown">{maskName ? `${otherName} is just like ${ownName}` : headline}</h3>
+          <p className="font-hand text-[21px] leading-tight text-brown">{maskName ? `Watch ${ownName}'s reveal in Profile to see which.` : type.tagline}</p>
         </div>
       </div>
-      {!compact && <p className="mt-3 text-sm font-semibold leading-relaxed text-brown-mid">{type.blurb}</p>}
+      {!compact && !maskName && <p className="mt-3 text-sm font-semibold leading-relaxed text-brown-mid">{type.blurb}</p>}
 
       <div className="mt-3 border-t-2 border-border pt-3">
         {!compact && <h4 className="font-display text-xl text-brown">How they get along with {ownName}</h4>}
@@ -81,7 +84,7 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
             </li>
           ))}
         </ul>
-        {compact && onOpenMore && (
+        {compact && onOpenMore && !maskName && (
           <button type="button" onClick={onOpenMore} className="mt-1 min-h-[44px] text-sm font-black text-rose underline underline-offset-2">
             See how they get along with {ownName} ›
           </button>

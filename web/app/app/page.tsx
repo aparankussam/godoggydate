@@ -24,8 +24,8 @@ import DogProfileForm from '../../components/DogProfileForm';
 import SwipeStack from '../../components/SwipeStack';
 import AuthModal from '../../components/AuthModal';
 import MatchModal, { type MatchReveal } from '../../components/MatchModal';
-import { discoveredOrder } from '../../../shared/progress';
-import { discoverFromMatch, loadDiscoveries } from '../../lib/dogtypeDiscovery';
+import { discoveredCount } from '../../../shared/progress';
+import { discoverFromMatch, loadDiscoveries, loadRevealed } from '../../lib/dogtypeDiscovery';
 import SkeletonCard from '../../components/SkeletonCard';
 import { trackEvent, trackFirstTime } from '../../lib/analytics';
 import {
@@ -447,13 +447,15 @@ export default function AppPage() {
       const other = otherSnap?.exists() ? computeDogtype(otherSnap.data() as SavedDogProfile) : null;
       const uid = authUser?.uid;
       if (uid && own && other && !fresh.isDemo) {
+        const ownRevealed = loadRevealed(uid);
         const { isNew } = discoverFromMatch(uid, { code: other.code, dogId: fresh.firestoreId ?? fresh.id, dogName: fresh.name, at: Date.now() });
         reveal = {
           ownCode: own.code,
           otherCode: other.code,
           ownName: savedProfile?.name?.trim() || 'Your dog',
-          discovered: discoveredOrder(loadDiscoveries(uid), own.code).length,
+          discovered: discoveredCount(loadDiscoveries(uid), own.code, ownRevealed),
           variant: own.code === other.code ? 'same' : isNew ? 'new' : 'met',
+          sealed: own.code === other.code && !ownRevealed,
         };
       }
     } catch {

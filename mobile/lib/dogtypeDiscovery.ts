@@ -95,10 +95,18 @@ type Seen = { code: string; dogId: string; dogName: string; at: number };
 /** Snapshot each dog (first sight wins) and return it with the code that now counts. */
 async function snapshotAll(uid: string, dogs: Seen[]): Promise<Seen[]> {
   let effective: Record<string, string> = {};
+  // A dog already discovered under an older type keeps that type: seed from the ledger first.
+  const ledger = await loadDiscoveries(uid);
   try {
     await updateStoredJSON(progressKeys.dogtypeDogs(uid), (raw) => {
       let map = normalizeDogtypeDogs(raw);
       let changed = false;
+      for (const [code, e] of Object.entries(ledger)) {
+        if (e.dogId && !map?.[e.dogId]) {
+          map = snapshotDog(map, e.dogId, code, e.at);
+          changed = true;
+        }
+      }
       for (const d of dogs) {
         const before = map?.[d.dogId];
         map = snapshotDog(map, d.dogId, d.code, d.at);
@@ -110,6 +118,7 @@ async function snapshotAll(uid: string, dogs: Seen[]): Promise<Seen[]> {
   } catch {
     effective = Object.fromEntries(dogs.map((d) => [d.dogId, d.code]));
   }
+  markProgressDirty(uid);
   return dogs.map((d) => ({ ...d, code: effective[d.dogId] ?? d.code }));
 }
 

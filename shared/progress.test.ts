@@ -11,6 +11,7 @@ import {
   normalizeDogtypeDogs,
   normalizeRevealed,
   snapshotDog,
+  discoveredCount,
   discoveredOrder,
   markSeen,
   mergeDogtypes,
@@ -568,4 +569,10 @@ test('barkleStreak counts consecutive solved days ending today or yesterday', ()
   // lost yesterday
   assert.deepEqual(barkleStreak(h([7, 8], [9]), 10), { current: 0, best: 2, yesterdaySolved: false });
   assert.deepEqual(barkleStreak(undefined, 10), { current: 0, best: 0, yesterdaySolved: null });
+});
+
+test('discoveredCount hides the own type until it has been revealed', () => {
+  const l = addDiscovery(setOwnType(undefined, 'EROB', 1), 'EGOB', { at: 2, dogId: 'd1', dogName: 'B' });
+  assert.equal(discoveredCount(l, 'EROB', false), 1);
+  assert.equal(discoveredCount(l, 'EROB', true), 2);
 });

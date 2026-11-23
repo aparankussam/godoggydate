@@ -478,10 +478,16 @@ export interface TypeChange {
   message?: string;
 }
 
-export function describeTypeChange(beforeCode: string | null | undefined, afterCode: string | null | undefined): TypeChange {
+export function describeTypeChange(
+  beforeCode: string | null | undefined,
+  afterCode: string | null | undefined,
+  /** False until the owner has watched their own reveal: say a change happens without naming either type. */
+  named = true,
+): TypeChange {
   if (!beforeCode || !afterCode || beforeCode === afterCode) return { changed: false };
   const from = dogtypeByCode(beforeCode)?.name;
   const to = dogtypeByCode(afterCode)?.name;
   if (!from || !to) return { changed: false };
+  if (!named) return { changed: true, message: "This changes {name}'s Dogtype." };
   return { changed: true, from, to, message: `This changes {name}'s Dogtype from ${from} to ${to}.` };
 }

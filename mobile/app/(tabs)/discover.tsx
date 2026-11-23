@@ -35,8 +35,8 @@ import {
 } from '../../components/sticker';
 import MatchModal, { type MatchReveal } from '../../components/MatchModal';
 import { computeDogtype } from '../../../shared/dogtype';
-import { discoveredOrder } from '../../../shared/progress';
-import { discoverFromMatch, loadDiscoveries } from '../../lib/dogtypeDiscovery';
+import { discoveredCount } from '../../../shared/progress';
+import { discoverFromMatch, loadDiscoveries, loadRevealed } from '../../lib/dogtypeDiscovery';
 import TodayPanel from '../../components/TodayPanel';
 import DiscoverDetailsSheet from '../../components/DiscoverDetailsSheet';
 import {
@@ -320,12 +320,14 @@ export default function DiscoverTab() {
           if (own && other) {
             const { isNew } = await discoverFromMatch(uid, { code: other.code, dogId: fresh.id, dogName: fresh.name, at: Date.now() });
             const ledger = await loadDiscoveries(uid);
+            const ownRevealed = await loadRevealed(uid);
             reveal = {
               ownCode: own.code,
               otherCode: other.code,
               ownName: profileRef.current?.name?.trim() || 'Your dog',
-              discovered: discoveredOrder(ledger, own.code).length,
+              discovered: discoveredCount(ledger, own.code, ownRevealed),
               variant: own.code === other.code ? 'same' : isNew ? 'new' : 'met',
+              sealed: own.code === other.code && !ownRevealed,
             };
           }
         } catch {

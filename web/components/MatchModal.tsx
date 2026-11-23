@@ -44,6 +44,8 @@ export interface MatchReveal {
   ownName: string;
   discovered: number;
   variant: RevealVariant;
+  /** Same type as yours but your own reveal is unwatched: name nothing. */
+  sealed: boolean;
 }
 
 interface Props {
@@ -331,6 +333,7 @@ export default function MatchModal({ dog, matchId, reveal = null, onKeepSwiping 
               otherCode={reveal.otherCode}
               discovered={reveal.discovered}
               variant={reveal.variant}
+              sealed={reveal.sealed}
               compact
               onOpenMore={() => setSheetOpen(true)}
             />
@@ -405,6 +408,7 @@ export default function MatchModal({ dog, matchId, reveal = null, onKeepSwiping 
               otherCode={reveal.otherCode}
               discovered={reveal.discovered}
               variant={reveal.variant}
+              sealed={reveal.sealed}
               compact
               onOpenMore={() => setSheetOpen(true)}
             />
@@ -412,7 +416,7 @@ export default function MatchModal({ dog, matchId, reveal = null, onKeepSwiping 
         )}
 
         {/* CTAs: exactly one pink, pinned so "Say hi" never scrolls out of reach */}
-        <div className="sticky bottom-0 z-20 -mx-[18px] mt-5 flex flex-col gap-3 border-t-2 border-brown bg-sky px-[18px] pb-5 pt-3">
+        <div className={`mt-5 flex flex-col gap-3 ${isBlocked && !acknowledged ? 'relative z-10' : 'sticky bottom-0 z-20 -mx-[18px] border-t-2 border-brown bg-sky px-[18px] pb-5 pt-3'}`}>
           {isBlocked && !acknowledged ? (
             <button type="button" onClick={() => setAcknowledged(true)} className={pinkBtn}>
               Got it, I&apos;ve read this

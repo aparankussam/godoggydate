@@ -25,3 +25,11 @@ test('describeTypeChange reports names only when the type really changes', () =>
   assert.ok(c.to && c.to !== c.from);
   assert.ok(c.message!.includes('{name}') && c.message!.includes(c.from!) && c.message!.includes(c.to!));
 });
+
+test('describeTypeChange names no type while the owner has not revealed theirs', () => {
+  const c = describeTypeChange('EROB', 'ZGSM', false);
+  assert.equal(c.changed, true);
+  assert.equal(c.from, undefined);
+  assert.equal(c.to, undefined);
+  assert.equal(c.message, "This changes {name}'s Dogtype.");
+});

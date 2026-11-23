@@ -21,7 +21,7 @@ import {
   onDiscoveriesChange,
 } from '../lib/dogtypeDiscovery';
 import { computeDogtype, dogtypeByCode } from '../../shared/dogtype';
-import { discoveredOrder, matchedDogsOfType, type DogtypeDogMap, type DogtypeLedger } from '../../shared/progress';
+import { discoveredOrder, type DogtypeDogMap, type DogtypeLedger } from '../../shared/progress';
 import type { SavedDogProfile } from '../lib/profile';
 
 interface Props {
@@ -62,11 +62,12 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    // Re-read the current matches on mount and each time a sheet opens, so the list is never stale.
     if (userId) fetchMatches(userId).then((m) => !cancelled && setItems(m)).catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, sheetCode]);
 
   // Until the owner has watched their own reveal, their own type stays a "?".
   const codes = useMemo(
@@ -126,7 +127,7 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
             }
             const t = dogtypeByCode(code);
             if (!t) return null;
-            const count = matchedDogsOfType(snapshots, code).length;
+            const count = matchedDogsOfCode(items, snapshots, code).length;
             return (
               <Pressable
                 key={code}

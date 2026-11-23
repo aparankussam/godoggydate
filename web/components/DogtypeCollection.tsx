@@ -16,7 +16,6 @@ import {
   loadDiscoveries,
   loadDogSnapshots,
   loadRevealed,
-  matchedDogsOfType,
   onDiscoveriesChange,
 } from '../lib/dogtypeDiscovery';
 import { computeDogtype, dogtypeByCode } from '../../shared/dogtype';
@@ -61,11 +60,12 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    // Re-read the current matches on mount and each time a sheet opens, so the list is never stale.
     if (userId) fetchMatchedDogs(userId).then((d) => !cancelled && setDogs(d));
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, sheetCode]);
 
   // Until the owner has watched their own reveal, their own type stays a "?".
   const codes = useMemo(
@@ -126,7 +126,7 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
             }
             const t = dogtypeByCode(code);
             if (!t) return null;
-            const count = matchedDogsOfType(snapshots, code).length;
+            const count = dogs.filter((d) => snapshots[d.dogId]?.code === code).length;
             return (
               <button
                 key={code}

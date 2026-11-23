@@ -2,6 +2,7 @@
 // web/components/DogProfileForm.tsx
 // Dog profile form — device photo upload, breed datalist, structured location.
 
+import { loadRevealed } from '../lib/dogtypeDiscovery';
 import { computeDogtype, describeTypeChange, profileHintsForCode } from '../../shared/dogtype';
 import { useEffect, useRef, useState } from 'react';
 import type { SavedDogProfile } from '../lib/auth';
@@ -823,6 +824,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       const change = describeTypeChange(
         computeDogtype(initialProfile)?.code,
         computeDogtype({ energyLevel, playStyles, behaviorFlags, notGoodWith, temperament })?.code,
+        loadRevealed(getFirebase().auth.currentUser?.uid ?? ''),
       );
       if (change.changed && !window.confirm(`${change.message!.replace('{name}', name.trim() || initialProfile.name || 'your dog')}\n\nSave anyway?`)) {
         return;

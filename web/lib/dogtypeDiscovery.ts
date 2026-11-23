@@ -103,11 +103,21 @@ function snapshotAll(uid: string, dogs: Seen[]): Seen[] {
   let map: DogtypeDogMap | undefined = loadDogSnapshots(uid);
   if (Object.keys(map).length === 0) map = undefined;
   let changed = false;
+  // A dog already discovered under an older type keeps that type: seed from the ledger first.
+  for (const [code, e] of Object.entries(loadDiscoveries(uid))) {
+    if (e.dogId && !map?.[e.dogId]) {
+      map = snapshotDog(map, e.dogId, code, e.at);
+      changed = true;
+    }
+  }
   for (const d of dogs) {
     if (!map?.[d.dogId]) changed = true;
     map = snapshotDog(map, d.dogId, d.code, d.at);
   }
-  if (changed && map) writeJSON(progressKeys.dogtypeDogs(uid), map);
+  if (changed && map && writeJSON(progressKeys.dogtypeDogs(uid), map)) {
+    markProgressDirty(uid);
+    notify();
+  }
   return dogs.map((d) => ({ ...d, code: map?.[d.dogId]?.code ?? d.code }));
 }
 

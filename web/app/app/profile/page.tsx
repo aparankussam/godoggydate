@@ -14,7 +14,7 @@ import {
   isProfileComplete,
   saveUserDogProfile,
 } from '../../../lib/auth';
-import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { getFirebase } from '../../../shared/utils/firebase';
 import type { User, SavedDogProfile } from '../../../lib/auth';
 import DogProfileForm from '../../../components/DogProfileForm';
@@ -113,6 +113,7 @@ export default function ProfilePage() {
   const [section, setSection] = useState<ProfileSection>('about');
   const [sheet, setSheet] = useState<'share' | 'settings' | null>(null);
   const [savingCover, setSavingCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [editFocus,    setEditFocus]    = useState<'birthday' | null>(null);
@@ -374,16 +375,17 @@ export default function ProfilePage() {
     return onDiscoveriesChange(load);
   }, [authUser?.uid]);
 
-  // Make photo `i` the cover (centered). The save path wants the whole profile.
+  // Make photo `i` the cover (centered). Writes only the three cover fields: the page's profile
+  // object also carries household and server-owned fields the rules refuse to take from a client.
   async function makeCover(i: number) {
     if (!authUser || !savedProfile || savingCover) return;
     setSavingCover(true);
+    setCoverError(null);
     try {
-      const next = { ...savedProfile, coverPhotoIndex: i, coverFocusX: 50, coverFocusY: 50 };
-      await saveUserDogProfile(authUser.uid, next);
+      await updateDoc(doc(getFirebase().db, 'dogs', authUser.uid), { coverPhotoIndex: i, coverFocusX: 50, coverFocusY: 50 });
       setSavedProfile((prev) => (prev ? { ...prev, coverPhotoIndex: i, coverFocusX: 50, coverFocusY: 50 } : prev));
     } catch {
-      /* the cover stays as it was; the owner can try again */
+      setCoverError('We could not change the cover photo. Check your connection and try again.');
     } finally {
       setSavingCover(false);
     }
@@ -525,21 +527,147 @@ export default function ProfilePage() {
   // it is false for any user with a saved dog — an owner's page is unchanged.
   const householdOnly = !savedProfile && householdDogs.length > 0;
 
+  const settingsDialog = sheet === 'settings' && authUser ? (
+              <ProfileDialog title="Settings" onClose={() => setSheet(null)}>
+        {/* Pro + Founding offer blocks below are unchanged; this wrapper only
+            keeps them after the groups on a phone. */}
+        <div className="flex flex-col gap-5">
+        {/* goDoggyDate Pro — the recurring subscription (or, for a Founding
+            Member, the grandfathered "Pro for life" state). id is the scroll
+            target for the "get a card every day" upsell in PetTwinCard. */}
+        {authUser && !householdOnly && savedProfile && !pro.loading && (
+          <div id="pro-upsell">
+            <ProUpsellCard isPro={pro.isPro} isFounding={pro.isFounding} source={pro.source} />
+          </div>
+        )}
+
+        {/* Founding Member CTA. Lives here rather than only inside the chat
+            paywall: that CTA was nested in a !canChat block, so turning chat
+            free removed the last reachable purchase path in the whole product.
+            The profile is always reachable and doesn't interrupt a
+            conversation to sell something. Hidden once the user has Pro by any
+            route (a subscriber or an existing Founding Member), and shown only
+            while paid spots #51–150 are open. */}
+        {/* Not shown to a dogless household member: every benefit it sells
+            (chat unlocks, Founding Member number) attaches to a dog they don't
+            have. */}
+        {authUser && !householdOnly && !pro.loading && !pro.isPro && founding.phase === 'paid' && founding.count !== null && getFoundingMemberLink(authUser.uid) && (
+          <a
+            href={getFoundingMemberLink(authUser.uid)!}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackEvent('founding_member_cta_click', { source: 'profile' })}
+            className="card block rounded-[1.8rem] px-4 py-4 transition-colors hover:bg-cream-dark"
+          >
+            <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
+            <p className="mt-1 text-xs leading-relaxed text-brown-mid">
+              A permanent Founding Member number and every future Pro feature at no extra cost, for as long
+              as GoDoggyDate runs. {foundingSpotsLeft(founding.count)} of {FOUNDING_PAID_SPOTS} paid spots
+              left (#{FOUNDING_FREE_SPOTS + 1}–{FOUNDING_TOTAL}). Pro features aren&apos;t live yet, so this
+              mainly supports a small, independent app. Refundable within 14 days.
+            </p>
+          </a>
+        )}
+        </div>
+        {/* Account, help and sign-out — last. */}
+        <div className="flex flex-col gap-3">
+          <FirstNameSwitch userId={authUser.uid} />
+          <BlockedList userId={authUser.uid} />
+          <div className="card rounded-[1.8rem] divide-y divide-border">
+            {/* Account info */}
+            {authUser?.email && (
+              <div className="flex justify-between items-center px-4 py-3">
+                <span className="text-sm text-brown-mid">Account</span>
+                <span className="text-sm text-brown truncate max-w-[60%]">{authUser.email}</span>
+              </div>
+            )}
+
+            {/* Sign out */}
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown hover:bg-cream transition-colors disabled:opacity-50"
+            >
+              <span>{signingOut ? 'Signing out…' : 'Sign out'}</span>
+              <span>→</span>
+            </button>
+
+            {/* Delete account */}
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown-mid hover:text-brown hover:bg-cream transition-colors rounded-b-2xl"
+              >
+                <span>Delete account</span>
+                <span>→</span>
+              </button>
+            ) : (
+              <div className="px-4 py-4 rounded-b-2xl bg-cream">
+                <p className="text-sm font-semibold text-brown">Delete your account permanently?</p>
+                <p className="mt-1 text-xs leading-relaxed text-brown-mid">
+                  This removes your dog&apos;s profile, all matches, messages, and swipe history.
+                  Past purchases aren&apos;t refunded automatically: email godoggydate@gobotsai.com first if you&apos;re within the 14-day refund window. This cannot be undone.
+                </p>
+                {deleteError && <p className="mt-2 text-xs text-brown">{deleteError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+                  >
+                    {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                  </button>
+                  <button
+                    onClick={() => { setConfirmDelete(false); setDeleteError(null); }}
+                    disabled={deleting}
+                    className="rounded-full px-4 py-2 text-xs font-semibold text-brown-mid hover:text-brown disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Discover needs a dog of your own to score against, so it's not a
+              destination for a household member — don't offer it to them. */}
+          {!householdOnly && (
+            <Link
+              href="/app"
+              className="text-center text-sm font-black text-brown underline decoration-2 underline-offset-4 min-h-[44px] flex items-center justify-center"
+            >
+              ← Back to discover
+            </Link>
+          )}
+
+          <nav aria-label="Help and legal" className="flex flex-wrap justify-center gap-x-4 text-sm font-extrabold text-brown">
+            <Link href="/support" className="py-2.5 hover:text-brown transition-colors">Support</Link>
+            <Link href="/terms" className="py-2.5 hover:text-brown transition-colors">Terms</Link>
+            <Link href="/privacy" className="py-2.5 hover:text-brown transition-colors">Privacy</Link>
+            <Link href="/playdate-safety" className="py-2.5 hover:text-brown transition-colors">Play or Fight?</Link>
+          </nav>
+          <p className="text-center text-xs font-extrabold text-brown">GoDoggyDate is operated by GoBots LLC.</p>
+        </div>
+              </ProfileDialog>
+  ) : null;
+
   return (
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center">
         <h1 className="font-display text-[26px] leading-none text-brown">Profile</h1>
-        {savedProfile && authUser && (
+        {authUser && (
           <div className="ml-auto flex gap-2">
-            <button
-              type="button"
-              onClick={() => setSheet('share')}
-              aria-label="Share the card and public page"
-              className="flex h-11 w-11 items-center justify-center rounded-full border-[2.5px] border-b-4 border-brown bg-paper text-lg text-brown"
-            >
-              📤
-            </button>
+            {savedProfile && (
+              <button
+                type="button"
+                onClick={() => setSheet('share')}
+                aria-label="Share the card and public page"
+                className="flex h-11 w-11 items-center justify-center rounded-full border-[2.5px] border-b-4 border-brown bg-paper text-lg text-brown"
+              >
+                📤
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setSheet('settings')}
@@ -599,6 +727,8 @@ export default function ProfilePage() {
               </p>
             </div>
 
+            <button onClick={() => openEdit()} className="btn-secondary self-start px-5 py-2.5 text-sm">Add a dog of your own</button>
+
             {householdDogs.map((dog) => (
               <div key={dog.dogId} className="flex flex-col gap-4 lg:flex-row lg:items-start">
                 <div className="w-full max-w-[360px] shrink-0">
@@ -624,9 +754,12 @@ export default function ProfilePage() {
             <span className="text-6xl">🐾</span>
             <p className="font-display text-2xl text-brown">No profile yet</p>
             <p className="text-brown-mid text-sm">Set up your dog&apos;s profile to start swiping.</p>
+            <button onClick={() => openEdit()} className="btn-primary px-6 py-3">Create Profile</button>
           </div>
         )}
         </div>
+
+        {settingsDialog}
 
         {/* ── Owner view: one summary, a section menu, Share and Settings ───── */}
         {savedProfile && authUser && (
@@ -685,6 +818,7 @@ export default function ProfilePage() {
                     </button>
                   )
                 )}
+                {coverError && <p className="text-xs font-bold text-brown" role="alert">{coverError}</p>}
 
                 <div className="flex items-center gap-3">
                   <h2 className="min-w-0 flex-1 truncate font-display text-3xl leading-tight text-brown">{savedProfile.name}</h2>
@@ -859,130 +993,6 @@ export default function ProfilePage() {
               </ProfileDialog>
             )}
 
-            {/* Settings: Pro, account, sign out, delete, legal */}
-            {sheet === 'settings' && (
-              <ProfileDialog title="Settings" onClose={() => setSheet(null)}>
-        {/* Pro + Founding offer blocks below are unchanged; this wrapper only
-            keeps them after the groups on a phone. */}
-        <div className="flex flex-col gap-5">
-        {/* goDoggyDate Pro — the recurring subscription (or, for a Founding
-            Member, the grandfathered "Pro for life" state). id is the scroll
-            target for the "get a card every day" upsell in PetTwinCard. */}
-        {authUser && !householdOnly && savedProfile && !pro.loading && (
-          <div id="pro-upsell">
-            <ProUpsellCard isPro={pro.isPro} isFounding={pro.isFounding} source={pro.source} />
-          </div>
-        )}
-
-        {/* Founding Member CTA. Lives here rather than only inside the chat
-            paywall: that CTA was nested in a !canChat block, so turning chat
-            free removed the last reachable purchase path in the whole product.
-            The profile is always reachable and doesn't interrupt a
-            conversation to sell something. Hidden once the user has Pro by any
-            route (a subscriber or an existing Founding Member), and shown only
-            while paid spots #51–150 are open. */}
-        {/* Not shown to a dogless household member: every benefit it sells
-            (chat unlocks, Founding Member number) attaches to a dog they don't
-            have. */}
-        {authUser && !householdOnly && !pro.loading && !pro.isPro && founding.phase === 'paid' && founding.count !== null && getFoundingMemberLink(authUser.uid) && (
-          <a
-            href={getFoundingMemberLink(authUser.uid)!}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackEvent('founding_member_cta_click', { source: 'profile' })}
-            className="card block rounded-[1.8rem] px-4 py-4 transition-colors hover:bg-cream-dark"
-          >
-            <p className="text-sm font-bold text-brown">⭐ Become a Founding Member — $39 once</p>
-            <p className="mt-1 text-xs leading-relaxed text-brown-mid">
-              A permanent Founding Member number and every future Pro feature at no extra cost, for as long
-              as GoDoggyDate runs. {foundingSpotsLeft(founding.count)} of {FOUNDING_PAID_SPOTS} paid spots
-              left (#{FOUNDING_FREE_SPOTS + 1}–{FOUNDING_TOTAL}). Pro features aren&apos;t live yet, so this
-              mainly supports a small, independent app. Refundable within 14 days.
-            </p>
-          </a>
-        )}
-        </div>
-        {/* Account, help and sign-out — last. */}
-        <div className="flex flex-col gap-3">
-          <FirstNameSwitch userId={authUser.uid} />
-          <BlockedList userId={authUser.uid} />
-          <div className="card rounded-[1.8rem] divide-y divide-border">
-            {/* Account info */}
-            {authUser?.email && (
-              <div className="flex justify-between items-center px-4 py-3">
-                <span className="text-sm text-brown-mid">Account</span>
-                <span className="text-sm text-brown truncate max-w-[60%]">{authUser.email}</span>
-              </div>
-            )}
-
-            {/* Sign out */}
-            <button
-              onClick={handleSignOut}
-              disabled={signingOut}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown hover:bg-cream transition-colors disabled:opacity-50"
-            >
-              <span>{signingOut ? 'Signing out…' : 'Sign out'}</span>
-              <span>→</span>
-            </button>
-
-            {/* Delete account */}
-            {!confirmDelete ? (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm text-brown-mid hover:text-brown hover:bg-cream transition-colors rounded-b-2xl"
-              >
-                <span>Delete account</span>
-                <span>→</span>
-              </button>
-            ) : (
-              <div className="px-4 py-4 rounded-b-2xl bg-cream">
-                <p className="text-sm font-semibold text-brown">Delete your account permanently?</p>
-                <p className="mt-1 text-xs leading-relaxed text-brown-mid">
-                  This removes your dog&apos;s profile, all matches, messages, and swipe history.
-                  Past purchases aren&apos;t refunded automatically: email godoggydate@gobotsai.com first if you&apos;re within the 14-day refund window. This cannot be undone.
-                </p>
-                {deleteError && <p className="mt-2 text-xs text-brown">{deleteError}</p>}
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={handleDeleteAccount}
-                    disabled={deleting}
-                    className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-                  >
-                    {deleting ? 'Deleting…' : 'Yes, delete everything'}
-                  </button>
-                  <button
-                    onClick={() => { setConfirmDelete(false); setDeleteError(null); }}
-                    disabled={deleting}
-                    className="rounded-full px-4 py-2 text-xs font-semibold text-brown-mid hover:text-brown disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Discover needs a dog of your own to score against, so it's not a
-              destination for a household member — don't offer it to them. */}
-          {!householdOnly && (
-            <Link
-              href="/app"
-              className="text-center text-sm font-black text-brown underline decoration-2 underline-offset-4 min-h-[44px] flex items-center justify-center"
-            >
-              ← Back to discover
-            </Link>
-          )}
-
-          <nav aria-label="Help and legal" className="flex flex-wrap justify-center gap-x-4 text-sm font-extrabold text-brown">
-            <Link href="/support" className="py-2.5 hover:text-brown transition-colors">Support</Link>
-            <Link href="/terms" className="py-2.5 hover:text-brown transition-colors">Terms</Link>
-            <Link href="/privacy" className="py-2.5 hover:text-brown transition-colors">Privacy</Link>
-            <Link href="/playdate-safety" className="py-2.5 hover:text-brown transition-colors">Play or Fight?</Link>
-          </nav>
-          <p className="text-center text-xs font-extrabold text-brown">GoDoggyDate is operated by GoBots LLC.</p>
-        </div>
-              </ProfileDialog>
-            )}
           </div>
         )}
 

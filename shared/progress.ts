@@ -341,6 +341,11 @@ export function markSeen(ledger: DogtypeLedger | undefined, code: string): Dogty
   return { ...ledger, [code]: { ...cur, seen: true } };
 }
 
+/** How many types count as found: your own only once you've watched your reveal. */
+export function discoveredCount(ledger: DogtypeLedger | undefined, ownCode: string, ownRevealed: boolean): number {
+  return discoveredOrder(ledger, ownCode).filter((c) => c !== ownCode || ownRevealed).length;
+}
+
 /** Your current own type first (always counted, stored or not), then types met via a dog, oldest first. */
 export function discoveredOrder(ledger: DogtypeLedger | undefined, ownCode?: string): string[] {
   const met = Object.keys(ledger ?? {})

@@ -25,8 +25,8 @@ import SignInGate from '../../../../components/SignInGate';
 import { uniqueTemperament } from '../../../../../shared/temperament';
 import DogtypeRevealCard from '../../../../components/dogtype/DogtypeRevealCard';
 import { computeDogtype, dogtypeByCode } from '../../../../../shared/dogtype';
-import { discoveredOrder, type DogtypeDogMap, type DogtypeLedger } from '../../../../../shared/progress';
-import { effectiveCode, loadDiscoveries, loadDogSnapshots, markDiscoverySeen, onDiscoveriesChange } from '../../../../lib/dogtypeDiscovery';
+import { discoveredCount, type DogtypeDogMap, type DogtypeLedger } from '../../../../../shared/progress';
+import { effectiveCode, loadDiscoveries, loadDogSnapshots, loadRevealed, markDiscoverySeen, onDiscoveriesChange } from '../../../../lib/dogtypeDiscovery';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -52,6 +52,7 @@ export default function MatchedDogProfilePage() {
   const [ledger, setLedger] = useState<DogtypeLedger>({});
   const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
   const [unseen, setUnseen] = useState(false);
+  const [ownRevealed, setOwnRevealed] = useState(false);
 
   // Your own dog and your Dogtype ledger, for the reveal card below.
   useEffect(() => {
@@ -64,6 +65,7 @@ export default function MatchedDogProfilePage() {
     const load = () => {
       setLedger(loadDiscoveries(uid));
       setSnapshots(loadDogSnapshots(uid));
+      setOwnRevealed(loadRevealed(uid));
     };
     load();
     const off = onDiscoveriesChange(load);
@@ -293,9 +295,10 @@ export default function MatchedDogProfilePage() {
             ownCode={ownType.code}
             otherName={profile.name}
             otherCode={otherType.code}
-            discovered={discoveredOrder(ledger, ownType.code).length}
+            discovered={discoveredCount(ledger, ownType.code, ownRevealed)}
             variant={ownType.code === otherType.code ? 'same' : unseen ? 'new' : 'met'}
             showTease={unseen}
+            sealed={ownType.code === otherType.code && !ownRevealed}
           />
         )}
 

@@ -11,6 +11,7 @@
 // perfect one. The blocked variant stays sober: the same information, a
 // "READ FIRST" stamp, and the owner has to acknowledge it before "Say hi".
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, type ReactNode } from 'react';
 import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +37,8 @@ export interface MatchReveal {
   ownName: string;
   discovered: number;
   variant: RevealVariant;
+  /** Same type as yours but your own reveal is unwatched: name nothing. */
+  sealed: boolean;
 }
 
 interface Props {
@@ -92,6 +95,7 @@ function MatchModalContent({
   const [acknowledged, setAcknowledged] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const theirPhotos = getRenderablePhotos(dog.photos);
   const theirHero = resolveHeroIndex(dog);
@@ -137,6 +141,24 @@ function MatchModalContent({
   }
 
   const tone = fitTone(dog.compat);
+
+  // A blocked pairing keeps its buttons below the safety slip until it is acknowledged, so the
+  // slip can't be skipped by tapping a pinned button; after that they pin to the bottom.
+  const ctas = (
+    <>
+          {isBlocked && !acknowledged ? (
+            <PrimaryButton label="Got it, I’ve read this" onPress={() => setAcknowledged(true)} />
+          ) : (
+            <PrimaryButton
+              label={`Say hi to ${dog.name}`}
+              onPress={onSayHi}
+              icon={<Ionicons name="chatbubble-ellipses" size={24} color={colors.ink} />}
+            />
+          )}
+          {showPitch && <Text style={styles.pitch}>{getChatUnlockPitch()}</Text>}
+          <SecondaryButton label="Keep swiping" onPress={onKeepSwiping} />
+    </>
+  );
 
   return (
     <View style={styles.page}>
@@ -225,6 +247,7 @@ function MatchModalContent({
             otherCode={reveal.otherCode}
             discovered={reveal.discovered}
             variant={reveal.variant}
+            sealed={reveal.sealed}
             compact
             onOpenMore={() => setSheetOpen(true)}
           />
@@ -284,6 +307,7 @@ function MatchModalContent({
             otherCode={reveal.otherCode}
             discovered={reveal.discovered}
             variant={reveal.variant}
+            sealed={reveal.sealed}
             compact
             onOpenMore={() => setSheetOpen(true)}
           />
@@ -292,19 +316,7 @@ function MatchModalContent({
       </ScrollView>
 
         {/* CTAs: exactly one pink */}
-      <View style={styles.footer}>
-          {isBlocked && !acknowledged ? (
-            <PrimaryButton label="Got it, I’ve read this" onPress={() => setAcknowledged(true)} />
-          ) : (
-            <PrimaryButton
-              label={`Say hi to ${dog.name}`}
-              onPress={onSayHi}
-              icon={<Ionicons name="chatbubble-ellipses" size={24} color={colors.ink} />}
-            />
-          )}
-          {showPitch && <Text style={styles.pitch}>{getChatUnlockPitch()}</Text>}
-          <SecondaryButton label="Keep swiping" onPress={onKeepSwiping} />
-      </View>
+      {!(isBlocked && !acknowledged) && <View style={[styles.footer, { paddingBottom: Math.max(26, insets.bottom + 12) }]}>{ctas}</View>}
 
       {reveal && (
         <DogtypeSheet
@@ -531,6 +543,7 @@ const styles = StyleSheet.create({
   mathBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   mathText: { fontFamily: fonts.black, fontSize: 12.5, color: colors.brownMid, textDecorationLine: 'underline' },
 
+  inlineCtas: { marginTop: 18, gap: 10 },
   footer: {
     paddingHorizontal: 18,
     paddingTop: 12,

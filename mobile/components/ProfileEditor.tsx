@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { loadRevealed } from '../lib/dogtypeDiscovery';
 import { computeDogtype, describeTypeChange } from '../../shared/dogtype';
 import {
   ActivityIndicator,
@@ -640,6 +641,7 @@ export default function ProfileEditor({
       const change = describeTypeChange(
         computeDogtype(initialProfile)?.code,
         computeDogtype({ energyLevel, playStyles, behaviorFlags, notGoodWith, temperament })?.code,
+        await loadRevealed(userId),
       );
       if (change.changed) {
         const dogLabel = name.trim() || initialProfile.name || 'your dog';

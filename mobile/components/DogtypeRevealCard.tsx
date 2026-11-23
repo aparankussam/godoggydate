@@ -24,6 +24,8 @@ interface Props {
   /** Short version for the match screen: one reason and a link to the full sheet. */
   compact?: boolean;
   onOpenMore?: () => void;
+  /** Same type as yours, but you haven't watched your own reveal yet: name nothing. */
+  sealed?: boolean;
 }
 
 const EYEBROW: Record<RevealVariant, string> = {
@@ -32,7 +34,7 @@ const EYEBROW: Record<RevealVariant, string> = {
   same: 'Same Dogtype as yours',
 };
 
-export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true, compact = false, onOpenMore }: Props) {
+export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCode, discovered, variant, showTease = true, compact = false, onOpenMore, sealed = false }: Props) {
   useEffect(() => {
     trackEvent('dogtype_reveal_shown', { context: compact ? 'modal' : showTease ? 'profile_new' : 'profile', variant });
   }, [showTease, variant]);
@@ -47,7 +49,7 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
   return (
     <View style={styles.card} accessible={false}>
       <View style={styles.topRow}>
-        <Text style={styles.eyebrow}>{EYEBROW[variant]}</Text>
+        <Text style={styles.eyebrow}>{sealed ? `Same Dogtype as ${ownName}` : EYEBROW[variant]}</Text>
         {variant === 'new' && (
           <View style={styles.chip} accessibilityLabel={`${discovered} of 16 discovered`}>
             <Text style={styles.chipText}>{discovered} of 16</Text>
@@ -57,15 +59,15 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
 
       <View style={styles.identity}>
         <View style={styles.sticker} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Text style={styles.stickerEmoji}>{type.emoji}</Text>
+          <Text style={styles.stickerEmoji}>{sealed ? '?' : type.emoji}</Text>
         </View>
         <View style={styles.identityText}>
           {variant !== 'same' && <Text style={styles.isLine}>{otherName} is</Text>}
-          <Text style={styles.typeName}>{headline}</Text>
-          <Text style={styles.tagline}>{type.tagline}</Text>
+          <Text style={styles.typeName}>{sealed ? `${otherName} is just like ${ownName}` : headline}</Text>
+          <Text style={styles.tagline}>{sealed ? `Watch ${ownName}’s reveal in Profile to see which.` : type.tagline}</Text>
         </View>
       </View>
-      {!compact && <Text style={styles.blurb}>{type.blurb}</Text>}
+      {!compact && !sealed && <Text style={styles.blurb}>{type.blurb}</Text>}
 
       <View style={styles.rule} />
       {!compact && <Text style={styles.sectionTitle}>How they get along with {ownName}</Text>}
@@ -81,7 +83,7 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
         </View>
       ))}
 
-      {compact && onOpenMore && (
+      {compact && onOpenMore && !sealed && (
         <Pressable style={styles.more} accessibilityRole="button" onPress={onOpenMore}>
           <Text style={styles.moreText}>See how they get along with {ownName} ›</Text>
         </Pressable>
