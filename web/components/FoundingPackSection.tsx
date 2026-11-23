@@ -100,7 +100,7 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
               {left} of {FOUNDING_FREE_SPOTS} free spots left. Make your dog&apos;s profile to claim one. No
               payment, nothing to cancel.
             </p>
-            <button onClick={onClaimFreeSpot} className="btn-primary mt-5 text-base px-7 py-3.5">
+            <button onClick={onClaimFreeSpot} className="btn-secondary mt-5 text-base px-7 py-3.5">
               Claim a free spot
             </button>
           </>
@@ -130,7 +130,7 @@ export default function FoundingPackSection({ signedInUserId, onClaimFreeSpot, o
             </p>
             <button
               onClick={handleFoundingMemberClick}
-              className="btn-primary mt-5 text-base px-7 py-3.5"
+              className="btn-secondary mt-5 text-base px-7 py-3.5"
             >
               Become a Founding Member — $39 once
             </button>

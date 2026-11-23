@@ -813,12 +813,12 @@ export default function ProfilePage() {
           >
           <div className="card rounded-[1.8rem] divide-y divide-border">
             {[
-              { label: 'Name',          value: savedProfile.name           },
-              { label: 'Breed',         value: savedProfile.breed          },
+              { label: 'Name',          value: savedProfile.name,     raw: true },
+              { label: 'Breed',         value: savedProfile.breed,    raw: true },
               { label: 'Age',           value: savedProfile.age            },
               { label: 'Size',          value: savedProfile.size           },
               { label: 'Energy',        value: savedProfile.energyLevel !== undefined ? `${savedProfile.energyLevel}%` : undefined },
-              { label: 'Neighborhood',  value: savedProfile.location       },
+              { label: 'Neighborhood',  value: savedProfile.location, raw: true },
               // Honest tri-state: hide the row entirely when never answered
               // (the old code invented a "Not yet" for every unstated profile).
               // `raw` keeps the shared vaccination label verbatim — `capitalize`

@@ -255,7 +255,7 @@ export default function StickerStudioPage() {
                   key={i}
                   type="button"
                   onClick={() => { setPhotoUri(src); feedback.tap(); }}
-                  className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-colors ${photoUri === src ? 'border-brown' : 'border-border'}`}
+                  className={`w-12 h-12 rounded-xl overflow-hidden border-2 transition-colors ${photoUri === src ? 'border-brown' : 'border-brown/30'}`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={src} alt={`${dogName} ${i + 1}`} className="w-full h-full object-cover" />
@@ -264,7 +264,7 @@ export default function StickerStudioPage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-xl border-2 border-dashed border-border text-brown-mid text-xl flex items-center justify-center "
+                className="w-12 h-12 rounded-xl border-2 border-dashed border-brown/60 bg-cream/60 text-brown text-xl flex items-center justify-center "
                 aria-label="Upload a photo"
               >
                 +

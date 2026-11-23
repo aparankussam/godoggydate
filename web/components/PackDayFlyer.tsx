@@ -126,7 +126,7 @@ export function FlyerFacts({ event, headingLevel = 1 }: { event: FlyerFacts; hea
               href={mapsSearchUrl(event)}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-2 inline-flex min-h-[44px] items-center px-1 align-middle text-[16px] font-black underline decoration-2 underline-offset-4"
+              className="-my-3 ml-2 inline-flex min-h-[44px] items-center px-1 align-middle text-[16px] font-black underline decoration-2 underline-offset-4"
             >
               Map
             </a>

@@ -157,7 +157,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           <button
             type="submit"
             disabled={saving}
-            className="btn-primary py-2 text-sm disabled:opacity-50"
+            className="btn-secondary py-2 text-sm disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Add reminder'}
           </button>
@@ -212,7 +212,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
                     type="button"
                     onClick={() => handleComplete(r)}
                     disabled={busy}
-                    className="rounded-full bg-cream border border-brown px-3 py-1.5 text-xs font-bold text-brown disabled:opacity-50"
+                    className="min-h-[40px] rounded-full bg-cream border-2 border-brown px-3 py-1.5 text-xs font-bold text-brown disabled:opacity-50"
                   >
                     Done
                   </button>
@@ -221,7 +221,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
                     onClick={() => handleDelete(r)}
                     disabled={busy}
                     aria-label="Delete reminder"
-                    className="text-brown-mid hover:text-brown transition-colors disabled:opacity-50 px-1"
+                    className="flex h-10 w-10 items-center justify-center text-xl text-brown-mid hover:text-brown transition-colors disabled:opacity-50"
                   >
                     ×
                   </button>

@@ -66,14 +66,14 @@ function HouseholdJoinContent() {
       <span className="text-5xl">🐾</span>
       <div className="text-center max-w-xs">
         <p className="font-display text-2xl text-brown">Join a household</p>
-        <p className="mt-2 text-sm text-brown-mid">
+        <p className="mt-2 text-sm font-semibold text-brown">
           You&apos;ve been invited to help look after someone&apos;s dog — reminders, everything, no dog of your own required.
         </p>
       </div>
 
       {success ? (
-        <div className="rounded-2xl bg-cream border border-brown px-5 py-4 text-center">
-          <p className="text-sm font-semibold text-brown">You&apos;re in! 🐾</p>
+        <div className="card px-5 py-4 text-center" role="status">
+          <p className="font-display text-xl text-brown">You&apos;re in! 🐾</p>
         </div>
       ) : authLoading ? (
         <span className="text-3xl animate-spin">🐾</span>
@@ -91,10 +91,11 @@ function HouseholdJoinContent() {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="Invite code"
+            aria-label="Invite code"
             maxLength={6}
             className="rounded-xl border-2 border-brown bg-cream px-4 py-3 text-center font-mono text-xl tracking-[0.2em] text-brown"
           />
-          {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+          {error && <p role="alert" className="rounded-xl border-2 border-brown bg-cream px-3 py-2 text-xs font-bold text-red-500 text-center">{error}</p>}
           <button
             onClick={handleJoin}
             disabled={joining}

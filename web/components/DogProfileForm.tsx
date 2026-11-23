@@ -904,37 +904,37 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     <div className="flex min-h-[80vh] flex-col items-center justify-start px-6 py-8">
       <p className="mb-3 text-4xl">🐾</p>
       <h2 className="mb-1 font-display text-3xl text-brown">Set up your dog&apos;s profile</h2>
-      <p className="mb-4 text-center text-sm text-brown-light">
+      <p className="mb-4 text-center text-sm font-semibold text-brown">
         Helps us find the right matches for your pup.
       </p>
 
-      <div className="mb-6 w-full max-w-sm">
-        <div className="mb-1 flex justify-between text-xs text-brown-light">
+      <div className="card mb-6 w-full max-w-sm px-4 py-3">
+        <div className="mb-1.5 flex justify-between gap-2 text-xs font-semibold text-brown-light">
           <span>{completedCount}/9 sections complete</span>
-          <span className={complete ? 'font-semibold text-green-600' : 'font-semibold text-rose'}>
+          <span className={complete ? 'font-extrabold text-brown' : 'font-extrabold text-rose'}>
             {complete ? '✓ Ready to swipe!' : `${progressPct}% — complete to unlock swipe`}
           </span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-border">
+        <div className="h-3 overflow-hidden rounded-full border-2 border-ink bg-cream-dark">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${progressPct}%`,
-              backgroundColor: complete ? '#22c55e' : '#FF5C8D',
+              backgroundColor: complete ? '#2A1F4A' : '#FF5C8D',
             }}
           />
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-5">
-        <div ref={photosRef} tabIndex={-1} role="group" aria-labelledby="dog-photos-label">
-          <label id="dog-photos-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
-            Photos <span className="font-normal text-brown-light">({MIN_PHOTOS} required, up to {MAX_PHOTOS})</span>
+        <div ref={photosRef} tabIndex={-1} role="group" aria-labelledby="dog-photos-label" className="card p-4">
+          <label id="dog-photos-label" className="mb-2 block font-display text-xl text-brown">
+            Photos <span className="font-body text-sm font-semibold text-brown-light">({MIN_PHOTOS} required, up to {MAX_PHOTOS})</span>
           </label>
           {photos.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
               {photos.map((photo, index) => (
-                <div key={photo.id} className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-cream-dark">
+                <div key={photo.id} className="relative aspect-square overflow-hidden rounded-2xl border-2 border-ink bg-cream-dark">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.preview ?? photo.url}
@@ -957,8 +957,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           {/* Cover photo + reposition — the owner picks the card's hero shot and
               drags the focal point so a center-crop doesn't hide the face. */}
           {photos.length > 0 && (
-            <div className="mt-4 rounded-2xl border border-border bg-cream/50 p-3">
-              <p className="mb-2 text-xs font-semibold text-brown-mid">
+            <div className="mt-4 rounded-2xl border-2 border-dashed border-ink/40 bg-cream-dark/60 p-3">
+              <p className="mb-2 text-xs font-extrabold text-brown">
                 🖼 Cover photo <span className="font-normal text-brown-light">— what shows on your card</span>
               </p>
               <CoverPhotoEditor
@@ -988,7 +988,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={photos.length >= MAX_PHOTOS || isBusy}
-              className="rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-semibold text-brown transition-colors hover:border-primary disabled:opacity-40"
+              className="btn-secondary px-4 py-2.5 text-sm disabled:opacity-40"
             >
               {photos.length > 0 ? 'Add more photos' : 'Upload photos'}
             </button>
@@ -1011,7 +1011,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               type="button"
               onClick={handleVibeCheck}
               disabled={vibeChecking}
-              className="mt-3 w-full rounded-xl border border-gold/50 bg-gold/10 px-4 py-2.5 text-sm font-bold text-brown transition-colors hover:bg-gold/20 disabled:opacity-50"
+              className="btn-secondary mt-3 w-full px-4 py-2.5 text-sm disabled:opacity-50"
             >
               {vibeChecking
                 ? 'Reading the photos…'
@@ -1022,7 +1022,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           )}
           {vibeCheckError && <p className="mt-1.5 text-xs text-red-500">{vibeCheckError}</p>}
           {vibeCheckResult && (
-            <div className="mt-3 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3">
+            <div className="mt-3 rounded-2xl border-2 border-ink bg-note px-4 py-3">
               <p className="text-xs font-bold uppercase tracking-[0.1em] text-brown/70">
                 {vibeCheckResult.archetypeName}
               </p>
@@ -1037,8 +1037,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           )}
         </div>
 
+        <section className="card flex flex-col gap-5 p-4" aria-label="The basics">
+          <h3 className="-mb-2 font-display text-xl text-brown">The basics</h3>
         <div>
-          <label htmlFor="dog-name" className="mb-1.5 block text-sm font-semibold text-brown-mid">Dog&apos;s name</label>
+          <label htmlFor="dog-name" className="mb-1.5 block text-sm font-extrabold text-brown">Dog&apos;s name</label>
           <input
             id="dog-name"
             ref={nameRef}
@@ -1047,13 +1049,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             maxLength={PROFILE_TEXT_LIMITS.name}
             autoCapitalize="words"
             placeholder="e.g. Kaju"
-            className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+            className="w-full rounded-xl border-2 border-ink bg-white px-4 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary"
           />
           {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
         </div>
 
         <div>
-          <label htmlFor="dog-breed" className="mb-1.5 block text-sm font-semibold text-brown-mid">Breed</label>
+          <label htmlFor="dog-breed" className="mb-1.5 block text-sm font-extrabold text-brown">Breed</label>
           <input
             id="dog-breed"
             ref={breedRef}
@@ -1063,7 +1065,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             maxLength={PROFILE_TEXT_LIMITS.breed}
             autoCapitalize="words"
             placeholder="e.g. Golden Retriever, Dachshund Mix"
-            className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+            className="w-full rounded-xl border-2 border-ink bg-white px-4 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary"
           />
           <datalist id="breed-list">
             {BREEDS.map((breedOption) => (
@@ -1076,7 +1078,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div ref={ageRef} tabIndex={-1}>
-          <label id="dog-age-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Age</label>
+          <label id="dog-age-label" className="mb-1.5 block text-sm font-extrabold text-brown">Age</label>
           <div className="flex gap-2" role="group" aria-labelledby="dog-age-label">
             {AGE_OPTIONS.map((option) => (
               <button
@@ -1095,7 +1097,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div ref={sexRef} tabIndex={-1}>
-          <label id="dog-sex-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Sex</label>
+          <label id="dog-sex-label" className="mb-1.5 block text-sm font-extrabold text-brown">Sex</label>
           <div className="flex gap-3" role="radiogroup" aria-labelledby="dog-sex-label">
             {([
               { value: 'M', label: 'Male' },
@@ -1103,10 +1105,10 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             ] as const).map((option) => (
               <label
                 key={option.value}
-                className={`flex-1 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                className={`flex min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-full border-2 px-4 py-2.5 text-sm font-extrabold transition-colors ${
                   sex === option.value
-                    ? 'border-primary bg-primary/10 text-rose'
-                    : 'border-border bg-white text-brown-mid'
+                    ? 'border-ink bg-ink text-cream'
+                    : 'border-ink bg-cream text-brown'
                 }`}
               >
                 <input
@@ -1125,7 +1127,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div ref={sizeRef} tabIndex={-1}>
-          <label id="dog-size-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Size</label>
+          <label id="dog-size-label" className="mb-1.5 block text-sm font-extrabold text-brown">Size</label>
           <div className="flex gap-2" role="group" aria-labelledby="dog-size-label">
             {SIZES.map((option) => (
               <button
@@ -1141,9 +1143,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           </div>
           {errors.size && <p className="mt-1 text-xs text-red-500">{errors.size}</p>}
         </div>
+        </section>
 
+        <section className="card flex flex-col gap-5 p-4" aria-label="Personality">
+          <h3 className="-mb-2 font-display text-xl text-brown">Personality</h3>
         <div>
-          <label htmlFor="dog-energy" className="mb-1.5 block text-sm font-semibold text-brown-mid">
+          <label htmlFor="dog-energy" className="mb-1.5 block text-sm font-extrabold text-brown">
             Energy level{' '}
             {energySource === 'none' ? (
               <span className="font-bold text-brown-light">not set yet</span>
@@ -1203,7 +1208,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label id="dog-temperament-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
+          <label id="dog-temperament-label" className="mb-1.5 block text-sm font-extrabold text-brown">
             Temperament <span className="font-normal text-brown-light">(pick any)</span>
           </label>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-temperament-label">
@@ -1223,7 +1228,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         <div>
-          <label id="dog-playstyle-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
+          <label id="dog-playstyle-label" className="mb-1.5 block text-sm font-extrabold text-brown">
             Play style <span className="font-normal text-brown-light">(pick any)</span>
           </label>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-playstyle-label">
@@ -1241,19 +1246,21 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           </div>
         </div>
 
+        </section>
+
         {/* Safety screening — what the matching engine reads against every other
             dog (size, age, energy, play style). Optional on purpose: most dogs
             have nothing to declare, and forcing a choice would push people to
             click something untrue. */}
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
-          <p className="text-sm font-bold text-brown">Safety</p>
+        <div className="card p-4">
+          <h3 className="font-display text-xl text-brown">Safety</h3>
           <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
             Other owners see these on your dog&apos;s card in your name (&ldquo;{name.trim() || 'Your dog'}&apos;s
             owner prefers no puppies&rdquo;), and the app ranks dogs that clash with them lower. Nobody
             verifies them. Skip anything that doesn&apos;t apply.
           </p>
 
-          <label id="dog-notgoodwith-label" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label id="dog-notgoodwith-label" className="mt-3 mb-1.5 block text-xs font-extrabold text-brown">
             Not a good match with
           </label>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-notgoodwith-label">
@@ -1270,7 +1277,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             ))}
           </div>
 
-          <label id="dog-behavior-label" className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label id="dog-behavior-label" className="mt-4 mb-1.5 block text-xs font-extrabold text-brown">
             Good to know before meeting
           </label>
           <div className="flex flex-wrap gap-2" role="group" aria-labelledby="dog-behavior-label">
@@ -1288,8 +1295,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           </div>
         </div>
 
-        <div>
-          <label id="dog-location-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">Location</label>
+        <div className="card p-4">
+          <label id="dog-location-label" className="mb-2 block font-display text-xl text-brown">Location</label>
           <div className="flex flex-col gap-2" role="group" aria-labelledby="dog-location-label">
             <input
               ref={zipRef}
@@ -1299,13 +1306,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               maxLength={PROFILE_TEXT_LIMITS.zip}
               inputMode="numeric"
               placeholder="ZIP code"
-              className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              className="w-full rounded-xl border-2 border-ink bg-white px-4 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary"
             />
             {errors.zip && <p className="-mt-1 text-xs text-red-500">{errors.zip}</p>}
             <div className="flex items-center gap-2 text-xs text-brown-light">
-              <span className="h-px flex-1 bg-border" />
-              <span>or</span>
-              <span className="h-px flex-1 bg-border" />
+              <span className="h-0.5 flex-1 bg-ink/20" />
+              <span className="font-bold">or</span>
+              <span className="h-0.5 flex-1 bg-ink/20" />
             </div>
             <div className="flex gap-2">
               <input
@@ -1316,13 +1323,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               maxLength={PROFILE_TEXT_LIMITS.city}
               autoCapitalize="words"
               placeholder="City or neighborhood"
-              className="min-w-0 flex-1 rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary"
+              className="min-w-0 flex-1 rounded-xl border-2 border-ink bg-white px-4 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary"
             />
             <select
               ref={stateRef}
               value={usState}
               onChange={(e) => setUsState(e.target.value)}
-              className="w-24 appearance-none rounded-xl border border-border bg-white px-2 py-2.5 text-center text-sm text-brown outline-none transition-colors focus:border-primary"
+              className="w-24 appearance-none rounded-xl border-2 border-ink bg-white px-2 py-2.5 text-center text-base text-brown outline-none transition-colors focus:border-primary"
               aria-label="State"
             >
               <option value="">State</option>
@@ -1344,15 +1351,15 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             won&apos;t see {name.trim() ? `${name.trim()}'s` : 'your'} profile.
           </p>
           {zip.trim() && !(city.trim() && usState.trim()) && (
-            <p role="status" className="mt-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] leading-snug text-amber-900">
+            <p role="status" className="mt-2 rounded-lg border-l-4 border-amber-spine bg-amber px-2.5 py-1.5 text-[11px] leading-snug text-amber-900">
               With only a ZIP, other dogs can&apos;t see this profile yet. Add a city and state to be discoverable.
             </p>
           )}
         </div>
 
-        <div ref={promptsRef} tabIndex={-1}>
-          <label id="dog-about-label" className="mb-1.5 block text-sm font-semibold text-brown-mid">
-            About your dog <span className="font-normal text-brown-light">(optional)</span>
+        <div ref={promptsRef} tabIndex={-1} className="card p-4">
+          <label id="dog-about-label" className="mb-2 block font-display text-xl text-brown">
+            About your dog <span className="font-body text-sm font-semibold text-brown-light">(optional)</span>
           </label>
           <div className="flex flex-col gap-3" role="group" aria-labelledby="dog-about-label">
             {prompts.map((prompt, i) => {
@@ -1360,7 +1367,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               const refused = !!errors.prompts && !!contentFilterError(prompt.answer);
               return (
                 <div key={prompt.prompt}>
-                  <p className="mb-1 text-xs text-brown-light">{prompt.prompt}</p>
+                  <p className="mb-1 text-xs font-bold text-brown-mid">{prompt.prompt}</p>
                   <input
                     aria-label={prompt.prompt}
                     value={prompt.answer}
@@ -1368,8 +1375,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                     maxLength={PROFILE_TEXT_LIMITS.promptAnswer}
                     placeholder="Your answer…"
                     aria-invalid={refused}
-                    className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
-                      refused ? 'border-red-400' : 'border-border'
+                    className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary ${
+                      refused ? 'border-red-500' : 'border-ink'
                     }`}
                   />
                 </div>
@@ -1387,13 +1394,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             boarding, daycare, grooming and lease check-in. Optional: with no
             date, everything downstream degrades to an attributed "owner
             marked …" or an honest blank — never a verification. */}
-        <div className="rounded-2xl border border-border bg-white p-4">
-          <p className="text-sm font-bold text-brown">Vaccination</p>
+        <div className="card p-4">
+          <h3 className="font-display text-xl text-brown">Vaccination</h3>
           <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
             Nobody verifies any of this. Other owners see it attributed to you, exactly as you enter it.
           </p>
 
-          <label htmlFor="rabies-expiry" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label htmlFor="rabies-expiry" className="mt-3 mb-1.5 block text-xs font-extrabold text-brown">
             Rabies expiry date <span className="font-normal text-brown-light">(optional)</span>
           </label>
           {/* Masked text rather than <input type="date">: the native picker
@@ -1410,8 +1417,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             value={rabiesExpiry}
             onChange={(e) => handleDateInput(e, setRabiesExpiry)}
             aria-invalid={!!errors.rabiesExpiry}
-            className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
-              errors.rabiesExpiry ? 'border-red-400' : 'border-border'
+            className={`w-full rounded-xl border-2 bg-white px-4 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary ${
+              errors.rabiesExpiry ? 'border-red-500' : 'border-ink'
             }`}
           />
           <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
@@ -1420,7 +1427,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           </p>
           {errors.rabiesExpiry && <p className="mt-1 text-xs text-red-500">{errors.rabiesExpiry}</p>}
 
-          <label id="dog-vaccinated-label" className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label id="dog-vaccinated-label" className="mt-4 mb-1.5 block text-xs font-extrabold text-brown">
             No certificate handy?
           </label>
           <div className="flex gap-3" role="group" aria-labelledby="dog-vaccinated-label">
@@ -1433,12 +1440,12 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 // "unanswered" is the whole point of this field now.
                 onClick={() => setVaccinated(vaccinated === value ? null : value)}
                 aria-pressed={vaccinated === value}
-                className={`flex-1 rounded-xl border-2 py-2.5 text-sm font-semibold transition-colors ${
+                className={`min-h-[44px] flex-1 rounded-full border-2 py-2.5 text-sm font-extrabold transition-colors ${
                   vaccinated === value
                     ? value
-                      ? 'border-primary bg-primary/10 text-rose'
-                      : 'border-amber-400 bg-amber-50 text-amber-700'
-                    : 'border-border bg-white text-brown-mid'
+                      ? 'border-ink bg-ink text-cream'
+                      : 'border-ink bg-amber text-brown'
+                    : 'border-ink bg-cream text-brown'
                 }`}
               >
                 {value ? 'Vaccinated' : 'Not currently'}
@@ -1459,14 +1466,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
 
         {/* Birthday & milestones — all optional, none gate swiping. Powers the
             life-stage read and the birthday / Gotcha Day celebration cards. */}
-        <div className="rounded-2xl border border-border bg-white p-4">
-          <p className="text-sm font-bold text-brown">🎂 Birthday &amp; milestones</p>
+        <div className="card p-4">
+          <h3 className="font-display text-xl text-brown">🎂 Birthday &amp; milestones</h3>
           <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
             Optional — unlocks {name.trim() || 'your dog'}&apos;s life stage plus birthday and Gotcha Day
             celebrations.
           </p>
 
-          <label htmlFor="birth-date" className="mt-3 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label htmlFor="birth-date" className="mt-3 mb-1.5 block text-xs font-extrabold text-brown">
             🎂 Birthday
           </label>
           <input
@@ -1479,13 +1486,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             value={birthDate}
             onChange={(e) => handleDateInput(e, setBirthDate)}
             aria-invalid={!!errors.birthDate}
-            className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
-              errors.birthDate ? 'border-red-400' : 'border-border'
+            className={`w-full rounded-xl border-2 bg-white px-3 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary ${
+              errors.birthDate ? 'border-red-500' : 'border-ink'
             }`}
           />
           {errors.birthDate && <p className="mt-1 text-xs text-red-500">{errors.birthDate}</p>}
 
-          <label htmlFor="gotcha-date" className="mt-4 mb-1.5 block text-xs font-semibold text-brown-mid">
+          <label htmlFor="gotcha-date" className="mt-4 mb-1.5 block text-xs font-extrabold text-brown">
             🏡 Gotcha Day <span className="font-normal text-brown-light">(the day they came home)</span>
           </label>
           <input
@@ -1498,8 +1505,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             value={adoptionDateInput}
             onChange={(e) => handleDateInput(e, setAdoptionDateInput)}
             aria-invalid={!!errors.adoptionDate}
-            className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-brown outline-none transition-colors focus:border-primary ${
-              errors.adoptionDate ? 'border-red-400' : 'border-border'
+            className={`w-full rounded-xl border-2 bg-white px-3 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary ${
+              errors.adoptionDate ? 'border-red-500' : 'border-ink'
             }`}
           />
           {errors.adoptionDate && <p className="mt-1 text-xs text-red-500">{errors.adoptionDate}</p>}
@@ -1511,9 +1518,9 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         </div>
 
         {!complete && (
-          <div className="rounded-2xl bg-cream-dark px-4 py-3 text-sm text-brown-mid">
-            <p className="mb-1 font-semibold">To unlock swiping, add:</p>
-            <ul className="space-y-0.5 text-xs text-brown-light">
+          <div className="rounded-2xl border-2 border-ink bg-cream-dark px-4 py-3 text-sm text-brown">
+            <p className="mb-1 font-extrabold">To unlock swiping, add:</p>
+            <ul className="space-y-0.5 text-xs font-semibold text-brown-mid">
               {photos.length < 3 && <li>• At least 3 photos ({photos.length}/3)</li>}
               {!name.trim() && <li>• Dog&apos;s name</li>}
               {!breed.trim() && <li>• Breed</li>}
@@ -1538,7 +1545,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
         <button
           type="submit"
           disabled={isBusy}
-          className="btn-primary py-4 text-base disabled:opacity-40"
+          className="btn-primary py-4 disabled:opacity-40"
         >
           {uploading
             ? 'Uploading photos…'
@@ -1548,7 +1555,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             ? 'Save & Start Swiping 🐾'
             : 'Save Profile'}
         </button>
-        <p className="-mt-2 text-center text-xs text-brown-light">
+        <p className="-mt-2 text-center text-xs font-semibold text-brown">
           {complete
             ? 'You can edit any of this later.'
             : 'Add the items above to save your profile and start matching.'}

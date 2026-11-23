@@ -144,7 +144,7 @@ export default function FunPage() {
                 Earn milestone titles and stickers you can stick on photos. Every number is a literal count of your own taps.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href="/app/fun/snoot" className="btn-primary inline-block px-5 py-2.5">Boop the snoot 🐽</Link>
+                <Link href="/app/fun/snoot" className="btn-secondary inline-block px-5 py-2.5">Boop the snoot 🐽</Link>
                 <Link href="/app/fun/sticker-studio" className="rounded-full border-2 border-brown px-5 py-2.5 text-sm font-bold text-brown hover:bg-cream-dark transition-colors motion-reduce:transition-none">🎨 Sticker Studio</Link>
               </div>
             </section>
