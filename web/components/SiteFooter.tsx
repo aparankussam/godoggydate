@@ -13,23 +13,23 @@ interface Props {
 
 export default function SiteFooter({ note }: Props) {
   return (
-    <footer className="border-t border-border py-8">
+    <footer className="border-t-[2.5px] border-brown bg-paper py-8">
       <div className="max-w-4xl mx-auto px-6 flex flex-col items-center gap-3 text-center">
-        <p className="text-sm text-brown-light">
+        <p className="text-sm text-brown-mid">
           © <CopyrightYear /> GoDoggyDate{note ? ` · ${note}` : ''}
         </p>
-        <p className="text-xs text-brown-light">
+        <p className="text-xs text-brown-mid">
           GoDoggyDate is operated by GoBots LLC ·{' '}
-          <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-rose transition-colors">
+          <a href="https://gobotsai.com" target="_blank" rel="noreferrer" className="hover:text-brown transition-colors">
             gobotsai.com
           </a>
         </p>
-        <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-brown-light">
-          <Link href="/support" className="py-2.5 hover:text-rose transition-colors">Support</Link>
-          <Link href="/terms" className="py-2.5 hover:text-rose transition-colors">Terms</Link>
-          <Link href="/privacy" className="py-2.5 hover:text-rose transition-colors">Privacy</Link>
-          <Link href="/playdate-safety" className="py-2.5 hover:text-rose transition-colors">Play or Fight?</Link>
-          <Link href="/delete-account" className="py-2.5 hover:text-rose transition-colors">Delete account</Link>
+        <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm text-brown-mid">
+          <Link href="/support" className="py-2.5 hover:text-brown transition-colors">Support</Link>
+          <Link href="/terms" className="py-2.5 hover:text-brown transition-colors">Terms</Link>
+          <Link href="/privacy" className="py-2.5 hover:text-brown transition-colors">Privacy</Link>
+          <Link href="/playdate-safety" className="py-2.5 hover:text-brown transition-colors">Play or Fight?</Link>
+          <Link href="/delete-account" className="py-2.5 hover:text-brown transition-colors">Delete account</Link>
         </nav>
       </div>
     </footer>
