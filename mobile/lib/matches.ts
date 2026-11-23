@@ -12,6 +12,7 @@ import {
   setDoc,
   where,
 } from 'firebase/firestore';
+import { discoverFromItems } from './dogtypeDiscovery';
 import { getOtherDogId, isMatchUnread } from './firestoreData';
 import { getFirebase } from './firebase';
 import { isUserChatUnlocked } from '../../shared/matchAccess';
@@ -354,7 +355,9 @@ export async function fetchMatches(userId: string): Promise<MatchItem[]> {
       return normalizeMatchDoc(id, data, userId, dog, entitlements.lifetimeChatUnlocks);
     }),
   );
-  return normalized.sort(byLatestActivity);
+  const sorted = normalized.sort(byLatestActivity);
+  discoverFromItems(userId, sorted);
+  return sorted;
 }
 
 /**
@@ -431,7 +434,9 @@ export function subscribeMatches(
     );
 
     if (cancelled || run !== generation) return; // a newer snapshot already took over
-    onData(items.sort(byLatestActivity));
+    const sorted = items.sort(byLatestActivity);
+    discoverFromItems(userId, sorted);
+    onData(sorted);
   }
 
   const listen = (field: 'dog1UserId' | 'dog2UserId', slot: 0 | 1) =>
