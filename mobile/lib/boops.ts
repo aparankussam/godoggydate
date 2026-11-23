@@ -152,7 +152,7 @@ export async function loadBoops(dogId: string): Promise<BoopState> {
 }
 
 /**
- * All-time count only, for screens that show it (Reveal Explorer keys, earned
+ * All-time count only, for screens that show it (earned
  * stickers) without saving boops. Unlike loadBoops it doesn't move the Snoot
  * Boop screen's save baseline.
  */

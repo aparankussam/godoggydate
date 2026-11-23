@@ -26,10 +26,21 @@ import { CHAT_FREE_LAUNCH_MODE } from '../../shared/matchAccess';
 import { getVaccinationStatus, type SavedDogProfile } from '../../shared/profile';
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 import { PawIcon, PrimaryButton, SecondaryButton, SkyBackground, StickerDog, Tape } from './sticker';
+import DogtypeRevealCard, { type RevealVariant } from './DogtypeRevealCard';
 import { Dot, FIT_TONE_BG, fitShortLabel, fitTone } from './discover/DiscoverBits';
+
+export interface MatchReveal {
+  ownCode: string;
+  otherCode: string;
+  ownName: string;
+  discovered: number;
+  variant: RevealVariant;
+}
 
 interface Props {
   dog: DiscoverDog | null;
+  /** The Dogtype reveal for this match, when both types are known. */
+  reveal?: MatchReveal | null;
   matchId: string | null;
   /** The viewer's own dog, for the second polaroid. */
   viewer?: SavedDogProfile | null;
@@ -37,7 +48,7 @@ interface Props {
   onKeepSwiping: () => void;
 }
 
-export default function MatchModal({ dog, matchId, viewer, onSayHi, onKeepSwiping }: Props) {
+export default function MatchModal({ dog, matchId, viewer, reveal, onSayHi, onKeepSwiping }: Props) {
   const visible = dog !== null && matchId !== null;
   return (
     <Modal
@@ -54,6 +65,7 @@ export default function MatchModal({ dog, matchId, viewer, onSayHi, onKeepSwipin
           key={`${matchId}:${dog.id}`}
           dog={dog}
           viewer={viewer ?? null}
+          reveal={reveal ?? null}
           onSayHi={onSayHi}
           onKeepSwiping={onKeepSwiping}
         />
@@ -65,11 +77,13 @@ export default function MatchModal({ dog, matchId, viewer, onSayHi, onKeepSwipin
 function MatchModalContent({
   dog,
   viewer,
+  reveal,
   onSayHi,
   onKeepSwiping,
 }: {
   dog: DiscoverDog;
   viewer: SavedDogProfile | null;
+  reveal: MatchReveal | null;
   onSayHi: () => void;
   onKeepSwiping: () => void;
 }) {
@@ -198,6 +212,19 @@ function MatchModalContent({
           </View>
         )}
 
+        {/* Dogtype reveal: after the fit sticker on a normal pairing; a blocked
+            pairing reads the safety slip first (below). */}
+        {!isBlocked && reveal && (
+          <DogtypeRevealCard
+            ownName={reveal.ownName}
+            ownCode={reveal.ownCode}
+            otherName={dog.name}
+            otherCode={reveal.otherCode}
+            discovered={reveal.discovered}
+            variant={reveal.variant}
+          />
+        )}
+
         {/* Before you meet: calm slip, owner-attributed */}
         <View style={styles.slip}>
           <Text style={styles.slipTitle}>{isBlocked ? 'Why this pairing needs care' : 'Before you meet'}</Text>
@@ -243,6 +270,17 @@ function MatchModalContent({
           </Pressable>
           {showBreakdown && <CompatBreakdown breakdown={dog.compat.breakdown} score={dog.compat.score} />}
         </View>
+
+        {isBlocked && acknowledged && reveal && (
+          <DogtypeRevealCard
+            ownName={reveal.ownName}
+            ownCode={reveal.ownCode}
+            otherName={dog.name}
+            otherCode={reveal.otherCode}
+            discovered={reveal.discovered}
+            variant={reveal.variant}
+          />
+        )}
 
         {/* CTAs: exactly one pink */}
         <View style={styles.ctas}>

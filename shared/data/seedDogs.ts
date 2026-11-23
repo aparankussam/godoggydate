@@ -83,7 +83,7 @@ export const SEED_DOGS: Omit<DogProfile, 'id' | 'ownerId' | 'trustScore' | 'tota
     goodWith: ['small dogs', 'medium dogs', 'large dogs', 'calm dogs', 'all dogs'],
     notGoodWith: [],
     playStyles: ['loves fetch 🎾', 'explorer 👃'],
-    temperament: ['Playful 🎮', 'Friendly 😊', 'Social butterfly 🦋'],
+    temperament: ['Playful 🎮', 'Friendly 😊', 'Loves every dog 🎉'],
     location: 'Williamsburg, Brooklyn',
     lat: 40.7081, lng: -73.9571,
     prompts: [
@@ -93,7 +93,7 @@ export const SEED_DOGS: Omit<DogProfile, 'id' | 'ownerId' | 'trustScore' | 'tota
     ],
     boundaries: [], allergies: [], specialNeeds: [], behaviorFlags: [],
     vaccinated: true, vetChecked: true, mode: 'playdate',
-    bio: 'Goofy mini dachshund who acts 10 feet tall. Social butterfly who loves belly scratches and anyone willing to play hide-and-seek with treats.',
+    bio: 'Goofy mini dachshund who acts 10 feet tall. Friend-to-all who loves belly scratches and anyone willing to play hide-and-seek with treats.',
   },
 
   // ── 🟢 Strong match: same breed group, similar energy ────────────────────
@@ -170,7 +170,7 @@ export const SEED_DOGS: Omit<DogProfile, 'id' | 'ownerId' | 'trustScore' | 'tota
     goodWith: ['small dogs', 'large dogs', 'puppies', 'high-energy dogs', 'all dogs'],
     notGoodWith: [],
     playStyles: ['loves fetch 🎾', 'high-energy runner ⚡'],
-    temperament: ['Friendly 😊', 'Playful 🎮', 'Social butterfly 🦋'],
+    temperament: ['Friendly 😊', 'Playful 🎮', 'Loves every dog 🎉'],
     location: 'West Village, Manhattan',
     lat: 40.7338, lng: -74.0058,
     prompts: [

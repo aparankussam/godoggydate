@@ -12,6 +12,7 @@ import ReportProfileMenu from './ReportProfileMenu';
 import { describeLimits } from '../../shared/utils/matchingEngine';
 import { dogFactsLine } from '../lib/packDayAttendees';
 import type { Attendee } from '../lib/packDayAttendees';
+import { temperamentLabel } from '../../shared/temperament';
 
 interface Props {
   attendee: Attendee;
@@ -43,7 +44,7 @@ export default function PackDayAttendeeCard({ attendee, eventId, isHost, isYou, 
   }, []);
 
   const facts = dogFactsLine(dog);
-  const temperament = (dog.temperament ?? []).filter((t): t is string => typeof t === 'string' && t.trim() !== '');
+  const temperament = (dog.temperament ?? []).filter((t): t is string => typeof t === 'string' && t.trim() !== '').map(temperamentLabel);
   const limits = describeLimits({ name: attendee.name, notGoodWith: dog.notGoodWith, behaviorFlags: dog.behaviorFlags });
 
   return (

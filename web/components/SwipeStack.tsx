@@ -15,6 +15,7 @@ import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 import { LimitsBlock } from './OwnerLimits';
 import { plain, FitSticker, PawIcon, PlaceTicket, Tape, fitTone, vaccinationLine } from './DiscoverBits';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
+import { uniqueTemperament } from '../../shared/temperament';
 
 interface FeedDog {
   id: string;
@@ -465,7 +466,7 @@ export default function SwipeStack({
                       <div className="flex flex-col gap-1.5">
                         {[
                           { label: 'Plays', items: selectedDog.playStyles ?? [] },
-                          { label: 'Is', items: selectedDog.temperament ?? [] },
+                          { label: 'Is', items: uniqueTemperament(selectedDog.temperament ?? []) },
                         ].filter((g) => g.items.length > 0).map((g) => (
                           <div key={g.label} className="flex items-start gap-1.5">
                             <span className="w-[34px] shrink-0 pt-1 text-xs font-black text-brown-mid">{g.label}</span>

@@ -15,7 +15,7 @@ import StoryShareCard, { shareOrDownloadStoryCard } from './StoryShareCard';
 import DogtypeReveal from './DogtypeReveal';
 import { feedback } from '../lib/feedback';
 import { computeDogtype } from '../../shared/dogtype';
-import CompatExplorer from './CompatExplorer';
+import DogtypeCollection from './DogtypeCollection';
 import ScaleToFit from './ScaleToFit';
 import { ShareIcon } from './StickerBits';
 
@@ -148,9 +148,8 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
         </button>
       </div>
 
-      {/* "Who does your dog get along with?" — tap-to-reveal explorer with a
-          real, widened-scope density count (replaces the old static list). */}
-      <CompatExplorer savedProfile={savedProfile} userId={userId} />
+      {/* The collection: names show only for types you've met by matching. */}
+      <DogtypeCollection savedProfile={savedProfile} userId={userId} />
 
       {/* How the type was read — the four real axes */}
       <button

@@ -9,6 +9,7 @@ import { colors, fonts, radius } from '../constants/theme';
 import { stripEmoji } from './pack/kit';
 import type { SavedDogProfile } from '../lib/profile';
 import { getVaccinationStatus } from '../../shared/profile';
+import { uniqueTemperament } from '../../shared/temperament';
 
 const SIZE_LABELS: Record<string, string> = {
   S: 'Small',
@@ -37,7 +38,8 @@ interface Row {
   value?: string;
 }
 
-export default function ProfileDetailsCard({ profile }: { profile: SavedDogProfile }) {
+/** hideIdentity drops name, breed, age and neighborhood: the summary card already shows them. */
+export default function ProfileDetailsCard({ profile, hideIdentity = false }: { profile: SavedDogProfile; hideIdentity?: boolean }) {
   // Honest tri-state, as on web: hide the row when vaccination was never
   // answered, and print the shared label verbatim (never re-cased).
   const vaccination = getVaccinationStatus(profile);
@@ -56,8 +58,9 @@ export default function ProfileDetailsCard({ profile }: { profile: SavedDogProfi
     { label: 'Neighborhood', value: neighborhood(profile) },
     { label: 'Vaccination', value: vaccination.tone === 'unstated' ? undefined : vaccination.label },
   ];
-  const visibleRows = rows.filter((row) => row.value);
-  const temperament = (profile.temperament ?? []).filter(Boolean);
+  const identity = new Set(['Name', 'Breed', 'Age', 'Neighborhood']);
+  const visibleRows = rows.filter((row) => row.value && !(hideIdentity && identity.has(row.label)));
+  const temperament = uniqueTemperament((profile.temperament ?? []).filter(Boolean));
   const playStyles = (Array.isArray(profile.playStyles) ? profile.playStyles : []).filter(Boolean);
 
   if (visibleRows.length === 0 && temperament.length === 0 && playStyles.length === 0) return null;

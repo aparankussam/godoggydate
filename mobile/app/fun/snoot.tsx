@@ -237,10 +237,10 @@ export default function SnootScreen() {
     const milestone = crossedMilestone(before, after);
     if (milestone) {
       // Persist the milestone count IMMEDIATELY, bypassing the 400ms debounce.
-      // A milestone crossing earns a Reveal Explorer key (lib/revealUnlocks), and
-      // the profile tab re-reads the boop count on focus — if the owner boops to
-      // a milestone and darts back within the debounce window, an un-flushed
-      // count would leave the just-earned match locked until the next focus.
+      // A milestone crossing earns a sticker, and the profile tab re-reads the
+      // boop count on focus — if the owner boops to a milestone and darts back
+      // within the debounce window, an un-flushed count would leave the
+      // just-earned sticker missing until the next focus.
       if (timer.current) { clearTimeout(timer.current); timer.current = null; }
       pending.current = null;
       void persistBoops(dogId, next);

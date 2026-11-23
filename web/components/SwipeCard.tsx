@@ -11,6 +11,7 @@ import ReportProfileMenu from './ReportProfileMenu';
 import { plain, FitSticker, PawIcon, PlaceTicket, TrustSlip } from './DiscoverBits';
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 import { ageLabel, sexLabel, sizeLabel } from '../lib/discover';
+import { temperamentLabel } from '../../shared/temperament';
 
 interface CardDog {
   ownerId?: string;
@@ -237,7 +238,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
   const distanceLabel = getLocationLabel(dog);
   const hasScore = dog.compat.score > 0;
   // One quiet line of what the owner listed: play styles first, then a temperament word.
-  const vibeLine = [...(dog.playStyles ?? []).slice(0, 2), ...(dog.temperament ?? []).slice(0, 1)].map(plain).join(' · ');
+  const vibeLine = [...(dog.playStyles ?? []).slice(0, 2), ...(dog.temperament ?? []).slice(0, 1).map(temperamentLabel)].map(plain).join(' · ');
   const factsLine = [dog.breed, [ageLabel(dog.age), sizeLabel(dog.size), sexLabel(dog.sex)].filter(Boolean).join(' · ')]
     .filter(Boolean)
     .join('  ·  ');

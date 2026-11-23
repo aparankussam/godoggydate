@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SiteFooter from '../../../components/SiteFooter';
 import { PawCoin } from '../../../components/StickerBits';
-import { DOGTYPE_CODES, dogtypeByCode, dogtypeBestMatches, dogtypeCodeDecode } from '../../../../shared/dogtype';
+import { DOGTYPE_CODES, dogtypeByCode } from '../../../../shared/dogtype';
 
 export const dynamic = 'force-static';
 
@@ -33,14 +33,15 @@ export function generateMetadata({ params }: PageProps): Metadata {
     openGraph: { title, description, type: 'website' },
     twitter: { card: 'summary_large_image', title, description },
     alternates: { canonical: `/dogtype/${type.code}` },
+    // Only a shared link should lead here: the other types stay a mystery,
+    // so these pages are not offered up by search.
+    robots: { index: false, follow: true },
   };
 }
 
 export default function DogtypePage({ params }: PageProps) {
   const type = dogtypeByCode(params.code);
   if (!type) notFound();
-
-  const bestMatches = dogtypeBestMatches(type.code, 3);
 
   return (
     <main className="min-h-screen">
@@ -92,26 +93,20 @@ export default function DogtypePage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* Plays well with */}
-      {bestMatches.length > 0 && (
-        <section className="max-w-4xl mx-auto px-6 py-6">
-          <h2 className="font-display text-2xl text-brown mb-1">Plays well with</h2>
-          <p className="text-sm font-semibold text-brown mb-4">
-            A playful read from the types — real matches get worked out dog-by-dog in the app.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {bestMatches.map((t) => (
-              <Link
-                key={t.code}
-                href={`/dogtype/${t.code}`}
-                className="chip text-sm py-2.5"
-              >
-                {t.emoji} {t.name}
-              </Link>
+      {/* The rest stay a mystery */}
+      <section className="max-w-4xl mx-auto px-6 py-6">
+        <div className="rounded-2xl border-2 border-brown p-4" style={{ background: '#DCEEFB' }}>
+          <h2 className="font-display text-2xl text-brown">15 more Dogtypes are out there</h2>
+          <div aria-hidden="true" className="mt-3 grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1">
+            {Array.from({ length: 15 }, (_, i) => (
+              <span key={i} className="h-3.5 rounded border-2 border-dashed border-brown-mid" />
             ))}
           </div>
-        </section>
-      )}
+          <p className="mt-3 text-sm font-semibold text-brown">
+            You only meet them by matching. Find your dog&apos;s type, then start swiping to see who&apos;s out there.
+          </p>
+        </div>
+      </section>
 
       {/* CTA */}
       <section className="bg-brown py-16 mt-6">
@@ -125,30 +120,8 @@ export default function DogtypePage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* All 16 */}
-      <section className="max-w-4xl mx-auto px-6 py-12">
-        <h2 className="font-display text-2xl text-brown mb-4">All 16 Dogtypes</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {DOGTYPE_CODES.map((code) => {
-            const t = dogtypeByCode(code);
-            if (!t) return null;
-            const active = code === type.code;
-            const decode = dogtypeCodeDecode(code);
-            return (
-              <Link
-                key={code}
-                href={`/dogtype/${code}`}
-                title={decode ?? undefined}
-                className={`rounded-xl border-2 p-3 text-center transition-all ${
-                  active ? 'border-brown bg-gold-light' : 'border-brown bg-paper hover:brightness-95'
-                }`}
-              >
-                <div className="text-2xl" aria-hidden="true">{t.emoji}</div>
-                <p className="mt-1 text-xs font-bold text-brown leading-tight">{t.name}</p>
-              </Link>
-            );
-          })}
-        </div>
+      <section className="max-w-4xl mx-auto px-6 pb-12">
+        <Link href="/app?from=dogtype" className="btn-secondary inline-flex">Join GoDoggyDate</Link>
       </section>
 
       <SiteFooter note="Dogtype is a playful personality read, not a clinical test." />

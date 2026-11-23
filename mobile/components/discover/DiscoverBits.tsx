@@ -11,6 +11,7 @@ import { getVaccinationStatus } from '../../../shared/profile';
 import { formatDistanceMiles } from '../../../shared/utils/matchingEngine';
 import type { CompatibilityResult } from '../../../shared/types';
 import type { DiscoverDog } from '../../lib/discover';
+import { temperamentLabel } from '../../../shared/temperament';
 
 const INK = colors.ink;
 
@@ -50,7 +51,7 @@ export function factsLine(dog: Pick<DiscoverDog, 'breed' | 'age' | 'size' | 'sex
 
 /** One quiet line of what the owner listed: play styles first, then a temperament word. */
 export function playsLine(dog: Pick<DiscoverDog, 'playStyles' | 'temperament'>): string {
-  return [...(dog.playStyles ?? []).slice(0, 2), ...(dog.temperament ?? []).slice(0, 1)]
+  return [...(dog.playStyles ?? []).slice(0, 2), ...(dog.temperament ?? []).slice(0, 1).map(temperamentLabel)]
     .map(plain)
     .filter(Boolean)
     .join(' · ');

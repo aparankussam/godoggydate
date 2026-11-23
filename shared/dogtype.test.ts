@@ -6,6 +6,10 @@ import {
   dogtypeVibe,
   dogtypeRankedMatches,
   dogtypeBestMatches,
+  dogtypeCompat,
+  dogtypeReasons,
+  DOGTYPE_CODES,
+  dogtypeByCode,
 } from './dogtype.ts';
 
 test('dogtypeVibe still thresholds the same score it always did', () => {
@@ -54,4 +58,31 @@ test('the sort is stable/deterministic — same input, same order', () => {
 
 test('dogtypeBestMatches now returns the ranked types (best first)', () => {
   assert.deepEqual(dogtypeBestMatches('EROB', 5).map((t) => t.code), ['ZROM', 'ZRSM', 'ZGOM']);
+});
+
+test('dogtypeReasons: good minus care lines equals the match score for all 256 pairs', () => {
+  for (const a of DOGTYPE_CODES) for (const b of DOGTYPE_CODES) {
+    const r = dogtypeReasons(a, b);
+    const net = r.filter((x) => x.mark === 'good').length - r.filter((x) => x.mark === 'care').length;
+    assert.equal(net, dogtypeMatchScore(a, b), `${a} x ${b}`);
+  }
+});
+
+test('dogtypeReasons: EROB x EGOB gives good line first, then two care lines', () => {
+  const r = dogtypeReasons('EROB', 'EGOB');
+  assert.equal(r[0].text, 'Both love meeting new dogs, so the hello is easy.');
+  assert.deepEqual(r.map((x) => x.mark), ['good', 'care', 'care']);
+});
+
+test('dogtypeReasons: malformed codes give no lines', () => {
+  assert.deepEqual(dogtypeReasons('x', 'EROB'), []);
+});
+
+test('no reason or compat copy names a type', () => {
+  const names = DOGTYPE_CODES.map((c) => dogtypeByCode(c)!.name.replace(/^The /, '').toLowerCase());
+  for (const a of DOGTYPE_CODES) for (const b of DOGTYPE_CODES) {
+    const text = [...dogtypeReasons(a, b).map((x) => x.text), dogtypeCompat(a, b)!.headline, dogtypeCompat(a, b)!.note].join(' ').toLowerCase();
+    for (const n of names) assert.ok(!text.includes(n), `${a}x${b} mentions ${n}`);
+    assert.ok(!text.includes('butterfl'));
+  }
 });

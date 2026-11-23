@@ -1,4 +1,4 @@
-import { ActivityIndicator, Alert, Image, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
@@ -16,11 +16,10 @@ import ModerationNotice from '../../components/ModerationNotice';
 import ProfileDetailsCard from '../../components/ProfileDetailsCard';
 import EarnedStickers from '../../components/EarnedStickers';
 import HandoffCard from '../../components/HandoffCard';
-import DiptychSection, { shouldShowDiptych } from '../../components/DiptychSection';
-import DogTradingCard from '../../components/DogTradingCard';
+import TradingCardShare from '../../components/TradingCardShare';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import { colors, fonts } from '../../constants/theme';
-import { Gingham, Glyph, Heading, PaperButton, PinkButton, card as paperCard, stripEmoji } from '../../components/pack/kit';
+import { Gingham, Glyph, Heading, PaperButton, card as paperCard, stripEmoji } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
@@ -31,15 +30,15 @@ import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
 import PushPermissionCard from '../../components/PushPermissionCard';
 import DogtypeSection from '../../components/DogtypeSection';
-import CompatExplorer from '../../components/CompatExplorer';
+import DogtypeCollection from '../../components/DogtypeCollection';
 import LifeStageCard from '../../components/LifeStageCard';
 import MilestonesCard from '../../components/MilestonesCard';
-import LetterSection from '../../components/LetterSection';
 import ProUpsellCard from '../../components/ProUpsellCard';
 import { captureAndShare } from '../../lib/shareCard';
-import { dogPageUrl, webUrl } from '../../lib/webLinks';
+import { webUrl } from '../../lib/webLinks';
 import type { Reminder } from '../../../shared/types';
 import { foundingBadgeLabel } from '../../../shared/founding';
+import { computeDogtype } from '../../../shared/dogtype';
 
 function openWebLink(url: string) {
   Linking.openURL(url).catch(() => {
@@ -66,19 +65,24 @@ interface OptimisticCover {
   focusY: number;
 }
 
+type ProfileSection = 'about' | 'dates' | 'dogtype' | 'care';
+const SECTION_LABELS: Record<ProfileSection, string> = { about: 'About', dates: 'Dates', dogtype: 'Dogtype', care: 'Care' };
+
 export default function ProfileTab() {
   const { user, profile, profileComplete, saveProfile, refreshProfile, signOutUser, loading: sessionLoading } = useSession();
   // Deep link into the editor: router.push('/(tabs)/profile?edit=1'), with
   // '&section=safety' (or 'birthday') to open it scrolled to that section.
   // The Today panel's nudges use it.
-  const params = useLocalSearchParams<{ edit?: string | string[]; section?: string | string[] }>();
+  const params = useLocalSearchParams<{ edit?: string | string[]; section?: string | string[]; tab?: string | string[] }>();
+  const tabParam = firstParam(params.tab);
+  const initialSection: ProfileSection =
+    tabParam === 'dates' || tabParam === 'dogtype' || tabParam === 'care' ? tabParam : 'about';
   const editParam = firstParam(params.edit);
   const sectionParam = firstParam(params.section);
   const [editing, setEditing] = useState(false);
   const [editSection, setEditSection] = useState<ProfileEditorSection | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [sharingCard, setSharingCard] = useState(false);
   const [sharingHandoff, setSharingHandoff] = useState(false);
   const [coverSheetOpen, setCoverSheetOpen] = useState(false);
   const pro = useProEntitlement(user?.uid);
@@ -88,6 +92,11 @@ export default function ProfileTab() {
   const [bestFriendMatchId, setBestFriendMatchId] = useState<string | null>(null);
   const [bestFriendName, setBestFriendName] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
+  const [section, setSection] = useState<ProfileSection>(initialSection);
+  const [sheet, setSheet] = useState<'share' | 'settings' | null>(null);
+  useEffect(() => {
+    if (tabParam === 'about' || tabParam === 'dates' || tabParam === 'dogtype' || tabParam === 'care') setSection(tabParam);
+  }, [tabParam]);
   // Optimistic cover (index + focal point) so the "★ Cover" indicator and the
   // crop move the instant they're set, without waiting on the Firestore
   // round-trip / session refresh. Cleared when the editor saves, which writes
@@ -98,7 +107,6 @@ export default function ProfileTab() {
   // The photo index to snap back to on blur (the starred cover). Kept current
   // each render so the focus-effect teardown can read it without unstable deps.
   const coverResetRef = useRef(0);
-  const cardRef = useRef<View>(null);
   const handoffRef = useRef<View>(null);
   // Lets an upsell nudge scroll straight to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
@@ -211,29 +219,6 @@ export default function ProfileTab() {
     })();
     return () => { cancelled = true; };
   }, [user, bestFriendMatchId]);
-
-  async function handleShareCard() {
-    if (!cardRef.current || sharingCard || !user || !profile) return;
-    setSharingCard(true);
-    trackEvent('trading_card_share_click');
-    // Same caption as web's trading-card share, with the dog's public page so
-    // the person receiving it has something to tap.
-    const dogName = profile.name?.trim() || 'my dog';
-    const pronoun = profile.sex === 'F' ? 'her' : profile.sex === 'M' ? 'his' : 'their';
-    const result = await captureAndShare(
-      cardRef,
-      `${dogName.toLowerCase().replace(/\s+/g, '-')}-godoggydate-card.png`,
-      `${dogName} on GoDoggyDate`,
-      {
-        caption: `That's ${dogName} on GoDoggyDate — see ${pronoun} page:`,
-        url: dogPageUrl(profile.name ?? '', user.uid),
-      },
-    );
-    if (result === 'shared') trackEvent('trading_card_shared', { method: 'native_share' });
-    if (result === 'unavailable') Alert.alert('Sharing unavailable', 'This device can’t share files right now.');
-    if (result === 'error') Alert.alert('Could not share card', 'Please try again in a moment.');
-    setSharingCard(false);
-  }
 
   function openEditor(section?: ProfileEditorSection) {
     setEditSection(section);
@@ -385,6 +370,7 @@ export default function ProfileTab() {
     );
   }
 
+  const ownType = computeDogtype(profile);
   const photos = (profile.photos ?? []).filter((photo: string) => photo && !photo.startsWith('_'));
   // Clamp so a stale index (after a photo is removed) never reads undefined.
   const safeActive = photos.length > 0 ? Math.min(activePhoto, photos.length - 1) : 0;
@@ -413,10 +399,27 @@ export default function ProfileTab() {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >
-        <Text style={styles.title}>Profile</Text>
-        <Text style={styles.subtitle}>
-          {profileComplete ? 'Your profile is ready — start discovering nearby pups.' : "Complete your dog's profile to start discovering nearby pups."}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Profile</Text>
+          <View style={styles.titleButtons}>
+            <Pressable
+              style={styles.iconButton}
+              accessibilityRole="button"
+              accessibilityLabel="Share the card and public page"
+              onPress={() => setSheet('share')}
+            >
+              <Glyph name="export-variant" size={20} />
+            </Pressable>
+            <Pressable
+              style={styles.iconButton}
+              accessibilityRole="button"
+              accessibilityLabel="Settings and account"
+              onPress={() => setSheet('settings')}
+            >
+              <Glyph name="cog" size={20} />
+            </Pressable>
+          </View>
+        </View>
 
         {/* E5: shown only while the server's notice doc exists. A new notice
             means the server just cleared text on the dog doc, so re-read it. */}
@@ -427,6 +430,7 @@ export default function ProfileTab() {
           onNotice={() => { refreshProfile().catch(() => {}); }}
         />
 
+        {/* One summary: the cover, who they are, and what's true about them. */}
         <View style={styles.card}>
           {photos[safeActive] ? (
             <Pressable
@@ -445,6 +449,86 @@ export default function ProfileTab() {
             </Pressable>
           ) : null}
           <View style={styles.cardBody}>
+            <View style={styles.nameRow}>
+              <Text style={[styles.name, styles.nameFlex]} numberOfLines={1}>{profile.name}</Text>
+              <PaperButton small icon="pencil" label="Edit" onPress={() => openEditor()} accessibilityLabel="Edit profile" />
+            </View>
+            <Text style={styles.meta}>
+              {[profile.breed, profile.age, profile.sex, profile.location].filter(Boolean).join(' · ')}
+            </Text>
+            <View style={styles.statusBadgeRow}>
+              {ownType && (
+                <View style={styles.typeChip}>
+                  <Glyph name="star-four-points" size={13} color={colors.rose} />
+                  <Text style={styles.typeChipText}>{ownType.name}</Text>
+                </View>
+              )}
+                {(typeof profile.foundingPackNumber === 'number' || pro.isFounding) && (
+                  <View style={styles.memberBadge}>
+                    <Glyph name="star" size={14} color={colors.cream} />
+                    <Text style={styles.memberBadgeText}>{stripEmoji(foundingBadgeLabel(profile.foundingPackNumber))}</Text>
+                  </View>
+                )}
+                {(profile.ratingCount ?? 0) > 0 && (
+                  <View style={styles.trustBadge}>
+                    <Glyph name="paw" size={14} />
+                    <Text style={styles.trustBadgeText}>
+                      {Math.round((profile.meetAgainRate ?? 0) * 100)}% would meet again
+                      <Text style={styles.trustBadgeSubtext}>
+                        {' '}({profile.ratingCount} playdate{profile.ratingCount === 1 ? '' : 's'})
+                      </Text>
+                    </Text>
+                  </View>
+                )}
+                {bestFriendName && (
+                  <View style={styles.bestFriendBadge}>
+                    <Glyph name="star" size={14} />
+                    <Text style={styles.bestFriendBadgeText}>Best Friends with {bestFriendName}</Text>
+                  </View>
+                )}
+            </View>
+            <View style={styles.badgeRow}>
+              <Glyph name={profileComplete ? 'check-circle' : 'progress-pencil'} size={16} />
+              <Text style={styles.badge}>
+                {profileComplete ? 'Showing in Discover' : 'Profile still needs a few details'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sectionMenu} accessibilityRole="tablist">
+          {(['about', 'dates', 'dogtype', 'care'] as const).map((key) => (
+            <Pressable
+              key={key}
+              style={[styles.menuItem, section === key && styles.menuItemActive]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: section === key }}
+              onPress={() => setSection(key)}
+            >
+              <Text style={[styles.menuText, section === key && styles.menuTextActive]}>{SECTION_LABELS[key]}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {section === 'about' && (
+          <>
+            {profile.ai?.vibeCheck?.bio && (
+              <>
+                <Text style={styles.vibeBioLabel}>Written by AI from their photos</Text>
+                <Text style={styles.vibeBio}>“{profile.ai.vibeCheck.bio}”</Text>
+              </>
+            )}
+
+            {profile.ai?.vibeCheck?.archetype && (
+              <View style={styles.vibeTypeCardWrap}>
+                <VibeTypeCard archetype={profile.ai.vibeCheck.archetype} />
+              </View>
+            )}
+
+            <ProfileDetailsCard profile={profile} hideIdentity />
+            <LifeStageCard savedProfile={profile} onEditProfile={() => openEditor('birthday')} />
+            <View style={styles.photosBlock}>
+              <Heading size={22}>Photos</Heading>
             {/* Tap a thumbnail to make it the main photo. Shows ALL photos so
                 photo 0 stays re-selectable; the active one is highlighted. */}
             {photos.length > 1 && (
@@ -501,90 +585,20 @@ export default function ProfileTab() {
                 />
               )
             )}
-            {/* Vibe Check generates a named archetype and a bio in the dog's
-                own voice — already loaded into memory here (profile.ai)
-                since the onboarding flow shipped, and rendered nowhere on
-                the one screen an owner actually looks at their own dog's
-                profile. */}
-            {profile.ai?.vibeCheck?.archetype.name && (
-              <View style={styles.archetypeRow}>
-                <Glyph name="star-four-points" size={14} color={colors.rose} />
-                <Text style={styles.archetype}>{profile.ai.vibeCheck.archetype.name}</Text>
-              </View>
-            )}
-            <Text style={styles.name}>{profile.name}</Text>
-            <Text style={styles.meta}>
-              {[profile.breed, profile.age, profile.sex, profile.location].filter(Boolean).join(' · ')}
-            </Text>
-            <View style={styles.badgeRow}>
-              <Glyph name={profileComplete ? 'check-circle' : 'progress-pencil'} size={16} />
-              <Text style={styles.badge}>
-                {profileComplete ? 'Ready for mobile discover' : 'Profile still needs a few details'}
-              </Text>
             </View>
-            {profile.ai?.vibeCheck?.bio && (
-              <>
-                <Text style={styles.vibeBioLabel}>Written by AI from their photos</Text>
-                <Text style={styles.vibeBio}>“{profile.ai.vibeCheck.bio}”</Text>
-              </>
-            )}
+          </>
+        )}
 
-            {/* Full type card: decodes the archetype code and surfaces the
-                per-dog description the model writes — previously only the
-                name rendered anywhere, in the compact eyebrow above. */}
-            {profile.ai?.vibeCheck?.archetype && (
-              <View style={styles.vibeTypeCardWrap}>
-                <VibeTypeCard archetype={profile.ai.vibeCheck.archetype} />
-              </View>
-            )}
-
-            {/* Founding Member + trust badges — computed server-side. One
-                founding badge whether the spot was free (#1–50) or bought
-                (#51–150); a member who bought before the ladder may have no
-                number. No raw trust score (0-1 reads as a public rating); a
-                positive "would meet again" rate instead. */}
-            {(typeof profile.foundingPackNumber === 'number' || (profile.ratingCount ?? 0) > 0 || pro.isFounding || bestFriendName) && (
-              <View style={styles.statusBadgeRow}>
-                {(typeof profile.foundingPackNumber === 'number' || pro.isFounding) && (
-                  <View style={styles.memberBadge}>
-                    <Glyph name="star" size={14} color={colors.cream} />
-                    <Text style={styles.memberBadgeText}>{stripEmoji(foundingBadgeLabel(profile.foundingPackNumber))}</Text>
-                  </View>
-                )}
-                {(profile.ratingCount ?? 0) > 0 && (
-                  <View style={styles.trustBadge}>
-                    <Glyph name="paw" size={14} />
-                    <Text style={styles.trustBadgeText}>
-                      {Math.round((profile.meetAgainRate ?? 0) * 100)}% would meet again
-                      <Text style={styles.trustBadgeSubtext}>
-                        {' '}({profile.ratingCount} playdate{profile.ratingCount === 1 ? '' : 's'})
-                      </Text>
-                    </Text>
-                  </View>
-                )}
-                {bestFriendName && (
-                  <View style={styles.bestFriendBadge}>
-                    <Glyph name="star" size={14} />
-                    <Text style={styles.bestFriendBadgeText}>Best Friends with {bestFriendName}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* E3: Day 1 vs Day N. Same rule and place as web: any saved profile
-            with two or more real photos, after the photo strip and before the
-            details card. */}
-        {shouldShowDiptych(profile) && <DiptychSection savedProfile={profile} />}
-
-        {/* C7: the dog field by field, as on web's profile page. */}
-        <ProfileDetailsCard profile={profile} />
-
-        {/* ── The Gen-Z viral layer: identity → invite → daily → life ──────── */}
-        {user && profile && (
+        {section === 'dates' && (
           <>
-            <Heading size={24} style={styles.sectionLabel}>{profile.name}&apos;s world</Heading>
+            <PushPermissionCard />
+            <RemindersSection dogId={user.uid} reminders={reminders} />
+            <MilestonesCard savedProfile={profile} userId={user.uid} />
+          </>
+        )}
+
+        {section === 'dogtype' && (
+          <>
             <Pressable
               style={styles.revealCta}
               accessibilityRole="button"
@@ -603,45 +617,13 @@ export default function ProfileTab() {
               <Glyph name="chevron-right" size={26} />
             </Pressable>
             <DogtypeSection savedProfile={profile} />
-            {/* C5: stickers unlocked by booping; renders nothing until one is. */}
+            <DogtypeCollection savedProfile={profile} userId={user.uid} />
             <EarnedStickers dogId={user.uid} />
-            <CompatExplorer savedProfile={profile} userId={user.uid} />
-            <LifeStageCard savedProfile={profile} onEditProfile={() => openEditor('birthday')} />
-            <MilestonesCard savedProfile={profile} userId={user.uid} />
-            <LetterSection savedProfile={profile} userId={user.uid} />
-
-            {/* One entry to all the playful, shareable cards & games — they live
-                in the Playroom so the profile stays about the dog's life (mirrors
-                web, where /app/profile has a single Playroom card → /app/fun). */}
-            <Pressable
-              style={styles.playroomCard}
-              accessibilityRole="button"
-              accessibilityLabel="Open the Playroom — roasts, a letter in their voice, Wanted poster, Snoot Boop, Barkle and more"
-              onPress={() => { trackEvent('fun_open', { feature: 'playroom' }); router.push('/fun/playroom'); }}
-            >
-              <View style={styles.playroomHead}>
-                <View style={styles.revealIcon}><Glyph name="puzzle" size={20} /></View>
-                <View style={styles.revealBody}>
-                  <Text style={styles.playroomEyebrow}>The Playroom</Text>
-                  <Text style={styles.playroomTitle}>Playful cards and games</Text>
-                </View>
-              </View>
-              <Text style={styles.playroomDesc}>
-                Roasts, a letter in {profile.name?.trim() || 'your dog'}’s voice, a Wanted poster, Snoot Boop,
-                the daily Barkle puzzle, and more — all built from their profile.
-              </Text>
-              <View style={styles.playroomCtaRow}>
-                <Text style={styles.playroomCta}>Open the Playroom</Text>
-                <Glyph name="chevron-right" size={20} />
-              </View>
-            </Pressable>
           </>
         )}
 
-        {user && profile && <Heading size={24} style={styles.sectionLabel}>Care and household</Heading>}
-        {user && profile && <PushPermissionCard />}
-        {user && profile && <RemindersSection dogId={user.uid} reminders={reminders} />}
-
+        {section === 'care' && (
+          <>
         {/* C2: the care sheet for a sitter or walker. Not gated on a complete
             profile, as on web: it has nothing to do with swiping. */}
         {user && profile && (
@@ -670,6 +652,23 @@ export default function ProfileTab() {
           />
         )}
 
+          </>
+        )}
+      </ScrollView>
+
+      <Modal visible={sheet !== null} animationType="slide" onRequestClose={() => setSheet(null)}>
+        <SafeAreaView style={styles.container}>
+          <Gingham />
+          <ScrollView contentContainerStyle={styles.content}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{sheet === 'share' ? 'Share' : 'Settings'}</Text>
+              <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Close" onPress={() => setSheet(null)}>
+                <Glyph name="close" size={20} />
+              </Pressable>
+            </View>
+            {sheet === 'share' && <TradingCardShare profile={profile} userId={user.uid} />}
+            {sheet === 'settings' && (
+              <>
         {/* goDoggyDate Pro — gated on !loading so a subscriber never sees the
             upsell flash before entitlements resolve. onLayout records the
             position so an upsell nudge can scroll here. */}
@@ -679,33 +678,6 @@ export default function ProfileTab() {
           </View>
         )}
 
-        {profileComplete && (
-          <View style={styles.tradingCardSection}>
-            <Heading size={22}>Your dog&apos;s card</Heading>
-            <View style={styles.tradingCardWrap}>
-              <DogTradingCard ref={cardRef} profile={profile} />
-            </View>
-            <PaperButton
-              icon="export-variant"
-              label={sharingCard ? 'Rendering…' : 'Share this card'}
-              accessibilityLabel="Share this card"
-              onPress={handleShareCard}
-              disabled={sharingCard}
-            />
-            {/* Mirrors web's "View <name>'s public page →" link under the card. */}
-            <Pressable
-              style={styles.publicPageLink}
-              accessibilityRole="link"
-              accessibilityLabel={`View ${profile.name}'s public page`}
-              onPress={() => openWebLink(dogPageUrl(profile.name ?? '', user.uid))}
-            >
-              <Text style={styles.publicPageText}>View {profile.name}&apos;s public page</Text>
-              <Glyph name="chevron-right" size={18} />
-            </Pressable>
-          </View>
-        )}
-
-        <Heading size={24} style={styles.sectionLabel}>Account</Heading>
         {/* Which account this is — guests have no email, so no row. */}
         {user.email ? (
           <View style={styles.accountRow}>
@@ -713,9 +685,6 @@ export default function ProfileTab() {
             <Text style={styles.accountEmail} numberOfLines={1} ellipsizeMode="middle">{user.email}</Text>
           </View>
         ) : null}
-        {/* The screen's ONE pink action. */}
-        <PinkButton label="Edit profile" icon="pencil" onPress={() => openEditor()} style={styles.primaryButton} />
-
         <PaperButton
           label="Sign out"
           icon="logout"
@@ -748,7 +717,11 @@ export default function ProfileTab() {
             <Text style={styles.legalLink}>Terms of Service</Text>
           </Pressable>
         </View>
-      </ScrollView>
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       {photos.length > 0 && (
         <CoverPhotoSheet
@@ -770,6 +743,48 @@ const ink = colors.ink;
 const softInk = colors.brownMid;
 
 const styles = StyleSheet.create({
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleButtons: { flexDirection: 'row', gap: 10 },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.paper,
+    borderWidth: 2.5,
+    borderBottomWidth: 4,
+    borderColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  nameFlex: { flex: 1 },
+  typeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.note,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  typeChipText: { fontFamily: fonts.bold, fontSize: 12, color: colors.ink },
+  sectionMenu: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    backgroundColor: colors.paper,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 999,
+    marginVertical: 12,
+  },
+  menuItem: { flex: 1, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  menuItemActive: { backgroundColor: colors.ink },
+  menuText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  menuTextActive: { color: colors.paper },
+  photosBlock: { gap: 10, marginTop: 8 },
   container: { flex: 1, backgroundColor: colors.sky },
   content: { padding: 16, paddingBottom: 48 },
   gateContainer: {

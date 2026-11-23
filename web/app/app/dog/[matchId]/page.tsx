@@ -22,6 +22,7 @@ import ReportProfileMenu from '../../../../components/ReportProfileMenu';
 import { foundingBadgeLabel } from '../../../../../shared/founding';
 import { otherUserIdFromMatchId } from '../../../../../shared/playdates';
 import SignInGate from '../../../../components/SignInGate';
+import { uniqueTemperament } from '../../../../../shared/temperament';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -274,7 +275,7 @@ export default function MatchedDogProfilePage() {
           <div>
             <p className="text-xs font-bold text-brown-mid mb-2">Temperament</p>
             <div className="flex flex-wrap gap-2">
-              {profile.temperament!.map((t) => (
+              {uniqueTemperament(profile.temperament!).map((t) => (
                 <span key={t} className="rounded-full bg-cream border-2 border-brown px-3 py-1.5 text-sm text-brown">{t}</span>
               ))}
             </div>
