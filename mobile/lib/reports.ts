@@ -15,7 +15,7 @@ import { blockUser } from './blocks';
 import { trackEvent } from './analytics';
 
 export type ReportReason = 'block' | 'spam' | 'inappropriate';
-export type ReportSource = 'profile' | 'chat' | 'packday';
+export type ReportSource = 'profile' | 'chat' | 'packday' | 'place';
 
 export interface ReportTarget {
   reporterId: string;

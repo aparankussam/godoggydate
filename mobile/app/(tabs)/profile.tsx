@@ -29,6 +29,7 @@ import { onReminders } from '../../lib/reminders';
 import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
 import HouseholdSection from '../../components/HouseholdSection';
+import WhereWeGoSection from '../../components/WhereWeGoSection';
 import PushPermissionCard from '../../components/PushPermissionCard';
 import DogtypeGlimpseCard from '../../components/dogtype/DogtypeGlimpseCard';
 import DogtypeCollection from '../../components/DogtypeCollection';
@@ -614,6 +615,7 @@ export default function ProfileTab() {
 
             <ProfileDetailsCard profile={profile} hideIdentity />
             <LifeStageCard savedProfile={profile} onEditProfile={() => openEditor('birthday')} />
+            <WhereWeGoSection uid={user.uid} city={profile.city} />
           </>
         )}
 

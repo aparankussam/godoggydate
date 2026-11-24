@@ -2358,6 +2358,8 @@ export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;
 export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
 export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
+// Where we go: place tags, public counts, ask-for-a-rec. See ./places.ts
+export const { tagPlace, onPlaceTagWritten, askPlaceRec } = (require('./places') as typeof import('./places')).makePlaceFunctions({ db, sendPushToUser, isBlockedEitherWay });
 
 // Local waitlist (joinWaitlist, leaveWaitlist, neighbor-joined push). See ./waitlist.ts
 export * from './waitlist';
