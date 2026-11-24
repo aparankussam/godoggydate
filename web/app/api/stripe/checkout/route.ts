@@ -189,8 +189,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unable to start checkout';
     console.error('pro-checkout failed', err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 });
   }
 }

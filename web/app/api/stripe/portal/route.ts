@@ -81,8 +81,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unable to open billing portal';
     console.error('pro-portal failed', err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Could not open billing. Please try again.' }, { status: 500 });
   }
 }
