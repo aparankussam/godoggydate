@@ -22,9 +22,14 @@ export interface Attendee {
 }
 
 export async function loadAttendees(event: PackDay, foundingUids: string[]): Promise<Attendee[]> {
+  return loadDogCards(event.attendeeUids, foundingUids);
+}
+
+/** Same cards for any list of uids (a standing group's members). */
+export async function loadDogCards(uids: string[], foundingUids: string[] = []): Promise<Attendee[]> {
   const { db } = getFirebase();
   const rows = await Promise.all(
-    event.attendeeUids.map(async (uid): Promise<Attendee | null> => {
+    uids.map(async (uid): Promise<Attendee | null> => {
       try {
         const snap = await getDoc(doc(db, 'dogs', uid));
         if (!snap.exists()) return null;

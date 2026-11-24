@@ -433,6 +433,19 @@ export default function PackDayDetail({ eventId, publicSummary }: Props) {
 
         {event.foundingHost && !cancelled && <p className={NOTICE}>⭐ Founding Host: their first Pack Day</p>}
 
+        {event.groupId && (
+          <Link href={`/app/pack/group/${event.groupId}`} className="inline-flex min-h-[44px] items-center text-[15px] font-black text-brown underline decoration-2 underline-offset-4">
+            Part of a standing group · See the group
+          </Link>
+        )}
+
+        {/* The chat is free and opens with the RSVP; it stays readable 48 hours after the event. */}
+        {going && (
+          <Link href={`/app/pack/chat/${event.id}`} className="btn-secondary flex min-h-[52px] items-center justify-center py-3 text-center">
+            Open the Pack Day chat
+          </Link>
+        )}
+
         {/* ── Check-in: "I'm here" appears from the host's QR link, 30 min before start ── */}
         {!cancelled && checkins.length > 0 && (
           <p className="text-[15px] font-black text-brown">{checkedInDogCount(checkins)} checked in</p>

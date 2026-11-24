@@ -52,7 +52,9 @@ export interface SafetySheetProps {
   matchId?: string;
   /** Set on a Pack Day event page, so the server snapshots that event as evidence. */
   eventId?: string;
-  source: 'chat' | 'profile' | 'packday';
+  /** Set on a city feed post, so a moderator sees which one. */
+  postId?: string;
+  source: 'chat' | 'profile' | 'packday' | 'cityfeed';
   /** Runs after a block went through, e.g. to leave the screen or drop the card. */
   onBlocked?: () => void;
 }
@@ -61,7 +63,7 @@ const FOCUSABLE = 'button:not([disabled]), textarea, a[href], input:not([disable
 
 /** The report / block sheet. Controlled: render it and flip `open`. */
 export function SafetySheet({
-  open, onClose, targetUserId, targetName, matchId, eventId, source, onBlocked,
+  open, onClose, targetUserId, targetName, matchId, eventId, postId, source, onBlocked,
 }: SafetySheetProps) {
   const [step, setStep] = useState<Step>('menu');
   const [reason, setReason] = useState<ReportReason | null>(null);
@@ -147,6 +149,7 @@ export function SafetySheet({
       targetUserId,
       ...(matchId ? { matchId } : {}),
       ...(eventId ? { eventId } : {}),
+      ...(postId ? { postId } : {}),
       reason: reasonValue,
       ...(cleanNote ? { note: cleanNote } : {}),
       source,
@@ -385,6 +388,8 @@ interface Props {
   matchId?: string;
   /** Set on a Pack Day event page, so the server snapshots that event as evidence. */
   eventId?: string;
+  /** Set on a city feed post. */
+  postId?: string;
   className?: string;
   onBlocked?: () => void;
   /** 'dots' is the 44px paper "..." button used on Discover; default is the text pill. */
@@ -393,7 +398,7 @@ interface Props {
   targetName?: string | null;
 }
 
-export default function ReportProfileMenu({ targetUserId, matchId, eventId, className, onBlocked, variant = 'pill', targetName }: Props) {
+export default function ReportProfileMenu({ targetUserId, matchId, eventId, postId, className, onBlocked, variant = 'pill', targetName }: Props) {
   const [open, setOpen] = useState(false);
   const uid = getFirebase().auth.currentUser?.uid;
 
@@ -429,7 +434,8 @@ export default function ReportProfileMenu({ targetUserId, matchId, eventId, clas
         targetName={targetName}
         matchId={matchId}
         eventId={eventId}
-        source={eventId ? 'packday' : 'profile'}
+        postId={postId}
+        source={postId ? 'cityfeed' : eventId ? 'packday' : 'profile'}
         onBlocked={onBlocked}
       />
     </div>

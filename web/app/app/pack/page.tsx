@@ -10,9 +10,13 @@ import { getFirebase } from '../../../shared/utils/firebase';
 import { onAuthStateChanged, getUserDogProfile, isProfileComplete } from '../../../lib/auth';
 import type { User, SavedDogProfile } from '../../../lib/auth';
 import { listUpcomingPackDays } from '../../../lib/packDay';
+import { listPackGroups } from '../../../lib/packGroup';
+import { packGroupScheduleLabel } from '../../../../shared/packGroup';
+import type { PackGroup } from '../../../../shared/packGroup';
 import { getBlockedUserIds } from '../../../lib/blocks';
 import { trackEvent } from '../../../lib/analytics';
 import PackDayCard from '../../../components/PackDayCard';
+import CityFeed from '../../../components/CityFeed';
 import type { PackDay } from '../../../../shared/packDay';
 import { PawIcon, TreeIcon } from '../../../components/PackDayFlyer';
 import SignInGate from '../../../components/SignInGate';
@@ -23,6 +27,7 @@ export default function PackDaysPage() {
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
   const [events, setEvents] = useState<PackDay[] | null>(null);
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
+  const [groups, setGroups] = useState<{ mine: PackGroup[]; discover: PackGroup[] }>({ mine: [], discover: [] });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,12 +46,15 @@ export default function PackDaysPage() {
       getUserDogProfile(authUser.uid).catch(() => null),
       listUpcomingPackDays(),
       getBlockedUserIds(authUser.uid),
+      // Groups are a bonus on this screen: if they can't load, the list still shows.
+      listPackGroups(authUser.uid).catch(() => ({ mine: [], discover: [] })),
     ])
-      .then(([dog, list, blockedIds]) => {
+      .then(([dog, list, blockedIds, loadedGroups]) => {
         if (!active) return;
         setProfile(dog);
         setEvents(list);
         setBlocked(blockedIds);
+        setGroups(loadedGroups);
       })
       .catch(() => {
         if (active) setError("We couldn't load Pack Days. Check your connection and try again.");
@@ -81,6 +89,8 @@ export default function PackDaysPage() {
   }
 
   const canHost = isProfileComplete(profile);
+  const city = profile?.city?.trim().toLowerCase();
+  const nearbyGroups = groups.discover.filter((g) => !blocked.has(g.hostUid) && (!city || g.city.trim().toLowerCase() === city));
 
   return (
     <div className="min-h-screen">
@@ -163,6 +173,31 @@ export default function PackDaysPage() {
             {elsewhere.map((e) => <PackDayCard key={e.id} event={e} />)}
           </section>
         )}
+
+        {events && (groups.mine.length > 0 || nearbyGroups.length > 0 || canHost) && (
+          <section className="space-y-3">
+            <h2 className="font-display text-[22px] leading-none text-brown">Standing groups</h2>
+            {[...groups.mine, ...nearbyGroups].map((g) => (
+              <Link key={g.id} href={`/app/pack/group/${g.id}`} className="card block px-5 py-3.5">
+                <p className="font-display text-[20px] leading-tight text-brown break-words">{g.name}</p>
+                <p className="text-[13px] font-extrabold text-brown-mid">
+                  {packGroupScheduleLabel(g)}{g.tags.length ? ` · ${g.tags.join(', ')}` : ''}{g.status === 'paused' ? ' · Paused' : ''}
+                </p>
+                <p className="text-[13px] font-extrabold text-brown-mid">
+                  {g.memberUids.length} following{g.hostUid === authUser.uid ? ' · You host' : g.memberUids.includes(authUser.uid) ? ' · Following' : ''}
+                </p>
+              </Link>
+            ))}
+            {canHost && (
+              <Link href="/app/pack/group/new" className="btn-secondary inline-flex min-h-[44px] items-center px-4 py-1.5 text-[15px]">Start a repeating group</Link>
+            )}
+          </section>
+        )}
+
+        <section className="space-y-3">
+          <h2 className="font-display text-[22px] leading-none text-brown">Around the neighborhood</h2>
+          <CityFeed uid={authUser.uid} city={profile?.city?.trim() || undefined} canPost={canHost} blocked={blocked} />
+        </section>
       </div>
     </div>
   );

@@ -30,6 +30,7 @@ import { toDogSlug } from '../../../lib/dogSlug';
 import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
+import WhereWeGoSection from '../../../components/WhereWeGoSection';
 import DogtypeSection from '../../../components/DogtypeSection';
 import ModerationNotice from '../../../components/ModerationNotice';
 import EarnedStickers from '../../../components/EarnedStickers';
@@ -641,6 +642,7 @@ export default function ProfilePage() {
           )}
 
           <nav aria-label="Help and legal" className="flex flex-wrap justify-center gap-x-4 text-sm font-extrabold text-brown">
+            <Link href="/app/lost" className="py-2.5 hover:text-brown transition-colors">Lost dog kit</Link>
             <Link href="/support" className="py-2.5 hover:text-brown transition-colors">Support</Link>
             <Link href="/terms" className="py-2.5 hover:text-brown transition-colors">Terms</Link>
             <Link href="/privacy" className="py-2.5 hover:text-brown transition-colors">Privacy</Link>
@@ -986,6 +988,7 @@ export default function ProfilePage() {
                   memberIds={savedProfile.householdMemberIds ?? []}
                   memberNames={savedProfile.householdMemberNames}
                 />
+                <WhereWeGoSection uid={authUser.uid} city={savedProfile.city} />
               </div>
             )}
 

@@ -58,7 +58,7 @@ export async function cancelPackDay(eventId: string): Promise<void> {
   await callable<{ eventId: string }, { cancelled: boolean }>('cancelPackDay')({ eventId });
 }
 
-function toPackDay(id: string, data: DocumentData): PackDay {
+export function toPackDay(id: string, data: DocumentData): PackDay {
   return {
     id,
     hostUid: String(data.hostUid ?? ''),
@@ -78,6 +78,7 @@ function toPackDay(id: string, data: DocumentData): PackDay {
     status: data.status === 'cancelled' ? 'cancelled' : 'open',
     official: data.official === true,
     foundingHost: data.foundingHost === true,
+    ...(typeof data.groupId === 'string' ? { groupId: data.groupId } : {}),
   };
 }
 
