@@ -6,8 +6,7 @@
 // Also updates matches/{matchId}.lastMessage + lastMessageTime on send.
 
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { signInWithCustomToken } from 'firebase/auth';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   collection, query, orderBy, limit, startAfter, onSnapshot, getDocs,
@@ -226,17 +225,10 @@ function ChatNotice({ emoji, title, children }: { emoji: string; title: string; 
 export default function ChatPage() {
   const params       = useParams();
   const router       = useRouter();
-  const searchParams = useSearchParams();
   const matchId  = typeof params.matchId === 'string' ? params.matchId : '';
-  const handoffToken = searchParams.get('handoff');
 
   const [authUser, setAuthUser]             = useState<User | null>(null);
   const [authLoading, setAuthLoading]       = useState(true);
-  // True once a mobile-app handoff sign-in has been attempted (or there was
-  // none to attempt). The auth-loading gate below waits on this so a fresh,
-  // session-less Safari tab doesn't redirect to /app before the handoff
-  // token has had a chance to sign the user in.
-  const [handoffAttempted, setHandoffAttempted] = useState(!handoffToken);
   const [otherProfile, setOtherProfile]     = useState<SavedDogProfile | null>(null);
   const [myProfile, setMyProfile]           = useState<SavedDogProfile | null>(null);
   const [otherUserId, setOtherUserId]       = useState<string | null>(null);
@@ -316,27 +308,6 @@ export default function ChatPage() {
   // other person is gone (their account deletion removes the match).
   const matchSeenRef = useRef(false);
 
-  // ── Mobile-app session handoff ────────────────────────────────────────────────
-  // The native app opens this page in the system browser (Safari), which has
-  // no access to the app's local auth session. A ?handoff= custom token
-  // (minted by /api/auth/handoff-token from the app's own ID token) signs
-  // this tab in as the same user, so the link lands on the unlock checkout
-  // instead of a cold sign-in screen.
-  useEffect(() => {
-    if (!handoffToken) return;
-    const { auth } = getFirebase();
-    signInWithCustomToken(auth, handoffToken)
-      .catch((error) => {
-        console.warn('Handoff sign-in failed', error);
-      })
-      .finally(() => {
-        setHandoffAttempted(true);
-        // Strip the token from the URL/history once consumed.
-        router.replace(`/app/messages/${matchId}`);
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handoffToken]);
-
   // ── Auth ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const { auth } = getFirebase();
@@ -347,11 +318,10 @@ export default function ChatPage() {
     return unsub;
   }, []);
 
-  // Signed out (and no handoff pending): back to Discover. An effect, not a
-  // router call during render.
+  // Signed out: back to Discover. An effect, not a router call during render.
   useEffect(() => {
-    if (!authLoading && handoffAttempted && !authUser) router.replace('/app');
-  }, [authLoading, handoffAttempted, authUser, router]);
+    if (!authLoading && !authUser) router.replace('/app');
+  }, [authLoading, authUser, router]);
 
   // ── Online / offline ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -958,7 +928,7 @@ export default function ChatPage() {
   // loadingProfile is only ever cleared by the signed-in match listener, so it
   // must not gate the signed-out case — that left a signed-out visitor on this
   // spinner forever instead of sending them to /app.
-  if (authLoading || (authUser && loadingProfile) || !handoffAttempted) {
+  if (authLoading || (authUser && loadingProfile)) {
     return (
       <div className="flex-1 flex items-center justify-center h-screen">
         <span className="text-4xl animate-spin">🐾</span>
