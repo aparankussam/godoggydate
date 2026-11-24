@@ -51,6 +51,22 @@ service firebase.storage {
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // ── PACK DAY ALBUM ────────────────────────────────────────────────────────
+    // Path: packDays/{eventId}/photos/{userId}/{filename}
+    // Photos shared in a Pack Day group chat. Same limits as dog photos: a real
+    // Google or Apple account, your own folder, an explicit photo type (no SVG),
+    // under 10 MB. Who may POST the photo into the chat (a member, event not
+    // over its 48 hours) is decided by firestore.rules on the message, so a
+    // stray upload that is never posted is an orphan nobody can see.
+    match /packDays/{eventId}/photos/{userId}/{filename} {
+      allow read:   if isSignedIn();
+      allow write:  if isRealAccount()
+                    && request.auth.uid == userId
+                    && isPhoto()
+                    && isUnder10MB();
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
     // ── USER AVATARS ──────────────────────────────────────────────────────────
     // Path: avatars/{userId}/{filename}
     match /avatars/{userId}/{filename} {

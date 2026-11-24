@@ -29,3 +29,12 @@ for (const name of ['founding', 'photoUrl']) {
     );
   });
 }
+
+// Different file name on the server side, so it can't share the loop above.
+test('firebase/functions/src/packDayChatRules.ts matches shared/packDayChat.ts', () => {
+  assert.equal(
+    body('../firebase/functions/src/packDayChatRules.ts'),
+    body('./packDayChat.ts'),
+    'Copy shared/packDayChat.ts (from its first export line down) into firebase/functions/src/packDayChatRules.ts',
+  );
+});

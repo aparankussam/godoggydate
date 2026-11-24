@@ -6,8 +6,8 @@
 // it's honest candy. Count is local-first + debounced; the network is never in
 // the tap loop.
 
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, AppState, Easing, Pressable, SafeAreaView, StyleSheet, Text, View, Image } from 'react-native';
+import { useEffect, useRef, useState, type ComponentType, type ComponentProps } from 'react';
+import { Alert, Animated, AppState, Easing, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -20,6 +20,8 @@ import { captureAndShare } from '../../lib/shareCard';
 import { webUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
+import type BarkRecorderType from '../../components/playroom/BarkRecorder';
+import NextToy from '../../components/playroom/NextToy';
 import {
   loadBoops,
   persistBoops,
@@ -63,8 +65,9 @@ function boopSoundIndex(streak: number): number {
  * session (playsInSilentMode false, mixing) respects the silent switch and
  * leaves the owner's music playing.
  */
-function useBoopSounds() {
+function useBoopSounds(barkUri: string | null, barkVersion: number) {
   const players = useRef<{ boops: AudioPlayer[]; milestone: AudioPlayer } | null>(null);
+  const bark = useRef<AudioPlayer | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +95,28 @@ function useBoopSounds() {
     };
   }, []);
 
-  function play(player: AudioPlayer | undefined) {
+  // The owner's own recording of their dog, when they've made one.
+  useEffect(() => {
+    if (!barkUri) return undefined;
+    let cancelled = false;
+    let player: AudioPlayer | null = null;
+    import('expo-audio')
+      .then((audio) => {
+        if (cancelled) return;
+        player = audio.createAudioPlayer(barkUri);
+        // Let the rate change the pitch, so a fast rally sounds like an excited dog.
+        player.shouldCorrectPitch = false;
+        bark.current = player;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      bark.current = null;
+      try { player?.remove(); } catch { /* already gone */ }
+    };
+  }, [barkUri, barkVersion]);
+
+  function play(player: AudioPlayer | undefined | null) {
     if (!player) return;
     try {
       // Rewind so a rapid run of taps restarts the sound each time.
@@ -104,7 +128,14 @@ function useBoopSounds() {
   }
 
   return {
-    boop: (streak: number) => play(players.current?.boops[boopSoundIndex(streak)]),
+    boop: (streak: number) => {
+      if (bark.current) {
+        try { bark.current.setPlaybackRate(1 + streak * 0.05); } catch { /* keep normal speed */ }
+        play(bark.current);
+      } else {
+        play(players.current?.boops[boopSoundIndex(streak)]);
+      }
+    },
     milestone: () => play(players.current?.milestone),
   };
 }
@@ -120,7 +151,23 @@ export default function SnootScreen() {
   const [sharing, setSharing] = useState(false);
   const [, setTick] = useState(0); // 1s heartbeat so the energy meter refills visibly
   const badgeRef = useRef<View>(null);
-  const sounds = useBoopSounds();
+  const [barkUri, setBarkUri] = useState<string | null>(null);
+  // A re-recording keeps the same file path, so this bumps to reload the player.
+  const [barkVersion, setBarkVersion] = useState(0);
+  const [recording, setRecording] = useState(false);
+  // Loaded on demand, like the boop sounds: a binary built without expo-audio
+  // or expo-file-system must still open this screen.
+  const [Recorder, setRecorder] = useState<ComponentType<ComponentProps<typeof BarkRecorderType>> | null>(null);
+  const sounds = useBoopSounds(barkUri, barkVersion);
+  useEffect(() => {
+    import('../../lib/myBark').then((m) => setBarkUri(m.myBarkUri(dogId))).catch(() => {});
+  }, [dogId]);
+  const openRecorder = () => {
+    if (Recorder) { setRecording(true); return; }
+    import('../../components/playroom/BarkRecorder')
+      .then((m) => { setRecorder(() => m.default); setRecording(true); })
+      .catch(() => Alert.alert('Not on this version', 'Update the app to record a bark.'));
+  };
 
   // Escalating streak: rapid consecutive boops build a rising "beat" (a
   // stronger haptic and a higher-pitched boop).
@@ -292,7 +339,7 @@ export default function SnootScreen() {
 
       <BackHeader title="Snoot Boop" onBack={() => router.back()} />
 
-      <View style={styles.body}>
+      <ScrollView contentContainerStyle={styles.body}>
         <Text style={styles.prompt}>Boop the snoot</Text>
 
         <View style={styles.stage}>
@@ -397,7 +444,23 @@ export default function SnootScreen() {
             />
           )}
         </View>
-      </View>
+        <PaperButton
+          small
+          label={barkUri ? `Playing ${dogName}'s real bark` : `Use ${dogName}'s real bark`}
+          icon="microphone"
+          onPress={openRecorder}
+        />
+        <NextToy current="snoot" />
+      </ScrollView>
+
+      {Recorder && <Recorder
+        visible={recording}
+        uid={dogId}
+        dogName={dogName}
+        hasBark={!!barkUri}
+        onClose={() => setRecording(false)}
+        onChange={(uri) => { setBarkUri(uri); setBarkVersion((v) => v + 1); }}
+      />}
 
       {/* Off-screen capturable badge */}
       <View style={styles.offscreen} pointerEvents="none">
@@ -430,7 +493,7 @@ const styles = StyleSheet.create({
   },
   back: { fontFamily: fonts.bold, fontSize: 16, color: colors.rose, width: 48 },
   headerTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.brown },
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 18 },
+  body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 16, gap: 18 },
   prompt: { fontFamily: fonts.display, fontSize: 26, color: colors.ink },
   stage: { width: SNOOT + 40, height: SNOOT + 40, alignItems: 'center', justifyContent: 'center' },
   confetti: { position: 'absolute', fontSize: 30, zIndex: 5 },

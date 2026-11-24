@@ -34,6 +34,7 @@ export const REMINDER_PRESETS: ReminderPreset[] = [
   { type: 'license',     label: 'License renewal',      defaultLabel: 'Dog license renewal',     recurrenceDays: 365, helpText: 'Annual' },
   { type: 'grooming',    label: 'Grooming',              defaultLabel: 'Grooming appointment',    recurrenceDays: 42,  helpText: 'Every 6 weeks' },
   { type: 'vet_visit',   label: 'Annual vet visit',      defaultLabel: 'Annual checkup',          recurrenceDays: 365, helpText: 'Annual' },
+  { type: 'medication',  label: 'Daily medicine',       defaultLabel: '',                        recurrenceDays: 1,   helpText: 'Every day at the time you pick. Your phone reminds you at that time.' },
   { type: 'insurance_claim', label: 'Insurance claim window', defaultLabel: 'File insurance claim', helpText: 'One-time — set to your filing deadline' },
   { type: 'custom',      label: 'Something else',       defaultLabel: '',                        helpText: 'One-time or repeating' },
 ];

@@ -198,7 +198,8 @@ service cloud.firestore {
                   && okNum(d.get('lng', null))))
           && (docId != 'push'
               || (okStrList(d.get('expoPushTokens', null), 50, 15000)
-                  && okStrList(d.get('fcmWebTokens', null), 50, 15000)));
+                  && okStrList(d.get('fcmWebTokens', null), 50, 15000)))
+          && (docId != 'lostKit' || validLostKit(d));
     }
 
     match /users/{userId} {
@@ -526,6 +527,150 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Pack Day check-ins (packDays/{eventId}/checkins/{uid}) ───────────────
+    // One doc per person who tapped "I'm here": { uid, dogId, at, method }.
+    // Create only: the signed-in person writes their OWN doc (docId == uid),
+    // for a dog that RSVP'd (dogId is in attendeeUids) and is theirs or one
+    // they share through the household, on an open event, from 30 minutes
+    // before the start until it ends (CHECKIN_OPENS_BEFORE_MS in
+    // shared/packDay.ts = 1800000). `at` must be the server time. No client
+    // update or delete. Members may read, to show the checked-in count.
+    match /packDays/{eventId}/checkins/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['uid', 'dogId', 'at', 'method'])
+                    && request.resource.data.keys().hasAll(['uid', 'dogId', 'at', 'method'])
+                    && request.resource.data.uid == uid
+                    && request.resource.data.dogId is string
+                    && request.resource.data.method in ['qr', 'location']
+                    && request.resource.data.at == request.time
+                    && (request.resource.data.dogId == uid || isHouseholdMember(request.resource.data.dogId))
+                    && get(/databases/$(database)/documents/packDays/$(eventId)).data.status == 'open'
+                    && request.resource.data.dogId in get(/databases/$(database)/documents/packDays/$(eventId)).data.attendeeUids
+                    && request.time.toMillis() >= get(/databases/$(database)/documents/packDays/$(eventId)).data.startsAtMs - 1800000
+                    && request.time.toMillis() < get(/databases/$(database)/documents/packDays/$(eventId)).data.startsAtMs
+                                                 + get(/databases/$(database)/documents/packDays/$(eventId)).data.durationMinutes * 60000;
+      allow update, delete: if false;
+    }
+
+    // ── PACK DAY GROUP CHAT ───────────────────────────────────────────────────
+    // packDays/{eventId}/messages and packDays/{eventId}/chatControl/state.
+    // Members are the event's RSVP list (attendeeUids), so RSVPing opens the
+    // chat and leaving or being removed closes it. The chat turns READ-ONLY 48
+    // hours after the event ENDS: the end is startsAtMs + durationMinutes, read
+    // from the event doc, so a client can't talk past it (CHAT_READ_ONLY_AFTER_MS
+    // in shared/packDayChat.ts is the same 48 hours). A cancelled event is
+    // read-only at once. chatControl/state ({ pinned, mutedUids, removedUids })
+    // is written only by the packDayChatHost callable, which is also what removes
+    // a member. The morning-of 'headsup' post and moderation (text replaced,
+    // moderated: true) are Admin writes; clients never update or delete.
+    function isPackDayMember(eventId) {
+      return isSignedIn()
+          && exists(/databases/$(database)/documents/packDays/$(eventId))
+          && request.auth.uid in get(/databases/$(database)/documents/packDays/$(eventId)).data.attendeeUids;
+    }
+
+    function packDayChatOpen(eventId) {
+      let e = get(/databases/$(database)/documents/packDays/$(eventId)).data;
+      return e.status == 'open'
+          && request.time.toMillis() < e.startsAtMs + e.durationMinutes * 60000 + 172800000;
+    }
+
+    function packDayChatMuted(eventId) {
+      let c = /databases/$(database)/documents/packDays/$(eventId)/chatControl/state;
+      return exists(c) && request.auth.uid in get(c).data.get('mutedUids', []);
+    }
+
+    match /packDays/{eventId}/chatControl/{docId} {
+      allow read:  if isPackDayMember(eventId);
+      allow write: if false;
+    }
+
+    match /packDays/{eventId}/messages/{messageId} {
+      allow read: if isPackDayMember(eventId);
+
+      allow create: if isPackDayMember(eventId)
+                    && packDayChatOpen(eventId)
+                    && !packDayChatMuted(eventId)
+                    && request.resource.data.keys().hasOnly(['fromUserId', 'text', 'kind', 'photoUrl', 'createdAt'])
+                    && request.resource.data.keys().hasAll(['fromUserId', 'text', 'kind', 'createdAt'])
+                    && request.resource.data.fromUserId == request.auth.uid
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() <= 500
+                    && request.resource.data.kind in ['text', 'here', 'late', 'headsup', 'photo']
+                    // Only the host posts the weather check.
+                    && (request.resource.data.kind != 'headsup'
+                        || request.auth.uid == get(/databases/$(database)/documents/packDays/$(eventId)).data.hostUid)
+                    && (request.resource.data.kind != 'text' || request.resource.data.text.size() > 0)
+                    // Photos: a real https URL, and only once the event has started.
+                    && (request.resource.data.kind == 'photo'
+                        ? (request.resource.data.get('photoUrl', null) is string
+                           && request.resource.data.photoUrl.size() <= 1000
+                           && request.resource.data.photoUrl.matches('https://.*')
+                           && request.time.toMillis() >= get(/databases/$(database)/documents/packDays/$(eventId)).data.startsAtMs)
+                        : !('photoUrl' in request.resource.data));
+
+      allow update, delete: if false;
+    }
+
+    // ── City feed posts (cityPosts/{postId}) ──────────────────────────────────
+    // Structured board posts (Ask, Recommend, Free/Lend, Walk buddy, Found dog).
+    // Expiry is enforced by the feed queries (expiresAtMs > now) and by the
+    // hourly cleanupCityFeed delete. It is not a read rule: rules can't prove
+    // a client's own `expiresAtMs > X` filter against request.time, so such a
+    // rule would reject the feed's list query. Writes are createCityPost /
+    // updateCityPost only (Admin SDK): they run the content filter, the template
+    // rules and the new-account check (complete profile + a few days or a Pack
+    // Day check-in), so none of that can be skipped from a client.
+    match /cityPosts/{postId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Where we go (see firebase/functions/src/places.ts) ───────────────────
+    // placeTags: one owner's "we go here". Only that owner can read or remove
+    // it, so who uses which vet is never visible to other members. Created by
+    // the tagPlace callable (content filter + limits), never by a client.
+    match /placeTags/{tagId} {
+      allow read, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create, update: if false;
+    }
+    // places: public counts, written only by onPlaceTagWritten and only while
+    // >= 3 distinct owners use the place.
+    match /places/{placeId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+    // placeAsks: "ask for a rec" records, readable so the city feed can show them.
+    match /placeAsks/{askId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── packGroups (recurring Pack Day groups) ─────────────────────────────────
+    // A standing group: name, host, schedule, rules, member list. Its meetups are
+    // ordinary packDays/ docs with a groupId. Signed-in members read; every write
+    // (create, join/leave, edit schedule, pause, remove a member) goes through the
+    // createPackGroup / joinPackGroup / ... callables in functions/src/packGroups.ts.
+    // GROUP CHAT would live at packGroups/{groupId}/messages; it is not built yet,
+    // so there is deliberately no rule for it (default deny).
+    match /packGroups/{groupId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Notification limit + digest bookkeeping (server only) ─────────────────
+    // pushCounters/{uid}_{day}: pushes sent today (notifyLimit.ts).
+    // cityFeedDigests/{city}_{day}: marks a city's digest as sent.
+    match /pushCounters/{id} {
+      allow read, write: if false;
+    }
+    match /cityFeedDigests/{id} {
+      allow read, write: if false;
+    }
+
     match /payments/{paymentId} {
       allow read:   if isSignedIn()
                     && resource.data.userId == request.auth.uid;
@@ -565,6 +710,9 @@ service cloud.firestore {
                     && okStr(request.resource.data.get('source', null), 60)
                     && okStr(request.resource.data.get('matchId', null), 128)
                     && okStr(request.resource.data.get('eventId', null), 128)
+                    // A single Pack Day chat message being reported (with eventId).
+                    && okStr(request.resource.data.get('messageId', null), 128)
+                    && okStr(request.resource.data.get('postId', null), 128)
                     && okStr(request.resource.data.get('text', null), 1000)
                     && okStr(request.resource.data.get('details', null), 1000)
                     && okStr(request.resource.data.get('note', null), 1000)
@@ -574,5 +722,103 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+
+    // ══ LOST DOG ALERT ════════════════════════════════════════════════════════
+    // Free for everyone. Three collections, all owned by the lost-dog feature:
+    //   users/{uid}/private/lostKit      the owner's saved kit (microchip, vet phone);
+    //                                    covered by the private/{docId} rule above
+    //   lostAlerts/{alertId}             the public-safe alert (never a phone number
+    //                                    or address); sightings/ under it are owner-only
+    //   lostActive/{uid}                 pointer that makes "ONE active alert per owner"
+    //                                    a rule, not just a UI habit
+    // The same limits are re-checked server-side by onLostAlertCreated
+    // (firebase/functions/src/lostDog.ts). Sightings and rate counters are written
+    // only by the Admin SDK (the website's /api/lost/sighting route).
+
+    function validLostKit(d) {
+      return d.keys().size() <= 8
+          && okStr(d.get('photoUrl', null), 1000)
+          && okStr(d.get('microchip', null), 40)
+          && okStr(d.get('vetPhone', null), 30)
+          && okStr(d.get('markings', null), 200);
+    }
+
+    // A new alert: the caller's own dog (the dog doc id is the owner's uid),
+    // active, with only the public-safe fields. city/state are re-stamped from the
+    // dog profile by the server, so what is sent here is only a first draft.
+    function validNewLostAlert(d) {
+      return d.keys().hasOnly(['ownerId', 'dogId', 'dogName', 'breed', 'size', 'markings', 'photoUrl',
+                               'microchipped', 'medicines', 'lastSeen', 'city', 'state', 'status', 'createdAt'])
+          && d.keys().hasAll(['ownerId', 'dogId', 'dogName', 'status', 'createdAt'])
+          && d.ownerId == request.auth.uid
+          && d.dogId == request.auth.uid
+          && d.status == 'active'
+          && d.createdAt == request.time
+          && d.dogName is string && d.dogName.size() >= 1 && d.dogName.size() <= 60
+          && okStr(d.get('breed', null), 80)
+          && okStr(d.get('size', null), 20)
+          && okStr(d.get('markings', null), 200)
+          && okStr(d.get('photoUrl', null), 1000)
+          && okStr(d.get('lastSeen', null), 80)
+          && okStr(d.get('city', null), 80)
+          && okStr(d.get('state', null), 40)
+          && okBool(d.get('microchipped', null))
+          && okStrList(d.get('medicines', null), 5, 300);
+    }
+
+    // Any signed-in member can read an alert (it is what a push opens); it holds
+    // nothing private. The public website reads it through the Admin SDK.
+    match /lostAlerts/{alertId} {
+      allow read: if isSignedIn();
+      // Own dog, and no other active alert: lostActive/{uid} must not exist yet
+      // and must be created in the same batch, pointing at this alert.
+      allow create: if isRealAccount()
+                    && validNewLostAlert(request.resource.data)
+                    && exists(/databases/$(database)/documents/dogs/$(request.auth.uid))
+                    && !exists(/databases/$(database)/documents/lostActive/$(request.auth.uid))
+                    && getAfter(/databases/$(database)/documents/lostActive/$(request.auth.uid)).data.alertId == alertId;
+      // The owner may mark it found (status + foundAt only) or update where the dog
+      // was last seen. Nothing else changes after creation.
+      allow update: if isOwner(resource.data.ownerId)
+                    && resource.data.status == 'active'
+                    && (
+                         (request.resource.data.status == 'found'
+                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'foundAt'])
+                           && request.resource.data.get('foundAt', null) == request.time)
+                         || (request.resource.data.status == 'active'
+                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen'])
+                           && okStr(request.resource.data.get('lastSeen', null), 80))
+                       );
+      allow delete: if false;
+
+      // Exact pins, finder contact details and photos: the owner only.
+      match /sightings/{sightingId} {
+        allow read: if isSignedIn()
+                    && get(/databases/$(database)/documents/lostAlerts/$(alertId)).data.ownerId == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /lostActive/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isRealAccount() && isOwner(userId)
+                    && request.resource.data.keys().hasOnly(['alertId', 'createdAt'])
+                    && request.resource.data.alertId is string
+                    && request.resource.data.alertId.size() <= 64
+                    && request.resource.data.createdAt == request.time
+                    && getAfter(/databases/$(database)/documents/lostAlerts/$(request.resource.data.alertId)).data.ownerId == userId
+                    && getAfter(/databases/$(database)/documents/lostAlerts/$(request.resource.data.alertId)).data.status == 'active';
+      allow update: if false;
+      // Only once the alert is marked found (in the same batch), so closing is the
+      // only way to be allowed a second alert.
+      allow delete: if isOwner(userId)
+                    && getAfter(/databases/$(database)/documents/lostAlerts/$(resource.data.alertId)).data.status == 'found';
+    }
+
+    // Per-IP and per-alert counters for the public sighting form. Admin SDK only.
+    match /lostRate/{key} {
+      allow read, write: if false;
+    }
+    // ══ end LOST DOG ALERT ════════════════════════════════════════════════════
   }
 }

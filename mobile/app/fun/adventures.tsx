@@ -13,6 +13,7 @@ import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
+import NextToy from '../../components/playroom/NextToy';
 import AdventurePassportCard from '../../components/AdventurePassportCard';
 import { adventuresFor, ADVENTURE_COUNT } from '../../../shared/adventures';
 import { loadCompleted, saveCompleted, type CompletedMap } from '../../lib/adventures';
@@ -121,6 +122,7 @@ export default function AdventuresScreen() {
 
         <PinkButton label={sharing ? 'Rendering…' : 'Share the passport'} icon="export-variant" onPress={sharePassport} busy={sharing} style={styles.shareButton} />
         <Text style={styles.disclaimer}>Your own checklist — stamp a quest when you and {dogName} pull it off.</Text>
+        <NextToy current="adventures" />
       </ScrollView>
 
       {/* "STAMPED!" toast */}

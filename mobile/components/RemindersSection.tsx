@@ -11,7 +11,8 @@ import { colors, fonts, radius, secondaryButton } from '../constants/theme';
 import { Glyph } from './pack/kit';
 import { REMINDER_PRESETS, completeReminder, createReminder, deleteReminder } from '../lib/reminders';
 import type { Reminder, ReminderType } from '../../shared/types';
-import { reminderDueLabel } from '../../shared/dates';
+import { formatDoseTime, isSameLocalDay, nextDoseAt, reminderDueLabel } from '../../shared/dates';
+import { askForMedAlarms, syncMedAlarms } from '../lib/medAlarms';
 
 interface Props {
   dogId: string;
@@ -25,6 +26,13 @@ const QUICK_PICKS: { label: string; days: number }[] = [
   { label: '1 month', days: 30 },
   { label: '3 months', days: 90 },
   { label: '1 year', days: 365 },
+];
+
+const DOSE_TIMES: { label: string; hour: number }[] = [
+  { label: 'Morning 8 AM', hour: 8 },
+  { label: 'Midday 12 PM', hour: 12 },
+  { label: 'Evening 6 PM', hour: 18 },
+  { label: 'Bedtime 9 PM', hour: 21 },
 ];
 
 // Wording lives in shared/dates.ts's reminderDueLabel so the same reminder
@@ -41,6 +49,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
   const [customYear, setCustomYear] = useState('');
   const [useCustomDate, setUseCustomDate] = useState(false);
   const [repeats, setRepeats] = useState(true);
+  const [doseHour, setDoseHour] = useState(8);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -57,18 +66,22 @@ export default function RemindersSection({ dogId, reminders }: Props) {
     ]).start(() => setCelebrateId(null));
   }, [celebrateId, celebrateOpacity]);
 
+  // Keep this phone's daily medicine pings in step with the list.
+  useEffect(() => { void syncMedAlarms(dogId, reminders); }, [dogId, reminders]);
+
+  const isMed = presetType === 'medication';
   const preset = useMemo(() => REMINDER_PRESETS.find((p) => p.type === presetType) ?? REMINDER_PRESETS[0], [presetType]);
   const sorted = useMemo(() => [...reminders].sort((a, b) => a.dueDate - b.dueDate), [reminders]);
 
   async function handleAdd() {
-    const label = presetType === 'custom' ? customLabel.trim() : preset.defaultLabel;
+    const label = presetType === 'custom' || isMed ? customLabel.trim() : preset.defaultLabel;
     if (!label) {
-      setError('Give it a name');
+      setError(isMed ? 'Name the medicine' : 'Give it a name');
       return;
     }
 
-    let dueDate = dueDateMs;
-    if (useCustomDate) {
+    let dueDate = isMed ? nextDoseAt(doseHour, 0) : dueDateMs;
+    if (useCustomDate && !isMed) {
       const m = parseInt(customMonth, 10);
       const d = parseInt(customDay, 10);
       const y = parseInt(customYear, 10);
@@ -93,12 +106,14 @@ export default function RemindersSection({ dogId, reminders }: Props) {
 
     setSaving(true);
     setError(null);
+    // Ask before saving, so the list update that follows can schedule the ping.
+    if (isMed) await askForMedAlarms();
     try {
       await createReminder(dogId, {
         label,
         type: presetType,
         dueDate,
-        recurrenceDays: repeats ? preset.recurrenceDays : undefined,
+        recurrenceDays: repeats || isMed ? preset.recurrenceDays : undefined,
       });
       setShowAdd(false);
       setCustomLabel('');
@@ -162,11 +177,11 @@ export default function RemindersSection({ dogId, reminders }: Props) {
             ))}
           </View>
 
-          {presetType === 'custom' && (
+          {(presetType === 'custom' || isMed) && (
             <TextInput
               value={customLabel}
               onChangeText={setCustomLabel}
-              placeholder="e.g. Refill anxiety meds"
+              placeholder={isMed ? 'e.g. Apoquel, 1 tablet' : 'e.g. Refill anxiety meds'}
               placeholderTextColor={colors.brownLight}
               maxLength={60}
               returnKeyType="done"
@@ -176,7 +191,19 @@ export default function RemindersSection({ dogId, reminders }: Props) {
 
           <Text style={styles.helpText}>{preset.helpText}</Text>
 
-          {!useCustomDate ? (
+          {isMed ? (
+            <View style={styles.chipRow}>
+              {DOSE_TIMES.map((t) => (
+                <Pressable
+                  key={t.hour}
+                  onPress={() => setDoseHour(t.hour)}
+                  style={[styles.presetChip, doseHour === t.hour && styles.presetChipActive]}
+                >
+                  <Text style={[styles.presetChipText, doseHour === t.hour && styles.presetChipTextActive]}>{t.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : !useCustomDate ? (
             <>
               <View style={styles.chipRow}>
                 {QUICK_PICKS.map((q) => {
@@ -233,7 +260,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
             </>
           )}
 
-          {preset.recurrenceDays && (
+          {preset.recurrenceDays && !isMed && (
             <Pressable style={styles.repeatsRow} onPress={() => setRepeats((v) => !v)}>
               <View style={[styles.checkbox, repeats && styles.checkboxChecked]}>
                 {repeats && <Glyph name="check-bold" size={13} color={colors.cream} />}
@@ -260,6 +287,10 @@ export default function RemindersSection({ dogId, reminders }: Props) {
         const due = dueLabel(r.dueDate);
         const busy = busyId === r.id;
         const hasStreak = !!r.recurrenceDays && (r.currentStreak ?? 0) >= 2;
+        const med = r.type === 'medication';
+        // A daily dose ticked off today stays ticked until tomorrow, so a
+        // second tap can't skip a day ahead.
+        const givenToday = med && isSameLocalDay(r.lastCompletedAt);
         return (
           <View key={r.id} style={styles.row}>
             {/* Streak celebration — a real, honest count (consecutive
@@ -277,16 +308,21 @@ export default function RemindersSection({ dogId, reminders }: Props) {
             <View style={{ flex: 1 }}>
               <Text style={styles.rowLabel}>{r.label}</Text>
               <Text style={[styles.rowDue, due.urgent && styles.rowDueUrgent]}>
-                {due.text}{r.recurrenceDays ? ' · repeats' : ''}
-                {hasStreak && <Text style={styles.streakText}>  · {r.currentStreak} in a row</Text>}
+                {med
+                  ? givenToday
+                    ? `Given today ✓ · next at ${formatDoseTime(r.dueDate)}`
+                    : `${due.text} · ${formatDoseTime(r.dueDate)}`
+                  : `${due.text}${r.recurrenceDays ? ' · repeats' : ''}`}
+                {hasStreak && <Text style={styles.streakText}>  · {r.currentStreak}{med ? ' days' : ''} in a row</Text>}
               </Text>
             </View>
             <Pressable
               onPress={() => handleComplete(r)}
-              disabled={busy}
-              style={[styles.doneBtn, busy && { opacity: 0.5 }]}
+              disabled={busy || givenToday}
+              accessibilityLabel={med ? `Mark ${r.label} as given` : `Mark ${r.label} as done`}
+              style={[styles.doneBtn, (busy || givenToday) && { opacity: 0.5 }]}
             >
-              <Text style={styles.doneBtnText}>Done</Text>
+              <Text style={styles.doneBtnText}>{med ? 'Given' : 'Done'}</Text>
             </Pressable>
             <Pressable onPress={() => handleDelete(r)} disabled={busy} hitSlop={8} style={styles.deleteBtn}>
               <Text style={styles.deleteBtnText}>×</Text>

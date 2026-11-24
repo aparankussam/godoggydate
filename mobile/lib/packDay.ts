@@ -6,14 +6,14 @@
 // helpers live in shared/packDay.ts; this file never forks them.
 
 import { computeDogtype } from '../../shared/dogtype';
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getFirebase } from './firebase';
 import { getHeroPhoto } from './photos';
 import { resolveHeroIndex } from './coverPhoto';
 import { isPast } from '../../shared/packDay';
-import type { PackDay, PackDayFormat } from '../../shared/packDay';
+import type { CheckinMethod, PackDay, PackDayFormat } from '../../shared/packDay';
 import type { SavedDogProfile } from './profile';
 
 export { packDayUrl } from './webLinks';
@@ -70,7 +70,7 @@ export async function cancelPackDay(eventId: string): Promise<void> {
   await callable<{ eventId: string }, { cancelled: boolean }>('cancelPackDay')({ eventId });
 }
 
-function toPackDay(id: string, data: DocumentData): PackDay {
+export function toPackDay(id: string, data: DocumentData): PackDay {
   return {
     id,
     hostUid: String(data.hostUid ?? ''),
@@ -91,6 +91,9 @@ function toPackDay(id: string, data: DocumentData): PackDay {
       : [],
     status: data.status === 'cancelled' ? 'cancelled' : 'open',
     official: data.official === true,
+    foundingHost: data.foundingHost === true,
+    ...(typeof data.groupId === 'string' ? { groupId: data.groupId } : {}),
+    ...(data.smallDogsOnly === true ? { smallDogsOnly: true } : {}),
   };
 }
 
@@ -127,14 +130,17 @@ export interface PackDayAttendee {
   founding: boolean;
   /** The attendee dog's Dogtype code, when it can be read. */
   dogtypeCode: string | null;
+  /** The dog's profile, for the dog-mix line. */
+  profile: SavedDogProfile;
 }
 
-/** Each attendee's dog name and cover photo. Mirrors loadAttendees in
+/** Each dog's name and cover photo for a list of owner uids (a Pack Day's
+ *  attendees, a group's members). Mirrors loadAttendees in
  *  web/app/app/pack/[id]/page.tsx; a dog that can't be read is left out. */
-export async function loadPackDayAttendees(event: PackDay, foundingUids: string[]): Promise<PackDayAttendee[]> {
+export async function loadDogCards(uids: string[], foundingUids: string[] = []): Promise<PackDayAttendee[]> {
   const { db } = getFirebase();
   const rows = await Promise.all(
-    event.attendeeUids.map(async (uid): Promise<PackDayAttendee | null> => {
+    uids.map(async (uid): Promise<PackDayAttendee | null> => {
       try {
         const snap = await getDoc(doc(db, 'dogs', uid));
         if (!snap.exists()) return null;
@@ -145,6 +151,7 @@ export async function loadPackDayAttendees(event: PackDay, foundingUids: string[
           photo: getHeroPhoto(dog.photos, resolveHeroIndex(dog)),
           founding: foundingUids.includes(uid),
           dogtypeCode: computeDogtype(dog)?.code ?? null,
+          profile: dog,
         };
       } catch {
         return null;
@@ -152,6 +159,26 @@ export async function loadPackDayAttendees(event: PackDay, foundingUids: string[
     }),
   );
   return rows.filter((row): row is PackDayAttendee => row !== null);
+}
+
+// ── Check-in ───────────────────────────────────────────────────────────────
+// packDays/{eventId}/checkins/{uid}; firestore.rules is the gatekeeper (RSVP'd
+// dog, household, time window, create-only). Same shape the web writes.
+
+export async function checkInToPackDay(eventId: string, uid: string, dogId: string, method: CheckinMethod): Promise<void> {
+  const { db } = getFirebase();
+  await setDoc(doc(db, 'packDays', eventId, 'checkins', uid), { uid, dogId, at: serverTimestamp(), method });
+}
+
+/** Everyone checked in so far (docs are tiny: capacity is at most 12). */
+export async function listCheckins(eventId: string): Promise<Array<{ uid: string; dogId: string }>> {
+  const { db } = getFirebase();
+  const snap = await getDocs(collection(db, 'packDays', eventId, 'checkins'));
+  return snap.docs.map((d) => ({ uid: d.id, dogId: String(d.data().dogId ?? d.id) }));
+}
+
+export function loadPackDayAttendees(event: PackDay, foundingUids: string[]): Promise<PackDayAttendee[]> {
+  return loadDogCards(event.attendeeUids, foundingUids);
 }
 
 // ── Wall-clock helpers for the create form ─────────────────────────────────

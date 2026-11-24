@@ -5,6 +5,9 @@ import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
 import { makePackDayFunctions } from './packDay';
+import { makeLimitedPush } from './notifyLimit';
+import { makeCityFeedFunctions } from './cityFeed';
+import { makePackGroupFunctions } from './packGroups';
 import {
   MODERATED_MESSAGE_TEXT,
   checkMessageContent,
@@ -1115,7 +1118,10 @@ export const deleteAccount = functions
       {
         db,
         bucket: admin.storage().bucket(),
-        cleanupPackDays: (id) => packDay.cleanupPackDaysForUser(id),
+        cleanupPackDays: async (id) => {
+          await packDay.cleanupPackDaysForUser(id);
+          await packGroups.cleanupPackGroupsForUser(id);
+        },
       },
       uid,
     );
@@ -1296,7 +1302,7 @@ export const onMatchCreatedNotify = functions.firestore
     await Promise.all((blocked ? [] : participants).map(async (uid) => {
       const otherUid = participants.find((p) => p !== uid);
       const otherName = await getDogName(otherUid);
-      await sendPushToUser(uid, {
+      await sendLimitedPush(uid, {
         title: "It's a match! 🐾",
         body: `${otherName} wants to play too. Open it to see their Dogtype.`,
         data: {
@@ -1304,7 +1310,7 @@ export const onMatchCreatedNotify = functions.firestore
           matchId,
           link: `https://godoggydate.com/app/messages/${matchId}`,
         },
-      });
+      }, 'social');
     }));
 
     // Stamp density at creation time, once, rather than recomputing on every
@@ -1566,6 +1572,7 @@ export const onReportCreated = functions
       targetUserId?: string;
       matchId?: string;
       eventId?: string;
+      messageId?: string;
       reason?: string;
       source?: string;
     };
@@ -1634,6 +1641,11 @@ export const onReportCreated = functions
         eventFound = eventSnap.exists;
         eventCancelled = eventSnap.data()?.status === 'cancelled';
         evidence.packDay = eventSnap.exists ? packDayEvidence(eventSnap.data() ?? {}) : null;
+        // A single chat message being reported (Pack Day group chat).
+        if (isSafeDocId((report as { messageId?: unknown }).messageId)) {
+          const msgSnap = await db.doc(`packDays/${eventId}/messages/${(report as { messageId: string }).messageId}`).get();
+          evidence.packDayMessage = msgSnap.exists ? { id: msgSnap.id, ...msgSnap.data() } : null;
+        }
       } catch (error) {
         console.error('onReportCreated: Pack Day snapshot failed', { reportId, eventId, error });
       }
@@ -1764,6 +1776,7 @@ export const sendReminderNotifications = functions.pubsub
         notifiedAt?: FirebaseFirestore.Timestamp;
         recurrenceDays?: number;
         label?: string;
+        type?: string;
       };
       const dogId = doc.ref.parent.parent?.id;
       if (!dogId || !data.dueDate) continue;
@@ -1801,6 +1814,15 @@ export const sendReminderNotifications = functions.pubsub
             currentStreak: 0,
           });
         }
+        continue;
+      }
+
+      // Daily medicine rings on the phone itself at the dose time
+      // (mobile/lib/medAlarms.ts). A push at whatever hour this job runs would
+      // be a second, mistimed ping, so only mark it notified: that keeps the
+      // roll-forward above working for a missed dose.
+      if (data.type === 'medication') {
+        await doc.ref.update({ notifiedAt: data.dueDate });
         continue;
       }
 
@@ -1990,11 +2012,11 @@ export const sendCelebrationNotifications = functions
           continue; // already celebrated this occasion this year
         }
         try {
-          await sendPushToUser(dogId, {
+          await sendLimitedPush(dogId, {
             title: hit.title,
             body: hit.body,
             data: { type: 'celebration', kind: hit.kind, dogId, link: 'https://godoggydate.com/app/profile' },
-          });
+          }, 'social');
         } catch (err) {
           // The marker is claimed BEFORE sending (that ordering is what makes
           // the dedup safe against concurrent runs), so a failed send would
@@ -2350,14 +2372,33 @@ export const removeHouseholdMember = functions.https.onCall(async (data, context
 // ── Pack Day: open group playdates ─────────────────────────────────────────────
 // All writes to packDays/ go through these callables (firestore.rules is
 // read-only for clients). See ./packDay.ts.
-const packDay = makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay });
+// Global push cap (2 non-urgent pushes per user per day), see ./notifyLimit.ts.
+// Lost-dog alerts must use sendLimitedPush(uid, payload, 'urgent'): instant, never capped.
+const sendLimitedPush = makeLimitedPush(db, sendPushToUser);
+const packDay = makePackDayFunctions({
+  db,
+  sendPushToUser: async (uid, payload) => { await sendLimitedPush(uid, payload, payload.kind ?? 'social'); },
+  isBlockedEitherWay,
+});
 export const createPackDay = packDay.createPackDay;
 export const rsvpPackDay = packDay.rsvpPackDay;
 export const cancelPackDay = packDay.cancelPackDay;
 export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;
+// City feed (board posts, expiry cleanup, daily digest), see ./cityFeed.ts
+export const { createCityPost, updateCityPost, cleanupCityFeed, sendCityFeedDigest } = makeCityFeedFunctions({ db, sendLimitedPush });
+
+// Recurring Pack Day groups (./packGroups.ts). Writes to packGroups/ are callable-only.
+const packGroups = makePackGroupFunctions({ db, sendPushToUser, isBlockedEitherWay });
+export const { createPackGroup, joinPackGroup, leavePackGroup, updatePackGroup, removePackGroupMember, movePackDay, generatePackGroupOccurrences } = packGroups;
 export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
+export const { onPackDayMessageCreated, packDayChatHost, postPackDayHeadsUps } = (require('./packDayChat') as typeof import('./packDayChat')).makePackDayChatFunctions({ db, sendOpsAlert, secrets: [opsAlertWebhookUrl] }); // Pack Day group chat, see ./packDayChat.ts
 export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
+// Where we go: place tags, public counts, ask-for-a-rec. See ./places.ts
+export const { tagPlace, onPlaceTagWritten, askPlaceRec } = (require('./places') as typeof import('./places')).makePlaceFunctions({ db, sendPushToUser, isBlockedEitherWay });
 
 // Local waitlist (joinWaitlist, leaveWaitlist, neighbor-joined push). See ./waitlist.ts
 export * from './waitlist';
+
+// Lost dog alert (free): alert pushes, thank-yous and sighting pushes, see ./lostDog.ts
+export const { onLostAlertCreated, onLostAlertUpdated, onLostSightingCreated } = (require('./lostDog') as typeof import('./lostDog')).makeLostDogFunctions({ db, sendPushToUser, isBlockedEitherWay, photoUrlPolicy });

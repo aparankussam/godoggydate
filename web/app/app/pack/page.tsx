@@ -138,7 +138,9 @@ export default function PackDaysPage() {
             {nearby.length === 0 ? (
               <div className="card p-6 text-center">
                 <span className="inline-flex text-brown" aria-hidden="true"><TreeIcon size={40} /></span>
-                <p className="mt-2 font-display text-2xl text-brown">Nothing on the calendar yet</p>
+                <p className="mt-2 font-display text-2xl text-brown">
+                  {profile?.city ? `Be the first to host a Pack Day in ${profile.city}` : 'Nothing on the calendar yet'}
+                </p>
                 <p className="mt-1 text-[15px] font-extrabold text-brown-mid leading-snug">
                   Pick your usual park and a Saturday morning, and host the first one. Six dogs is a great
                   Pack Day.
@@ -157,7 +159,7 @@ export default function PackDaysPage() {
 
         {elsewhere.length > 0 && (
           <section className="space-y-3">
-            <h2 className="font-display text-[22px] leading-none text-brown">Other cities</h2>
+            <h2 className="font-display text-[22px] leading-none text-brown">{nearby.length === 0 ? 'Upcoming in nearby cities' : 'Other cities'}</h2>
             {elsewhere.map((e) => <PackDayCard key={e.id} event={e} />)}
           </section>
         )}

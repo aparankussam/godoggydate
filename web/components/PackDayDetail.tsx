@@ -19,7 +19,9 @@ import { onAuthStateChanged, getUserDogProfile, isProfileComplete } from '../lib
 import type { User, SavedDogProfile } from '../lib/auth';
 import {
   cancelPackDay,
+  checkInToPackDay,
   getPackDay,
+  listCheckins,
   joinPackDay,
   leavePackDay,
   packDayErrorMessage,
@@ -36,8 +38,10 @@ import PackDayAttendeeCard from './PackDayAttendeeCard';
 import ReportProfileMenu from './ReportProfileMenu';
 import {
   buildPackDayIcs,
+  checkedInDogCount,
   formatPackDayWhen,
   goingSummary,
+  isCheckinOpen,
   isPast,
   spotsLeft,
 } from '../../shared/packDay';
@@ -80,6 +84,8 @@ interface Props {
 export default function PackDayDetail({ eventId, publicSummary }: Props) {
   const search = useSearchParams();
   const justCreated = search?.get('new') === '1';
+  // The host's QR code opens this page with ?checkin=1.
+  const fromQr = search?.get('checkin') === '1';
 
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -90,6 +96,7 @@ export default function PackDayDetail({ eventId, publicSummary }: Props) {
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [openDogUid, setOpenDogUid] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
+  const [checkins, setCheckins] = useState<Array<{ uid: string; dogId: string }>>([]);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -111,6 +118,7 @@ export default function PackDayDetail({ eventId, publicSummary }: Props) {
         return;
       }
       setEvent(result.event);
+      setCheckins(await listCheckins(eventId).catch(() => []));
       const loaded = await loadAttendees(result.event, result.foundingUids);
       setAttendees(loaded);
       // A finished Pack Day you went to: the dogs there count as met (their Dogtypes join your collection).
@@ -292,6 +300,8 @@ export default function PackDayDetail({ eventId, publicSummary }: Props) {
   const cancelled = event.status === 'cancelled';
   const over = isPast(event, Date.now());
   const left = spotsLeft(event);
+  const checkedIn = checkins.some((c) => c.uid === uid);
+  const canCheckIn = going && !checkedIn && isCheckinOpen(event, Date.now());
   const hasDog = isProfileComplete(profile);
   const openDog = openDogUid ? visibleAttendees.find((a) => a.uid === openDogUid) ?? null : null;
 
@@ -419,6 +429,24 @@ export default function PackDayDetail({ eventId, publicSummary }: Props) {
               </>
             )}
           </section>
+        )}
+
+        {event.foundingHost && !cancelled && <p className={NOTICE}>⭐ Founding Host: their first Pack Day</p>}
+
+        {/* ── Check-in: "I'm here" appears from the host's QR link, 30 min before start ── */}
+        {!cancelled && checkins.length > 0 && (
+          <p className="text-[15px] font-black text-brown">{checkedInDogCount(checkins)} checked in</p>
+        )}
+        {going && checkedIn && <p className={NOTICE}>You&apos;re checked in ✓</p>}
+        {canCheckIn && fromQr && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void run(() => checkInToPackDay(eventId, uid, uid, 'qr'), 'You’re checked in.', 'We couldn’t check you in. Try again.')}
+            className="btn-primary min-h-[52px] w-full py-3 disabled:opacity-60"
+          >
+            I&apos;m here
+          </button>
         )}
 
         <div className="flex flex-wrap gap-2">

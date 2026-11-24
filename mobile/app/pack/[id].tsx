@@ -30,7 +30,9 @@ import { FlyerFacts, GoingTokens, RulesSlip } from '../../components/pack/flyer'
 import { useSession } from '../../lib/session';
 import {
   cancelPackDay,
+  checkInToPackDay,
   getPackDay,
+  listCheckins,
   joinPackDay,
   leavePackDay,
   loadPackDayAttendees,
@@ -44,14 +46,22 @@ import { getBlockedUserIds } from '../../lib/blocks';
 import { openReportSheet } from '../../lib/reports';
 import { playdateSafetyUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
+import { requestApproxLocation } from '../../lib/location';
+import * as Location from 'expo-location';
+import { webUrl } from '../../lib/webLinks';
 import PackDayRules from '../../components/PackDayRules';
 import {
+  checkedInDogCount,
   formatPackDayWhen,
+  isCheckinOpen,
   isPast,
   mapsSearchUrl,
+  sameCity,
   spotsLeft,
 } from '../../../shared/packDay';
 import type { PackDay } from '../../../shared/packDay';
+import { dogMixSummary } from '../../../shared/packGroup';
+import type { DogProfile } from '../../../shared/types';
 
 function firstParam(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value) ?? '';
@@ -71,15 +81,18 @@ function openUrl(url: string, what: string) {
 }
 
 export default function PackDayScreen() {
-  const params = useLocalSearchParams<{ id?: string | string[]; new?: string | string[] }>();
+  const params = useLocalSearchParams<{ id?: string | string[]; new?: string | string[]; checkin?: string | string[] }>();
   const eventId = firstParam(params.id);
   const justCreated = firstParam(params.new) === '1';
+  // The host's QR code opens this screen (or the web page) with ?checkin=1.
+  const fromQr = firstParam(params.checkin) === '1';
   const { user, profile, profileComplete, loading: sessionLoading } = useSession();
 
   const [event, setEvent] = useState<PackDay | null>(null);
   const [attendees, setAttendees] = useState<PackDayAttendee[]>([]);
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
+  const [checkins, setCheckins] = useState<Array<{ uid: string; dogId: string }>>([]);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -97,6 +110,7 @@ export default function PackDayScreen() {
         return;
       }
       setEvent(result.event);
+      setCheckins(await listCheckins(eventId).catch(() => []));
       const loaded = await loadPackDayAttendees(result.event, result.foundingUids);
       setAttendees(loaded);
       // A finished Pack Day you went to: the dogs there count as met (their Dogtypes join your collection).
@@ -148,6 +162,31 @@ export default function PackDayScreen() {
       },
       'You’re in! We’ll remind you before it starts.',
       'We couldn’t save your spot. Try again.',
+    );
+  }
+
+  // QR link: the host's code is the proof. Otherwise the phone must be in the event's city
+  // (location is kept by city, so that is the whole check; we never store coordinates).
+  function handleCheckIn(me: string, city: string) {
+    void run(
+      async () => {
+        let method: 'qr' | 'location' = 'qr';
+        if (!fromQr) {
+          method = 'location';
+          const { status, coords } = await requestApproxLocation();
+          if (status !== 'granted' || !coords) {
+            throw new Error('Allow location to check in, or scan the host’s QR code.');
+          }
+          const [place] = await Location.reverseGeocodeAsync({ latitude: coords.lat, longitude: coords.lng });
+          if (!sameCity(place?.city, city)) {
+            throw new Error('You don’t look to be at the Pack Day yet. Scan the host’s QR code instead.');
+          }
+        }
+        await checkInToPackDay(eventId, me, me, method);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      },
+      'You’re checked in!',
+      'We couldn’t check you in. Try again.',
     );
   }
 
@@ -288,6 +327,8 @@ export default function PackDayScreen() {
   const visibleAttendees = attendees.filter((a) => !blocked.has(a.uid));
   const dogName = profile?.name?.trim() || 'my dog';
   const canJoin = live && !going;
+  const checkedIn = checkins.some((c) => c.uid === uid);
+  const checkinOpen = going && isCheckinOpen(event, Date.now());
 
   return (
     <SafeAreaView style={styles.container}>
@@ -303,6 +344,12 @@ export default function PackDayScreen() {
         {cancelled && <Slip icon="calendar-remove">This Pack Day was cancelled.</Slip>}
         {!cancelled && over && <Slip icon="calendar-check">This Pack Day is over.</Slip>}
 
+        {event.groupId && (
+          <Pressable onPress={() => router.push({ pathname: '/pack/group/[id]', params: { id: event.groupId as string } })} accessibilityRole="link">
+            <Text style={styles.mixLine}>Part of a standing group · See the group</Text>
+          </Pressable>
+        )}
+
         {/* ── The flyer ─────────────────────────────────────────────────── */}
         <Paper tape style={styles.flyer}>
           <FlyerFacts
@@ -316,10 +363,36 @@ export default function PackDayScreen() {
           {!canJoin && <View style={styles.flyerRules}><RulesSlip /></View>}
         </Paper>
 
+        {event.foundingHost && !cancelled && (
+          <Slip icon="star">Founding Host: this is their first Pack Day.</Slip>
+        )}
+
+        {/* ── Check-in ─────────────────────────────────────────────────── */}
+        {!cancelled && checkins.length > 0 && (
+          <Text style={type.strong}>{checkedInDogCount(checkins)} checked in</Text>
+        )}
+        {going && checkedIn && <Slip tone="ok" icon="check-bold">You’re checked in.</Slip>}
+        {checkinOpen && !checkedIn && (
+          <PinkButton label={busy ? 'Checking in…' : 'I’m here'} icon="map-marker-check" onPress={() => handleCheckIn(uid, event.city)} disabled={busy} />
+        )}
+        {isHost && checkinOpen && (
+          <Paper style={styles.joinBox}>
+            <Text style={type.strong}>Check-in code</Text>
+            <Text style={type.soft}>Neighbors scan this with their camera when they arrive.</Text>
+            <Image
+              source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(webUrl(`/app/pack/${event.id}?checkin=1`))}` }}
+              style={styles.qr}
+              accessibilityLabel="QR code for checking in to this Pack Day"
+            />
+          </Paper>
+        )}
+
         {/* ── Who's going (members only; a cancelled event shows no head count) ── */}
         {!cancelled && visibleAttendees.length > 0 && (
           <View style={styles.section}>
             <Heading size={22}>Who’s going</Heading>
+            {event.smallDogsOnly && <Text style={styles.mixLine}>Small dogs only</Text>}
+            <Text style={styles.mixLine}>{dogMixSummary(visibleAttendees.map((a) => a.profile as unknown as DogProfile))}</Text>
             <View style={styles.attendeeGrid}>
               {visibleAttendees.map((a) => (
                 <View key={a.uid} style={styles.attendee}>
@@ -381,6 +454,16 @@ export default function PackDayScreen() {
           )
         )}
 
+        {/* The group chat is free and opens with the RSVP; it stays readable
+            (and the album open) for 48 hours after the event. */}
+        {going && !cancelled && (
+          <PinkButton
+            label="Open the Pack Day chat"
+            icon="chat"
+            onPress={() => router.push(`/pack/chat/${event.id}`)}
+          />
+        )}
+
         {live && (
           <View style={styles.actionRow}>
             <PaperButton small label="Share" icon="export-variant" onPress={() => void handleShare()} style={styles.actionBtn} />
@@ -436,7 +519,9 @@ const styles = StyleSheet.create({
   attendeeFallback: { alignItems: 'center', justifyContent: 'center' },
   attendeeNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 6 },
   attendeeName: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, flexShrink: 1 },
+  mixLine: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid },
   joinBox: { gap: 12 },
+  qr: { width: 200, height: 200, alignSelf: 'center', backgroundColor: '#fff' },
   smallPrint: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
   smallPrintLink: { fontFamily: fonts.black, color: colors.ink, textDecorationLine: 'underline' },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

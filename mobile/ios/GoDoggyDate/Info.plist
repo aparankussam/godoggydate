@@ -62,7 +62,7 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Show dogs near you.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <string>Record your dog's bark for Snoot Boop.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Choose a photo from your library.</string>
     <key>NSUserActivityTypes</key>

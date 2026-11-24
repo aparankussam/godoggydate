@@ -1,6 +1,7 @@
 import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
 function getFirebaseAdminApp() {
   if (getApps().length > 0) {
@@ -50,4 +51,11 @@ export function getAdminAuth() {
 
 export function getAdminDb() {
   return getFirestore(getFirebaseAdminApp());
+}
+
+/** The project's default Storage bucket (finder photos on lost-dog sightings). */
+export function getAdminBucket() {
+  const name = process.env.FIREBASE_STORAGE_BUCKET?.trim() || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  if (!name) throw new Error('No Storage bucket configured (FIREBASE_STORAGE_BUCKET or NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET).');
+  return getStorage(getFirebaseAdminApp()).bucket(name);
 }

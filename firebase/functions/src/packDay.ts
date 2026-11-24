@@ -33,6 +33,8 @@ export interface PackDayPush {
   title: string;
   body: string;
   data: Record<string, string>;
+  /** Counts toward the 2-a-day cap unless 'reminder' (see notifyLimit.ts). Default 'social'. */
+  kind?: 'reminder' | 'social';
 }
 
 export interface PackDayDeps {
@@ -59,7 +61,7 @@ const HttpsError = functions.https.HttpsError;
 // spam or to move someone off-platform, so reject them in free text.
 const CONTACT_PATTERN = /https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|co|me|app)\b|@|\b\d{3}[\s.-]?\d{3}[\s.-]?\d{4}\b/i;
 
-function cleanText(value: unknown, label: string, max: number, required: boolean): string {
+export function cleanText(value: unknown, label: string, max: number, required: boolean): string {
   if (value === undefined || value === null || value === '') {
     if (required) throw new HttpsError('invalid-argument', `${label} is required.`);
     return '';
@@ -206,7 +208,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
     // host's events inside the transaction makes the second one wait and retry.
     await db.runTransaction(async (tx) => {
       const hosted = await tx.get(db.collection('packDays').where('hostUid', '==', uid));
-      const open = hosted.docs.filter((d) => d.data().status === 'open' && (d.data().startsAtMs as number) > now);
+      // Standing-group occurrences are generated for the group, so they don't use up the host's one-off allowance.
+      const open = hosted.docs.filter((d) => !d.data().groupId && d.data().status === 'open' && (d.data().startsAtMs as number) > now);
       if (open.length >= MAX_OPEN_PER_HOST) {
         throw new HttpsError('resource-exhausted', `You can have ${MAX_OPEN_PER_HOST} upcoming Pack Days at a time. Cancel one or wait until it's over.`);
       }
@@ -231,6 +234,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
         status: 'open',
         // Founder-hosted flag: only ever set by hand through the Admin SDK.
         official: false,
+        // "Founding Host": their first Pack Day ever (cancelled ones count, so it can't be farmed).
+        foundingHost: hosted.empty,
         reminderSent: false,
         createdAtMs: now,
       });
@@ -275,6 +280,10 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
     const preview = await ref.get();
     if (!preview.exists) throw new HttpsError('not-found', 'That Pack Day no longer exists.');
     const hostUid = preview.data()!.hostUid as string;
+    // Small-dog meetups (standing groups can set this) only take small dogs.
+    if (preview.data()!.smallDogsOnly === true && dogSnap.data()?.size !== 'S') {
+      throw new HttpsError('failed-precondition', 'This Pack Day is for small dogs only.');
+    }
     if (await isBlockedEitherWay(uid, hostUid)) {
       throw new HttpsError('permission-denied', "You can't join this Pack Day.");
     }
@@ -290,6 +299,11 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
     const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists) throw new HttpsError('not-found', 'That Pack Day no longer exists.');
+      // A member the host removed from the chat can't rejoin (see ./packDayChat.ts).
+      const control = await tx.get(ref.collection('chatControl').doc('state'));
+      if (((control.data()?.removedUids as string[] | undefined) ?? []).includes(uid)) {
+        throw new HttpsError('permission-denied', "You can't join this Pack Day.");
+      }
       const event = snap.data()!;
       const attendees = (event.attendeeUids as string[] | undefined) ?? [];
       if (event.status !== 'open') throw new HttpsError('failed-precondition', 'This Pack Day was cancelled.');
@@ -380,6 +394,7 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
           title: 'Pack Day removed',
           body: `${title} was removed by GoDoggyDate because it broke the community rules.`,
           data: { type: 'packday', eventId, link: `${SITE}/app/pack/${eventId}` },
+          kind: 'reminder',
         }).catch((error) => console.warn('packDay: host removal push failed', { eventId, error }));
         return;
       }
@@ -399,6 +414,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
       sendPushToUser(recipient, {
         ...message,
         data: { type: 'packday', eventId, link: `${SITE}/app/pack/${eventId}` },
+        // Plans people already made: a cancellation is never held back by the daily cap.
+        kind: 'reminder',
       }).catch((error) => console.warn('packDay: attendee push failed', { eventId, error })),
     ));
   }
@@ -429,6 +446,7 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
             title: 'Pack Day soon 🐕',
             body: `${event.title as string} at ${event.placeName as string} starts in about two hours.`,
             data: { type: 'packday', eventId: doc.id, link: `${SITE}/app/pack/${doc.id}` },
+            kind: 'reminder',
           }).catch((error) => console.warn('packDay: reminder push failed', { eventId: doc.id, error })),
         ));
       }

@@ -403,3 +403,18 @@ test('reminderDueDateProblem keeps due dates in a believable window', () => {
   assert.match(reminderDueDateProblem(new Date('9999-12-31T12:00:00').getTime(), now) ?? '', /between/);
   assert.equal(reminderDueDateProblem(Number.NaN, now), 'Pick a valid date');
 });
+
+test('nextDoseAt picks later today, or tomorrow once the time has passed', async () => {
+  const { nextDoseAt, formatDoseTime, isSameLocalDay } = await import('./dates.ts');
+  const morning = new Date(2026, 10, 24, 7, 30).getTime();
+  assert.equal(nextDoseAt(8, 0, morning), new Date(2026, 10, 24, 8, 0).getTime());
+  const evening = new Date(2026, 10, 24, 19, 0).getTime();
+  assert.equal(nextDoseAt(8, 0, evening), new Date(2026, 10, 25, 8, 0).getTime());
+  // Exactly on the minute counts as passed, so the first dose isn't instantly due.
+  assert.equal(nextDoseAt(8, 0, new Date(2026, 10, 24, 8, 0).getTime()), new Date(2026, 10, 25, 8, 0).getTime());
+  assert.equal(formatDoseTime(new Date(2026, 0, 1, 0, 5).getTime()), '12:05 AM');
+  assert.equal(formatDoseTime(new Date(2026, 0, 1, 18, 0).getTime()), '6:00 PM');
+  assert.equal(isSameLocalDay(new Date(2026, 10, 24, 1).getTime(), evening), true);
+  assert.equal(isSameLocalDay(new Date(2026, 10, 23, 23).getTime(), evening), false);
+  assert.equal(isSameLocalDay(undefined, evening), false);
+});

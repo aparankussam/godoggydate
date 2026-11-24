@@ -132,6 +132,13 @@ export async function deleteUserData(
     if (!dryRun) await deleteRefs(db, snap.docs.map((d) => d.ref));
   }
 
+  // Where we go: the user's place tags and ask records. Deleting a tag makes
+  // onPlaceTagWritten recount (and withdraw) the public places/ count.
+  for (const [col, field] of [['placeTags', 'ownerId'], ['placeAsks', 'askerUid']] as const) {
+    const snap = await db.collection(col).where(field, '==', uid).get();
+    if (!dryRun) await deleteRefs(db, snap.docs.map((d) => d.ref));
+  }
+
   if (!dryRun) {
     await db.recursiveDelete(db.doc(`swipes/${uid}`));
     await db.recursiveDelete(db.doc(`blocks/${uid}`));
