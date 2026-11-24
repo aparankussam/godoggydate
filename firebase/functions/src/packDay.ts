@@ -33,6 +33,8 @@ export interface PackDayPush {
   title: string;
   body: string;
   data: Record<string, string>;
+  /** Counts toward the 2-a-day cap unless 'reminder' (see notifyLimit.ts). Default 'social'. */
+  kind?: 'reminder' | 'social';
 }
 
 export interface PackDayDeps {
@@ -387,6 +389,7 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
           title: 'Pack Day removed',
           body: `${title} was removed by GoDoggyDate because it broke the community rules.`,
           data: { type: 'packday', eventId, link: `${SITE}/app/pack/${eventId}` },
+          kind: 'reminder',
         }).catch((error) => console.warn('packDay: host removal push failed', { eventId, error }));
         return;
       }
@@ -406,6 +409,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
       sendPushToUser(recipient, {
         ...message,
         data: { type: 'packday', eventId, link: `${SITE}/app/pack/${eventId}` },
+        // Plans people already made: a cancellation is never held back by the daily cap.
+        kind: 'reminder',
       }).catch((error) => console.warn('packDay: attendee push failed', { eventId, error })),
     ));
   }
@@ -436,6 +441,7 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
             title: 'Pack Day soon 🐕',
             body: `${event.title as string} at ${event.placeName as string} starts in about two hours.`,
             data: { type: 'packday', eventId: doc.id, link: `${SITE}/app/pack/${doc.id}` },
+            kind: 'reminder',
           }).catch((error) => console.warn('packDay: reminder push failed', { eventId: doc.id, error })),
         ));
       }

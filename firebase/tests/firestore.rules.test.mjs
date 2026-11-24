@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, setLogLevel, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, setLogLevel, writeBatch, serverTimestamp, query, where } from 'firebase/firestore';
 
 setLogLevel('error');
 
@@ -803,6 +803,33 @@ describe('packDays/{eventId}/messages', () => {
     }));
     await assertFails(setDoc(doc(google('a'), 'reports/r2'), {
       reporterId: 'a', targetUserId: 'b', reason: 'inappropriate', source: 'packday', eventId: 'e1', messageId: text(200),
+  });
+});
+
+// ── City feed posts: live reads only, server writes only ──────────────────────
+describe('cityPosts', () => {
+  const live = () => ({ authorUid: 'a', city: 'Ann Arbor', template: 'ask', text: 'Vet?', expiresAtMs: Date.now() + 3600_000 });
+
+  it('signed-in members read posts (expiry is a query filter); signed-out cannot', async () => {
+    await seed((db) => setDoc(doc(db, 'cityPosts/p1'), live()));
+    await assertSucceeds(getDoc(doc(google('b'), 'cityPosts/p1')));
+    await assertFails(getDoc(doc(signedOut(), 'cityPosts/p1')));
+    await assertSucceeds(getDocs(query(collection(google('b'), 'cityPosts'), where('city', '==', 'Ann Arbor'), where('expiresAtMs', '>', Date.now()))));
+  });
+
+  it('nobody writes posts, counters or digest markers from a client', async () => {
+    await assertFails(setDoc(doc(google('a'), 'cityPosts/p3'), live()));
+    await seed((db) => setDoc(doc(db, 'cityPosts/p1'), live()));
+    await assertFails(updateDoc(doc(google('a'), 'cityPosts/p1'), { expiresAtMs: Date.now() + 99 * 3600_000 }));
+    await assertFails(deleteDoc(doc(google('b'), 'cityPosts/p1')));
+    await assertFails(setDoc(doc(google('a'), 'pushCounters/a_2026-01-01'), { count: 0 }));
+    await assertFails(getDoc(doc(google('a'), 'pushCounters/a_2026-01-01')));
+    await assertFails(setDoc(doc(google('a'), 'cityFeedDigests/x'), {}));
+  });
+
+  it('a report can name the post it is about', async () => {
+    await assertSucceeds(setDoc(doc(google('a'), 'reports/rp1'), {
+      reporterId: 'a', targetUserId: 'b', reason: 'spam', source: 'cityfeed', postId: 'p1',
     }));
   });
 });

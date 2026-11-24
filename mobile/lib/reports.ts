@@ -15,7 +15,7 @@ import { blockUser } from './blocks';
 import { trackEvent } from './analytics';
 
 export type ReportReason = 'block' | 'spam' | 'inappropriate';
-export type ReportSource = 'profile' | 'chat' | 'packday';
+export type ReportSource = 'profile' | 'chat' | 'packday' | 'cityfeed';
 
 export interface ReportTarget {
   reporterId: string;
@@ -27,6 +27,8 @@ export interface ReportTarget {
   eventId?: string;
   /** Set with eventId when reporting one Pack Day chat message, so a moderator sees exactly that message. */
   messageId?: string;
+  /** Set when reporting a city feed post, so a moderator can see which one. */
+  postId?: string;
 }
 
 export type ReportOutcome = 'reported' | 'blocked' | 'blocked_report_failed' | 'failed';
@@ -54,6 +56,7 @@ export async function submitReport(target: ReportTarget, reason: ReportReason): 
       ...(target.matchId ? { matchId: target.matchId } : {}),
       ...(target.eventId ? { eventId: target.eventId } : {}),
       ...(target.messageId ? { messageId: target.messageId } : {}),
+      ...(target.postId ? { postId: target.postId } : {}),
       reason,
       source: target.source,
       createdAt: serverTimestamp(),

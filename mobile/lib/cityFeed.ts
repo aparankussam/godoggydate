@@ -1,0 +1,75 @@
+// mobile/lib/cityFeed.ts
+// Client wiring for the city feed. Reads come straight from Firestore (live
+// posts only: the query filters expiresAtMs > now); posting and closing a post
+// go through callables, which run the content filter and the new-account check
+// (firebase/functions/src/cityFeed.ts). Rules and merge logic: shared/cityFeed.ts.
+
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { checkContent, CONTENT_FILTER_MESSAGE } from '../../shared/contentFilter';
+import { mergeFeed, validatePostFields } from '../../shared/cityFeed';
+import type { FeedItem, PostTemplate } from '../../shared/cityFeed';
+import type { PackDay } from '../../shared/packDay';
+import { getFirebase } from './firebase';
+import { listUpcomingPackDays, packDayErrorMessage } from './packDay';
+
+function callable<Req, Res>(name: string) {
+  const { app } = getFirebase();
+  return httpsCallable<Req, Res>(getFunctions(app, 'us-central1'), name);
+}
+
+/** The city's feed, newest first with Pack Days woven in. `blocked` hides those authors. */
+export async function loadCityFeed(
+  city: string,
+  blocked: ReadonlySet<string>,
+  nowMs: number = Date.now(),
+): Promise<{ items: FeedItem[]; days: Map<string, PackDay> }> {
+  const { db } = getFirebase();
+  const here = city.trim().toLowerCase();
+  const [days, posts, lost] = await Promise.all([
+    listUpcomingPackDays(nowMs),
+    getDocs(query(collection(db, 'cityPosts'), where('city', '==', city), where('expiresAtMs', '>', nowMs), limit(60))),
+    // Written by the lost-dog alert feature; absent or unreadable means no alerts.
+    getDocs(query(collection(db, 'lostAlerts'), where('city', '==', city), limit(20))).catch(() => null),
+  ]);
+
+  const items: FeedItem[] = [];
+  const cityDays = new Map<string, PackDay>();
+  for (const e of days) {
+    if (e.city.trim().toLowerCase() === here) cityDays.set(e.id, e);
+    if (e.city.trim().toLowerCase() === here) items.push({ kind: 'packday', id: e.id, authorUid: e.hostUid, sortMs: e.startsAtMs });
+  }
+  posts.docs.forEach((d) => {
+    const p = d.data();
+    items.push({
+      kind: 'post', id: d.id, authorUid: String(p.authorUid ?? ''), sortMs: Number(p.createdAtMs ?? 0),
+      template: p.template as PostTemplate, text: String(p.text ?? ''), place: String(p.place ?? ''), claimed: p.claimed === true,
+    });
+  });
+  lost?.docs.forEach((d) => {
+    const a = d.data();
+    const live = a.status !== 'found' && a.status !== 'resolved' && !(typeof a.expiresAtMs === 'number' && a.expiresAtMs <= nowMs);
+    if (live) {
+      items.push({ kind: 'lost', id: d.id, authorUid: String(a.authorUid ?? a.ownerUid ?? ''), sortMs: Number(a.createdAtMs ?? 0), data: a });
+    }
+  });
+  return { items: mergeFeed(items, blocked), days: cityDays };
+}
+
+/** Returns an error message to show, or null when the post was created. */
+export async function createCityPost(input: { template: PostTemplate; text: string; place: string }): Promise<string | null> {
+  const fields = validatePostFields(input);
+  if (!fields.ok) return fields.message;
+  if (!checkContent(fields.value.text).ok || !checkContent(fields.value.place).ok) return CONTENT_FILTER_MESSAGE;
+  try {
+    await callable<typeof fields.value, { postId: string }>('createCityPost')(fields.value);
+    return null;
+  } catch (error) {
+    return packDayErrorMessage(error, 'We couldn’t post that. Check your connection and try again.');
+  }
+}
+
+/** Author only: 'claim' marks a Free/Lend post as gone (it expires now), 'delete' removes it. */
+export async function updateCityPost(postId: string, action: 'claim' | 'delete'): Promise<void> {
+  await callable<{ postId: string; action: string }, { ok: boolean }>('updateCityPost')({ postId, action });
+}
