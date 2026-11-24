@@ -90,10 +90,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="pack"
         options={{
-          title: 'Pack Day',
-          tabBarAccessibilityLabel: 'Pack Day',
+          title: 'Pack Days',
+          tabBarAccessibilityLabel: 'Pack Days',
           tabBarIcon: ({ focused }) => (
-            <TabIcon glyph={GLYPHS.pack} label="Pack Day" focused={focused} />
+            <TabIcon glyph={GLYPHS.pack} label="Pack Days" focused={focused} />
           ),
         }}
       />
@@ -122,10 +122,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarAccessibilityLabel: 'Profile',
+          title: 'Pupfile',
+          tabBarAccessibilityLabel: 'Pupfile',
           tabBarIcon: ({ focused }) => (
-            <TabIcon glyph={GLYPHS.profile} label="Profile" focused={focused} />
+            <TabIcon glyph={GLYPHS.profile} label="Pupfile" focused={focused} />
           ),
         }}
       />

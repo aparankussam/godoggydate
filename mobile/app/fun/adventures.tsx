@@ -1,10 +1,12 @@
 // mobile/app/fun/adventures.tsx
 // The Dog Bucket List / Adventure Passport — a deck of playful real-world quests
 // (shared/adventures.ts) the owner stamps off. Self-logged + local (no server),
-// with a satisfying stamp pop + haptic, and a shareable passport summary.
+// with a satisfying stamp pop + haptic, and a shareable passport summary. A
+// quest only stamps with a photo of the real thing; the photo shows on the quest.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, radius, shadow } from '../../constants/theme';
@@ -17,6 +19,7 @@ import NextToy from '../../components/playroom/NextToy';
 import AdventurePassportCard from '../../components/AdventurePassportCard';
 import { adventuresFor, ADVENTURE_COUNT } from '../../../shared/adventures';
 import { loadCompleted, saveCompleted, type CompletedMap } from '../../lib/adventures';
+import { adventurePhotoUri, deleteAdventurePhoto, saveAdventurePhoto } from '../../lib/adventurePhotos';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 
 export default function AdventuresScreen() {
@@ -27,6 +30,9 @@ export default function AdventuresScreen() {
 
   const deck = useMemo(() => adventuresFor(profile ?? undefined), [profile]);
   const [completed, setCompleted] = useState<CompletedMap>({});
+  // The latest map, read by handlers: saving from inside a setState updater is
+  // skipped when the screen is backgrounded right after a tap.
+  const completedRef = useRef<CompletedMap>({});
   const [ready, setReady] = useState(false);
   const [sharing, setSharing] = useState(false);
   const passportRef = useRef<View>(null);
@@ -37,6 +43,7 @@ export default function AdventuresScreen() {
     let active = true;
     loadCompleted(dogId).then((c) => {
       if (active) {
+        completedRef.current = c;
         setCompleted(c);
         setReady(true);
       }
@@ -53,23 +60,66 @@ export default function AdventuresScreen() {
     ]).start();
   }
 
-  function toggle(id: string) {
-    if (!ready) return;
-    setCompleted((prev) => {
-      const next = { ...prev };
-      const wasDone = Boolean(next[id]);
-      if (wasDone) {
-        delete next[id];
-        Haptics.selectionAsync().catch(() => {});
-      } else {
-        next[id] = Date.now();
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        popToast();
-        trackEvent('adventure_stamped', { quest: id });
+  // Bumped when a proof photo is saved or removed, so the thumbnails reload.
+  const [photoVersion, setPhotoVersion] = useState(0);
+
+  function commit(next: CompletedMap) {
+    completedRef.current = next;
+    setCompleted(next);
+    void saveCompleted(dogId, next);
+  }
+
+  function stamp(id: string) {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    popToast();
+    trackEvent('adventure_stamped', { quest: id });
+    commit({ ...completedRef.current, [id]: Date.now() });
+  }
+
+  function unstamp(id: string) {
+    deleteAdventurePhoto(dogId, id);
+    setPhotoVersion((v) => v + 1);
+    const next = { ...completedRef.current };
+    delete next[id];
+    commit(next);
+  }
+
+  async function pickProof(id: string, source: 'camera' | 'library') {
+    try {
+      const perm = source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', `Allow ${source === 'camera' ? 'camera' : 'photo'} access to add your proof photo.`);
+        return;
       }
-      void saveCompleted(dogId, next);
-      return next;
-    });
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, mediaTypes: ['images'] });
+      const uri = !result.canceled ? result.assets?.[0]?.uri : undefined;
+      if (!uri) return;
+      saveAdventurePhoto(dogId, id, uri);
+      setPhotoVersion((v) => v + 1);
+      stamp(id);
+    } catch {
+      Alert.alert('Could not add the photo', 'Please try again.');
+    }
+  }
+
+  function toggle(id: string, title: string) {
+    if (!ready) return;
+    if (completedRef.current[id]) {
+      Alert.alert(title, 'Remove this stamp and its photo?', [
+        { text: 'Keep it', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => unstamp(id) },
+      ]);
+      return;
+    }
+    Alert.alert('Prove it!', `Add a photo of ${dogName} doing it, and it stamps.`, [
+      { text: 'Take a photo', onPress: () => void pickProof(id, 'camera') },
+      { text: 'Choose from library', onPress: () => void pickProof(id, 'library') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   }
 
   // Count only quests that are in the current deck, as web does
@@ -104,8 +154,9 @@ export default function AdventuresScreen() {
 
         {deck.map((a) => {
           const done = Boolean(completed[a.id]);
+          const proof = done ? adventurePhotoUri(dogId, a.id) : null;
           return (
-            <Pressable key={a.id} style={[styles.quest, done && styles.questDone]} onPress={() => toggle(a.id)}>
+            <Pressable key={a.id} style={[styles.quest, done && styles.questDone]} onPress={() => toggle(a.id, a.title)}>
               <View style={[styles.questEmojiWrap, done && styles.questEmojiWrapDone]}>
                 <Text style={styles.questEmoji}>{a.emoji}</Text>
               </View>
@@ -113,15 +164,19 @@ export default function AdventuresScreen() {
                 <Text style={[styles.questTitle, done && styles.questTitleDone]}>{a.title}</Text>
                 <Text style={styles.questBlurb}>{a.blurb}</Text>
               </View>
-              <View style={[styles.stampBtn, done && styles.stampBtnDone]}>
-                {done ? <Glyph name="check-bold" size={16} color={colors.cream} /> : <Text style={styles.stampBtnText}>Stamp</Text>}
-              </View>
+              {done && proof ? (
+                <Image key={photoVersion} source={{ uri: proof }} style={styles.proof} />
+              ) : (
+                <View style={[styles.stampBtn, done && styles.stampBtnDone]}>
+                  {done ? <Glyph name="check-bold" size={16} color={colors.cream} /> : <Text style={styles.stampBtnText}>Add photo</Text>}
+                </View>
+              )}
             </Pressable>
           );
         })}
 
         <PinkButton label={sharing ? 'Rendering…' : 'Share the passport'} icon="export-variant" onPress={sharePassport} busy={sharing} style={styles.shareButton} />
-        <Text style={styles.disclaimer}>Your own checklist — stamp a quest when you and {dogName} pull it off.</Text>
+        <Text style={styles.disclaimer}>Do the quest for real, add a photo of it, and it stamps.</Text>
         <NextToy current="adventures" />
       </ScrollView>
 
@@ -202,6 +257,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   stampBtnDone: { backgroundColor: colors.ink },
+  proof: { width: 56, height: 56, borderRadius: 12, borderWidth: 2, borderColor: colors.ink },
   stampBtnText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
   shareButton: { marginTop: 10 },
   disclaimer: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center', lineHeight: 17, marginTop: 2 },

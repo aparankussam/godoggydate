@@ -25,8 +25,15 @@ import { getBlockedUserIds } from '../../lib/blocks';
 import { trackEvent } from '../../lib/analytics';
 import PackDayCard from '../../components/PackDayCard';
 import CityFeed from '../../components/CityFeed';
+import WhereWeGoSection from '../../components/WhereWeGoSection';
 import type { PackDay } from '../../../shared/packDay';
 import { packGroupScheduleLabel, type PackGroup } from '../../../shared/packGroup';
+
+const VIEWS: { id: 'days' | 'feed' | 'spots'; label: string; blurb: string }[] = [
+  { id: 'days', label: 'Pack Days', blurb: 'Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the dogs yours actually clicks with. Free to join.' },
+  { id: 'feed', label: 'Neighbarkhood', blurb: 'Barks from dog people nearby: ask the Pack, give something away, find a walk buddy.' },
+  { id: 'spots', label: 'Sniff Spots', blurb: 'The vets, groomers and parks your Pack uses. Tag yours; no reviews, just a count.' },
+];
 
 export default function PackDaysTab() {
   const { user, profile, profileComplete, loading: sessionLoading } = useSession();
@@ -36,7 +43,7 @@ export default function PackDaysTab() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
-  const [view, setView] = useState<'feed' | 'days'>('feed');
+  const [view, setView] = useState<'days' | 'feed' | 'spots'>('days');
 
   useFocusEffect(
     useCallback(() => {
@@ -137,25 +144,44 @@ export default function PackDaysTab() {
         <View style={styles.headerRow}>
           <View style={styles.titleRow}>
             <View style={styles.titleBadge}><Glyph name="tree" size={18} /></View>
-            <Text style={styles.title} accessibilityRole="header">{view === 'feed' ? 'City feed' : 'Pack Days'}</Text>
+            <Text style={styles.title} accessibilityRole="header">{VIEWS.find((v) => v.id === view)?.label}</Text>
           </View>
           {canHost && anyEvents && (
             <PaperButton small label="Host one" icon="plus" onPress={handleHost} accessibilityLabel="Host a Pack Day" />
           )}
         </View>
-        <Text style={styles.subtitle}>
-          Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the
-          dogs yours actually clicks with. Free to join.
-        </Text>
+        <Text style={styles.subtitle}>{VIEWS.find((v) => v.id === view)?.blurb}</Text>
 
         <View style={styles.switchRow}>
-          <PaperButton small label="City feed" icon="home-group" onPress={() => setView('feed')} accessibilityLabel="Show the city feed" />
-          <PaperButton small label="Pack Days" icon="tree" onPress={() => setView('days')} accessibilityLabel="Show Pack Days" />
+          {VIEWS.map((v) => (
+            <Pressable
+              key={v.id}
+              onPress={() => setView(v.id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: view === v.id }}
+              accessibilityLabel={v.label}
+              style={[styles.chip, view === v.id && styles.chipOn]}
+            >
+              <Text style={[styles.chipText, view === v.id && { color: colors.cream }]}>{v.label}</Text>
+            </Pressable>
+          ))}
         </View>
 
         {view === 'feed' && (
-          <CityFeed uid={user.uid} city={profile?.city?.trim()} canPost={canHost} blocked={blocked} reloadToken={reloadToken} />
+          <>
+            <Pressable
+              onPress={() => router.push('/lost')}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.lostCard, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.lostTitle}>Lost dog alert</Text>
+              <Text style={styles.groupMeta}>Bring them home. One tap tells your Pack and neighbors.</Text>
+            </Pressable>
+            <CityFeed uid={user.uid} city={profile?.city?.trim()} canPost={canHost} blocked={blocked} reloadToken={reloadToken} />
+          </>
         )}
+
+        {view === 'spots' && <WhereWeGoSection uid={user.uid} city={profile?.city} />}
 
         {view === 'days' && !canHost && events && (
           <Paper style={styles.setupCard}>
@@ -290,7 +316,12 @@ const styles = StyleSheet.create({
   setupBody: { marginBottom: 12 },
   block: { marginBottom: 20 },
   retryBtn: { alignSelf: 'flex-start', marginTop: 10 },
-  switchRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  switchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
+  chipOn: { backgroundColor: colors.ink },
+  chipText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
+  lostCard: { backgroundColor: colors.cream, borderWidth: 2, borderColor: colors.ink, borderRadius: 16, padding: 14, gap: 3, marginBottom: 14 },
+  lostTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
   loadingBox: { paddingVertical: 64, alignItems: 'center' },
   section: { marginBottom: 14 },
   sectionLabel: { marginBottom: 12 },

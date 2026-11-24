@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState, type ComponentType, type ComponentProps } from 'react';
 import { Alert, Animated, AppState, Easing, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import type { AudioPlayer } from 'expo-audio';
@@ -22,6 +23,7 @@ import { trackEvent } from '../../lib/analytics';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 import type BarkRecorderType from '../../components/playroom/BarkRecorder';
 import NextToy from '../../components/playroom/NextToy';
+import { useCharms } from '../../lib/charms';
 import {
   loadBoops,
   persistBoops,
@@ -51,8 +53,27 @@ const BOOP_SOUNDS: number[] = [
   require('../../assets/sounds/boop-5.wav'),
 ];
 const MILESTONE_SOUND: number = require('../../assets/sounds/milestone.wav');
+const EXTRA_SOUNDS = {
+  pop: require('../../assets/sounds/pop.wav') as number,
+  squeak: require('../../assets/sounds/squeak.wav') as number,
+  bubble: require('../../assets/sounds/bubble.wav') as number,
+  howl: require('../../assets/sounds/howl.wav') as number,
+};
 /* eslint-enable @typescript-eslint/no-require-imports */
 
+type SoundChoice = 'boop' | 'bark' | keyof typeof EXTRA_SOUNDS;
+
+// What a tap sounds like. `charms` is how many charms on the collar unlock it
+// (see lib/charms.ts); the bark is the owner's own recording.
+const SOUND_OPTIONS: { id: SoundChoice; label: string; emoji: string; charms: number }[] = [
+  { id: 'boop', label: 'Boop', emoji: '👃', charms: 0 },
+  { id: 'bark', label: 'Real bark', emoji: '🎤', charms: 0 },
+  { id: 'pop', label: 'Pop', emoji: '🫧', charms: 0 },
+  { id: 'squeak', label: 'Squeaky toy', emoji: '🧸', charms: 3 },
+  { id: 'bubble', label: 'Bubble', emoji: '🔮', charms: 6 },
+  { id: 'howl', label: 'Howl', emoji: '🐺', charms: 9 },
+];
+const SOUND_KEY = (uid: string) => `snootSound:${uid}`;
 /** The pre-rendered boop closest to web's pitch for this streak (0–12). */
 function boopSoundIndex(streak: number): number {
   return Math.max(0, Math.min(BOOP_SOUNDS.length - 1, Math.round(streak / 3)));
@@ -66,7 +87,7 @@ function boopSoundIndex(streak: number): number {
  * leaves the owner's music playing.
  */
 function useBoopSounds(barkUri: string | null, barkVersion: number) {
-  const players = useRef<{ boops: AudioPlayer[]; milestone: AudioPlayer } | null>(null);
+  const players = useRef<{ boops: AudioPlayer[]; milestone: AudioPlayer; extras: Record<string, AudioPlayer> } | null>(null);
   const bark = useRef<AudioPlayer | null>(null);
 
   useEffect(() => {
@@ -75,13 +96,20 @@ function useBoopSounds(barkUri: string | null, barkVersion: number) {
     import('expo-audio')
       .then((audio) => {
         if (cancelled) return;
-        audio.setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' }).catch(() => {});
+        // Play with the silent switch on too: a toy you tap for its sound is silent otherwise.
+        audio.setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers' }).catch(() => {});
         const make = (source: number) => {
           const player = audio.createAudioPlayer(source);
           created.push(player);
           return player;
         };
-        players.current = { boops: BOOP_SOUNDS.map((s) => make(s)), milestone: make(MILESTONE_SOUND) };
+        const extras: Record<string, AudioPlayer> = {};
+        for (const [id, source] of Object.entries(EXTRA_SOUNDS)) {
+          const player = make(source);
+          player.shouldCorrectPitch = false; // the rate change should lift the pitch
+          extras[id] = player;
+        }
+        players.current = { boops: BOOP_SOUNDS.map((s) => make(s)), milestone: make(MILESTONE_SOUND), extras };
       })
       .catch(() => {
         players.current = null;
@@ -128,10 +156,12 @@ function useBoopSounds(barkUri: string | null, barkVersion: number) {
   }
 
   return {
-    boop: (streak: number) => {
-      if (bark.current) {
-        try { bark.current.setPlaybackRate(1 + streak * 0.05); } catch { /* keep normal speed */ }
-        play(bark.current);
+    boop: (streak: number, choice: SoundChoice) => {
+      const rate = 1 + streak * 0.05;
+      const custom = choice === 'bark' ? bark.current : choice === 'boop' ? null : players.current?.extras[choice];
+      if (custom) {
+        try { custom.setPlaybackRate(rate); } catch { /* keep normal speed */ }
+        play(custom);
       } else {
         play(players.current?.boops[boopSoundIndex(streak)]);
       }
@@ -159,6 +189,26 @@ export default function SnootScreen() {
   // or expo-file-system must still open this screen.
   const [Recorder, setRecorder] = useState<ComponentType<ComponentProps<typeof BarkRecorderType>> | null>(null);
   const sounds = useBoopSounds(barkUri, barkVersion);
+  const { earned } = useCharms(user?.uid);
+  const [choice, setChoice] = useState<SoundChoice>('boop');
+  useEffect(() => {
+    if (!dogId) return;
+    AsyncStorage.getItem(SOUND_KEY(dogId)).then((v) => {
+      if (SOUND_OPTIONS.some((o) => o.id === v)) setChoice(v as SoundChoice);
+    }).catch(() => {});
+  }, [dogId]);
+  const pickSound = (id: SoundChoice) => {
+    const option = SOUND_OPTIONS.find((o) => o.id === id);
+    if (!option) return;
+    if (earned.length < option.charms) {
+      Alert.alert('Still locked', `Try ${option.charms - earned.length} more toy${option.charms - earned.length === 1 ? '' : 's'} in the Playroom to earn charms and unlock this sound.`);
+      return;
+    }
+    if (id === 'bark' && !barkUri) { openRecorder(); return; }
+    setChoice(id);
+    AsyncStorage.setItem(SOUND_KEY(dogId), id).catch(() => {});
+    sounds.boop(0, id);
+  };
   useEffect(() => {
     import('../../lib/myBark').then((m) => setBarkUri(m.myBarkUri(dogId))).catch(() => {});
   }, [dogId]);
@@ -303,7 +353,7 @@ export default function SnootScreen() {
           : Haptics.ImpactFeedbackStyle.Light;
       Haptics.impactAsync(style).catch(() => {});
       // Pitch climbs with the streak for a satisfying rally, as on web.
-      sounds.boop(streak.current);
+      sounds.boop(streak.current, choice);
     }
   }
 
@@ -444,12 +494,28 @@ export default function SnootScreen() {
             />
           )}
         </View>
-        <PaperButton
-          small
-          label={barkUri ? `Playing ${dogName}'s real bark` : `Use ${dogName}'s real bark`}
-          icon="microphone"
-          onPress={openRecorder}
-        />
+        <Text style={styles.soundHead}>Tap sound</Text>
+        <View style={styles.soundRow}>
+          {SOUND_OPTIONS.map((o) => {
+            const locked = earned.length < o.charms;
+            const on = choice === o.id && (o.id !== 'bark' || !!barkUri);
+            return (
+              <Pressable
+                key={o.id}
+                onPress={() => pickSound(o.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on, disabled: locked }}
+                accessibilityLabel={locked ? `${o.label}, locked` : o.id === 'bark' && !barkUri ? 'Record a real bark' : o.label}
+                style={[styles.soundChip, on && styles.soundChipOn, locked && styles.soundChipLocked]}
+              >
+                <Text style={styles.soundEmoji}>{locked ? '🔒' : o.emoji}</Text>
+                <Text style={[styles.soundLabel, on && { color: colors.cream }]}>{o.id === 'bark' && !barkUri ? 'Record bark' : o.label}</Text>
+                {locked && <Text style={styles.soundLock}>{o.charms} charms</Text>}
+              </Pressable>
+            );
+          })}
+        </View>
+        {barkUri && <PaperButton small label={`Re-record ${dogName}'s bark`} icon="microphone" onPress={openRecorder} />}
         <NextToy current="snoot" />
       </ScrollView>
 
@@ -459,7 +525,13 @@ export default function SnootScreen() {
         dogName={dogName}
         hasBark={!!barkUri}
         onClose={() => setRecording(false)}
-        onChange={(uri) => { setBarkUri(uri); setBarkVersion((v) => v + 1); }}
+        onChange={(uri) => {
+          setBarkUri(uri);
+          setBarkVersion((v) => v + 1);
+          const next: SoundChoice = uri ? 'bark' : 'boop';
+          setChoice(next);
+          AsyncStorage.setItem(SOUND_KEY(dogId), next).catch(() => {});
+        }}
       />}
 
       {/* Off-screen capturable badge */}
@@ -483,6 +555,14 @@ export default function SnootScreen() {
 const SNOOT = 240;
 
 const styles = StyleSheet.create({
+  soundHead: { fontFamily: fonts.display, fontSize: 18, color: colors.ink, marginTop: 6, alignSelf: 'flex-start' },
+  soundRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignSelf: 'stretch' },
+  soundChip: { minWidth: 96, flexGrow: 1, alignItems: 'center', gap: 2, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.lg, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream },
+  soundChipOn: { backgroundColor: colors.ink },
+  soundChipLocked: { opacity: 0.55 },
+  soundEmoji: { fontSize: 22 },
+  soundLabel: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  soundLock: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownMid },
   container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',

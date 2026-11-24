@@ -36,6 +36,7 @@ export const CHARMS: Charm[] = [
   { id: 'quiz', emoji: '❓', label: 'Dog quiz', href: treat('quiz') },
   { id: 'plaque', emoji: '🏅', label: 'Employee of the Month', href: treat('plaque') },
   { id: 'letter', emoji: '💌', label: 'A letter from {name}', href: panel('letter') },
+  { id: 'lifestage', emoji: '🎂', label: 'Life stage', href: treat('lifestage') },
 ];
 
 export const charmLabel = (charm: Charm, dogName: string) => charm.label.replace('{name}', dogName);

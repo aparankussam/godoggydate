@@ -64,7 +64,7 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
         <View style={styles.identityText}>
           {variant !== 'same' && <Text style={styles.isLine}>{otherName} is</Text>}
           <Text style={styles.typeName}>{sealed ? `${otherName} is just like ${ownName}` : headline}</Text>
-          <Text style={styles.tagline}>{sealed ? `Watch ${ownName}’s reveal in Profile to see which.` : type.tagline}</Text>
+          <Text style={styles.tagline}>{sealed ? `Watch ${ownName}’s reveal in Pupfile to see which.` : type.tagline}</Text>
         </View>
       </View>
       {!compact && !sealed && <Text style={styles.blurb}>{type.blurb}</Text>}
