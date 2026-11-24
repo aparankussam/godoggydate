@@ -19,7 +19,7 @@ const PHOTO_JPEG_QUALITY = 0.82;
  * no fall back to the original file: if the browser can't decode it, the upload
  * fails with a message instead of leaking the location.
  */
-async function toMetadataFreeJpeg(file: File): Promise<Blob> {
+export async function toMetadataFreeJpeg(file: File): Promise<Blob> {
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
