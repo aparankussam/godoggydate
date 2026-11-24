@@ -20,6 +20,7 @@ import { useSession } from '../../lib/session';
 import { captureAndShare } from '../../lib/shareCard';
 import { webUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
+import NextToy from '../../components/playroom/NextToy';
 import ExcuseNoteCard from '../../components/ExcuseNoteCard';
 import { buildExcuseNote, EXCUSE_REASONS } from '../../../shared/excuseNote';
 
@@ -155,6 +156,7 @@ export default function ExcuseScreen() {
           It&apos;s a bit, obviously — the note is signed by a dog, stamped with a paw, and says right on it that it
           isn&apos;t a real document.
         </Text>
+        <NextToy current="excuse" />
       </ScrollView>
     </SafeAreaView>
   );

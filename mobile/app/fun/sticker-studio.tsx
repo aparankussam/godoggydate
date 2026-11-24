@@ -23,6 +23,7 @@ import { getHeroPhoto, getRenderablePhotos } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
 import { webUrl } from '../../lib/webLinks';
 import { trackEvent } from '../../lib/analytics';
+import NextToy from '../../components/playroom/NextToy';
 import { loadBoopAllTime, unlockedStickers, STICKERS, type Sticker } from '../../lib/boops';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 
@@ -273,6 +274,7 @@ export default function StickerStudioScreen() {
         )}
 
         <Text style={styles.footnote}>Stickers are genuinely earned by your own boops — no shortcuts, no fabricated stats.</Text>
+        <NextToy current="sticker-studio" />
       </ScrollView>
     </SafeAreaView>
   );

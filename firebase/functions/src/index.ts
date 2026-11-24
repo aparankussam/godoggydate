@@ -1764,6 +1764,7 @@ export const sendReminderNotifications = functions.pubsub
         notifiedAt?: FirebaseFirestore.Timestamp;
         recurrenceDays?: number;
         label?: string;
+        type?: string;
       };
       const dogId = doc.ref.parent.parent?.id;
       if (!dogId || !data.dueDate) continue;
@@ -1801,6 +1802,15 @@ export const sendReminderNotifications = functions.pubsub
             currentStreak: 0,
           });
         }
+        continue;
+      }
+
+      // Daily medicine rings on the phone itself at the dose time
+      // (mobile/lib/medAlarms.ts). A push at whatever hour this job runs would
+      // be a second, mistimed ping, so only mark it notified: that keeps the
+      // roll-forward above working for a missed dose.
+      if (data.type === 'medication') {
+        await doc.ref.update({ notifiedAt: data.dueDate });
         continue;
       }
 

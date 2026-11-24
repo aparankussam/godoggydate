@@ -185,7 +185,7 @@ export interface DogAIProfile {
 // advances recurring reminders when marked complete.
 export type ReminderType =
   | 'heartworm' | 'flea_tick' | 'booster' | 'rabies' | 'license'
-  | 'grooming' | 'vet_visit' | 'insurance_claim' | 'custom';
+  | 'grooming' | 'vet_visit' | 'insurance_claim' | 'medication' | 'custom';
 
 export interface Reminder {
   id: string;

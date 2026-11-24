@@ -433,6 +433,29 @@ export function reminderDueLabel(
   return { text: `Due ${formatUsDate(new Date(dueDate))}`, urgent: false, days };
 }
 
+/**
+ * The next moment the local clock reads hour:minute: later today if that's
+ * still ahead, otherwise tomorrow. A daily medicine's first due time.
+ */
+export function nextDoseAt(hour: number, minute: number, now: number = Date.now()): number {
+  const d = new Date(now);
+  const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour, minute);
+  if (at.getTime() <= now) at.setDate(at.getDate() + 1);
+  return at.getTime();
+}
+
+/** "8:00 AM" — the time of day a dose is due. */
+export function formatDoseTime(ms: number): string {
+  const d = new Date(ms);
+  const h = d.getHours();
+  return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** True when `then` falls on the same local calendar day as `now`. */
+export function isSameLocalDay(then: number | undefined, now: number = Date.now()): boolean {
+  return then !== undefined && calendarDaysUntil(then, now) === 0;
+}
+
 // ── Input masking ────────────────────────────────────────────────────────────
 
 // A segment is "complete" when no further digit can belong to it, so the next

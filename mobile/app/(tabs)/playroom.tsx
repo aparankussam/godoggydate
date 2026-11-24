@@ -5,9 +5,9 @@
 // collapsed. Makers only call their AI route on an explicit tap inside the open
 // view.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { colors, fonts } from '../../constants/theme';
 import { Gingham, Glyph, Heading, PinkButton, card } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
@@ -18,6 +18,8 @@ import { usePlayroomGlimpses } from '../../lib/playroomGlimpses';
 import ZoomieCard from '../../components/playroom/ZoomieCard';
 import TreatRow from '../../components/playroom/TreatRow';
 import ToyBox from '../../components/playroom/ToyBox';
+import Collar from '../../components/playroom/Collar';
+import { useCharms, type Charm } from '../../lib/charms';
 import RoastSection from '../../components/RoastSection';
 import ApologySection from '../../components/ApologySection';
 import TextsSection from '../../components/TextsSection';
@@ -36,6 +38,32 @@ export default function PlayroomTab() {
   const [panel, setPanel] = useState<Panel>(null);
   const [treat, setTreat] = useState<string | null>(null);
   const g = usePlayroomGlimpses(user?.uid, profile ?? null);
+  const { earned, earn, go } = useCharms(user?.uid);
+  const params = useLocalSearchParams<{ treat?: string; panel?: string }>();
+  const scroll = useRef<ScrollView>(null);
+  const panelY = useRef(0);
+  const treatY = useRef(0);
+
+  // A charm (or another toy's "next up") can point at a Treat Lab row or a
+  // Zoomies panel on this screen: open it and scroll it into view.
+  const openHere = (kind: 'treat' | 'panel', id: string) => {
+    void earn(id);
+    if (kind === 'treat') setTreat(id);
+    else setPanel(id as Panel);
+    setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, (kind === 'treat' ? treatY.current : panelY.current) - 12), animated: true }), 80);
+  };
+  useEffect(() => {
+    if (params.treat) openHere('treat', params.treat);
+    else if (params.panel) openHere('panel', params.panel);
+  }, [params.treat, params.panel]);
+  const pickCharm = (charm: Charm) => {
+    trackEvent('playroom_card_open', { feature: charm.id, via: 'collar' });
+    const href = charm.href;
+    const linkParams = typeof href === 'object' ? (href.params as { treat?: string; panel?: string } | undefined) : undefined;
+    if (linkParams?.treat) openHere('treat', linkParams.treat);
+    else if (linkParams?.panel) openHere('panel', linkParams.panel);
+    else go(charm);
+  };
 
   if (!profile || !user) {
     return (
@@ -55,10 +83,12 @@ export default function PlayroomTab() {
   const thumb = photo ? <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} /> : undefined;
   const open = (feature: string, route: Href) => () => {
     trackEvent('playroom_card_open', { feature });
+    void earn(feature);
     router.push(route);
   };
   const toggle = (feature: Panel) => () => {
     trackEvent('playroom_card_open', { feature: feature ?? 'none' });
+    if (feature) void earn(feature);
     setPanel((cur) => (cur === feature ? null : feature));
   };
   const stamp = g.stampTotal > 0 ? `${g.stamped} of ${g.stampTotal} stamped` : 'A bucket list of real-world quests';
@@ -70,52 +100,57 @@ export default function PlayroomTab() {
         : 'Guess the dog in six tries';
   const treatKey = (k: string) => () => {
     trackEvent('playroom_card_open', { feature: k });
+    void earn(k);
     setTreat((cur) => (cur === k ? null : k));
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Gingham />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scroll} contentContainerStyle={styles.content}>
         <Heading size={32}>Playroom</Heading>
+
+        <Collar earned={earned} dogName={name} onPick={pickCharm} />
 
         <View style={[card.paper, styles.hero]}>
           <Text style={styles.eyebrow}>Today’s Barkle</Text>
           <Text style={styles.heroTitle}>{streakLine}</Text>
           <PinkButton
             label="Play today’s Barkle"
-            onPress={() => { trackEvent('fun_open', { feature: 'barkle' }); router.push('/fun/barkle'); }}
+            onPress={() => { trackEvent('fun_open', { feature: 'barkle' }); void earn('barkle'); router.push('/fun/barkle'); }}
           />
         </View>
 
-        <ToyBox title="Zoomies" emoji="🎾" tint={colors.goldLight} layout="grid">
-          <ZoomieCard
-            label="Snoot Boop"
-            glyph="gesture-tap"
-            glimpse={g.boops > 0 ? `${g.boops} boops${g.nextStickerAt ? ` · next sticker at ${g.nextStickerAt}` : ''}` : `Boop ${name}'s snoot to earn stickers`}
-            onPress={open('snoot', '/fun/snoot')}
-          />
-          <ZoomieCard
-            label="Sticker Studio"
-            glyph="sticker-emoji"
-            glimpse={g.stickers > 0 ? `${g.stickers} sticker${g.stickers === 1 ? '' : 's'} earned` : 'Earn stickers by booping, then stick them on photos'}
-            onPress={open('sticker-studio', '/fun/sticker-studio')}
-          />
-          <ZoomieCard label="Wanted Poster" glyph="card-account-details-star" thumb={thumb} glimpse={`Make ${name} a wanted poster`} onPress={open('wanted', '/fun/wanted')} />
-          <ZoomieCard label="Trading card" glyph="card-account-details-star" thumb={thumb} glimpse={`Share ${name}’s card and public page`} active={panel === 'card'} onPress={toggle('card')} />
-          <ZoomieCard label="Adventure Passport" glyph="map-marker-path" glimpse={stamp} onPress={open('adventures', '/fun/adventures')} />
-          <ZoomieCard label="Excuse Note" glyph="note-edit" glimpse="A “my dog ate it” note, made to share" onPress={open('excuse', '/fun/excuse')} />
-          <ZoomieCard
-            label={`A letter from ${name}`}
-            glyph="email-outline"
-            glimpse={g.letterLine}
-            active={panel === 'letter'}
-            onPress={toggle('letter')}
-          />
-          {shouldShowDiptych(profile) && (
-            <ZoomieCard label="National Dog Day" glyph="image-multiple" glimpse="Then and now, side by side" active={panel === 'dogday'} onPress={toggle('dogday')} />
-          )}
-        </ToyBox>
+        <View onLayout={(e) => { panelY.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height; }}>
+          <ToyBox title="Zoomies" emoji="🎾" tint={colors.goldLight} layout="grid">
+            <ZoomieCard
+              label="Snoot Boop"
+              glyph="gesture-tap"
+              glimpse={g.boops > 0 ? `${g.boops} boops${g.nextStickerAt ? ` · next sticker at ${g.nextStickerAt}` : ''}` : `Boop ${name}'s snoot to earn stickers`}
+              onPress={open('snoot', '/fun/snoot')}
+            />
+            <ZoomieCard
+              label="Sticker Studio"
+              glyph="sticker-emoji"
+              glimpse={g.stickers > 0 ? `${g.stickers} sticker${g.stickers === 1 ? '' : 's'} earned` : 'Earn stickers by booping, then stick them on photos'}
+              onPress={open('sticker-studio', '/fun/sticker-studio')}
+            />
+            <ZoomieCard label="Wanted Poster" glyph="card-account-details-star" thumb={thumb} glimpse={`Make ${name} a wanted poster`} onPress={open('wanted', '/fun/wanted')} />
+            <ZoomieCard label="Trading card" glyph="card-account-details-star" thumb={thumb} glimpse={`Share ${name}’s card and public page`} active={panel === 'card'} onPress={toggle('card')} />
+            <ZoomieCard label="Adventure Passport" glyph="map-marker-path" glimpse={stamp} onPress={open('adventures', '/fun/adventures')} />
+            <ZoomieCard label="Excuse Note" glyph="note-edit" glimpse="A “my dog ate it” note, made to share" onPress={open('excuse', '/fun/excuse')} />
+            <ZoomieCard
+              label={`A letter from ${name}`}
+              glyph="email-outline"
+              glimpse={g.letterLine}
+              active={panel === 'letter'}
+              onPress={toggle('letter')}
+            />
+            {shouldShowDiptych(profile) && (
+              <ZoomieCard label="National Dog Day" glyph="image-multiple" glimpse="Then and now, side by side" active={panel === 'dogday'} onPress={toggle('dogday')} />
+            )}
+          </ToyBox>
+        </View>
 
         {panel === 'letter' &&
           (pickLetterMilestone(profile) ? (
@@ -130,26 +165,28 @@ export default function PlayroomTab() {
         {panel === 'card' && <TradingCardShare profile={profile} userId={user.uid} />}
         {panel === 'dogday' && <DiptychSection savedProfile={profile} />}
 
-        <ToyBox title="Treat Lab" emoji="🦴" tint={colors.kraft} layout="stack">
-          <TreatRow title={`Roast ${name}`} glimpse="A kind-hearted roast, built from their real profile" open={treat === 'roast'} onToggle={treatKey('roast')}>
-            <RoastSection savedProfile={profile} />
-          </TreatRow>
-          <TreatRow title={`Texts from ${name}`} glimpse="A thread of texts to you, in their voice" open={treat === 'texts'} onToggle={treatKey('texts')}>
-            <TextsSection savedProfile={profile} />
-          </TreatRow>
-          <TreatRow title="Notes-App Apology" glimpse={`The apology ${name} would type, if they could`} open={treat === 'apology'} onToggle={treatKey('apology')}>
-            <ApologySection savedProfile={profile} />
-          </TreatRow>
-          <TreatRow title="My Human Review" glimpse={`${name} reviews you`} open={treat === 'review'} onToggle={treatKey('review')}>
-            <HumanReviewSection savedProfile={profile} userId={user.uid} />
-          </TreatRow>
-          <TreatRow title="Dog quiz" glimpse="Pass the phone: how well do friends know them?" open={treat === 'quiz'} onToggle={treatKey('quiz')}>
-            <DogQuizSection savedProfile={profile} />
-          </TreatRow>
-          <TreatRow title="Employee of the Month" glimpse="A plaque for the office dog" open={treat === 'plaque'} onToggle={treatKey('plaque')}>
-            <PlaqueCard savedProfile={profile} />
-          </TreatRow>
-        </ToyBox>
+        <View onLayout={(e) => { treatY.current = e.nativeEvent.layout.y; }}>
+          <ToyBox title="Treat Lab" emoji="🦴" tint={colors.kraft} layout="stack">
+            <TreatRow title={`Roast ${name}`} glimpse="A kind-hearted roast, built from their real profile" open={treat === 'roast'} onToggle={treatKey('roast')}>
+              <RoastSection savedProfile={profile} />
+            </TreatRow>
+            <TreatRow title={`Texts from ${name}`} glimpse="A thread of texts to you, in their voice" open={treat === 'texts'} onToggle={treatKey('texts')}>
+              <TextsSection savedProfile={profile} />
+            </TreatRow>
+            <TreatRow title="Notes-App Apology" glimpse={`The apology ${name} would type, if they could`} open={treat === 'apology'} onToggle={treatKey('apology')}>
+              <ApologySection savedProfile={profile} />
+            </TreatRow>
+            <TreatRow title="My Human Review" glimpse={`${name} reviews you`} open={treat === 'review'} onToggle={treatKey('review')}>
+              <HumanReviewSection savedProfile={profile} userId={user.uid} />
+            </TreatRow>
+            <TreatRow title="Dog quiz" glimpse="Pass the phone: how well do friends know them?" open={treat === 'quiz'} onToggle={treatKey('quiz')}>
+              <DogQuizSection savedProfile={profile} />
+            </TreatRow>
+            <TreatRow title="Employee of the Month" glimpse="A plaque for the office dog" open={treat === 'plaque'} onToggle={treatKey('plaque')}>
+              <PlaqueCard savedProfile={profile} />
+            </TreatRow>
+          </ToyBox>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

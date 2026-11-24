@@ -47,6 +47,7 @@ module.exports = {
         NSLocationWhenInUseUsageDescription: 'We use your location to show nearby dogs.',
         NSCameraUsageDescription: 'Upload a photo of your dog.',
         NSPhotoLibraryUsageDescription: 'Choose a photo from your library.',
+        NSMicrophoneUsageDescription: "Record your dog's bark for Snoot Boop.",
       },
     },
     android: {

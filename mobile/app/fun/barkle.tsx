@@ -31,6 +31,7 @@ import { colors, fonts, radius } from '../../constants/theme';
 import { BackHeader, Gingham, Glyph, PaperButton, PinkButton, card } from '../../components/pack/kit';
 import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
+import NextToy from '../../components/playroom/NextToy';
 import { loadBarkleGuesses, onProgressChange, saveBarkleGuesses } from '../../lib/progressSync';
 import BarkleResultCard from '../../components/BarkleResultCard';
 import {
@@ -409,6 +410,7 @@ export default function BarkleScreen() {
         <Text style={styles.footerNote}>
           One breed a day, the same for everyone in the world. Just for fun.
         </Text>
+        <NextToy current="barkle" />
       </ScrollView>
     </SafeAreaView>
   );

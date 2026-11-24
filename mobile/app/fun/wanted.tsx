@@ -14,6 +14,7 @@ import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { captureAndShare } from '../../lib/shareCard';
 import { trackEvent } from '../../lib/analytics';
+import NextToy from '../../components/playroom/NextToy';
 import WantedPosterCard from '../../components/WantedPosterCard';
 import { computeWanted } from '../../../shared/wanted';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
@@ -135,6 +136,7 @@ export default function WantedScreen() {
         <Text style={styles.disclaimer}>
           Charges are built from {dogName}&apos;s real profile — with a few playful frontier extras.
         </Text>
+        <NextToy current="wanted" />
       </ScrollView>
     </SafeAreaView>
   );
