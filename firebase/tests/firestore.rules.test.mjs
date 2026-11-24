@@ -803,6 +803,7 @@ describe('packDays/{eventId}/messages', () => {
     }));
     await assertFails(setDoc(doc(google('a'), 'reports/r2'), {
       reporterId: 'a', targetUserId: 'b', reason: 'inappropriate', source: 'packday', eventId: 'e1', messageId: text(200),
+    }));
   });
 });
 
