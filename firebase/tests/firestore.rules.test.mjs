@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, setLogLevel } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, serverTimestamp, setLogLevel } from 'firebase/firestore';
 
 setLogLevel('error');
 
@@ -546,5 +546,61 @@ describe('packDays', () => {
     await assertFails(getDoc(doc(signedOut(), 'packDays/e1')));
     await assertFails(setDoc(doc(google('a'), 'packDays/e2'), { title: 'Mine', hostUid: 'a' }));
     await assertFails(updateDoc(doc(google('a'), 'packDays/e1'), { official: true }));
+  });
+});
+
+// ── Pack Day check-ins ────────────────────────────────────────────────────────
+describe('packDays/{id}/checkins', () => {
+  const MIN = 60_000;
+  const seedEvent = (startsInMin, extra = {}) =>
+    seed(async (db) => {
+      await setDoc(doc(db, 'packDays/e1'), {
+        hostUid: 'host', status: 'open', attendeeUids: ['host', 'a'],
+        startsAtMs: Date.now() + startsInMin * MIN, durationMinutes: 60, ...extra,
+      });
+      await setDoc(doc(db, 'dogs/a'), { name: 'Luna', householdMemberIds: ['hh'] });
+    });
+  const mine = (uid, dogId, over = {}) => ({ uid, dogId, at: serverTimestamp(), method: 'qr', ...over });
+  const path = (uid) => `packDays/e1/checkins/${uid}`;
+
+  it('an RSVP\'d attendee checks in once the window is open, and members can read', async () => {
+    await seedEvent(10);
+    await assertSucceeds(setDoc(doc(google('a'), path('a')), mine('a', 'a')));
+    await assertSucceeds(setDoc(doc(google('host'), path('host')), mine('host', 'host', { method: 'location' })));
+    await assertSucceeds(getDocs(collection(google('b'), 'packDays/e1/checkins')));
+    await assertFails(getDocs(collection(signedOut(), 'packDays/e1/checkins')));
+  });
+
+  it('refuses someone who did not RSVP, or checking in as someone else', async () => {
+    await seedEvent(10);
+    await assertFails(setDoc(doc(google('b'), path('b')), mine('b', 'b')));
+    await assertFails(setDoc(doc(google('b'), path('a')), mine('a', 'a')));
+    await assertFails(setDoc(doc(google('b'), path('b')), mine('b', 'a')));
+  });
+
+  it('a household member may check in for the dog; a stranger may not', async () => {
+    await seedEvent(10);
+    await assertSucceeds(setDoc(doc(google('hh'), path('hh')), mine('hh', 'a')));
+    await assertFails(setDoc(doc(google('x'), path('x')), mine('x', 'a')));
+  });
+
+  it('only inside the window: 30 minutes before the start until it ends', async () => {
+    await seedEvent(45);
+    await assertFails(setDoc(doc(google('a'), path('a')), mine('a', 'a')));
+    await seedEvent(-90);
+    await assertFails(setDoc(doc(google('a'), path('a')), mine('a', 'a')));
+    await seedEvent(10, { status: 'cancelled' });
+    await assertFails(setDoc(doc(google('a'), path('a')), mine('a', 'a')));
+  });
+
+  it('exact shape only, server time, no update or delete', async () => {
+    await seedEvent(10);
+    await assertFails(setDoc(doc(google('a'), path('a')), mine('a', 'a', { method: 'telepathy' })));
+    await assertFails(setDoc(doc(google('a'), path('a')), mine('a', 'a', { at: new Date(0) })));
+    await assertFails(setDoc(doc(google('a'), path('a')), mine('a', 'a', { extra: 1 })));
+    await assertSucceeds(setDoc(doc(google('a'), path('a')), mine('a', 'a')));
+    await assertFails(updateDoc(doc(google('a'), path('a')), { method: 'location' }));
+    await assertFails(setDoc(doc(google('a'), path('a')), mine('a', 'a')));
+    await assertFails(deleteDoc(doc(google('a'), path('a'))));
   });
 });

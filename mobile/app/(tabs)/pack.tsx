@@ -167,10 +167,12 @@ export default function PackDaysTab() {
             {nearby.length === 0 ? (
               <Paper style={styles.emptyCard}>
                 <Glyph name="tree" size={40} />
-                <Heading size={24} style={[styles.centerText, styles.emptyTitle]}>Nothing on the calendar yet</Heading>
+                <Heading size={24} style={[styles.centerText, styles.emptyTitle]}>
+                  {profile?.city ? `Be the first to host a Pack Day in ${profile.city}` : 'Nothing on the calendar yet'}
+                </Heading>
                 <Text style={[type.soft, styles.centerText]}>
                   Pick your usual park and a Saturday morning, and host the first one. Six dogs is a great
-                  Pack Day.
+                  Pack Day.{elsewhere.length > 0 ? ' Pack Days in nearby cities are below.' : ''}
                 </Text>
                 {canHost && <PinkButton label="Host a Pack Day" icon="tree" onPress={handleHost} style={styles.emptyBtn} />}
               </Paper>
@@ -182,7 +184,7 @@ export default function PackDaysTab() {
 
         {elsewhere.length > 0 && (
           <View style={styles.section}>
-            <Heading size={22} style={styles.sectionLabel}>Other cities</Heading>
+            <Heading size={22} style={styles.sectionLabel}>{nearby.length === 0 ? 'Upcoming in nearby cities' : 'Other cities'}</Heading>
             {elsewhere.map((e) => <PackDayCard key={e.id} event={e} />)}
           </View>
         )}

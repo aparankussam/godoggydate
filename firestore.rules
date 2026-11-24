@@ -526,6 +526,33 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Pack Day check-ins (packDays/{eventId}/checkins/{uid}) ───────────────
+    // One doc per person who tapped "I'm here": { uid, dogId, at, method }.
+    // Create only: the signed-in person writes their OWN doc (docId == uid),
+    // for a dog that RSVP'd (dogId is in attendeeUids) and is theirs or one
+    // they share through the household, on an open event, from 30 minutes
+    // before the start until it ends (CHECKIN_OPENS_BEFORE_MS in
+    // shared/packDay.ts = 1800000). `at` must be the server time. No client
+    // update or delete. Members may read, to show the checked-in count.
+    match /packDays/{eventId}/checkins/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['uid', 'dogId', 'at', 'method'])
+                    && request.resource.data.keys().hasAll(['uid', 'dogId', 'at', 'method'])
+                    && request.resource.data.uid == uid
+                    && request.resource.data.dogId is string
+                    && request.resource.data.method in ['qr', 'location']
+                    && request.resource.data.at == request.time
+                    && (request.resource.data.dogId == uid || isHouseholdMember(request.resource.data.dogId))
+                    && get(/databases/$(database)/documents/packDays/$(eventId)).data.status == 'open'
+                    && request.resource.data.dogId in get(/databases/$(database)/documents/packDays/$(eventId)).data.attendeeUids
+                    && request.time.toMillis() >= get(/databases/$(database)/documents/packDays/$(eventId)).data.startsAtMs - 1800000
+                    && request.time.toMillis() < get(/databases/$(database)/documents/packDays/$(eventId)).data.startsAtMs
+                                                 + get(/databases/$(database)/documents/packDays/$(eventId)).data.durationMinutes * 60000;
+      allow update, delete: if false;
+    }
+
     match /payments/{paymentId} {
       allow read:   if isSignedIn()
                     && resource.data.userId == request.auth.uid;
