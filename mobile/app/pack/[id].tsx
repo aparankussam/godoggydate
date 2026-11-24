@@ -444,6 +444,16 @@ export default function PackDayScreen() {
           )
         )}
 
+        {/* The group chat is free and opens with the RSVP; it stays readable
+            (and the album open) for 48 hours after the event. */}
+        {going && !cancelled && (
+          <PinkButton
+            label="Open the Pack Day chat"
+            icon="chat"
+            onPress={() => router.push(`/pack/chat/${event.id}`)}
+          />
+        )}
+
         {live && (
           <View style={styles.actionRow}>
             <PaperButton small label="Share" icon="export-variant" onPress={() => void handleShare()} style={styles.actionBtn} />

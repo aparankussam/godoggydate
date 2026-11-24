@@ -32,11 +32,14 @@ export async function uploadDogPhoto(
   fileName: string,
   mimeType = 'image/jpeg',
 ): Promise<string> {
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return uploadPhotoAt(`dogs/${userId}/${userId}/photos/${Date.now()}_${safeName}`, uri, mimeType);
+}
+
+/** Uploads a local photo to a Storage path (storage.rules decides who may) and returns its download URL. */
+export async function uploadPhotoAt(path: string, uri: string, mimeType = 'image/jpeg'): Promise<string> {
   const { storage } = getFirebase();
   const blob = await uriToBlob(uri);
-
-  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `dogs/${userId}/${userId}/photos/${Date.now()}_${safeName}`;
   const fileRef = ref(storage, path);
 
   return new Promise<string>((resolve, reject) => {

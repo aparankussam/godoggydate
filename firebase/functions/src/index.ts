@@ -1566,6 +1566,7 @@ export const onReportCreated = functions
       targetUserId?: string;
       matchId?: string;
       eventId?: string;
+      messageId?: string;
       reason?: string;
       source?: string;
     };
@@ -1634,6 +1635,11 @@ export const onReportCreated = functions
         eventFound = eventSnap.exists;
         eventCancelled = eventSnap.data()?.status === 'cancelled';
         evidence.packDay = eventSnap.exists ? packDayEvidence(eventSnap.data() ?? {}) : null;
+        // A single chat message being reported (Pack Day group chat).
+        if (isSafeDocId((report as { messageId?: unknown }).messageId)) {
+          const msgSnap = await db.doc(`packDays/${eventId}/messages/${(report as { messageId: string }).messageId}`).get();
+          evidence.packDayMessage = msgSnap.exists ? { id: msgSnap.id, ...msgSnap.data() } : null;
+        }
       } catch (error) {
         console.error('onReportCreated: Pack Day snapshot failed', { reportId, eventId, error });
       }
@@ -2367,6 +2373,7 @@ export const cancelPackDay = packDay.cancelPackDay;
 export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;
 export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
+export const { onPackDayMessageCreated, packDayChatHost, postPackDayHeadsUps } = (require('./packDayChat') as typeof import('./packDayChat')).makePackDayChatFunctions({ db, sendOpsAlert, secrets: [opsAlertWebhookUrl] }); // Pack Day group chat, see ./packDayChat.ts
 export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
 
 // Local waitlist (joinWaitlist, leaveWaitlist, neighbor-joined push). See ./waitlist.ts
