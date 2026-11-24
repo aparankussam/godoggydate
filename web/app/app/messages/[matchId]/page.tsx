@@ -1002,7 +1002,7 @@ export default function ChatPage() {
           >
             {unblocking ? 'Unblocking…' : `Unblock ${dogName}`}
           </button>
-          <Link href="/app/messages" className="flex min-h-[44px] items-center justify-center py-2 text-sm font-black text-brown-mid underline underline-offset-2 hover:text-brown">Back to Messages</Link>
+          <Link href="/app/matches" className="flex min-h-[44px] items-center justify-center py-2 text-sm font-black text-brown-mid underline underline-offset-2 hover:text-brown">Back to Matches</Link>
         </div>
       </ChatNotice>
     );
@@ -1070,7 +1070,7 @@ export default function ChatPage() {
           targetName={otherProfile?.name}
           matchId={matchId}
           source="chat"
-          onBlocked={() => router.replace('/app/messages')}
+          onBlocked={() => router.replace('/app/matches')}
         />
       )}
 
@@ -1138,7 +1138,7 @@ export default function ChatPage() {
       {/* Header */}
       <header className="shrink-0 z-40 bg-cream border-b-2 border-brown pl-1 pr-2.5 h-[62px] flex items-center gap-2.5">
         <Link
-          href="/app/messages"
+          href="/app/matches"
           className="flex h-11 w-11 shrink-0 items-center justify-center"
           aria-label="Back"
         >
