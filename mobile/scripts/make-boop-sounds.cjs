@@ -114,7 +114,7 @@ function toWav(samples) {
 function write(name, samples) {
   const file = path.join(OUT_DIR, name);
   const wav = toWav(samples);
-  if (wav.length >= 20 * 1024) throw new Error(`${name} is ${wav.length} bytes; keep it under 20 KB`);
+  if (wav.length >= 40 * 1024) throw new Error(`${name} is ${wav.length} bytes; keep it under 40 KB`);
   fs.writeFileSync(file, wav);
   console.log(`${path.relative(process.cwd(), file)}  ${wav.length} bytes`);
 }
@@ -135,3 +135,28 @@ write(
     { freq: 783.99, duration: 0.2, type: 'triangle', gain: 0.14 },
   ]),
 );
+
+// ── Extra Snoot Boop sounds, unlocked by charms (app/fun/snoot.tsx) ──────────
+// Each is one file; the app raises the playback rate as the tap streak climbs.
+
+/** A tone whose pitch follows `freqAt(t)`, shaped by `amp(t)`. */
+function glide(duration, freqAt, amp) {
+  const out = new Float64Array(Math.round(duration * SAMPLE_RATE));
+  let phase = 0;
+  for (let i = 0; i < out.length; i++) {
+    const t = i / SAMPLE_RATE;
+    out[i] = sine(phase) * amp(t) * 0.5;
+    phase += freqAt(t) / SAMPLE_RATE;
+  }
+  return out;
+}
+const fade = (t, d) => Math.min(1, t / 0.01) * Math.min(1, (d - t) / 0.04);
+
+// pop: a quick low-to-lower blip, like a bubble bursting.
+write('pop.wav', glide(0.09, (t) => 700 - 4500 * t, (t) => fade(t, 0.09) * Math.exp(-t * 28)));
+// squeak: a fast upward chirp with a wobble, like a squeaky toy.
+write('squeak.wav', glide(0.22, (t) => 900 + 3200 * t + 90 * Math.sin(t * 90), (t) => fade(t, 0.22) * (1 - t / 0.3)));
+// bubble: a rising blip that bends back down.
+write('bubble.wav', glide(0.2, (t) => 420 + 2600 * t - 9000 * t * t, (t) => fade(t, 0.2) * Math.exp(-t * 9)));
+// howl: a long rise and fall, with a slow vibrato.
+write('howl.wav', glide(0.6, (t) => 330 + 420 * Math.sin((Math.PI * t) / 0.6) + 12 * Math.sin(t * 38), (t) => fade(t, 0.6) * 0.9));

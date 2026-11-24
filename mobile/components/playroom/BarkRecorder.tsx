@@ -20,7 +20,7 @@ import { trackEvent } from '../../lib/analytics';
 
 const MAX_SECONDS = 3;
 // Back to Snoot Boop's own session: respects the silent switch, mixes with music.
-const PLAY_MODE = { allowsRecording: false, playsInSilentMode: false, interruptionMode: 'mixWithOthers' } as const;
+const PLAY_MODE = { allowsRecording: false, playsInSilentMode: true, interruptionMode: 'mixWithOthers' } as const;
 
 interface Props {
   visible: boolean;

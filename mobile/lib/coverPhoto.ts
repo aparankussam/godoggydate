@@ -65,6 +65,13 @@ export function focusForPhoto(src: HeroSource | null | undefined, photoIndex: nu
   return resolveHeroFocus(src);
 }
 
+/** The Pupfile hero's shape: the photo's own, kept between 4:5 and 16:9 so a
+ *  very tall or wide photo doesn't take over the screen. */
+export function heroAspect(natural: { width: number; height: number } | null): number {
+  if (!natural || !(natural.width > 0 && natural.height > 0)) return 4 / 3;
+  return Math.max(4 / 5, Math.min(16 / 9, natural.width / natural.height));
+}
+
 export interface CoverCropLayout {
   left: number;
   top: number;

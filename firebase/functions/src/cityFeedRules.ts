@@ -8,11 +8,11 @@ export const POST_TEMPLATES: Record<
   PostTemplate,
   { label: string; emoji: string; prompt: string; placeRequired: boolean; expiryHours: number }
 > = {
-  ask: { label: 'Ask', emoji: '🙋', prompt: 'What do you want to ask the neighbors?', placeRequired: false, expiryHours: 72 },
+  ask: { label: 'Ask the Pack', emoji: '🙋', prompt: 'What do you want to ask the neighbors?', placeRequired: false, expiryHours: 72 },
   recommend: { label: 'Recommend', emoji: '⭐', prompt: 'What should neighbors try, and why?', placeRequired: false, expiryHours: 14 * 24 },
-  free_lend: { label: 'Free / Lend', emoji: '🎁', prompt: 'What are you giving away or lending?', placeRequired: false, expiryHours: 7 * 24 },
-  walk_buddy: { label: 'Walk buddy', emoji: '🦮', prompt: 'When and where are you walking?', placeRequired: true, expiryHours: 24 },
-  found_dog: { label: 'Found dog', emoji: '🔎', prompt: 'Where did you find a dog? Describe them.', placeRequired: true, expiryHours: 72 },
+  free_lend: { label: 'Up for Grabs', emoji: '🎁', prompt: 'What are you giving away or lending?', placeRequired: false, expiryHours: 7 * 24 },
+  walk_buddy: { label: 'Walkies Wanted', emoji: '🦮', prompt: 'When and where are you walking?', placeRequired: true, expiryHours: 24 },
+  found_dog: { label: 'Found a Pup', emoji: '🔎', prompt: 'Where did you find a dog? Describe them.', placeRequired: true, expiryHours: 72 },
 };
 
 export const POST_TEMPLATE_KEYS = Object.keys(POST_TEMPLATES) as PostTemplate[];

@@ -25,11 +25,12 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { colors, fonts, radius, shadow } from '../constants/theme';
+import { colors, fonts } from '../constants/theme';
 import {
   clampCoverFocus,
   coverCropLayout,
   DEFAULT_COVER_FOCUS,
+  heroAspect,
   type CoverFocus,
 } from '../lib/coverPhoto';
 
@@ -130,9 +131,39 @@ interface EditorProps {
    * moves the page as well as the point.
    */
   onDragStateChange?: (dragging: boolean) => void;
+  /** Shown over the photo, like the swipe card does. */
+  dogName?: string;
+  caption?: string;
 }
 
 const A11Y_STEP = 10;
+
+/** A photo's pixel size, from the cache CoverImage fills or Image.getSize. */
+export function useNaturalSize(uri: string | undefined): { width: number; height: number } | null {
+  const [size, setSize] = useState(() => (uri ? naturalSizes.get(uri) ?? null : null));
+  useEffect(() => {
+    if (!uri) return undefined;
+    const known = naturalSizes.get(uri);
+    if (known) { setSize(known); return undefined; }
+    let alive = true;
+    Image.getSize(uri, (width, height) => {
+      naturalSizes.set(uri, { width, height });
+      if (alive) setSize({ width, height });
+    }, () => {});
+    return () => { alive = false; };
+  }, [uri]);
+  return size;
+}
+
+/** The Pupfile hero: the photo at its own shape (see heroAspect), cropped
+ *  around the focus only when it's very tall or very wide. */
+export function HeroPhoto({ uri, focus, style }: { uri: string; focus?: CoverFocus; style?: StyleProp<ViewStyle> }) {
+  const natural = useNaturalSize(uri);
+  return <CoverImage uri={uri} focus={focus} style={[style, { aspectRatio: heroAspect(natural) }]} />;
+}
+
+type Frame = 'card' | 'pupfile';
+const CARD_ASPECT = 3 / 4;
 
 export default function CoverPhotoEditor({
   photos,
@@ -141,28 +172,33 @@ export default function CoverPhotoEditor({
   focusY,
   onChange,
   onDragStateChange,
+  dogName,
+  caption,
 }: EditorProps) {
-  const boxSize = useRef({ width: 0, height: 0 });
-  // The box's top-left in page coordinates, taken when a drag starts. Moves
-  // are measured from it with pageX/pageY, which stay correct even when the
-  // finger strays outside the box (locationX is relative to whatever view is
-  // under the finger, which isn't always this one).
-  const origin = useRef({ x: 0, y: 0 });
+  const [frame, setFrame] = useState<Frame>('card');
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  // Where the drag started: the finger and the focus at that moment.
+  const start = useRef({ pageX: 0, pageY: 0, x: 50, y: 50 });
 
   const idx = Math.min(Math.max(0, coverIndex), Math.max(0, photos.length - 1));
   const cover = photos[idx];
+  const natural = useNaturalSize(cover);
   if (!cover) return null;
 
   const x = clampCoverFocus(focusX);
   const y = clampCoverFocus(focusY);
+  const aspect = frame === 'card' ? CARD_ASPECT : heroAspect(natural);
+  const crop = natural ? coverCropLayout(box.width, box.height, natural.width, natural.height, x, y) : null;
+  // How far the photo overhangs the frame: the room there is to drag it.
+  const spareX = crop ? crop.width - box.width : 0;
+  const spareY = crop ? crop.height - box.height : 0;
+  const movable = spareX > 1 || spareY > 1;
 
-  function setFromPage(pageX: number, pageY: number) {
-    const { width, height } = boxSize.current;
-    if (!width || !height) return;
-    const nextX = Math.max(0, Math.min(100, Math.round(((pageX - origin.current.x) / width) * 100)));
-    const nextY = Math.max(0, Math.min(100, Math.round(((pageY - origin.current.y) / height) * 100)));
-    if (nextX === x && nextY === y) return;
-    onChange({ coverIndex: idx, focusX: nextX, focusY: nextY });
+  function dragTo(pageX: number, pageY: number) {
+    // Dragging the photo right shows more of its left side: the focus moves left.
+    const nextX = spareX > 1 ? Math.round(clampCoverFocus(start.current.x - ((pageX - start.current.pageX) / spareX) * 100)) : x;
+    const nextY = spareY > 1 ? Math.round(clampCoverFocus(start.current.y - ((pageY - start.current.pageY) / spareY) * 100)) : y;
+    if (nextX !== x || nextY !== y) onChange({ coverIndex: idx, focusX: nextX, focusY: nextY });
   }
 
   function nudge(dx: number, dy: number) {
@@ -175,33 +211,43 @@ export default function CoverPhotoEditor({
 
   return (
     <View>
+      <View style={styles.frameSwitch}>
+        {(['card', 'pupfile'] as const).map((f) => (
+          <Pressable
+            key={f}
+            onPress={() => setFrame(f)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: frame === f }}
+            style={[styles.frameChip, frame === f && styles.frameChipOn]}
+          >
+            <Text style={[styles.frameChipText, frame === f && styles.frameChipTextOn]}>
+              {f === 'card' ? 'Swipe card' : 'Pupfile'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <View
-        style={styles.focusBox}
+        style={[styles.frameBox, { aspectRatio: aspect }]}
         onLayout={(event) => {
           const { width, height } = event.nativeEvent.layout;
-          boxSize.current = { width, height };
+          setBox((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
         }}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        // Keep the drag once it's started, rather than handing it to the
-        // ScrollView the moment the finger moves vertically.
+        onStartShouldSetResponder={() => movable}
+        onMoveShouldSetResponder={() => movable}
+        // Keep the drag once it's started, rather than handing it to the ScrollView.
         onResponderTerminationRequest={() => false}
         onResponderGrant={(event) => {
-          const { pageX, pageY, locationX, locationY } = event.nativeEvent;
-          // Everything inside the box ignores touches, so locationX/Y are
-          // relative to the box itself at this point.
-          origin.current = { x: pageX - locationX, y: pageY - locationY };
+          start.current = { pageX: event.nativeEvent.pageX, pageY: event.nativeEvent.pageY, x, y };
           onDragStateChange?.(true);
-          setFromPage(pageX, pageY);
         }}
-        onResponderMove={(event) => setFromPage(event.nativeEvent.pageX, event.nativeEvent.pageY)}
+        onResponderMove={(event) => dragTo(event.nativeEvent.pageX, event.nativeEvent.pageY)}
         onResponderRelease={() => onDragStateChange?.(false)}
         onResponderTerminate={() => onDragStateChange?.(false)}
         accessible
         accessibilityRole="adjustable"
-        accessibilityLabel="Cover photo focal point"
+        accessibilityLabel={frame === 'card' ? 'Photo position on the swipe card' : 'Photo position on Pupfile'}
         accessibilityHint="Swipe up or down to move it. More actions move it left or right."
-        accessibilityValue={{ text: `Focus ${x}% across, ${y}% down` }}
+        accessibilityValue={{ text: `${x}% across, ${y}% down` }}
         accessibilityActions={[
           { name: 'increment', label: 'Move down' },
           { name: 'decrement', label: 'Move up' },
@@ -218,13 +264,16 @@ export default function CoverPhotoEditor({
         }}
       >
         <CoverImage uri={cover} focus={{ x, y }} style={StyleSheet.absoluteFill} />
-        <View
-          pointerEvents="none"
-          style={[styles.focusDot, { left: `${x}%`, top: `${y}%` }]}
-        />
+        {frame === 'card' && dogName ? (
+          <View pointerEvents="none" style={styles.cardCaption}>
+            <Text style={styles.cardName} numberOfLines={1}>{dogName}</Text>
+            {caption ? <Text style={styles.cardMeta} numberOfLines={1}>{caption}</Text> : null}
+          </View>
+        ) : null}
       </View>
       <Text style={styles.hint}>
-        Drag to choose what shows on {photos.length > 1 ? 'the card — or pick another photo below.' : 'the card.'}
+        {movable ? 'Drag the photo to move it.' : 'The whole photo fits here, so there is nothing to move.'}
+        {photos.length > 1 ? ' Or pick another photo below.' : ''}
       </Text>
 
       {photos.length > 1 && (
@@ -262,6 +311,8 @@ interface SheetProps {
   focus: CoverFocus;
   dogName: string;
   saving: boolean;
+  /** The line under the name, as on the swipe card. */
+  caption?: string;
   onCancel: () => void;
   onSave: (value: CoverChange) => void;
 }
@@ -272,7 +323,7 @@ interface SheetProps {
  * profile form. A sheet rather than an inline editor so the drag never fights
  * the profile's own scrolling.
  */
-export function CoverPhotoSheet({ visible, photos, coverIndex, focus, dogName, saving, onCancel, onSave }: SheetProps) {
+export function CoverPhotoSheet({ visible, photos, coverIndex, focus, dogName, caption, saving, onCancel, onSave }: SheetProps) {
   const [draft, setDraft] = useState<CoverChange>({ coverIndex, focusX: focus.x, focusY: focus.y });
 
   // Start from what's saved each time the sheet opens.
@@ -292,7 +343,7 @@ export function CoverPhotoSheet({ visible, photos, coverIndex, focus, dogName, s
           <Pressable onPress={onCancel} hitSlop={10} accessibilityRole="button" disabled={saving}>
             <Text style={styles.sheetCancel}>Cancel</Text>
           </Pressable>
-          <Text style={styles.sheetTitle}>Cover photo</Text>
+          <Text style={styles.sheetTitle}>Adjust card photo</Text>
           <Pressable
             onPress={() => onSave(draft)}
             hitSlop={10}
@@ -305,7 +356,7 @@ export function CoverPhotoSheet({ visible, photos, coverIndex, focus, dogName, s
         </View>
         <ScrollView contentContainerStyle={styles.sheetBody}>
           <Text style={styles.sheetIntro}>
-            This is the photo {dogName} leads with on the swipe deck, the profile and the cards you share.
+            This is how {dogName} shows up to other dogs. We already centred it on {dogName}; move it if you like.
           </Text>
           <CoverPhotoEditor
             photos={photos}
@@ -313,6 +364,8 @@ export function CoverPhotoSheet({ visible, photos, coverIndex, focus, dogName, s
             focusX={draft.focusX}
             focusY={draft.focusY}
             onChange={setDraft}
+            dogName={dogName}
+            caption={caption}
           />
         </ScrollView>
       </SafeAreaView>
@@ -323,29 +376,22 @@ export function CoverPhotoSheet({ visible, photos, coverIndex, focus, dogName, s
 const styles = StyleSheet.create({
   clip: { overflow: 'hidden' },
   hidden: { opacity: 0 },
-  focusBox: {
-    alignSelf: 'center',
+  frameBox: {
     width: '100%',
-    maxWidth: 220,
-    aspectRatio: 3 / 4,
-    borderRadius: radius.md,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: colors.ink,
     backgroundColor: colors.creamDark,
   },
-  focusDot: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    marginLeft: -12,
-    marginTop: -12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.white,
-    backgroundColor: 'rgba(255,92,141,0.7)',
-    ...shadow.card,
-  },
+  frameSwitch: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 },
+  frameChip: { minHeight: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream, justifyContent: 'center' },
+  frameChipOn: { backgroundColor: colors.ink },
+  frameChipText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  frameChipTextOn: { color: colors.cream },
+  cardCaption: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 14, backgroundColor: 'rgba(42,31,74,0.55)' },
+  cardName: { fontFamily: fonts.display, fontSize: 26, color: colors.cream },
+  cardMeta: { fontFamily: fonts.bold, fontSize: 13, color: colors.cream },
   hint: {
     marginTop: 8,
     textAlign: 'center',

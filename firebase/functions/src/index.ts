@@ -2401,4 +2401,5 @@ export const { tagPlace, onPlaceTagWritten, askPlaceRec } = (require('./places')
 export * from './waitlist';
 
 // Lost dog alert (free): alert pushes, thank-yous and sighting pushes, see ./lostDog.ts
+export const { onDogCoverFocus } = (require('./coverFocus') as typeof import('./coverFocus')).makeCoverFocusFunction({ db, photoUrlPolicy });
 export const { onLostAlertCreated, onLostAlertUpdated, onLostSightingCreated } = (require('./lostDog') as typeof import('./lostDog')).makeLostDogFunctions({ db, sendPushToUser, isBlockedEitherWay, photoUrlPolicy });

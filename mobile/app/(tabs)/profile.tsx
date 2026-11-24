@@ -5,13 +5,13 @@ import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import ProfileEditor, { type ProfileEditorSection } from '../../components/ProfileEditor';
 import {
   DEFAULT_COVER_FOCUS,
-  focusForPhoto,
   resolveHeroFocus,
+  focusForPhoto,
   resolveHeroIndex,
   setCoverPhoto,
   setCoverPhotoWithFocus,
 } from '../../lib/coverPhoto';
-import { CoverImage, CoverPhotoSheet } from '../../components/CoverPhotoEditor';
+import { CoverPhotoSheet, HeroPhoto } from '../../components/CoverPhotoEditor';
 import ModerationNotice from '../../components/ModerationNotice';
 import ProfileDetailsCard from '../../components/ProfileDetailsCard';
 import EarnedStickers from '../../components/EarnedStickers';
@@ -30,11 +30,10 @@ import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
 import LostDogCard from '../../components/LostDogCard';
 import HouseholdSection from '../../components/HouseholdSection';
-import WhereWeGoSection from '../../components/WhereWeGoSection';
 import PushPermissionCard from '../../components/PushPermissionCard';
 import DogtypeGlimpseCard from '../../components/dogtype/DogtypeGlimpseCard';
 import DogtypeCollection from '../../components/DogtypeCollection';
-import LifeStageCard from '../../components/LifeStageCard';
+import { CHARMS, useCharms } from '../../lib/charms';
 import MilestonesCard from '../../components/MilestonesCard';
 import ProUpsellCard from '../../components/ProUpsellCard';
 import { captureAndShare } from '../../lib/shareCard';
@@ -115,6 +114,8 @@ export default function ProfileTab() {
   const handoffRef = useRef<View>(null);
   // Lets an upsell nudge scroll straight to the Pro card.
   const scrollRef = useRef<ScrollView>(null);
+  const { earned } = useCharms(user?.uid);
+  const charmCount = CHARMS.filter((c) => earned.includes(c.id)).length;
   useEffect(() => {
     const uid = user?.uid;
     if (!uid) return undefined;
@@ -340,9 +341,9 @@ export default function ProfileTab() {
     return (
       <SafeAreaView style={styles.gateContainer}>
         <Gingham />
-        <Text style={styles.gateTitle}>Sign in to view your profile</Text>
+        <Text style={styles.gateTitle}>Sign in to see your Pupfile</Text>
         <Text style={styles.gateBody}>
-          Start a session from the welcome screen to see your dog's profile.
+          Start a session from the welcome screen to see your dog's Pupfile.
         </Text>
       </SafeAreaView>
     );
@@ -394,8 +395,8 @@ export default function ProfileTab() {
   const coverSource = optimisticCover
     ? { coverPhotoIndex: optimisticCover.index, coverFocusX: optimisticCover.focusX, coverFocusY: optimisticCover.focusY }
     : profile;
-  const heroFocus = focusForPhoto(coverSource, safeActive, currentCover);
   const savedCoverFocus = resolveHeroFocus(coverSource);
+  const heroFocus = focusForPhoto(coverSource, safeActive, currentCover);
   const sheetCoverIndex = currentCover >= 0 && currentCover < photos.length ? currentCover : 0;
 
   return (
@@ -412,7 +413,7 @@ export default function ProfileTab() {
         automaticallyAdjustKeyboardInsets
       >
         <View style={styles.titleRow}>
-          <Text style={styles.title}>Profile</Text>
+          <Text style={styles.title}>Pupfile</Text>
           <View style={styles.titleButtons}>
             <Pressable
               style={styles.iconButton}
@@ -457,9 +458,20 @@ export default function ProfileTab() {
             >
               {/* Cropped around the owner's focal point while the cover shows,
                   the same crop the swipe deck uses. */}
-              <CoverImage uri={photos[safeActive]} focus={heroFocus} style={styles.hero} />
+              <HeroPhoto uri={photos[safeActive]} focus={heroFocus} style={styles.hero} />
             </Pressable>
           ) : null}
+          {photos[safeActive] && activeIsCover && (
+            <Pressable
+              style={styles.cropFab}
+              disabled={savingCover}
+              onPress={() => setCoverSheetOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Adjust what part of the cover photo shows on cards"
+            >
+              <Glyph name="crop" size={18} color={colors.cream} />
+            </Pressable>
+          )}
           <View style={styles.cardBody}>
             {/* Tap a thumbnail to make it the main photo. Shows ALL photos so
                 photo 0 stays re-selectable; the active one is highlighted. */}
@@ -488,23 +500,7 @@ export default function ProfileTab() {
                 drag what part of it shows (C4). */}
             {photos.length > 0 && (
               activeIsCover ? (
-                <View style={styles.coverRow}>
-                  {photos.length > 1 && (
-                    <View style={styles.coverHintRow}>
-                      <Glyph name="star" size={15} />
-                      <Text style={styles.coverHint}>This is {profile.name}&apos;s cover photo</Text>
-                    </View>
-                  )}
-                  <PaperButton
-                    small
-                    icon="crop"
-                    label="Adjust the crop"
-                    disabled={savingCover}
-                    onPress={() => setCoverSheetOpen(true)}
-                    style={styles.coverButton}
-                    accessibilityLabel="Adjust what part of the cover photo shows on cards"
-                  />
-                </View>
+                null
               ) : (
                 <PaperButton
                   small
@@ -525,6 +521,19 @@ export default function ProfileTab() {
               {[profile.breed, profile.age, profile.sex, profile.location].filter(Boolean).join(' · ')}
             </Text>
             <View style={styles.statusBadgeRow}>
+              {charmCount > 0 && (
+                <Pressable
+                  style={styles.typeChip}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${charmCount} charms. Open the Playroom`}
+                  onPress={() => router.push('/(tabs)/playroom')}
+                >
+                  <Text style={styles.typeChipText}>
+                    {CHARMS.filter((c) => earned.includes(c.id)).slice(0, 2).map((c) => c.emoji).join('')}
+                    {` ${charmCount} charm${charmCount === 1 ? '' : 's'}`}
+                  </Text>
+                </Pressable>
+              )}
               {ownType && revealed && (
                 <Pressable
                   style={styles.typeChip}
@@ -615,8 +624,6 @@ export default function ProfileTab() {
             )}
 
             <ProfileDetailsCard profile={profile} hideIdentity />
-            <LifeStageCard savedProfile={profile} onEditProfile={() => openEditor('birthday')} />
-            <WhereWeGoSection uid={user.uid} city={profile.city} />
           </>
         )}
 
@@ -746,6 +753,7 @@ export default function ProfileTab() {
           coverIndex={sheetCoverIndex}
           focus={savedCoverFocus}
           dogName={profile.name?.trim() || 'your dog'}
+          caption={[profile.breed, profile.age].filter(Boolean).join(' · ')}
           saving={savingCover}
           onCancel={() => setCoverSheetOpen(false)}
           onSave={handleSaveCoverCrop}
@@ -847,7 +855,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 20,
   },
-  hero: { width: '100%', height: 280, backgroundColor: colors.creamDark, borderBottomWidth: 2, borderBottomColor: ink },
+  cropFab: { position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(42,31,74,0.72)', alignItems: 'center', justifyContent: 'center' },
+  hero: { width: '100%', backgroundColor: colors.creamDark, borderBottomWidth: 2, borderBottomColor: ink },
   cardBody: { padding: 18 },
   photoStrip: { marginBottom: 14 },
   photoStripItem: {
@@ -880,9 +889,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  coverHintRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  coverHint: { fontFamily: fonts.bold, fontSize: 13, color: softInk },
-  coverRow: { marginBottom: 4 },
   coverButton: {
     alignSelf: 'flex-start',
     marginBottom: 14,

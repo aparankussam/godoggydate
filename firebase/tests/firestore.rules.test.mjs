@@ -166,15 +166,36 @@ describe('dogs/{uid} size and shape', () => {
     await assertFails(create({ publicPage: 'no' }));
   });
 
-  it('photos: at most 6, each a string of at most 1000 characters', async () => {
+  // Per-URL checks (string, 1000 chars) moved to onDogProfileWriteModerate,
+  // which drops bad entries: per-entry checks here cost too much of the rules'
+  // 1,000-expression budget on a full profile.
+  it('photos: at most 6, 6000 characters in all', async () => {
     await assertSucceeds(create({ photos: Array(6).fill(PHOTO) }));
     await testEnv.clearFirestore();
     await assertFails(create({ photos: Array(7).fill(PHOTO) }));
-    await assertFails(create({ photos: [PHOTO, text(1001)] }));
-    await assertFails(create({ photos: [PHOTO, PHOTO, PHOTO, PHOTO, PHOTO, text(5000)] }));
-    await assertFails(create({ photos: [PHOTO, 42] }));
+    await assertFails(create({ photos: [PHOTO, text(6000)] }));
     await assertFails(create({ photos: 'https://evil.example/x.png' }));
     await assertSucceeds(create({ photos: [PHOTO, '_placeholder_', '_placeholder_'] }));
+  });
+
+  // Regression: the per-field helper version ran out of the 1,000-expression
+  // budget on a full profile, refusing every save and sign-up.
+  it('a full profile at its limits fits the rules expression budget', async () => {
+    const answer = () => ({ prompt: 'My dog is happiest when…', answer: text(300) });
+    await assertSucceeds(create({
+      bio: text(1000),
+      healthNotes: text(1000),
+      photos: Array(6).fill(PHOTO),
+      prompts: [answer(), answer(), answer()],
+      temperament: ['Playful', 'Gentle', 'Curious'],
+      playStyles: ['Chaser', 'Wrestler'],
+      goodWith: ['Kids'],
+      allergies: ['Chicken'],
+      publicPage: true,
+      coverPhotoIndex: 0,
+      coverFocusX: 70,
+      coverFocusY: 50,
+    }));
   });
 
   it('chip lists: at most 12 entries (temperament, playStyles, notGoodWith, behaviorFlags)', async () => {
