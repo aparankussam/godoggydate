@@ -613,7 +613,6 @@ service cloud.firestore {
                         : !('photoUrl' in request.resource.data));
 
       allow update, delete: if false;
-      allow update, delete: if false;
     }
 
     // ── City feed posts (cityPosts/{postId}) ──────────────────────────────────
@@ -626,6 +625,26 @@ service cloud.firestore {
     // rules and the new-account check (complete profile + a few days or a Pack
     // Day check-in), so none of that can be skipped from a client.
     match /cityPosts/{postId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Where we go (see firebase/functions/src/places.ts) ───────────────────
+    // placeTags: one owner's "we go here". Only that owner can read or remove
+    // it, so who uses which vet is never visible to other members. Created by
+    // the tagPlace callable (content filter + limits), never by a client.
+    match /placeTags/{tagId} {
+      allow read, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create, update: if false;
+    }
+    // places: public counts, written only by onPlaceTagWritten and only while
+    // >= 3 distinct owners use the place.
+    match /places/{placeId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+    // placeAsks: "ask for a rec" records, readable so the city feed can show them.
+    match /placeAsks/{askId} {
       allow read:  if isSignedIn();
       allow write: if false;
     }

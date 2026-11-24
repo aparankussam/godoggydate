@@ -516,6 +516,36 @@ describe('reports', () => {
   });
 });
 
+describe('where we go (placeTags, places, placeAsks)', () => {
+  const tag = { ownerId: 'a', placeId: 'austin-tx__vet__dr-patel', category: 'vet', name: 'Dr. Patel', cityKey: 'austin-tx' };
+
+  it('an owner reads and removes only their own tag; nobody creates or edits one', async () => {
+    await seed((db) => setDoc(doc(db, 'placeTags/a__p1'), tag));
+    await assertSucceeds(getDoc(doc(google('a'), 'placeTags/a__p1')));
+    await assertFails(getDoc(doc(google('b'), 'placeTags/a__p1')));
+    await assertFails(getDocs(collection(google('b'), 'placeTags')));
+    await assertFails(setDoc(doc(google('a'), 'placeTags/a__p2'), tag));
+    await assertFails(updateDoc(doc(google('a'), 'placeTags/a__p1'), { name: 'Other' }));
+    await assertFails(deleteDoc(doc(google('b'), 'placeTags/a__p1')));
+    await assertSucceeds(deleteDoc(doc(google('a'), 'placeTags/a__p1')));
+  });
+
+  it('places and placeAsks are readable by members and never writable', async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'places/p1'), { name: 'Dr. Patel', ownerCount: 3 });
+      await setDoc(doc(db, 'placeAsks/a__vet'), { askerUid: 'a', category: 'vet' });
+    });
+    for (const path of ['places/p1', 'placeAsks/a__vet']) {
+      await assertSucceeds(getDoc(doc(google('b'), path)));
+      await assertFails(getDoc(doc(signedOut(), path)));
+      await assertFails(updateDoc(doc(google('a'), path), { ownerCount: 99 }));
+      await assertFails(deleteDoc(doc(google('a'), path)));
+    }
+    await assertFails(setDoc(doc(google('a'), 'places/p2'), { name: 'X', ownerCount: 50 }));
+    await assertFails(setDoc(doc(google('a'), 'placeAsks/a__groomer'), { askerUid: 'a' }));
+  });
+});
+
 describe('dog reminders (household)', () => {
   beforeEach(async () => {
     await seed((db) => setDoc(doc(db, 'dogs/a'), { name: 'A', householdMemberIds: ['sitter'] }));

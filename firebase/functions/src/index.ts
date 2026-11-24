@@ -2394,6 +2394,8 @@ export const { createPackGroup, joinPackGroup, leavePackGroup, updatePackGroup, 
 export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
 export const { onPackDayMessageCreated, packDayChatHost, postPackDayHeadsUps } = (require('./packDayChat') as typeof import('./packDayChat')).makePackDayChatFunctions({ db, sendOpsAlert, secrets: [opsAlertWebhookUrl] }); // Pack Day group chat, see ./packDayChat.ts
 export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
+// Where we go: place tags, public counts, ask-for-a-rec. See ./places.ts
+export const { tagPlace, onPlaceTagWritten, askPlaceRec } = (require('./places') as typeof import('./places')).makePlaceFunctions({ db, sendPushToUser, isBlockedEitherWay });
 
 // Local waitlist (joinWaitlist, leaveWaitlist, neighbor-joined push). See ./waitlist.ts
 export * from './waitlist';
