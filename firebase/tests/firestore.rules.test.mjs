@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, setLogLevel } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, setLogLevel, serverTimestamp } from 'firebase/firestore';
 
 setLogLevel('error');
 
@@ -546,5 +546,108 @@ describe('packDays', () => {
     await assertFails(getDoc(doc(signedOut(), 'packDays/e1')));
     await assertFails(setDoc(doc(google('a'), 'packDays/e2'), { title: 'Mine', hostUid: 'a' }));
     await assertFails(updateDoc(doc(google('a'), 'packDays/e1'), { official: true }));
+  });
+});
+
+// ── Pack Day group chat ───────────────────────────────────────────────────────
+// Members are the RSVP list; writes stop 48 hours after the event ENDS (start +
+// duration), by the rules' own clock, not just the UI.
+describe('packDays/{eventId}/messages', () => {
+  const HOUR = 3_600_000;
+  const NOW = Date.now();
+  /** An event that started `startedHoursAgo` hours ago and ran 1 hour. */
+  const event = (startedHoursAgo, extra = {}) => ({
+    title: 'Walk', hostUid: 'host', status: 'open', attendeeUids: ['host', 'a', 'b'],
+    startsAtMs: NOW - startedHoursAgo * HOUR, durationMinutes: 60, ...extra,
+  });
+  const msg = (uid, extra = {}) => ({ fromUserId: uid, text: 'hello', kind: 'text', createdAt: serverTimestamp(), ...extra });
+  const post = (db, uid, extra, id = 'm1') => setDoc(doc(db, 'packDays/e1/messages', id), msg(uid, extra));
+
+  it('members read and post; non-members and signed-out visitors do neither', async () => {
+    await seed((db) => setDoc(doc(db, 'packDays/e1'), event(-5)));
+    await seed((db) => setDoc(doc(db, 'packDays/e1/messages/old'), { fromUserId: 'a', text: 'hi', kind: 'text' }));
+    await assertSucceeds(post(google('a'), 'a'));
+    await assertSucceeds(getDoc(doc(google('b'), 'packDays/e1/messages/old')));
+    await assertFails(post(google('mallory'), 'mallory'));
+    await assertFails(getDoc(doc(google('mallory'), 'packDays/e1/messages/old')));
+    await assertFails(getDoc(doc(signedOut(), 'packDays/e1/messages/old')));
+  });
+
+  it('a message must be your own, time-stamped by the server, with only known fields', async () => {
+    await seed((db) => setDoc(doc(db, 'packDays/e1'), event(-5)));
+    await assertFails(post(google('a'), 'b'));
+    await assertFails(setDoc(doc(google('a'), 'packDays/e1/messages/m2'), msg('a', { createdAt: new Date(NOW - 99 * HOUR) })));
+    await assertFails(post(google('a'), 'a', { moderated: false }, 'm3'));
+    await assertFails(post(google('a'), 'a', { text: text(501) }, 'm4'));
+    await assertFails(post(google('a'), 'a', { text: '' }, 'm5'));
+    await assertSucceeds(post(google('a'), 'a', { kind: 'here', text: '' }, 'm6'));
+    await assertSucceeds(post(google('a'), 'a', { kind: 'late', text: '' }, 'm7'));
+  });
+
+  it('nobody edits or deletes a message, even their own', async () => {
+    await seed((db) => setDoc(doc(db, 'packDays/e1'), event(-5)));
+    await seed((db) => setDoc(doc(db, 'packDays/e1/messages/m1'), { fromUserId: 'a', text: 'hi', kind: 'text' }));
+    await assertFails(updateDoc(doc(google('a'), 'packDays/e1/messages/m1'), { text: 'edited' }));
+    await assertFails(deleteDoc(doc(google('a'), 'packDays/e1/messages/m1')));
+  });
+
+  it('only the host posts the weather check ("headsup")', async () => {
+    await seed((db) => setDoc(doc(db, 'packDays/e1'), event(-5)));
+    await assertSucceeds(post(google('host'), 'host', { kind: 'headsup', text: 'Rain expected, still on?' }));
+    await assertFails(post(google('a'), 'a', { kind: 'headsup', text: 'Rain expected, still on?' }, 'm2'));
+  });
+
+  it('writes stop 48 hours after the event ends, reads stay open', async () => {
+    // Started 49h ago, ended 48h ago: closed.
+    await seed((db) => setDoc(doc(db, 'packDays/closed'), event(49)));
+    await seed((db) => setDoc(doc(db, 'packDays/closed/messages/m0'), { fromUserId: 'a', text: 'hi', kind: 'text' }));
+    // Started 47h ago, ended 46h ago: still writable (album time).
+    await seed((db) => setDoc(doc(db, 'packDays/open'), event(47)));
+    await assertFails(setDoc(doc(google('a'), 'packDays/closed/messages/m1'), msg('a')));
+    await assertSucceeds(getDoc(doc(google('a'), 'packDays/closed/messages/m0')));
+    await assertSucceeds(setDoc(doc(google('a'), 'packDays/open/messages/m1'), msg('a')));
+  });
+
+  it('a cancelled event is read-only straight away', async () => {
+    await seed((db) => setDoc(doc(db, 'packDays/e1'), event(-5, { status: 'cancelled' })));
+    await assertFails(post(google('a'), 'a'));
+  });
+
+  it('a muted member cannot post; a removed member (off the RSVP list) cannot read or post', async () => {
+    await seed((db) => setDoc(doc(db, 'packDays/e1'), event(-5, { attendeeUids: ['host', 'a'] })));
+    await seed((db) => setDoc(doc(db, 'packDays/e1/chatControl/state'), { mutedUids: ['a'], removedUids: ['b'] }));
+    await seed((db) => setDoc(doc(db, 'packDays/e1/messages/m0'), { fromUserId: 'host', text: 'hi', kind: 'text' }));
+    await assertFails(post(google('a'), 'a'));
+    await assertSucceeds(getDoc(doc(google('a'), 'packDays/e1/messages/m0')));
+    await assertFails(post(google('b'), 'b'));
+    await assertFails(getDoc(doc(google('b'), 'packDays/e1/messages/m0')));
+  });
+
+  it('photos need a real URL and an event that has started', async () => {
+    const url = 'https://firebasestorage.googleapis.com/v0/b/b/o/packDays%2Fe1%2Fphotos%2Fa%2F1.jpg?alt=media';
+    await seed((db) => setDoc(doc(db, 'packDays/started'), event(1)));
+    await seed((db) => setDoc(doc(db, 'packDays/future'), event(-5)));
+    await assertSucceeds(setDoc(doc(google('a'), 'packDays/started/messages/p1'), msg('a', { kind: 'photo', text: '', photoUrl: url })));
+    await assertFails(setDoc(doc(google('a'), 'packDays/started/messages/p2'), msg('a', { kind: 'photo', text: '', photoUrl: 'javascript:1' })));
+    await assertFails(setDoc(doc(google('a'), 'packDays/started/messages/p3'), msg('a', { kind: 'photo', text: '' })));
+    await assertFails(setDoc(doc(google('a'), 'packDays/started/messages/p4'), msg('a', { kind: 'text', photoUrl: url })));
+    await assertFails(setDoc(doc(google('a'), 'packDays/future/messages/p5'), msg('a', { kind: 'photo', text: '', photoUrl: url })));
+  });
+
+  it('chatControl is readable by members and writable by no client (host tools are a callable)', async () => {
+    await seed((db) => setDoc(doc(db, 'packDays/e1'), event(-5)));
+    await seed((db) => setDoc(doc(db, 'packDays/e1/chatControl/state'), { pinned: null }));
+    await assertSucceeds(getDoc(doc(google('a'), 'packDays/e1/chatControl/state')));
+    await assertFails(getDoc(doc(google('mallory'), 'packDays/e1/chatControl/state')));
+    await assertFails(setDoc(doc(google('host'), 'packDays/e1/chatControl/state'), { mutedUids: ['a'] }));
+  });
+
+  it('a report can name the single chat message it is about', async () => {
+    await assertSucceeds(setDoc(doc(google('a'), 'reports/r1'), {
+      reporterId: 'a', targetUserId: 'b', reason: 'inappropriate', source: 'packday', eventId: 'e1', messageId: 'm1',
+    }));
+    await assertFails(setDoc(doc(google('a'), 'reports/r2'), {
+      reporterId: 'a', targetUserId: 'b', reason: 'inappropriate', source: 'packday', eventId: 'e1', messageId: text(200),
+    }));
   });
 });

@@ -290,6 +290,11 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
     const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists) throw new HttpsError('not-found', 'That Pack Day no longer exists.');
+      // A member the host removed from the chat can't rejoin (see ./packDayChat.ts).
+      const control = await tx.get(ref.collection('chatControl').doc('state'));
+      if (((control.data()?.removedUids as string[] | undefined) ?? []).includes(uid)) {
+        throw new HttpsError('permission-denied', "You can't join this Pack Day.");
+      }
       const event = snap.data()!;
       const attendees = (event.attendeeUids as string[] | undefined) ?? [];
       if (event.status !== 'open') throw new HttpsError('failed-precondition', 'This Pack Day was cancelled.');

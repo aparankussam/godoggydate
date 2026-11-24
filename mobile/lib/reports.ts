@@ -25,6 +25,8 @@ export interface ReportTarget {
   matchId?: string;
   /** Set when reporting from a Pack Day event, so a moderator can see which one. */
   eventId?: string;
+  /** Set with eventId when reporting one Pack Day chat message, so a moderator sees exactly that message. */
+  messageId?: string;
 }
 
 export type ReportOutcome = 'reported' | 'blocked' | 'blocked_report_failed' | 'failed';
@@ -51,6 +53,7 @@ export async function submitReport(target: ReportTarget, reason: ReportReason): 
       targetUserId: target.targetUserId,
       ...(target.matchId ? { matchId: target.matchId } : {}),
       ...(target.eventId ? { eventId: target.eventId } : {}),
+      ...(target.messageId ? { messageId: target.messageId } : {}),
       reason,
       source: target.source,
       createdAt: serverTimestamp(),

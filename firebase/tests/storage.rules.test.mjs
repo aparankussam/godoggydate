@@ -92,3 +92,21 @@ describe('videos and avatars', () => {
     await assertFails(uploadBytes(ref(google('u1'), 'avatars/u2/me.jpg'), BYTES, jpeg));
   });
 });
+
+describe('Pack Day album: packDays/{eventId}/photos/{uid}/{file}', () => {
+  it('a real account uploads a photo into its own folder, with the dog-photo limits', async () => {
+    await assertSucceeds(uploadBytes(ref(google('u1'), 'packDays/e1/photos/u1/1.jpg'), BYTES, jpeg));
+    await assertFails(uploadBytes(ref(guest('g1'), 'packDays/e1/photos/g1/1.jpg'), BYTES, jpeg));
+    await assertFails(uploadBytes(ref(google('u1'), 'packDays/e1/photos/u2/1.jpg'), BYTES, jpeg));
+    await assertFails(uploadBytes(ref(google('u1'), 'packDays/e1/photos/u1/x.svg'), BYTES, { contentType: 'image/svg+xml' }));
+    await assertFails(uploadBytes(ref(google('u1'), 'packDays/e1/photos/u1/big.jpg'), new Uint8Array(10 * 1024 * 1024 + 1), jpeg));
+  });
+
+  it('signed-in people read, signed-out visitors cannot', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await uploadBytes(ref(ctx.storage(), 'packDays/e1/photos/u1/r.jpg'), BYTES, jpeg);
+    });
+    await assertSucceeds(getBytes(ref(google('u2'), 'packDays/e1/photos/u1/r.jpg')));
+    await assertFails(getBytes(ref(signedOut(), 'packDays/e1/photos/u1/r.jpg')));
+  });
+});

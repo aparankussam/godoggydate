@@ -526,6 +526,67 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── PACK DAY GROUP CHAT ───────────────────────────────────────────────────
+    // packDays/{eventId}/messages and packDays/{eventId}/chatControl/state.
+    // Members are the event's RSVP list (attendeeUids), so RSVPing opens the
+    // chat and leaving or being removed closes it. The chat turns READ-ONLY 48
+    // hours after the event ENDS: the end is startsAtMs + durationMinutes, read
+    // from the event doc, so a client can't talk past it (CHAT_READ_ONLY_AFTER_MS
+    // in shared/packDayChat.ts is the same 48 hours). A cancelled event is
+    // read-only at once. chatControl/state ({ pinned, mutedUids, removedUids })
+    // is written only by the packDayChatHost callable, which is also what removes
+    // a member. The morning-of 'headsup' post and moderation (text replaced,
+    // moderated: true) are Admin writes; clients never update or delete.
+    function isPackDayMember(eventId) {
+      return isSignedIn()
+          && exists(/databases/$(database)/documents/packDays/$(eventId))
+          && request.auth.uid in get(/databases/$(database)/documents/packDays/$(eventId)).data.attendeeUids;
+    }
+
+    function packDayChatOpen(eventId) {
+      let e = get(/databases/$(database)/documents/packDays/$(eventId)).data;
+      return e.status == 'open'
+          && request.time.toMillis() < e.startsAtMs + e.durationMinutes * 60000 + 172800000;
+    }
+
+    function packDayChatMuted(eventId) {
+      let c = /databases/$(database)/documents/packDays/$(eventId)/chatControl/state;
+      return exists(c) && request.auth.uid in get(c).data.get('mutedUids', []);
+    }
+
+    match /packDays/{eventId}/chatControl/{docId} {
+      allow read:  if isPackDayMember(eventId);
+      allow write: if false;
+    }
+
+    match /packDays/{eventId}/messages/{messageId} {
+      allow read: if isPackDayMember(eventId);
+
+      allow create: if isPackDayMember(eventId)
+                    && packDayChatOpen(eventId)
+                    && !packDayChatMuted(eventId)
+                    && request.resource.data.keys().hasOnly(['fromUserId', 'text', 'kind', 'photoUrl', 'createdAt'])
+                    && request.resource.data.keys().hasAll(['fromUserId', 'text', 'kind', 'createdAt'])
+                    && request.resource.data.fromUserId == request.auth.uid
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() <= 500
+                    && request.resource.data.kind in ['text', 'here', 'late', 'headsup', 'photo']
+                    // Only the host posts the weather check.
+                    && (request.resource.data.kind != 'headsup'
+                        || request.auth.uid == get(/databases/$(database)/documents/packDays/$(eventId)).data.hostUid)
+                    && (request.resource.data.kind != 'text' || request.resource.data.text.size() > 0)
+                    // Photos: a real https URL, and only once the event has started.
+                    && (request.resource.data.kind == 'photo'
+                        ? (request.resource.data.get('photoUrl', null) is string
+                           && request.resource.data.photoUrl.size() <= 1000
+                           && request.resource.data.photoUrl.matches('https://.*')
+                           && request.time.toMillis() >= get(/databases/$(database)/documents/packDays/$(eventId)).data.startsAtMs)
+                        : !('photoUrl' in request.resource.data));
+
+      allow update, delete: if false;
+    }
+
     match /payments/{paymentId} {
       allow read:   if isSignedIn()
                     && resource.data.userId == request.auth.uid;
@@ -565,6 +626,8 @@ service cloud.firestore {
                     && okStr(request.resource.data.get('source', null), 60)
                     && okStr(request.resource.data.get('matchId', null), 128)
                     && okStr(request.resource.data.get('eventId', null), 128)
+                    // A single Pack Day chat message being reported (with eventId).
+                    && okStr(request.resource.data.get('messageId', null), 128)
                     && okStr(request.resource.data.get('text', null), 1000)
                     && okStr(request.resource.data.get('details', null), 1000)
                     && okStr(request.resource.data.get('note', null), 1000)
