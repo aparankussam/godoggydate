@@ -5,6 +5,8 @@ import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
 import { makePackDayFunctions } from './packDay';
+import { makeLimitedPush } from './notifyLimit';
+import { makeCityFeedFunctions } from './cityFeed';
 import {
   MODERATED_MESSAGE_TEXT,
   checkMessageContent,
@@ -1296,7 +1298,7 @@ export const onMatchCreatedNotify = functions.firestore
     await Promise.all((blocked ? [] : participants).map(async (uid) => {
       const otherUid = participants.find((p) => p !== uid);
       const otherName = await getDogName(otherUid);
-      await sendPushToUser(uid, {
+      await sendLimitedPush(uid, {
         title: "It's a match! 🐾",
         body: `${otherName} wants to play too. Open it to see their Dogtype.`,
         data: {
@@ -1304,7 +1306,7 @@ export const onMatchCreatedNotify = functions.firestore
           matchId,
           link: `https://godoggydate.com/app/messages/${matchId}`,
         },
-      });
+      }, 'social');
     }));
 
     // Stamp density at creation time, once, rather than recomputing on every
@@ -1990,11 +1992,11 @@ export const sendCelebrationNotifications = functions
           continue; // already celebrated this occasion this year
         }
         try {
-          await sendPushToUser(dogId, {
+          await sendLimitedPush(dogId, {
             title: hit.title,
             body: hit.body,
             data: { type: 'celebration', kind: hit.kind, dogId, link: 'https://godoggydate.com/app/profile' },
-          });
+          }, 'social');
         } catch (err) {
           // The marker is claimed BEFORE sending (that ordering is what makes
           // the dedup safe against concurrent runs), so a failed send would
@@ -2350,12 +2352,21 @@ export const removeHouseholdMember = functions.https.onCall(async (data, context
 // ── Pack Day: open group playdates ─────────────────────────────────────────────
 // All writes to packDays/ go through these callables (firestore.rules is
 // read-only for clients). See ./packDay.ts.
-const packDay = makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay });
+// Global push cap (2 non-urgent pushes per user per day), see ./notifyLimit.ts.
+// Lost-dog alerts must use sendLimitedPush(uid, payload, 'urgent'): instant, never capped.
+const sendLimitedPush = makeLimitedPush(db, sendPushToUser);
+const packDay = makePackDayFunctions({
+  db,
+  sendPushToUser: async (uid, payload) => { await sendLimitedPush(uid, payload, payload.kind ?? 'social'); },
+  isBlockedEitherWay,
+});
 export const createPackDay = packDay.createPackDay;
 export const rsvpPackDay = packDay.rsvpPackDay;
 export const cancelPackDay = packDay.cancelPackDay;
 export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;
+// City feed (board posts, expiry cleanup, daily digest), see ./cityFeed.ts
+export const { createCityPost, updateCityPost, cleanupCityFeed, sendCityFeedDigest } = makeCityFeedFunctions({ db, sendLimitedPush });
 export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
 export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
 

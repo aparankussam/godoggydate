@@ -526,6 +526,30 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── City feed posts (cityPosts/{postId}) ──────────────────────────────────
+    // Structured board posts (Ask, Recommend, Free/Lend, Walk buddy, Found dog).
+    // Expiry is enforced by the feed queries (expiresAtMs > now) and by the
+    // hourly cleanupCityFeed delete. It is not a read rule: rules can't prove
+    // a client's own `expiresAtMs > X` filter against request.time, so such a
+    // rule would reject the feed's list query. Writes are createCityPost /
+    // updateCityPost only (Admin SDK): they run the content filter, the template
+    // rules and the new-account check (complete profile + a few days or a Pack
+    // Day check-in), so none of that can be skipped from a client.
+    match /cityPosts/{postId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── Notification limit + digest bookkeeping (server only) ─────────────────
+    // pushCounters/{uid}_{day}: pushes sent today (notifyLimit.ts).
+    // cityFeedDigests/{city}_{day}: marks a city's digest as sent.
+    match /pushCounters/{id} {
+      allow read, write: if false;
+    }
+    match /cityFeedDigests/{id} {
+      allow read, write: if false;
+    }
+
     match /payments/{paymentId} {
       allow read:   if isSignedIn()
                     && resource.data.userId == request.auth.uid;
@@ -565,6 +589,7 @@ service cloud.firestore {
                     && okStr(request.resource.data.get('source', null), 60)
                     && okStr(request.resource.data.get('matchId', null), 128)
                     && okStr(request.resource.data.get('eventId', null), 128)
+                    && okStr(request.resource.data.get('postId', null), 128)
                     && okStr(request.resource.data.get('text', null), 1000)
                     && okStr(request.resource.data.get('details', null), 1000)
                     && okStr(request.resource.data.get('note', null), 1000)

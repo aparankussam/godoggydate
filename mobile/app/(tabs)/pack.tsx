@@ -22,6 +22,7 @@ import { listUpcomingPackDays } from '../../lib/packDay';
 import { getBlockedUserIds } from '../../lib/blocks';
 import { trackEvent } from '../../lib/analytics';
 import PackDayCard from '../../components/PackDayCard';
+import CityFeed from '../../components/CityFeed';
 import type { PackDay } from '../../../shared/packDay';
 
 export default function PackDaysTab() {
@@ -31,6 +32,7 @@ export default function PackDaysTab() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [view, setView] = useState<'feed' | 'days'>('feed');
 
   useFocusEffect(
     useCallback(() => {
@@ -118,7 +120,7 @@ export default function PackDaysTab() {
         <View style={styles.headerRow}>
           <View style={styles.titleRow}>
             <View style={styles.titleBadge}><Glyph name="tree" size={18} /></View>
-            <Text style={styles.title} accessibilityRole="header">Pack Days</Text>
+            <Text style={styles.title} accessibilityRole="header">{view === 'feed' ? 'City feed' : 'Pack Days'}</Text>
           </View>
           {canHost && anyEvents && (
             <PaperButton small label="Host one" icon="plus" onPress={handleHost} accessibilityLabel="Host a Pack Day" />
@@ -129,7 +131,16 @@ export default function PackDaysTab() {
           dogs yours actually clicks with. Free to join.
         </Text>
 
-        {!canHost && events && (
+        <View style={styles.switchRow}>
+          <PaperButton small label="City feed" icon="home-group" onPress={() => setView('feed')} accessibilityLabel="Show the city feed" />
+          <PaperButton small label="Pack Days" icon="tree" onPress={() => setView('days')} accessibilityLabel="Show Pack Days" />
+        </View>
+
+        {view === 'feed' && (
+          <CityFeed uid={user.uid} city={profile?.city?.trim()} canPost={canHost} blocked={blocked} reloadToken={reloadToken} />
+        )}
+
+        {view === 'days' && !canHost && events && (
           <Paper style={styles.setupCard}>
             <Heading size={24} style={styles.centerText}>Add your dog to join in</Heading>
             <Text style={[type.soft, styles.centerText, styles.setupBody]}>Finish your dog’s profile to RSVP or host a Pack Day.</Text>
@@ -137,6 +148,7 @@ export default function PackDaysTab() {
           </Paper>
         )}
 
+        {view === 'days' && (<>
         {error && (
           <Slip tone="error" style={styles.block}>
             <Text style={type.body}>{error}</Text>
@@ -186,6 +198,7 @@ export default function PackDaysTab() {
             {elsewhere.map((e) => <PackDayCard key={e.id} event={e} />)}
           </View>
         )}
+        </>)}
       </ScrollView>
     </SafeAreaView>
   );
@@ -234,6 +247,7 @@ const styles = StyleSheet.create({
   setupBody: { marginBottom: 12 },
   block: { marginBottom: 20 },
   retryBtn: { alignSelf: 'flex-start', marginTop: 10 },
+  switchRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   loadingBox: { paddingVertical: 64, alignItems: 'center' },
   section: { marginBottom: 14 },
   sectionLabel: { marginBottom: 12 },
