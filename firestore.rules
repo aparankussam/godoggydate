@@ -47,76 +47,145 @@ service cloud.firestore {
           || (v is list && v.size() <= maxItems && v.join('').size() <= maxChars);
     }
 
-    // Entry i of a list is a string of at most max characters (or there is no entry i).
-    function okStrAt(v, i, max) {
-      return v.size() <= i || (v[i] is string && v[i].size() <= max);
-    }
-
-    // photos: up to 6 entries (MAX_PHOTOS in the profile form), each a string
-    // of at most 1000 characters. A real Storage download URL is ~300.
-    function okPhotos(v) {
-      return v == null
-          || (v is list && v.size() <= 6
-              && okStrAt(v, 0, 1000) && okStrAt(v, 1, 1000) && okStrAt(v, 2, 1000)
-              && okStrAt(v, 3, 1000) && okStrAt(v, 4, 1000) && okStrAt(v, 5, 1000));
-    }
-
-    // prompts: up to 6 { prompt, answer } maps; answers are capped at 300 in
-    // both apps (PROFILE_TEXT_LIMITS.promptAnswer).
-    function okPromptAt(v, i) {
-      return v.size() <= i
-          || (v[i] is map && okStr(v[i].get('prompt', null), 200) && okStr(v[i].get('answer', null), 300));
-    }
-
-    function okPrompts(v) {
-      return v == null
-          || (v is list && v.size() <= 6
-              && okPromptAt(v, 0) && okPromptAt(v, 1) && okPromptAt(v, 2)
-              && okPromptAt(v, 3) && okPromptAt(v, 4) && okPromptAt(v, 5));
-    }
-
     // The owner-writable fields of a dog document. Not a whitelist on purpose:
     // new fields ship with the apps (publicPage was the last), and a whitelist
     // here would silently refuse every profile save until the rules caught up.
     // Fields that aren't listed are limited only by the key count and by the
     // 1 MiB document cap.
+    // The dog-doc shape check, split into a few group functions with local
+    // variables. A rule may evaluate only 1,000 expressions, and each helper call
+    // (okStr, okNum, ...) costs dozens: the one-helper-per-field version ran out
+    // on a full profile, so every save and sign-up was refused. Same limits as
+    // those helpers. At most 10 `let`s per function is a rules limit.
+    function dogStrsA(d) {
+      let name = d.get('name', null);
+      let breed = d.get('breed', null);
+      let bio = d.get('bio', null);
+      let healthNotes = d.get('healthNotes', null);
+      let city = d.get('city', null);
+      let state = d.get('state', null);
+      let location = d.get('location', null);
+      let age = d.get('age', null);
+      let sex = d.get('sex', null);
+      let size = d.get('size', null);
+      return (name == null || (name is string && name.size() <= 60))
+          && (breed == null || (breed is string && breed.size() <= 80))
+          && (bio == null || (bio is string && bio.size() <= 1000))
+          && (healthNotes == null || (healthNotes is string && healthNotes.size() <= 1000))
+          && (city == null || (city is string && city.size() <= 80))
+          && (state == null || (state is string && state.size() <= 40))
+          && (location == null || (location is string && location.size() <= 160))
+          && (age == null || (age is string && age.size() <= 20))
+          && (sex == null || (sex is string && sex.size() <= 20))
+          && (size == null || (size is string && size.size() <= 20));
+    }
+
+    function dogStrsB(d) {
+      let ownerId = d.get('ownerId', null);
+      let rabiesExpiry = d.get('rabiesExpiry', null);
+      let adoptionDate = d.get('adoptionDate', null);
+      let bestFriendMatchId = d.get('bestFriendMatchId', null);
+      let vaccinated = d.get('vaccinated', null);
+      let publicPage = d.get('publicPage', null);
+      return (ownerId == null || (ownerId is string && ownerId.size() <= 128))
+          && (rabiesExpiry == null || (rabiesExpiry is string && rabiesExpiry.size() <= 32))
+          && (adoptionDate == null || (adoptionDate is string && adoptionDate.size() <= 32))
+          && (bestFriendMatchId == null || (bestFriendMatchId is string && bestFriendMatchId.size() <= 200))
+          && (vaccinated == null || vaccinated is bool)
+          && (publicPage == null || publicPage is bool);
+    }
+
+    function dogNums(d) {
+      let energyLevel = d.get('energyLevel', null);
+      let lat = d.get('lat', null);
+      let lng = d.get('lng', null);
+      let birthYear = d.get('birthYear', null);
+      let birthMonth = d.get('birthMonth', null);
+      let birthDay = d.get('birthDay', null);
+      let coverPhotoIndex = d.get('coverPhotoIndex', null);
+      let coverFocusX = d.get('coverFocusX', null);
+      let coverFocusY = d.get('coverFocusY', null);
+      return (energyLevel == null || energyLevel is number)
+          && (lat == null || lat is number)
+          && (lng == null || lng is number)
+          && (birthYear == null || birthYear is number)
+          && (birthMonth == null || birthMonth is number)
+          && (birthDay == null || birthDay is number)
+          && (coverPhotoIndex == null || coverPhotoIndex is number)
+          && (coverFocusX == null || coverFocusX is number)
+          && (coverFocusY == null || coverFocusY is number);
+    }
+
+    function dogLists(d) {
+      let temperament = d.get('temperament', null);
+      let playStyles = d.get('playStyles', null);
+      let notGoodWith = d.get('notGoodWith', null);
+      let behaviorFlags = d.get('behaviorFlags', null);
+      let goodWith = d.get('goodWith', null);
+      let boundaries = d.get('boundaries', null);
+      let allergies = d.get('allergies', null);
+      let specialNeeds = d.get('specialNeeds', null);
+      return (temperament == null || (temperament is list && temperament.size() <= 12 && temperament.join('').size() <= 720))
+          && (playStyles == null || (playStyles is list && playStyles.size() <= 12 && playStyles.join('').size() <= 720))
+          && (notGoodWith == null || (notGoodWith is list && notGoodWith.size() <= 12 && notGoodWith.join('').size() <= 720))
+          && (behaviorFlags == null || (behaviorFlags is list && behaviorFlags.size() <= 12 && behaviorFlags.join('').size() <= 720))
+          && (goodWith == null || (goodWith is list && goodWith.size() <= 12 && goodWith.join('').size() <= 720))
+          && (boundaries == null || (boundaries is list && boundaries.size() <= 12 && boundaries.join('').size() <= 720))
+          && (allergies == null || (allergies is list && allergies.size() <= 12 && allergies.join('').size() <= 720))
+          && (specialNeeds == null || (specialNeeds is list && specialNeeds.size() <= 12 && specialNeeds.join('').size() <= 720));
+    }
+
+    // Up to 6 photo URLs, 6,000 characters in all (join fails on a non-string,
+    // which refuses the write). The per-URL 1,000 cap is enforced by the
+    // onDogProfileWriteModerate function, which drops longer or foreign URLs.
+    function dogPhotos(d) {
+      let p = d.get('photos', null);
+      return p == null || (p is list && p.size() <= 6 && p.join('').size() <= 6000);
+    }
+
+    // Each entry is read once into a variable: indexing the list again for every
+    // check cost so much that long answers ran out the expression budget. A
+    // missing prompt or answer reads as ''; a non-map entry, or a value with no
+    // size(), makes the check fail, which refuses the write.
+    function dogPromptItems(p) {
+      let n = p.size();
+      let q0 = n > 0 ? p[0] : {};
+      let q1 = n > 1 ? p[1] : {};
+      let q2 = n > 2 ? p[2] : {};
+      let q3 = n > 3 ? p[3] : {};
+      let q4 = n > 4 ? p[4] : {};
+      let q5 = n > 5 ? p[5] : {};
+      return n <= 6
+          && q0.get('prompt', '').size() <= 200 && q0.get('answer', '').size() <= 300
+          && q1.get('prompt', '').size() <= 200 && q1.get('answer', '').size() <= 300
+          && q2.get('prompt', '').size() <= 200 && q2.get('answer', '').size() <= 300
+          && q3.get('prompt', '').size() <= 200 && q3.get('answer', '').size() <= 300
+          && q4.get('prompt', '').size() <= 200 && q4.get('answer', '').size() <= 300
+          && q5.get('prompt', '').size() <= 200 && q5.get('answer', '').size() <= 300;
+    }
+
+    function dogPrompts(d) {
+      let p = d.get('prompts', null);
+      return p == null || (p is list && dogPromptItems(p));
+    }
+
+    // On an update only the groups whose fields changed are re-checked, so a
+    // small edit (the cover crop) stays well inside the expression budget.
+    function validDogUpdate() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return d.keys().size() <= 60
+          && (!changed.hasAny(['name', 'breed', 'bio', 'healthNotes', 'city', 'state', 'location', 'age', 'sex', 'size']) || dogStrsA(d))
+          && (!changed.hasAny(['ownerId', 'rabiesExpiry', 'adoptionDate', 'bestFriendMatchId', 'vaccinated', 'publicPage']) || dogStrsB(d))
+          && (!changed.hasAny(['energyLevel', 'lat', 'lng', 'birthYear', 'birthMonth', 'birthDay', 'coverPhotoIndex', 'coverFocusX', 'coverFocusY']) || dogNums(d))
+          && (!changed.hasAny(['temperament', 'playStyles', 'notGoodWith', 'behaviorFlags', 'goodWith', 'boundaries', 'allergies', 'specialNeeds']) || dogLists(d))
+          && (!changed.hasAny(['photos']) || dogPhotos(d))
+          && (!changed.hasAny(['prompts']) || dogPrompts(d));
+    }
+
     function validDogShape(d) {
       return d.keys().size() <= 60
-          && okStr(d.get('name', null), 60)
-          && okStr(d.get('breed', null), 80)
-          && okStr(d.get('bio', null), 1000)
-          && okStr(d.get('healthNotes', null), 1000)
-          && okStr(d.get('city', null), 80)
-          && okStr(d.get('state', null), 40)
-          && okStr(d.get('location', null), 160)
-          && okStr(d.get('age', null), 20)
-          && okStr(d.get('sex', null), 20)
-          && okStr(d.get('size', null), 20)
-          && okStr(d.get('ownerId', null), 128)
-          && okStr(d.get('rabiesExpiry', null), 32)
-          && okStr(d.get('adoptionDate', null), 32)
-          && okStr(d.get('bestFriendMatchId', null), 200)
-          && okNum(d.get('energyLevel', null))
-          && okNum(d.get('lat', null))
-          && okNum(d.get('lng', null))
-          && okNum(d.get('birthYear', null))
-          && okNum(d.get('birthMonth', null))
-          && okNum(d.get('birthDay', null))
-          && okNum(d.get('coverPhotoIndex', null))
-          && okNum(d.get('coverFocusX', null))
-          && okNum(d.get('coverFocusY', null))
-          && okBool(d.get('vaccinated', null))
-          && okBool(d.get('publicPage', null))
-          && okPhotos(d.get('photos', null))
-          && okPrompts(d.get('prompts', null))
-          && okStrList(d.get('temperament', null), 12, 720)
-          && okStrList(d.get('playStyles', null), 12, 720)
-          && okStrList(d.get('notGoodWith', null), 12, 720)
-          && okStrList(d.get('behaviorFlags', null), 12, 720)
-          && okStrList(d.get('goodWith', null), 12, 720)
-          && okStrList(d.get('boundaries', null), 12, 720)
-          && okStrList(d.get('allergies', null), 12, 720)
-          && okStrList(d.get('specialNeeds', null), 12, 720);
+          && dogStrsA(d) && dogStrsB(d) && dogNums(d) && dogLists(d) && dogPhotos(d) && dogPrompts(d);
     }
 
     function isPartyToMatch(matchData) {
@@ -279,7 +348,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
                     && request.auth.uid == dogId
                     && preservesServerOnlyDogFields()
-                    && validDogShape(request.resource.data);
+                    && validDogUpdate();
       allow delete: if isSignedIn()
                     && request.auth.uid == dogId;
 
