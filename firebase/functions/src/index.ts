@@ -5,6 +5,7 @@ import { defineSecret } from 'firebase-functions/params';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
 import { makePackDayFunctions } from './packDay';
+import { makePackGroupFunctions } from './packGroups';
 import {
   MODERATED_MESSAGE_TEXT,
   checkMessageContent,
@@ -1115,7 +1116,10 @@ export const deleteAccount = functions
       {
         db,
         bucket: admin.storage().bucket(),
-        cleanupPackDays: (id) => packDay.cleanupPackDaysForUser(id),
+        cleanupPackDays: async (id) => {
+          await packDay.cleanupPackDaysForUser(id);
+          await packGroups.cleanupPackGroupsForUser(id);
+        },
       },
       uid,
     );
@@ -2356,6 +2360,10 @@ export const rsvpPackDay = packDay.rsvpPackDay;
 export const cancelPackDay = packDay.cancelPackDay;
 export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;
+
+// Recurring Pack Day groups (./packGroups.ts). Writes to packGroups/ are callable-only.
+const packGroups = makePackGroupFunctions({ db, sendPushToUser, isBlockedEitherWay });
+export const { createPackGroup, joinPackGroup, leavePackGroup, updatePackGroup, removePackGroupMember, movePackDay, generatePackGroupOccurrences } = packGroups;
 export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
 export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
 

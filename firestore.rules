@@ -526,6 +526,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── packGroups (recurring Pack Day groups) ─────────────────────────────────
+    // A standing group: name, host, schedule, rules, member list. Its meetups are
+    // ordinary packDays/ docs with a groupId. Signed-in members read; every write
+    // (create, join/leave, edit schedule, pause, remove a member) goes through the
+    // createPackGroup / joinPackGroup / ... callables in functions/src/packGroups.ts.
+    // GROUP CHAT would live at packGroups/{groupId}/messages; it is not built yet,
+    // so there is deliberately no rule for it (default deny).
+    match /packGroups/{groupId} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
     match /payments/{paymentId} {
       allow read:   if isSignedIn()
                     && resource.data.userId == request.auth.uid;

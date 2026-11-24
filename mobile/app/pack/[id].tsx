@@ -52,6 +52,8 @@ import {
   spotsLeft,
 } from '../../../shared/packDay';
 import type { PackDay } from '../../../shared/packDay';
+import { dogMixSummary } from '../../../shared/packGroup';
+import type { DogProfile } from '../../../shared/types';
 
 function firstParam(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value) ?? '';
@@ -303,6 +305,12 @@ export default function PackDayScreen() {
         {cancelled && <Slip icon="calendar-remove">This Pack Day was cancelled.</Slip>}
         {!cancelled && over && <Slip icon="calendar-check">This Pack Day is over.</Slip>}
 
+        {event.groupId && (
+          <Pressable onPress={() => router.push({ pathname: '/pack/group/[id]', params: { id: event.groupId as string } })} accessibilityRole="link">
+            <Text style={styles.mixLine}>Part of a standing group · See the group</Text>
+          </Pressable>
+        )}
+
         {/* ── The flyer ─────────────────────────────────────────────────── */}
         <Paper tape style={styles.flyer}>
           <FlyerFacts
@@ -320,6 +328,8 @@ export default function PackDayScreen() {
         {!cancelled && visibleAttendees.length > 0 && (
           <View style={styles.section}>
             <Heading size={22}>Who’s going</Heading>
+            {event.smallDogsOnly && <Text style={styles.mixLine}>Small dogs only</Text>}
+            <Text style={styles.mixLine}>{dogMixSummary(visibleAttendees.map((a) => a.profile as unknown as DogProfile))}</Text>
             <View style={styles.attendeeGrid}>
               {visibleAttendees.map((a) => (
                 <View key={a.uid} style={styles.attendee}>
@@ -436,6 +446,7 @@ const styles = StyleSheet.create({
   attendeeFallback: { alignItems: 'center', justifyContent: 'center' },
   attendeeNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 6 },
   attendeeName: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, flexShrink: 1 },
+  mixLine: { fontFamily: fonts.bold, fontSize: 14, color: colors.brownMid },
   joinBox: { gap: 12 },
   smallPrint: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
   smallPrintLink: { fontFamily: fonts.black, color: colors.ink, textDecorationLine: 'underline' },

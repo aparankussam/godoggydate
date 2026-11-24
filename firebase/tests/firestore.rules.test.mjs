@@ -548,3 +548,21 @@ describe('packDays', () => {
     await assertFails(updateDoc(doc(google('a'), 'packDays/e1'), { official: true }));
   });
 });
+
+// ── Pack groups are written by the server only ────────────────────────────────
+describe('packGroups', () => {
+  it('signed-in members read them; nobody writes from a client', async () => {
+    await seed((db) => setDoc(doc(db, 'packGroups/g1'), { name: 'Riverside Sunday Pack', hostUid: 'a', memberUids: ['a'] }));
+    await assertSucceeds(getDoc(doc(google('b'), 'packGroups/g1')));
+    await assertFails(getDoc(doc(signedOut(), 'packGroups/g1')));
+    await assertFails(setDoc(doc(google('b'), 'packGroups/g2'), { name: 'Mine', hostUid: 'b', memberUids: ['b'] }));
+    // Not even the host can edit directly, or add themselves to someone else's list.
+    await assertFails(updateDoc(doc(google('a'), 'packGroups/g1'), { status: 'paused' }));
+    await assertFails(updateDoc(doc(google('b'), 'packGroups/g1'), { memberUids: ['a', 'b'] }));
+    await assertFails(deleteDoc(doc(google('a'), 'packGroups/g1')));
+  });
+
+  it('has no group chat yet (default deny)', async () => {
+    await assertFails(setDoc(doc(google('a'), 'packGroups/g1/messages/m1'), { text: 'hi' }));
+  });
+});
