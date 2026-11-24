@@ -19,7 +19,7 @@ import HandoffCard from '../../components/HandoffCard';
 import TradingCardShare from '../../components/TradingCardShare';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import { colors, fonts } from '../../constants/theme';
-import { Gingham, Glyph, Heading, PaperButton, card as paperCard, stripEmoji } from '../../components/pack/kit';
+import { Gingham, Glyph, Heading, PaperButton, PinkButton, card as paperCard, stripEmoji } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { deleteAccount } from '../../lib/account';
 import { trackEvent } from '../../lib/analytics';
@@ -567,6 +567,19 @@ export default function ProfileTab() {
                 {profileComplete ? 'Showing in Discover' : 'Profile still needs a few details'}
               </Text>
             </View>
+            {/* The one next step, in the photo block (same as the website). */}
+            {profileComplete ? (
+              <PinkButton
+                label="Start swiping"
+                onPress={() => {
+                  trackEvent('profile_start_swiping_click');
+                  router.push('/(tabs)/discover');
+                }}
+                style={styles.nextStepBtn}
+              />
+            ) : (
+              <PinkButton label="Finish the profile" onPress={() => openEditor()} style={styles.nextStepBtn} />
+            )}
           </View>
         </View>
 
@@ -889,6 +902,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+  nextStepBtn: { marginTop: 14 },
   badge: {
     fontFamily: fonts.black,
     fontSize: 13,

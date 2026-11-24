@@ -22,25 +22,25 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 interface Props {
-  unreadMessages?: number;
+  /** New matches not opened yet plus chats with an unread message: one number,
+   *  like the iPhone Matches tab. */
   unreadMatches?: number;
   /** The signed-in user has no dog of their own — they were invited onto
-   *  someone else's via Household. Discover/Matches/Messages all require a
-   *  dog to swipe with, so showing them would be four tabs of which three
-   *  are guaranteed dead ends. */
+   *  someone else's via Household. Discover/Pack Day/Matches/Playroom all
+   *  require a dog to swipe with, so showing them would be tabs that are
+   *  guaranteed dead ends. */
   householdOnly?: boolean;
   /** Hide the phone tab bar (an open chat thread uses the full screen). The
    *  desktop sidebar is unaffected. */
   hideBottomBar?: boolean;
 }
 
-type TabIcon = 'paw' | 'tree' | 'heart' | 'chat' | 'ball' | 'dog';
+type TabIcon = 'paw' | 'tree' | 'heart' | 'ball' | 'dog';
 
 const TABS = [
   { href: '/app',           label: 'Discover',  icon: 'paw'   as TabIcon },
   { href: '/app/pack',      label: 'Pack Day',  icon: 'tree'  as TabIcon },
   { href: '/app/matches',  label: 'Matches',   icon: 'heart' as TabIcon, badge: 'unreadMatches'  as const },
-  { href: '/app/messages',  label: 'Messages',  icon: 'chat'  as TabIcon, badge: 'unreadMessages' as const },
   { href: '/app/fun',       label: 'Playroom',  icon: 'ball'  as TabIcon },
   { href: '/app/profile',   label: 'Profile',   icon: 'dog'   as TabIcon },
 ] as const;
@@ -78,13 +78,6 @@ function TabGlyph({ icon, size = 24, hole }: { icon: TabIcon; size?: number; hol
           <path d="M12 21s-8.5-5.2-8.5-11.5A4.8 4.8 0 0 1 12 6.5a4.8 4.8 0 0 1 8.5 3C20.5 15.8 12 21 12 21z" />
         </svg>
       );
-    case 'chat':
-      return (
-        <svg {...common}>
-          <path d="M5.5 3.5h13a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-6l-4.4 3.6c-.6.5-1.6.1-1.6-.7v-2.9h-1a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3z" fill="currentColor" />
-          <circle cx="8" cy="10.5" r="1.4" fill={hole} /><circle cx="12" cy="10.5" r="1.4" fill={hole} /><circle cx="16" cy="10.5" r="1.4" fill={hole} />
-        </svg>
-      );
     case 'ball':
       return (
         <svg {...common}>
@@ -120,14 +113,17 @@ function Badge({ count, className = '' }: { count: number; className?: string })
   );
 }
 
-export default function AppNav({ unreadMessages = 0, unreadMatches = 0, householdOnly = false, hideBottomBar = false }: Props) {
+export default function AppNav({ unreadMatches = 0, householdOnly = false, hideBottomBar = false }: Props) {
   const pathname = usePathname();
-  const badges = { unreadMessages, unreadMatches };
+  const badges = { unreadMatches };
   const tabs: readonly (typeof TABS)[number][] = householdOnly ? HOUSEHOLD_TABS : TABS;
 
   function isActive(href: string) {
-    // Exact match for root /app, prefix match for sub-routes
-    return href === '/app' ? pathname === '/app' : pathname.startsWith(href);
+    // Exact match for root /app, prefix match for sub-routes. A chat
+    // (/app/messages/<id>) belongs to the Matches tab, as on the iPhone.
+    if (href === '/app') return pathname === '/app';
+    if (href === '/app/matches') return pathname.startsWith('/app/matches') || pathname.startsWith('/app/messages');
+    return pathname.startsWith(href);
   }
 
   return (

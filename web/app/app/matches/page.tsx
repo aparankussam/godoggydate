@@ -148,7 +148,7 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
   // Latest activity first — the newest message, or the match itself when nobody
   // has written yet. This used to sort by createdAt alone, so a thread with
   // messages from this morning sat below a match nobody had spoken in, and the
-  // list disagreed with the Messages tab and the iPhone app.
+  // list disagreed with the iPhone app.
   const activity = (m: MatchDoc) => m.lastMessageTime?.seconds ?? m.createdAt?.seconds ?? 0;
   docs.sort((a, b) => activity(b) - activity(a));
 

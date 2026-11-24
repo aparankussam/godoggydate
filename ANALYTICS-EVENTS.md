@@ -130,7 +130,7 @@ Other events in the same family:
 - Web only: `fun_hub_open`, `fun_hub_click`, `wanted_mugshot_change`.
 - Mobile only: `fun_open`, `barkle_open`, `wanted_open`, `excuse_share_click`, `excuse_shared`, `dogtype_reveal_open`, `dogtype_reveal_cta`.
 - Dogtype discovery (web and mobile): `dogtype_discovered` (`source`: live, matches, first_fill or packday), `dogtype_reveal_shown` (`context`: modal, profile or sheet), `dogtype_tile_tap` (`discovered`: true or false), `dogtype_sheet_open`, `dogtype_first_reveal` (the owner watched their own dog's reveal for the first time). The type code is never sent for a hidden tile.
-- Playroom and Profile structure (web and mobile): `playroom_card_open` (`feature`: snoot, sticker-studio, wanted, adventures, excuse, letter, card, dogday, roast, apology, texts, review, quiz, plaque), `profile_section_view` (`section`: about, dates, dogtype, care).
+- Playroom and Profile structure (web and mobile): `playroom_card_open` (`feature`: snoot, sticker-studio, wanted, adventures, excuse, letter, card, dogday, roast, apology, texts, review, quiz, plaque), `profile_section_view` (`section`: about, dates, dogtype, care), `profile_start_swiping_click` (the "Start swiping" button in the Profile photo block, shown when the profile is complete).
 
 ### Measuring the Dogtype reveal (build 40 onward)
 

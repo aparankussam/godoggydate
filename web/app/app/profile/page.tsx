@@ -865,8 +865,7 @@ export default function ProfilePage() {
                 {!complete ? (
                   <p className="text-xs font-bold text-brown">
                     Profile needs a few more details
-                    {missing.length > 0 ? `: ${missing.join(', ')}.` : '.'}{' '}
-                    <button type="button" onClick={() => openEdit()} className="min-h-[32px] underline underline-offset-2">Finish the profile</button>
+                    {missing.length > 0 ? `: ${missing.join(', ')}.` : '.'}
                   </p>
                 ) : discoverable ? (
                   <p className="text-xs font-bold text-brown">Showing in Discover</p>
@@ -875,6 +874,23 @@ export default function ProfilePage() {
                     <span className="font-bold">Ready to swipe</span> — other dogs can&apos;t see you yet:{' '}
                     <button type="button" onClick={() => openEdit()} className="min-h-[32px] font-bold underline underline-offset-2">add a city</button>
                   </p>
+                )}
+                {/* The one next step, in the photo block. Discover needs a dog of your own,
+                    so a household member (no dog) is not offered it. */}
+                {!householdOnly && (
+                  complete ? (
+                    <Link
+                      href="/app"
+                      onClick={() => trackEvent('profile_start_swiping_click')}
+                      className="btn-primary flex min-h-[48px] items-center justify-center px-6 py-3 text-base"
+                    >
+                      Start swiping
+                    </Link>
+                  ) : (
+                    <button type="button" onClick={() => openEdit()} className="btn-primary min-h-[48px] px-6 py-3 text-base">
+                      Finish the profile
+                    </button>
+                  )
                 )}
               </div>
             </div>

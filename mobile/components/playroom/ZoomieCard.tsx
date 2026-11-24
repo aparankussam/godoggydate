@@ -34,8 +34,6 @@ export default function ZoomieCard({ label, glimpse, glyph, thumb, active, onPre
 
 const styles = StyleSheet.create({
   card: {
-    width: '48%',
-    flexGrow: 1,
     backgroundColor: colors.paper,
     borderWidth: 2,
     borderColor: colors.ink,

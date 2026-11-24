@@ -130,7 +130,13 @@ module.exports = {
   // The per-type compatibility pages named every type, so they now send visitors
   // to that type's page (which names only itself).
   async redirects() {
-    return [{ source: '/compat/:code', destination: '/dogtype/:code', permanent: true }];
+    return [
+      { source: '/compat/:code', destination: '/dogtype/:code', permanent: true },
+      // The Messages list duplicated Matches and the iPhone has no such tab. Old
+      // bookmarks and the push fallback link land on Matches; chats themselves stay
+      // at /app/messages/:matchId. Temporary, so the tab can come back.
+      { source: '/app/messages', destination: '/app/matches', permanent: false },
+    ];
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

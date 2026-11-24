@@ -4,7 +4,7 @@
 // dog's own profile: the Wanted Poster and the Adventure Passport. Both are
 // N=1 share-objects (no other users required) and honest by construction — the
 // Wanted charges are real profile traits played for laughs, the passport count
-// is the owner's own self-logged checklist. Skips Snoot Boop (mobile-only toy).
+// is the owner's own self-logged checklist. Same cards as the iPhone Playroom.
 //
 // Mirrors the auth/profile-load scaffolding of the other /app/* pages; the nav
 // shell comes from app/app/layout.tsx (AppLayoutShell).
@@ -28,6 +28,7 @@ import DiptychSection, { DIPTYCH_MIN_PHOTOS } from '../../../components/DiptychS
 import LetterSection from '../../../components/LetterSection';
 import ZoomieCard from '../../../components/playroom/ZoomieCard';
 import TreatRow from '../../../components/playroom/TreatRow';
+import ToyBox from '../../../components/playroom/ToyBox';
 import { usePlayroomGlimpses } from '../../../lib/playroomGlimpses';
 import { pickLetterMilestone } from '../../../lib/letter';
 import { getHeroPhoto, getRenderablePhotos, resolveHeroIndex } from '../../../lib/photos';
@@ -139,8 +140,7 @@ export default function FunPage() {
               </Link>
             </section>
 
-            <h2 className="font-display text-[26px] leading-none text-brown">Zoomies</h2>
-            <div className="grid grid-cols-2 gap-2.5">
+            <ToyBox title="Zoomies" emoji="🎾" tint="bg-gold-light" layout="grid">
               <ZoomieCard
                 label="Snoot Boop"
                 glyph="🐽"
@@ -156,14 +156,14 @@ export default function FunPage() {
                 onClick={track('sticker-studio')}
               />
               <ZoomieCard label="Wanted Poster" glyph="🤠" thumb={thumb} glimpse={`Make ${name} a wanted poster`} active={panel === 'wanted'} onClick={togglePanel('wanted')} />
+              <ZoomieCard label="Trading card" glyph="🃏" thumb={thumb} glimpse={`Share ${name}’s card and public page`} href="/app/profile?share=1" onClick={track('card')} />
               <ZoomieCard label="Adventure Passport" glyph="🗺️" glimpse={stamp} active={panel === 'passport'} onClick={togglePanel('passport')} />
               <ZoomieCard label="Excuse Note" glyph="📝" glimpse="A “my dog ate it” note, made to share" href="/excuse" onClick={track('excuse')} />
               <ZoomieCard label={`A letter from ${name}`} glyph="✉️" glimpse={g.letterLine} active={panel === 'letter'} onClick={togglePanel('letter')} />
-              <ZoomieCard label="Trading card" glyph="🃏" thumb={thumb} glimpse={`Share ${name}’s card and public page`} href="/app/profile?share=1" onClick={track('card')} />
               {photoCount >= DIPTYCH_MIN_PHOTOS && (
                 <ZoomieCard label="National Dog Day" glyph="🖼️" glimpse="Then and now, side by side" active={panel === 'dogday'} onClick={togglePanel('dogday')} />
               )}
-            </div>
+            </ToyBox>
 
             {panel === 'wanted' && (
               <div id="wanted" className="scroll-mt-20"><WantedPosterWeb savedProfile={savedProfile} dogId={authUser.uid} /></div>
@@ -181,16 +181,15 @@ export default function FunPage() {
               ))}
             {panel === 'dogday' && <DiptychSection savedProfile={savedProfile} />}
 
-            <h2 className="font-display text-[26px] leading-none text-brown">Treat Lab</h2>
-            <div className="space-y-2.5">
+            <ToyBox title="Treat Lab" emoji="🦴" tint="bg-kraft" layout="stack">
               <TreatRow title={`Roast ${name}`} glimpse="A kind-hearted roast, built from their real profile" open={treat === 'roast'} onToggle={toggleTreat('roast')}>
                 <RoastSection savedProfile={savedProfile} />
               </TreatRow>
-              <TreatRow title="Notes-App Apology" glimpse={`The apology ${name} would type, if they could`} open={treat === 'apology'} onToggle={toggleTreat('apology')}>
-                <ApologySection savedProfile={savedProfile} />
-              </TreatRow>
               <TreatRow title={`Texts from ${name}`} glimpse="A thread of texts to you, in their voice" open={treat === 'texts'} onToggle={toggleTreat('texts')}>
                 <TextsSection savedProfile={savedProfile} />
+              </TreatRow>
+              <TreatRow title="Notes-App Apology" glimpse={`The apology ${name} would type, if they could`} open={treat === 'apology'} onToggle={toggleTreat('apology')}>
+                <ApologySection savedProfile={savedProfile} />
               </TreatRow>
               <TreatRow title="My Human Review" glimpse={`${name} reviews you`} open={treat === 'review'} onToggle={toggleTreat('review')}>
                 <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />
@@ -201,7 +200,7 @@ export default function FunPage() {
               <TreatRow title="Employee of the Month" glimpse="A plaque for the office dog" open={treat === 'plaque'} onToggle={toggleTreat('plaque')}>
                 <PlaqueCard savedProfile={savedProfile} />
               </TreatRow>
-            </div>
+            </ToyBox>
           </>
         )}
       </div>

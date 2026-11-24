@@ -17,6 +17,7 @@ import { resolveHeroIndex } from '../../lib/coverPhoto';
 import { usePlayroomGlimpses } from '../../lib/playroomGlimpses';
 import ZoomieCard from '../../components/playroom/ZoomieCard';
 import TreatRow from '../../components/playroom/TreatRow';
+import ToyBox from '../../components/playroom/ToyBox';
 import RoastSection from '../../components/RoastSection';
 import ApologySection from '../../components/ApologySection';
 import TextsSection from '../../components/TextsSection';
@@ -87,8 +88,7 @@ export default function PlayroomTab() {
           />
         </View>
 
-        <Heading size={26}>Zoomies</Heading>
-        <View style={styles.grid}>
+        <ToyBox title="Zoomies" emoji="🎾" tint={colors.goldLight} layout="grid">
           <ZoomieCard
             label="Snoot Boop"
             glyph="gesture-tap"
@@ -102,6 +102,7 @@ export default function PlayroomTab() {
             onPress={open('sticker-studio', '/fun/sticker-studio')}
           />
           <ZoomieCard label="Wanted Poster" glyph="card-account-details-star" thumb={thumb} glimpse={`Make ${name} a wanted poster`} onPress={open('wanted', '/fun/wanted')} />
+          <ZoomieCard label="Trading card" glyph="card-account-details-star" thumb={thumb} glimpse={`Share ${name}’s card and public page`} active={panel === 'card'} onPress={toggle('card')} />
           <ZoomieCard label="Adventure Passport" glyph="map-marker-path" glimpse={stamp} onPress={open('adventures', '/fun/adventures')} />
           <ZoomieCard label="Excuse Note" glyph="note-edit" glimpse="A “my dog ate it” note, made to share" onPress={open('excuse', '/fun/excuse')} />
           <ZoomieCard
@@ -111,11 +112,10 @@ export default function PlayroomTab() {
             active={panel === 'letter'}
             onPress={toggle('letter')}
           />
-          <ZoomieCard label="Trading card" glyph="card-account-details-star" thumb={thumb} glimpse={`Share ${name}’s card and public page`} active={panel === 'card'} onPress={toggle('card')} />
           {shouldShowDiptych(profile) && (
             <ZoomieCard label="National Dog Day" glyph="image-multiple" glimpse="Then and now, side by side" active={panel === 'dogday'} onPress={toggle('dogday')} />
           )}
-        </View>
+        </ToyBox>
 
         {panel === 'letter' &&
           (pickLetterMilestone(profile) ? (
@@ -130,16 +130,15 @@ export default function PlayroomTab() {
         {panel === 'card' && <TradingCardShare profile={profile} userId={user.uid} />}
         {panel === 'dogday' && <DiptychSection savedProfile={profile} />}
 
-        <Heading size={26}>Treat Lab</Heading>
-        <View style={styles.treats}>
+        <ToyBox title="Treat Lab" emoji="🦴" tint={colors.kraft} layout="stack">
           <TreatRow title={`Roast ${name}`} glimpse="A kind-hearted roast, built from their real profile" open={treat === 'roast'} onToggle={treatKey('roast')}>
             <RoastSection savedProfile={profile} />
           </TreatRow>
-          <TreatRow title="Notes-App Apology" glimpse={`The apology ${name} would type, if they could`} open={treat === 'apology'} onToggle={treatKey('apology')}>
-            <ApologySection savedProfile={profile} />
-          </TreatRow>
           <TreatRow title={`Texts from ${name}`} glimpse="A thread of texts to you, in their voice" open={treat === 'texts'} onToggle={treatKey('texts')}>
             <TextsSection savedProfile={profile} />
+          </TreatRow>
+          <TreatRow title="Notes-App Apology" glimpse={`The apology ${name} would type, if they could`} open={treat === 'apology'} onToggle={treatKey('apology')}>
+            <ApologySection savedProfile={profile} />
           </TreatRow>
           <TreatRow title="My Human Review" glimpse={`${name} reviews you`} open={treat === 'review'} onToggle={treatKey('review')}>
             <HumanReviewSection savedProfile={profile} userId={user.uid} />
@@ -150,7 +149,7 @@ export default function PlayroomTab() {
           <TreatRow title="Employee of the Month" glimpse="A plaque for the office dog" open={treat === 'plaque'} onToggle={treatKey('plaque')}>
             <PlaqueCard savedProfile={profile} />
           </TreatRow>
-        </View>
+        </ToyBox>
       </ScrollView>
     </SafeAreaView>
   );
@@ -162,8 +161,6 @@ const styles = StyleSheet.create({
   hero: { borderRadius: 22, padding: 16, gap: 10 },
   eyebrow: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: colors.rose },
   heroTitle: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28, color: colors.ink },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  treats: { gap: 10 },
   note: { borderRadius: 18, padding: 14 },
   noteText: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },

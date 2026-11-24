@@ -4,9 +4,9 @@
 // Renders AppNav when: authenticated + (profile complete OR invited onto
 // someone else's dog via Household — that user has no dog of their own by
 // design, so a completeness-only gate left them with no navigation at all).
-// Live-listens to matches to compute unread badge counts:
-//   unreadMatches  — new matches with no chat yet (lastMessage === null)
-//   unreadMessages — matches where last msg was from the OTHER user
+// Live-listens to matches to compute the Matches tab badge (same rule as the
+// iPhone's subscribeUnreadCount): new matches not opened yet, plus chats whose
+// last message is from the OTHER user and newer than this user's last read.
 
 import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
@@ -38,7 +38,6 @@ export default function AppLayoutShell({ children }: Props) {
   const [savedProfile, setSavedProfile]     = useState<SavedDogProfile | null>(null);
   const [ready, setReady]                   = useState(false);
   const [unreadMatches, setUnreadMatches]   = useState(0);
-  const [unreadMessages, setUnreadMessages] = useState(0);
   const [isHouseholdMember, setIsHouseholdMember] = useState(false);
   // Whether someone was signed in during this page session, so 'signed_out' is
   // only reported for a real sign-in -> sign-out transition, not for every
@@ -112,8 +111,7 @@ export default function AppLayoutShell({ children }: Props) {
 
   // ── Live badge counts via Firestore onSnapshot ──────────────────────────────
   // Two queries (dog1UserId / dog2UserId) merged into a shared Map.
-  // unreadMatches  = matches with no message yet
-  // unreadMessages = matches where the OTHER person sent the last message
+  // unreadMatches = new matches not opened yet + chats with an unread message
   useEffect(() => {
     if (!authUser) return;
     const uid = authUser.uid;
@@ -121,7 +119,7 @@ export default function AppLayoutShell({ children }: Props) {
     const col = collection(db, 'matches');
 
     // Everyone hidden from this user (blocked by them, or blocking them). The
-    // Matches/Messages lists drop those threads, so the badge must too — it kept
+    // Matches list drops those threads, so the badge must too — it kept
     // counting an unread message from someone you'd just blocked, with nothing
     // in the list to open or clear it.
     const hidden = new Set<string>();
@@ -153,22 +151,21 @@ export default function AppLayoutShell({ children }: Props) {
     }
 
     function recompute() {
-      let newMatches  = 0;
-      let newMessages = 0;
+      let count = 0;
       for (const m of allMatches.values()) {
         if (m.otherUserId && hidden.has(m.otherUserId)) continue;
         if (!m.lastMessage) {
-          newMatches++;
+          // A new match counts until this user opens it (as on the iPhone).
+          if (m.myLastReadAt == null) count++;
         } else if (m.lastMessageFromUid && m.lastMessageFromUid !== uid) {
           // Unread only if the last message arrived AFTER this user last opened
           // the thread — so the badge clears on read, not only on reply.
           if (m.myLastReadAt == null || (m.lastMessageAt != null && m.lastMessageAt > m.myLastReadAt)) {
-            newMessages++;
+            count++;
           }
         }
       }
-      setUnreadMatches(newMatches);
-      setUnreadMessages(newMessages);
+      setUnreadMatches(count);
     }
 
     // docChanges, not docs: a match the other person deleted (or that was
@@ -222,7 +219,6 @@ export default function AppLayoutShell({ children }: Props) {
       </div>
       {showNav && (
         <AppNav
-          unreadMessages={unreadMessages}
           unreadMatches={unreadMatches}
           householdOnly={householdOnly}
           hideBottomBar={inChatThread}
