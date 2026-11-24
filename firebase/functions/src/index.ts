@@ -2361,3 +2361,6 @@ export * from './ownerNames'; // owner first names on matches (D4), see ./ownerN
 
 // Local waitlist (joinWaitlist, leaveWaitlist, neighbor-joined push). See ./waitlist.ts
 export * from './waitlist';
+
+// Lost dog alert (free): alert pushes, thank-yous and sighting pushes, see ./lostDog.ts
+export const { onLostAlertCreated, onLostAlertUpdated, onLostSightingCreated } = (require('./lostDog') as typeof import('./lostDog')).makeLostDogFunctions({ db, sendPushToUser, isBlockedEitherWay, photoUrlPolicy });

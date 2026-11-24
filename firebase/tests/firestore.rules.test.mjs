@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, setLogLevel } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, setLogLevel, writeBatch, serverTimestamp } from 'firebase/firestore';
 
 setLogLevel('error');
 
@@ -546,5 +546,104 @@ describe('packDays', () => {
     await assertFails(getDoc(doc(signedOut(), 'packDays/e1')));
     await assertFails(setDoc(doc(google('a'), 'packDays/e2'), { title: 'Mine', hostUid: 'a' }));
     await assertFails(updateDoc(doc(google('a'), 'packDays/e1'), { official: true }));
+  });
+});
+
+// ── Lost dog alert ────────────────────────────────────────────────────────────
+describe('lost dog alert', () => {
+  const alertDoc = (uid, over = {}) => ({
+    ownerId: uid, dogId: uid, dogName: 'Waffles', breed: 'Corgi Mix', size: 'S', markings: 'White chest',
+    photoUrl: PHOTO, microchipped: true, medicines: ['Needs Apoquel daily'], city: 'Ann Arbor', state: 'MI',
+    status: 'active', createdAt: serverTimestamp(), ...over,
+  });
+  /** What the app writes: the alert and the one-active pointer in one batch. */
+  async function openAlert(db, uid, alertId, over = {}) {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'lostAlerts', alertId), alertDoc(uid, over));
+    batch.set(doc(db, 'lostActive', uid), { alertId, createdAt: serverTimestamp() });
+    await batch.commit();
+  }
+  async function closeAlert(db, uid, alertId) {
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'lostAlerts', alertId), { status: 'found', foundAt: serverTimestamp() });
+    batch.delete(doc(db, 'lostActive', uid));
+    await batch.commit();
+  }
+  beforeEach(async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'dogs/a'), { name: 'Waffles' });
+      await setDoc(doc(db, 'dogs/b'), { name: 'Biscuit' });
+    });
+  });
+
+  it('an owner opens an alert for their own dog', async () => {
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
+  });
+
+  it('refuses a second active alert, but allows one after the first is found', async () => {
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
+    await assertFails(openAlert(google('a'), 'a', 'alert2abc'));
+    await assertSucceeds(closeAlert(google('a'), 'a', 'alert1abc'));
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert2abc'));
+  });
+
+  it('refuses an alert without the pointer, or for someone else\'s dog', async () => {
+    await assertFails(setDoc(doc(google('a'), 'lostAlerts/alert1abc'), alertDoc('a')));
+    await assertFails(openAlert(google('b'), 'b', 'alert9abc', { ownerId: 'a', dogId: 'a' }));
+    await assertFails(openAlert(google('b'), 'b', 'alert9abc', { dogId: 'a' }));
+  });
+
+  it('refuses guests, signed-out callers and a dog that does not exist', async () => {
+    await assertFails(openAlert(guest('a'), 'a', 'alert1abc'));
+    await assertFails(openAlert(google('nodog'), 'nodog', 'alert1abc'));
+    await assertFails(setDoc(doc(signedOut(), 'lostAlerts/alert1abc'), alertDoc('a')));
+  });
+
+  it('refuses extra fields (a phone or address cannot ride along) and oversized text', async () => {
+    await assertFails(openAlert(google('a'), 'a', 'alert1abc', { ownerPhone: '555 010 0199' }));
+    await assertFails(openAlert(google('a'), 'a', 'alert1abc', { markings: text(201) }));
+    await assertFails(openAlert(google('a'), 'a', 'alert1abc', { status: 'found' }));
+    await assertFails(openAlert(google('a'), 'a', 'alert1abc', { createdAt: new Date(0) }));
+  });
+
+  it('the pointer cannot be deleted while the alert is still active', async () => {
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
+    await assertFails(deleteDoc(doc(google('a'), 'lostActive/a')));
+  });
+
+  it('only the owner closes an alert, and only status and foundAt change', async () => {
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
+    await assertFails(updateDoc(doc(google('b'), 'lostAlerts/alert1abc'), { status: 'found', foundAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(google('a'), 'lostAlerts/alert1abc'), { status: 'found', foundAt: serverTimestamp(), dogName: 'Other' }));
+    await assertFails(updateDoc(doc(google('a'), 'lostAlerts/alert1abc'), { markings: 'changed' }));
+    await assertSucceeds(updateDoc(doc(google('a'), 'lostAlerts/alert1abc'), { lastSeen: 'By the creek' }));
+    await assertSucceeds(closeAlert(google('a'), 'a', 'alert1abc'));
+    await assertFails(deleteDoc(doc(google('a'), 'lostAlerts/alert1abc')));
+  });
+
+  it('signed-in members read an alert; the public (signed out) does not', async () => {
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
+    await assertSucceeds(getDoc(doc(google('b'), 'lostAlerts/alert1abc')));
+    await assertFails(getDoc(doc(signedOut(), 'lostAlerts/alert1abc')));
+  });
+
+  it('sightings (exact pins, finder contact) are readable by the owner only and never writable', async () => {
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
+    await seed((db) => setDoc(doc(db, 'lostAlerts/alert1abc/sightings/s1'), { message: 'Seen', lat: 42.28, lng: -83.74 }));
+    await assertSucceeds(getDoc(doc(google('a'), 'lostAlerts/alert1abc/sightings/s1')));
+    await assertFails(getDoc(doc(google('b'), 'lostAlerts/alert1abc/sightings/s1')));
+    await assertFails(getDocs(collection(google('b'), 'lostAlerts/alert1abc/sightings')));
+    await assertFails(setDoc(doc(google('b'), 'lostAlerts/alert1abc/sightings/s2'), { message: 'x' }));
+    await assertFails(setDoc(doc(google('a'), 'lostAlerts/alert1abc/sightings/s2'), { message: 'x' }));
+  });
+
+  it('the lost kit is private to its owner, with bounded fields; rate counters are server-only', async () => {
+    const kit = { microchip: '985112345678901', vetPhone: '555 010 0100', markings: 'White chest', photoUrl: PHOTO };
+    await assertSucceeds(setDoc(doc(google('a'), 'users/a/private/lostKit'), kit));
+    await assertFails(setDoc(doc(google('a'), 'users/a/private/lostKit'), { ...kit, markings: text(201) }));
+    await assertFails(getDoc(doc(google('b'), 'users/a/private/lostKit')));
+    await assertFails(setDoc(doc(google('b'), 'users/a/private/lostKit'), kit));
+    await assertFails(setDoc(doc(google('a'), 'lostRate/x'), { n: 1 }));
+    await assertFails(getDoc(doc(google('a'), 'lostRate/x')));
   });
 });

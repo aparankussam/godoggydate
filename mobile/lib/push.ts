@@ -223,12 +223,14 @@ function stringField(data: Record<string, unknown> | null | undefined, key: stri
  *   match, message          { matchId } -> the chat
  *   packday                 { eventId } -> the Pack Day event
  *   reminder, celebration   { dogId }   -> the Profile tab
+ *   lost                    { alertId } -> the lost dog alert (firebase/functions/src/lostDog.ts)
  * Payloads from before `type` existed carried only matchId.
  */
 export function routeForNotification(data: Record<string, unknown> | null | undefined): string | null {
   const type = stringField(data, 'type');
   const matchId = stringField(data, 'matchId');
   const eventId = stringField(data, 'eventId');
+  const alertId = stringField(data, 'alertId');
 
   switch (type) {
     case 'match':
@@ -236,6 +238,8 @@ export function routeForNotification(data: Record<string, unknown> | null | unde
       return matchId ? `/chat/${encodeURIComponent(matchId)}` : '/(tabs)/matches';
     case 'packday':
       return eventId ? `/pack/${encodeURIComponent(eventId)}` : null;
+    case 'lost':
+      return alertId ? `/lost/${encodeURIComponent(alertId)}` : '/lost';
     case 'reminder':
     case 'celebration':
       return '/(tabs)/profile';

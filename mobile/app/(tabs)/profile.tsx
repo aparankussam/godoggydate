@@ -28,6 +28,7 @@ import { useProEntitlement } from '../../lib/useProEntitlement';
 import { onReminders } from '../../lib/reminders';
 import { getFirebase } from '../../lib/firebase';
 import RemindersSection from '../../components/RemindersSection';
+import LostDogCard from '../../components/LostDogCard';
 import HouseholdSection from '../../components/HouseholdSection';
 import PushPermissionCard from '../../components/PushPermissionCard';
 import DogtypeGlimpseCard from '../../components/dogtype/DogtypeGlimpseCard';
@@ -654,6 +655,8 @@ export default function ProfileTab() {
             />
           </View>
         )}
+
+        {user && profile && <LostDogCard dogName={profile.name} />}
 
         {user && profile && (
           <HouseholdSection
