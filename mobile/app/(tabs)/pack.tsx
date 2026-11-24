@@ -7,6 +7,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -19,15 +20,18 @@ import { colors, fonts } from '../../constants/theme';
 import { Gingham, Glyph, Heading, Paper, PaperButton, PinkButton, Slip, type } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { listUpcomingPackDays } from '../../lib/packDay';
+import { listPackGroups } from '../../lib/packGroup';
 import { getBlockedUserIds } from '../../lib/blocks';
 import { trackEvent } from '../../lib/analytics';
 import PackDayCard from '../../components/PackDayCard';
 import CityFeed from '../../components/CityFeed';
 import type { PackDay } from '../../../shared/packDay';
+import { packGroupScheduleLabel, type PackGroup } from '../../../shared/packGroup';
 
 export default function PackDaysTab() {
   const { user, profile, profileComplete, loading: sessionLoading } = useSession();
   const [events, setEvents] = useState<PackDay[] | null>(null);
+  const [groups, setGroups] = useState<{ mine: PackGroup[]; discover: PackGroup[] }>({ mine: [], discover: [] });
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,11 +51,17 @@ export default function PackDaysTab() {
       if (!user) return undefined;
       let active = true;
       setError(null);
-      Promise.all([listUpcomingPackDays(), getBlockedUserIds(user.uid)])
-        .then(([list, blockedIds]) => {
+      Promise.all([
+        listUpcomingPackDays(),
+        getBlockedUserIds(user.uid),
+        // Groups are a bonus on this screen: if they can't load, the list still shows.
+        listPackGroups(user.uid).catch(() => ({ mine: [], discover: [] })),
+      ])
+        .then(([list, blockedIds, loadedGroups]) => {
           if (!active) return;
           setEvents(list);
           setBlocked(blockedIds);
+          setGroups(loadedGroups);
         })
         .catch((err) => {
           console.warn('Failed to load Pack Days:', err);
@@ -81,6 +91,13 @@ export default function PackDaysTab() {
   function handleRefresh() {
     setRefreshing(true);
     setReloadToken((t) => t + 1);
+  }
+
+  const city = profile?.city?.trim().toLowerCase();
+  const nearbyGroups = groups.discover.filter((g) => !blocked.has(g.hostUid) && (!city || g.city.trim().toLowerCase() === city));
+
+  function openGroup(id: string) {
+    router.push({ pathname: '/pack/group/[id]', params: { id } });
   }
 
   function handleHost() {
@@ -194,6 +211,30 @@ export default function PackDaysTab() {
           </View>
         )}
 
+        {events && (groups.mine.length > 0 || nearbyGroups.length > 0 || canHost) && (
+          <View style={styles.section}>
+            <Heading size={22} style={styles.sectionLabel}>Standing groups</Heading>
+            {[...groups.mine, ...nearbyGroups].map((g) => (
+              <Pressable
+                key={g.id}
+                onPress={() => openGroup(g.id)}
+                style={({ pressed }) => [styles.groupCard, pressed && { opacity: 0.85 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`${g.name}, ${packGroupScheduleLabel(g)}`}
+              >
+                <Text style={styles.groupName}>{g.name}</Text>
+                <Text style={styles.groupMeta}>
+                  {packGroupScheduleLabel(g)}{g.tags.length ? ` · ${g.tags.join(', ')}` : ''}{g.status === 'paused' ? ' · Paused' : ''}
+                </Text>
+                <Text style={styles.groupMeta}>{g.memberUids.length} following{g.hostUid === user.uid ? ' · You host' : g.memberUids.includes(user.uid) ? ' · Following' : ''}</Text>
+              </Pressable>
+            ))}
+            {canHost && (
+              <PaperButton small label="Start a repeating group" icon="plus" onPress={() => router.push('/pack/group/new')} />
+            )}
+          </View>
+        )}
+
         {elsewhere.length > 0 && (
           <View style={styles.section}>
             <Heading size={22} style={styles.sectionLabel}>{nearby.length === 0 ? 'Upcoming in nearby cities' : 'Other cities'}</Heading>
@@ -253,6 +294,17 @@ const styles = StyleSheet.create({
   loadingBox: { paddingVertical: 64, alignItems: 'center' },
   section: { marginBottom: 14 },
   sectionLabel: { marginBottom: 12 },
+  groupCard: {
+    backgroundColor: colors.cream,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 16,
+    padding: 14,
+    gap: 3,
+    marginBottom: 10,
+  },
+  groupName: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  groupMeta: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
   emptyCard: { alignItems: 'center', gap: 6 },
   emptyTitle: { marginTop: 4 },
   emptyBtn: { marginTop: 12, alignSelf: 'stretch' },

@@ -70,7 +70,7 @@ export async function cancelPackDay(eventId: string): Promise<void> {
   await callable<{ eventId: string }, { cancelled: boolean }>('cancelPackDay')({ eventId });
 }
 
-function toPackDay(id: string, data: DocumentData): PackDay {
+export function toPackDay(id: string, data: DocumentData): PackDay {
   return {
     id,
     hostUid: String(data.hostUid ?? ''),
@@ -92,6 +92,8 @@ function toPackDay(id: string, data: DocumentData): PackDay {
     status: data.status === 'cancelled' ? 'cancelled' : 'open',
     official: data.official === true,
     foundingHost: data.foundingHost === true,
+    ...(typeof data.groupId === 'string' ? { groupId: data.groupId } : {}),
+    ...(data.smallDogsOnly === true ? { smallDogsOnly: true } : {}),
   };
 }
 
@@ -128,14 +130,17 @@ export interface PackDayAttendee {
   founding: boolean;
   /** The attendee dog's Dogtype code, when it can be read. */
   dogtypeCode: string | null;
+  /** The dog's profile, for the dog-mix line. */
+  profile: SavedDogProfile;
 }
 
-/** Each attendee's dog name and cover photo. Mirrors loadAttendees in
+/** Each dog's name and cover photo for a list of owner uids (a Pack Day's
+ *  attendees, a group's members). Mirrors loadAttendees in
  *  web/app/app/pack/[id]/page.tsx; a dog that can't be read is left out. */
-export async function loadPackDayAttendees(event: PackDay, foundingUids: string[]): Promise<PackDayAttendee[]> {
+export async function loadDogCards(uids: string[], foundingUids: string[] = []): Promise<PackDayAttendee[]> {
   const { db } = getFirebase();
   const rows = await Promise.all(
-    event.attendeeUids.map(async (uid): Promise<PackDayAttendee | null> => {
+    uids.map(async (uid): Promise<PackDayAttendee | null> => {
       try {
         const snap = await getDoc(doc(db, 'dogs', uid));
         if (!snap.exists()) return null;
@@ -146,6 +151,7 @@ export async function loadPackDayAttendees(event: PackDay, foundingUids: string[
           photo: getHeroPhoto(dog.photos, resolveHeroIndex(dog)),
           founding: foundingUids.includes(uid),
           dogtypeCode: computeDogtype(dog)?.code ?? null,
+          profile: dog,
         };
       } catch {
         return null;
@@ -169,6 +175,10 @@ export async function listCheckins(eventId: string): Promise<Array<{ uid: string
   const { db } = getFirebase();
   const snap = await getDocs(collection(db, 'packDays', eventId, 'checkins'));
   return snap.docs.map((d) => ({ uid: d.id, dogId: String(d.data().dogId ?? d.id) }));
+}
+
+export function loadPackDayAttendees(event: PackDay, foundingUids: string[]): Promise<PackDayAttendee[]> {
+  return loadDogCards(event.attendeeUids, foundingUids);
 }
 
 // ── Wall-clock helpers for the create form ─────────────────────────────────

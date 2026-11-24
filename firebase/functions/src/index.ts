@@ -7,6 +7,7 @@ import * as crypto from 'crypto';
 import { makePackDayFunctions } from './packDay';
 import { makeLimitedPush } from './notifyLimit';
 import { makeCityFeedFunctions } from './cityFeed';
+import { makePackGroupFunctions } from './packGroups';
 import {
   MODERATED_MESSAGE_TEXT,
   checkMessageContent,
@@ -1117,7 +1118,10 @@ export const deleteAccount = functions
       {
         db,
         bucket: admin.storage().bucket(),
-        cleanupPackDays: (id) => packDay.cleanupPackDaysForUser(id),
+        cleanupPackDays: async (id) => {
+          await packDay.cleanupPackDaysForUser(id);
+          await packGroups.cleanupPackGroupsForUser(id);
+        },
       },
       uid,
     );
@@ -2383,6 +2387,10 @@ export const onPackDayCancelled = packDay.onPackDayCancelled;
 export const sendPackDayReminders = packDay.sendPackDayReminders;
 // City feed (board posts, expiry cleanup, daily digest), see ./cityFeed.ts
 export const { createCityPost, updateCityPost, cleanupCityFeed, sendCityFeedDigest } = makeCityFeedFunctions({ db, sendLimitedPush });
+
+// Recurring Pack Day groups (./packGroups.ts). Writes to packGroups/ are callable-only.
+const packGroups = makePackGroupFunctions({ db, sendPushToUser, isBlockedEitherWay });
+export const { createPackGroup, joinPackGroup, leavePackGroup, updatePackGroup, removePackGroupMember, movePackDay, generatePackGroupOccurrences } = packGroups;
 export const { sendPlaydateReminders } = (require('./playdates') as typeof import('./playdates')).makePlaydateFunctions({ db, sendPushToUser, isBlockedEitherWay }); // playdate reminders, see ./playdates.ts
 export const { onPackDayMessageCreated, packDayChatHost, postPackDayHeadsUps } = (require('./packDayChat') as typeof import('./packDayChat')).makePackDayChatFunctions({ db, sendOpsAlert, secrets: [opsAlertWebhookUrl] }); // Pack Day group chat, see ./packDayChat.ts
 export * from './ownerNames'; // owner first names on matches (D4), see ./ownerNames.ts
