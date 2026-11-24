@@ -3,12 +3,12 @@
 // members may read packDays/); every write goes through a callable function,
 // which enforces capacity, limits and blocks — see firebase/functions/src/packDay.ts.
 
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getFirebase } from '../shared/utils/firebase';
 import { isPast } from '../../shared/packDay';
-import type { PackDay, PackDayFormat } from '../../shared/packDay';
+import type { CheckinMethod, PackDay, PackDayFormat } from '../../shared/packDay';
 
 export interface CreatePackDayInput {
   title: string;
@@ -77,7 +77,20 @@ function toPackDay(id: string, data: DocumentData): PackDay {
     attendeeUids: Array.isArray(data.attendeeUids) ? data.attendeeUids.filter((u): u is string => typeof u === 'string') : [],
     status: data.status === 'cancelled' ? 'cancelled' : 'open',
     official: data.official === true,
+    foundingHost: data.foundingHost === true,
   };
+}
+
+/** packDays/{eventId}/checkins/{uid}; firestore.rules checks RSVP, household and the time window. */
+export async function checkInToPackDay(eventId: string, uid: string, dogId: string, method: CheckinMethod): Promise<void> {
+  const { db } = getFirebase();
+  await setDoc(doc(db, 'packDays', eventId, 'checkins', uid), { uid, dogId, at: serverTimestamp(), method });
+}
+
+export async function listCheckins(eventId: string): Promise<Array<{ uid: string; dogId: string }>> {
+  const { db } = getFirebase();
+  const snap = await getDocs(collection(db, 'packDays', eventId, 'checkins'));
+  return snap.docs.map((d) => ({ uid: d.id, dogId: String(d.data().dogId ?? d.id) }));
 }
 
 export async function getPackDay(eventId: string): Promise<{ event: PackDay; foundingUids: string[] } | null> {

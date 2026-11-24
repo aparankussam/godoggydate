@@ -169,7 +169,7 @@ export default function DiscoverEmpty({
         ]),
     {
       key: 'packday',
-      text: `Host the first Pack Day${city ? ` in ${city}` : ''}`,
+      text: city ? `Be the first to host a Pack Day in ${city}` : 'Be the first to host a Pack Day',
       icon: <MaterialCommunityIcons name="tree" size={ICON} color={colors.ink} />,
       href: '/pack/new',
     },

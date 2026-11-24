@@ -758,7 +758,7 @@ export default function AppPage() {
     }]),
     {
       href: '/app/pack/new',
-      text: `Host the first Pack Day${savedProfile?.city ? ` in ${savedProfile.city}` : ''}`,
+      text: savedProfile?.city ? `Be the first to host a Pack Day in ${savedProfile.city}` : 'Be the first to host a Pack Day',
       icon: (
         <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="#2A1F4A" className="shrink-0">
           <circle cx="12" cy="5.8" r="4.3" /><circle cx="7.2" cy="7.8" r="4" /><circle cx="16.8" cy="7.8" r="4" />

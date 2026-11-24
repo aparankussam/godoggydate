@@ -231,6 +231,8 @@ export function makePackDayFunctions({ db, sendPushToUser, isBlockedEitherWay }:
         status: 'open',
         // Founder-hosted flag: only ever set by hand through the Admin SDK.
         official: false,
+        // "Founding Host": their first Pack Day ever (cancelled ones count, so it can't be farmed).
+        foundingHost: hosted.empty,
         reminderSent: false,
         createdAtMs: now,
       });

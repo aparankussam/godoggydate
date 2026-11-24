@@ -1,9 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   PACK_DAY_LIMITS,
+  CHECKIN_OPENS_BEFORE_MS,
   PACK_DAY_START_WINDOW_MESSAGE,
+  checkedInDogCount,
+  isCheckinOpen,
+  sameCity,
   buildPackDayIcs,
   foldIcsLine,
   formatPackDayWhen,
@@ -180,4 +185,25 @@ test('goingSummary: a cancelled event says Cancelled, not a head count', () => {
   assert.equal(goingSummary({ capacity: 8, attendeeCount: 3, status: 'open' }), '3 of 8 dogs going');
   assert.equal(goingSummary({ capacity: 8, attendeeCount: 3, status: 'cancelled' }), 'Cancelled');
   assert.equal(goingSummary({ capacity: 8, attendeeCount: 8, status: 'open' }), '8 of 8 dogs going · Full');
+});
+
+test('check-in opens 30 minutes before the start and closes when the event ends', () => {
+  const e = { startsAtMs: 1_000_000_000, durationMinutes: 60, status: 'open' as const };
+  assert.equal(isCheckinOpen(e, e.startsAtMs - CHECKIN_OPENS_BEFORE_MS - 1), false);
+  assert.equal(isCheckinOpen(e, e.startsAtMs - CHECKIN_OPENS_BEFORE_MS), true);
+  assert.equal(isCheckinOpen(e, e.startsAtMs + 59 * 60_000), true);
+  assert.equal(isCheckinOpen(e, e.startsAtMs + 60 * 60_000), false);
+  assert.equal(isCheckinOpen({ ...e, status: 'cancelled' as never }, e.startsAtMs), false);
+});
+
+test('firestore.rules uses the same check-in window as shared/packDay.ts', () => {
+  const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+  assert.ok(rules.includes(`startsAtMs - ${CHECKIN_OPENS_BEFORE_MS}`));
+});
+
+test('checked-in count is per dog; sameCity ignores case and rejects blanks', () => {
+  assert.equal(checkedInDogCount([{ dogId: 'a' }, { dogId: 'a' }, { dogId: 'b' }]), 2);
+  assert.equal(sameCity(' Austin ', 'austin'), true);
+  assert.equal(sameCity('', ''), false);
+  assert.equal(sameCity(null, 'Austin'), false);
 });
