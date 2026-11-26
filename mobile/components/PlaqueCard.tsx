@@ -27,6 +27,7 @@ import { computeDogtype } from '../../shared/dogtype';
 import { computePlaque, type Plaque } from '../../shared/plaque';
 import type { SavedDogProfile } from '../lib/profile';
 import { formatUsMonthYear } from '../../shared/dates';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -101,7 +102,7 @@ const PlaquePlate = forwardRef<View, PlateProps>(({ plaque, dogName, photoUrl },
 
           {/* Baked-in brand + URL — the reposted PNG carries the back-link. */}
           <View style={styles.footer}>
-            <Text style={styles.brand}>GoDoggyDate</Text>
+            <BrandLogo height={24} />
             <Text style={styles.url}>godoggydate.com</Text>
           </View>
         </View>
@@ -308,7 +309,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(201,162,75,0.4)',
   },
-  brand: { fontFamily: fonts.display, fontSize: 12, color: ENGRAVE },
   url: { fontFamily: fonts.bold, fontSize: 12, color: '#9C8A5F' },
 
   // ── Section share button + disclaimer ──────────────────────────────────────

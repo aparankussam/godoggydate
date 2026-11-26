@@ -16,6 +16,7 @@ import { resolveHeroIndex } from '../../lib/coverPhoto';
 import { trackEvent } from '../../lib/analytics';
 import { getPushPermissionState, maybeAskForPushPermission } from '../../lib/push';
 import DogTradingCard from '../DogTradingCard';
+import BrandLogo from '../BrandLogo';
 import { PawCoin, PawIcon, PrimaryButton, StickerDog, Tape } from '../sticker';
 import { joinLocalWaitlist, leaveLocalWaitlist, readWaitlistMemo } from './waitlist';
 
@@ -179,6 +180,8 @@ export default function DiscoverEmpty({
 
   return (
     <View style={styles.wrap}>
+      {/* The logo heads the empty Discover screen, as it does on the website. */}
+      <BrandLogo height={36} style={styles.logo} />
       {/* Headline on the sky, with an empty "who's next?" polaroid */}
       <View style={styles.top}>
         <View style={styles.topText}>
@@ -321,6 +324,7 @@ export default function DiscoverEmpty({
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28 },
+  logo: { marginBottom: 12 },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   topText: { flex: 1 },
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },

@@ -10,6 +10,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import type { Dogtype } from '../../shared/dogtype';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   dogtype: Dogtype;
@@ -79,7 +80,7 @@ const DogtypeCard = forwardRef<View, Props>(({ dogtype, dogName, photoUrl }, ref
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.brand}>GoDoggyDate</Text>
+          <BrandLogo height={28} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -207,6 +208,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.15)',
   },
-  brand: { color: '#fff', fontFamily: fonts.display, fontSize: 14 },
   brandUrl: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontFamily: fonts.body },
 });

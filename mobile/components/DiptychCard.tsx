@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import type { CoverFocus } from '../lib/coverPhoto';
 import { CoverImage } from './CoverPhotoEditor';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   dogName: string;
@@ -86,7 +87,7 @@ const DiptychCard = forwardRef<View, Props>(function DiptychCard(
 
       {/* Baked-in brand + URL — the reposted PNG carries the back-link. */}
       <View style={styles.brandRow}>
-        <Text style={styles.brandName}>GoDoggyDate</Text>
+        <BrandLogo height={26} />
         <Text style={styles.brandUrl}>godoggydate.com</Text>
       </View>
     </View>
@@ -176,6 +177,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  brandName: { fontFamily: fonts.display, fontSize: 13, color: colors.brown },
   brandUrl: { fontFamily: fonts.body, fontSize: 10, color: colors.brownMid },
 });

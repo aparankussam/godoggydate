@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../constants/theme';
 import type { WantedPoster } from '../../shared/wanted';
 import LostQr from './LostQr';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   /** The Wanted joke poster. Not used when `lost` is set. */
@@ -87,7 +88,7 @@ const WantedPosterCard = forwardRef<View, Props>(({ poster, dogName, photoUrl, l
         ) : null}
 
         <View style={styles.footer}>
-          <Text style={styles.brand}>GoDoggyDate</Text>
+          <BrandLogo height={26} />
           <Text style={styles.url}>{lost ? lost.url.replace(/^https?:\/\//, '') : 'godoggydate.com'}</Text>
         </View>
       </View>
@@ -185,6 +186,5 @@ const styles = StyleSheet.create({
     borderTopColor: INK_SOFT,
     paddingTop: 8,
   },
-  brand: { fontFamily: fonts.display, fontSize: 13, color: INK },
   url: { fontFamily: fonts.body, fontSize: 10, color: INK_SOFT },
 });

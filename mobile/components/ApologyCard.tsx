@@ -12,6 +12,7 @@
 import { forwardRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { fonts, radius } from '../constants/theme';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   statement: string;
@@ -63,7 +64,7 @@ const ApologyCard = forwardRef<View, Props>(function ApologyCard(
 
         {/* Baked-in brand + URL — a reposted PNG still carries the back-link. */}
         <View style={styles.brand}>
-          <Text style={styles.brandName}>GoDoggyDate</Text>
+          <BrandLogo height={26} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -115,6 +116,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: RULE,
   },
-  brandName: { fontFamily: fonts.display, fontSize: 13, color: INK },
   brandUrl: { fontFamily: fonts.body, fontSize: 10, color: INK_SOFT },
 });

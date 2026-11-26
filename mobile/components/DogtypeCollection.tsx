@@ -184,7 +184,7 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 14 },
+  wrap: { gap: 14, marginBottom: 16 },
   card: {
     backgroundColor: colors.paper,
     borderWidth: 2,

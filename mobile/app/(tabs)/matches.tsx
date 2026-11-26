@@ -102,7 +102,7 @@ export default function MatchesTab() {
     return (
       <SafeAreaView style={styles.container}>
         <SkyBackground />
-        <StickerHeader title="Matches" style={styles.header} />
+        <StickerHeader title="Matches" large style={styles.header} />
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>Sign in to view matches</Text>
           <Text style={styles.emptyBody}>
@@ -127,7 +127,7 @@ export default function MatchesTab() {
   return (
     <SafeAreaView style={styles.container}>
       <SkyBackground />
-      <StickerHeader title="Matches" style={styles.header} />
+      <StickerHeader title="Matches" large style={styles.header} />
       {list.length > 0 && !error && (
         <Text style={styles.subtitle}>
           {list.length} {list.length === 1 ? 'dog wants' : 'dogs want'} to meet yours

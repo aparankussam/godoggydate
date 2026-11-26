@@ -108,7 +108,7 @@ export default function PlacesScreen() {
             ))}
             {places && places.length === 0 && extraParks.length === 0 && (
               <Slip tone="info">
-                No {PLACE_CATEGORIES[category].noun} has 3 owners yet, which is when we start showing a place. Tag yours from your profile to help it get there.
+                No {PLACE_CATEGORIES[category].noun} has 3 owners yet, which is when we start showing a place. Tag yours in Sniff Spots to help it get there.
               </Slip>
             )}
 

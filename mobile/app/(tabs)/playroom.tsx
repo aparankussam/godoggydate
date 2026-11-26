@@ -190,7 +190,7 @@ export default function PlayroomTab() {
         {panel === 'card' && <TradingCardShare profile={profile} userId={user.uid} />}
         {panel === 'dogday' && <DiptychSection savedProfile={profile} />}
 
-        <ToyBox title="Adventures" emoji="🗺️" tint={colors.sky} layout="grid">
+        <ToyBox title="Adventures" emoji="🗺️" tint={colors.note} layout="grid">
           <ZoomieCard label="Adventure Passport" glyph="map-marker-path" glimpse={`${stamp}. Do it for real, add a photo, and it stamps.`} onPress={open('adventures', '/fun/adventures')} />
         </ToyBox>
       </ScrollView>

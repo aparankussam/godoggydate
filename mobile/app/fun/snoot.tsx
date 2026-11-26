@@ -36,6 +36,7 @@ import {
   MAX_ENERGY,
   type BoopState,
 } from '../../lib/boops';
+import BrandLogo from '../../components/BrandLogo';
 
 const CONFETTI = ['🐾', '🐾', '🐾', '✨', '🦴', '🐾'];
 
@@ -543,7 +544,7 @@ export default function SnootScreen() {
           <Text style={styles.badgeLabel}>boops and counting</Text>
           <Text style={styles.badgeName}>{dogName}&apos;s snoot{title ? ` · ${title.title}` : ''}</Text>
           <View style={styles.badgeFooter}>
-            <Text style={styles.badgeBrand}>GoDoggyDate</Text>
+            <BrandLogo height={26} />
             <Text style={styles.badgeUrl}>godoggydate.com</Text>
           </View>
         </View>
@@ -654,6 +655,5 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.2)',
     paddingTop: 10,
   },
-  badgeBrand: { fontFamily: fonts.display, fontSize: 13, color: '#fff' },
   badgeUrl: { fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
 });

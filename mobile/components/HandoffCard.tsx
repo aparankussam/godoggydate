@@ -22,6 +22,7 @@ import { focusForPhoto, resolveHeroIndex } from '../lib/coverPhoto';
 import { CoverImage } from './CoverPhotoEditor';
 import type { Reminder } from '../../shared/types';
 import { formatUsDate, reminderDueLabel } from '../../shared/dates';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   profile: SavedDogProfile;
@@ -207,7 +208,7 @@ const HandoffCard = forwardRef<View, Props>(function HandoffCard({ profile, remi
           owner wrote about their own dog.
         </Text>
         <View style={styles.brandRow}>
-          <Text style={styles.brandName}>GoDoggyDate</Text>
+          <BrandLogo height={26} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -320,6 +321,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
   },
-  brandName: { fontFamily: fonts.display, fontSize: 14, color: colors.brown },
   brandUrl: { fontFamily: fonts.body, fontSize: 10, color: colors.brownLight },
 });

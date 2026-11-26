@@ -50,9 +50,9 @@ export default function WhereWeGoSection({ uid, city }: { uid: string; city?: st
 
   return (
     <View style={styles.wrap}>
-      <Heading size={22}>Where we go</Heading>
+      <Heading size={22}>Your spots</Heading>
       <Text style={type.soft}>
-        Tag the places you use. No reviews, just a count: once 3 or more owners{city ? ` in ${city}` : ''} use a place, others see how many. Your tags stay private.
+        Once 3 or more owners{city ? ` in ${city}` : ''} use a place, others see how many. Your tags stay private.
       </Text>
       <Paper>
         {tags?.map((tag) => (

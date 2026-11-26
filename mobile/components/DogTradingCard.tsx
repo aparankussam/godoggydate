@@ -8,6 +8,8 @@ import { FOUNDING_PACK_SIZE } from '../../shared/utils/stripe';
 import type { SavedDogProfile } from '../lib/profile';
 import { resolveHeroIndex } from '../lib/coverPhoto';
 import { temperamentLabel } from '../../shared/temperament';
+import { dogSizeLabel } from '../../shared/dogLabels';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   profile: SavedDogProfile;
@@ -89,7 +91,7 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
         )}
         <Text style={styles.name}>{profile.name}</Text>
         <Text style={styles.meta}>
-          {[profile.breed, profile.age, profile.size].filter(Boolean).join(' · ')}
+          {[profile.breed, profile.age, dogSizeLabel(profile.size)].filter(Boolean).join(' · ')}
         </Text>
         <Text style={styles.location}>{locationLabel(profile)}</Text>
         {/* Mutt Meter — the breed guess Vibe Check already makes, framed
@@ -119,7 +121,7 @@ const DogTradingCard = forwardRef<View, Props>(({ profile }, ref) => {
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.brand}>GoDoggyDate</Text>
+          <BrandLogo height={28} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -288,11 +290,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.15)',
-  },
-  brand: {
-    color: '#fff',
-    fontFamily: fonts.display,
-    fontSize: 13,
   },
   brandUrl: {
     color: 'rgba(255,255,255,0.5)',

@@ -3,7 +3,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
 import { router, type Href } from 'expo-router';
 import { colors, fonts } from '../constants/theme';
-import { PawCoin, SkyBackground } from '../components/sticker';
+import { SkyBackground } from '../components/sticker';
+import BrandLogo from '../components/BrandLogo';
 import { homeRouteFor, useSession } from '../lib/session';
 
 export default function IndexScreen() {
@@ -21,10 +22,7 @@ export default function IndexScreen() {
     <SafeAreaView style={styles.container}>
       <SkyBackground />
       <View style={styles.content}>
-        <View style={styles.brand}>
-          <PawCoin size={40} />
-          <Text style={styles.title}>GoDoggyDate</Text>
-        </View>
+        <BrandLogo height={52} />
         <Text style={styles.subtitle}>Sniffing things out…</Text>
         <ActivityIndicator color={colors.ink} />
       </View>
@@ -40,13 +38,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: { alignItems: 'center', gap: 12 },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    lineHeight: 40,
-    color: colors.ink,
-  },
   subtitle: {
     fontFamily: fonts.bold,
     fontSize: 15,

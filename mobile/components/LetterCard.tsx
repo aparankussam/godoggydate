@@ -29,6 +29,7 @@ import {
   type LayoutChangeEvent, type NativeSyntheticEvent, type TextLayoutEventData,
 } from 'react-native';
 import { fonts } from '../constants/theme';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   /** 'screen' = full letter, natural height, the ScrollView carries it —
@@ -252,7 +253,7 @@ const LetterCard = forwardRef<View, Props>(function LetterCard(
           Written with AI, from {dogName}&apos;s real moments — nothing invented.
         </Text>
         <View style={styles.brandRow}>
-          <Text style={styles.brandName}>GoDoggyDate</Text>
+          <BrandLogo height={32} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -373,6 +374,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  brandName: { fontFamily: fonts.display, fontSize: 14, color: INK },
   brandUrl: { fontFamily: fonts.body, fontSize: 11, color: INK_SOFT },
 });

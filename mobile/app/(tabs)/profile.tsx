@@ -41,6 +41,7 @@ import { webUrl } from '../../lib/webLinks';
 import type { Reminder } from '../../../shared/types';
 import { foundingBadgeLabel } from '../../../shared/founding';
 import { computeDogtype } from '../../../shared/dogtype';
+import { dogSummaryLine, showsMeetAgain } from '../../../shared/dogLabels';
 
 function openWebLink(url: string) {
   Linking.openURL(url).catch(() => {
@@ -518,7 +519,7 @@ export default function ProfileTab() {
               <PaperButton small icon="pencil" label="Edit" onPress={() => openEditor()} accessibilityLabel="Edit profile" />
             </View>
             <Text style={styles.meta}>
-              {[profile.breed, profile.age, profile.sex, profile.location].filter(Boolean).join(' · ')}
+              {dogSummaryLine(profile)}
             </Text>
             <View style={styles.statusBadgeRow}>
               {charmCount > 0 && (
@@ -554,7 +555,7 @@ export default function ProfileTab() {
                     <Text style={styles.memberBadgeText}>{stripEmoji(foundingBadgeLabel(profile.foundingPackNumber))}</Text>
                   </View>
                 )}
-                {(profile.ratingCount ?? 0) > 0 && (
+                {showsMeetAgain(profile) && (
                   <View style={styles.trustBadge}>
                     <Glyph name="paw" size={14} />
                     <Text style={styles.trustBadgeText}>

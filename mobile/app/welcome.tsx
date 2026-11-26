@@ -5,7 +5,8 @@ import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, fonts, radius } from '../constants/theme';
-import { PawCoin, PrimaryButton, SecondaryButton, SkyBackground, StickerDog, Tag, Tape } from '../components/sticker';
+import { PrimaryButton, SecondaryButton, SkyBackground, StickerDog, Tag, Tape } from '../components/sticker';
+import AnimatedLogo from '../components/AnimatedLogo';
 import { homeRouteFor, routeAfterSignIn, useSession } from '../lib/session';
 import { wasTermsAcceptedOnDevice } from '../lib/account';
 import { webUrl } from '../lib/webLinks';
@@ -177,8 +178,8 @@ export default function WelcomeScreen() {
       <SkyBackground />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <PawCoin size={34} />
-          <Text style={styles.wordmark} accessibilityRole="header">GoDoggyDate</Text>
+          {/* The animated logo is the header here: one logo, and the sign-in buttons stay on screen. */}
+          <AnimatedLogo width={210} />
         </View>
 
         {/* Sample card: no photo ships with the app, so the drawn sticker dog stands in. */}
@@ -186,7 +187,7 @@ export default function WelcomeScreen() {
           <View style={styles.polaroid} accessible accessibilityLabel="Sample card: your dog's Dogtype could be The Zoomie Menace">
             <Tape width={84} height={22} angle={-5} style={styles.polaroidTape} />
             <View style={styles.slot}>
-              <StickerDog size={128} />
+              <StickerDog size={112} />
             </View>
             <View style={styles.caption}>
               <Text style={styles.captionName}>Your dog?</Text>
@@ -304,18 +305,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 50,
+    minHeight: 50,
     paddingHorizontal: 16,
   },
-  wordmark: {
-    fontFamily: fonts.display,
-    fontSize: 26,
-    lineHeight: 30,
-    color: colors.ink,
-    letterSpacing: 0.3,
-  },
   hero: {
-    height: 292,
+    height: 260,
     marginTop: 8,
     marginHorizontal: 16,
   },
@@ -342,7 +336,7 @@ const styles = StyleSheet.create({
     left: 22,
   },
   slot: {
-    height: 172,
+    height: 140,
     borderRadius: 3,
     borderWidth: 2,
     borderStyle: 'dashed',

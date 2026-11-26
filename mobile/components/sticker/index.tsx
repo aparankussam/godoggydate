@@ -458,15 +458,18 @@ export function StickerHeader({
   title,
   right,
   style,
+  large,
 }: {
   title: string;
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Tab-page title size (Pack Days, Playroom, Pupfile); the default stays compact for Discover's deck. */
+  large?: boolean;
 }) {
   return (
     <View style={[styles.header, style]}>
-      <PawCoin size={28} />
-      <Text style={styles.headerTitle} accessibilityRole="header" numberOfLines={1}>
+      <PawCoin size={large ? 34 : 28} />
+      <Text style={[styles.headerTitle, large && styles.headerTitleLarge]} accessibilityRole="header" numberOfLines={1}>
         {title}
       </Text>
       {right ? <View style={styles.headerRight}>{right}</View> : null}
@@ -594,5 +597,6 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     color: INK,
   },
+  headerTitleLarge: { fontSize: 30, lineHeight: 34 },
   headerRight: { marginLeft: 'auto' },
 });

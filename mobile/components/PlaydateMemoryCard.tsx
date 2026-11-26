@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
 import { StickerDog } from './sticker';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   dogName: string;
@@ -69,7 +70,7 @@ const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, 
         {verdict && <Text style={styles.tagline}>Our dogs played. {verdict}</Text>}
 
         <View style={styles.footer}>
-          <Text style={styles.brand}>GoDoggyDate</Text>
+          <BrandLogo height={28} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -137,6 +138,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,249,236,0.2)',
   },
-  brand: { color: colors.paper, fontFamily: fonts.display, fontSize: 18 },
   brandUrl: { color: 'rgba(255,249,236,0.75)', fontFamily: fonts.bold, fontSize: 12 },
 });

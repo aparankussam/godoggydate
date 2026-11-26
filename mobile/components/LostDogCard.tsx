@@ -19,6 +19,6 @@ export default function LostDogCard({ dogName }: { dogName: string }) {
 }
 
 const styles = StyleSheet.create({
-  card: { gap: 10 },
+  card: { gap: 10, marginBottom: 16 },
   body: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
 });

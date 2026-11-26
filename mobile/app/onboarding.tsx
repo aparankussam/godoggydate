@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import ProfileEditor from '../components/ProfileEditor';
 import { HouseholdJoinForm } from '../components/HouseholdSection';
 import { colors, fonts, radius } from '../constants/theme';
-import { PawCoin } from '../components/sticker';
+import BrandLogo from '../components/BrandLogo';
 import { useSession } from '../lib/session';
 import { clearPendingHouseholdInvite, peekPendingHouseholdInvite } from '../lib/household';
 
@@ -54,8 +54,7 @@ export default function OnboardingScreen() {
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View style={styles.topRow}>
-          <PawCoin size={30} />
-          <Text style={styles.wordmark}>GoDoggyDate</Text>
+          <BrandLogo height={36} style={styles.logo} />
           <Pressable
             style={styles.switchButton}
             accessibilityRole="button"
@@ -131,13 +130,7 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 44,
   },
-  wordmark: {
-    flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 22,
-    lineHeight: 26,
-    color: colors.ink,
-  },
+  logo: { marginRight: 'auto' },
   switchButton: {
     minHeight: 36,
     justifyContent: 'center',

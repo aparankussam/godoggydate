@@ -17,6 +17,7 @@ import { forwardRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../constants/theme';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   dogName: string;
@@ -93,7 +94,7 @@ const RoastCard = forwardRef<View, Props>(function RoastCard({ dogName, lines, c
         <View style={styles.footer}>
           <Text style={styles.aiLabel}>affectionate roast · written by AI</Text>
           <View style={styles.brandWrap}>
-            <Text style={styles.brand}>GoDoggyDate</Text>
+            <BrandLogo height={30} />
             <Text style={styles.url}>godoggydate.com</Text>
           </View>
         </View>
@@ -196,6 +197,5 @@ const styles = StyleSheet.create({
   },
   aiLabel: { fontFamily: fonts.body, fontSize: 11, color: CREAM_SOFT, flex: 1 },
   brandWrap: { alignItems: 'flex-end' },
-  brand: { fontFamily: fonts.display, fontSize: 13, color: CREAM },
   url: { fontFamily: fonts.body, fontSize: 10, color: INK_SOFT },
 });

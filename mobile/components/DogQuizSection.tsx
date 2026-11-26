@@ -38,6 +38,7 @@ import {
   type DogQuizScore,
   type DogQuizScoreboardEntry,
 } from '../../shared/dogQuiz';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -479,7 +480,7 @@ const ScoreboardCard = forwardRef<View, { dogName: string; entries: DogQuizScore
 
         {/* Baked-in brand + URL — the reposted PNG carries the back-link. */}
         <View style={styles.shareFooter}>
-          <Text style={styles.shareBrand}>GoDoggyDate</Text>
+          <BrandLogo height={26} />
           <Text style={styles.shareUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -703,6 +704,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.creamDark,
   },
-  shareBrand: { fontFamily: fonts.display, fontSize: 14, color: colors.brown },
   shareUrl: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
 });
