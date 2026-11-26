@@ -31,11 +31,21 @@ test('png sizes', () => {
   }
 });
 
-test('logo copied', () => {
-  const dest = 'web/public/brand/godoggydate-logo.webp';
-  assert.ok(fs.existsSync(at(dest)), `${dest} missing`);
-  const src = fs.readFileSync(at('docs/superpowers/specs/assets/2026-11-25-godoggydate-logo-final.webp'));
-  assert.ok(src.equals(fs.readFileSync(at(dest))), 'logo is not byte-identical to the supplied art');
+test('cut-out logo has transparency and the art size', () => {
+  // Owner approved removing the flat sky blue so the logo sits on the page's gingham.
+  const file = 'web/public/brand/godoggydate-logo-cutout.webp';
+  const b = fs.readFileSync(at(file));
+  assert.strictEqual(b.toString('ascii', 12, 16), 'VP8X', 'expected extended webp');
+  assert.ok(b[20] & 0x10, 'cut-out logo has no alpha channel');
+  assert.deepStrictEqual(webpSize(file), [1774, 887]);
+});
+
+test('every brand file the site ships is used, and every used one exists', () => {
+  const dir = at('web/public/brand');
+  const code = ['web/components/BrandLogo.tsx', 'web/components/AnimatedLogo.tsx']
+    .map((f) => fs.readFileSync(at(f), 'utf8')).join('\n');
+  for (const f of fs.readdirSync(dir)) assert.ok(code.includes(`/brand/${f}`), `unused brand file: ${f}`);
+  for (const [, f] of code.matchAll(/\/brand\/([\w.-]+)/g)) assert.ok(fs.existsSync(path.join(dir, f)), `missing /brand/${f}`);
 });
 
 test('manifest', () => {

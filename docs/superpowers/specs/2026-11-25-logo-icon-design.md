@@ -40,7 +40,7 @@ Brand colours (from the live site): blue `#8FC9F2`, pink `#FF5C8D`, purple `#2A1
 - The icon has its own white border and rounded corners. iOS and Android add their own rounding, so a thin white edge and doubled corners may show on the home screen.
 - At favicon size (16–32px), "GDD" won't be readable.
 - The animation is 358×267 at about 6 frames a second. It will look soft above roughly 360px wide on a phone's sharp screen, and it is too small for 1080px video ads; ads need a larger export of the same animation.
-- The logo is a raster with a blue background. It will sit as a blue panel in the header rather than as a cut-out.
+- ~~The logo is a raster with a blue background.~~ Superseded: after seeing it live, the owner approved removing the flat sky-blue background from the website logo and animation, so both sit directly on the page's blue gingham like stickers. Only the background is removed; Kaju, the letters and the colours are untouched, and the soft shadow under Kaju stays. The app icons keep their tile, since icons need a solid background. Original note: it would sit as a blue panel in the header rather than as a cut-out.
 
 ## Left to the builder
 

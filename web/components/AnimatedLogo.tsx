@@ -5,8 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // frame), then replays — only while on screen. Hover or tap replays at once.
 // Reduce Motion gets the still logo instead.
 const HOLD_MS = 5000;
-const SRC = '/brand/godoggydate-logo-animated.mp4';
-const POSTER = '/brand/godoggydate-logo.webp';
+const POSTER = '/brand/godoggydate-logo-cutout.webp';
 
 export default function AnimatedLogo({ className = '' }: { className?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -69,7 +68,6 @@ export default function AnimatedLogo({ className = '' }: { className?: string })
   return (
     <video
       ref={videoRef}
-      src={SRC}
       poster={POSTER}
       muted
       playsInline
@@ -81,6 +79,9 @@ export default function AnimatedLogo({ className = '' }: { className?: string })
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') replay(); }}
       onClick={replay}
       className={`h-auto w-full cursor-pointer rounded-xl ${className}`}
-    />
+    >
+      <source src="/brand/godoggydate-logo-animated-cutout.mov" type='video/mp4; codecs="hvc1"' />
+      <source src="/brand/godoggydate-logo-animated-cutout.webm" type="video/webm" />
+    </video>
   );
 }

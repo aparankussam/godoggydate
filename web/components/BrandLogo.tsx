@@ -12,7 +12,7 @@ export default function BrandLogo({ height }: { height: number }) {
   return (
     <span className="relative block shrink-0 overflow-hidden rounded-lg" style={{ height, width }}>
       <Image
-        src="/brand/godoggydate-logo.webp"
+        src="/brand/godoggydate-logo-cutout.webp"
         alt="GoDoggyDate"
         fill
         sizes={`${width}px`}
