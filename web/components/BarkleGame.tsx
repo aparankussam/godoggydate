@@ -469,7 +469,7 @@ export default function BarkleGame() {
         <span className="mb-2 flex justify-center"><PawCoin size={40} /></span>
         <h3 className="font-display text-xl text-brown mb-2">Love dogs this much?</h3>
         <p className="text-sm text-brown-mid mb-4">
-          Build your dog&apos;s profile, get their daily card, and meet dogs who actually fit — free.
+          Build your dog&apos;s Pupfile, get their daily card, and meet dogs who actually fit — free.
         </p>
         <Link href="/app" className="btn-secondary inline-block">
           Open GoDoggyDate

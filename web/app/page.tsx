@@ -77,7 +77,7 @@ export default function HomePage() {
   ];
 
   const steps = [
-    { n: '01', title: "Create your dog's profile", desc: 'A few photos and their personality — that\'s all it takes to unlock everything else.' },
+    { n: '01', title: "Create your dog's Pupfile", desc: 'A few photos and their personality — that\'s all it takes to unlock everything else.' },
     { n: '02', title: 'Meet their Dogtype', desc: 'Get your dog\'s 16-type identity card, their life stage, and a Playroom full of cards to share — instantly, solo.' },
     { n: '03', title: 'Share it', desc: 'The Dogtype card is made to post. Every share is how another owner (and their dog) finds the app.' },
     { n: '04', title: 'Find playmates who fit', desc: 'When you\'re ready for company, match with compatible dogs nearby and plan a real meetup — or join a Pack Day, an open group playdate at a public place.' },
@@ -236,7 +236,7 @@ export default function HomePage() {
               onClick={() => handleCTA('hero_create_profile')}
               className="btn-secondary flex min-h-[48px] w-full items-center justify-center text-base"
             >
-              Create your dog&apos;s profile
+              Create your dog&apos;s Pupfile
             </button>
           )}
           <p className="mt-2 text-center text-sm font-bold text-brown-mid">
@@ -315,7 +315,7 @@ export default function HomePage() {
             onClick={() => handleCTA('footer_primary')}
             className="btn-primary text-lg px-10 py-4 min-h-[48px]"
           >
-            {signedIn ? 'Open App →' : "Create Your Dog's Profile"}
+            {signedIn ? 'Open App →' : "Create Your Dog's Pupfile"}
           </button>
         </div>
       </section>

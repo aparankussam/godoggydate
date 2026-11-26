@@ -49,9 +49,9 @@ export default function WhereWeGoSection({ uid, city }: { uid: string; city?: st
 
   return (
     <section className="space-y-3" aria-labelledby="where-we-go-h">
-      <h3 id="where-we-go-h" className="font-display text-[22px] leading-none text-brown">Where we go</h3>
+      <h3 id="where-we-go-h" className="font-display text-[22px] leading-none text-brown">Your spots</h3>
       <p className="text-[15px] font-extrabold text-brown-mid">
-        Tag the places you use. No reviews, just a count: once 3 or more owners{city ? ` in ${city}` : ''} use a place, others see how many. Your tags stay private.
+        Once 3 or more owners{city ? ` in ${city}` : ''} use a place, others see how many. Your tags stay private.
       </p>
       <div className="card space-y-3 p-4">
         {tags?.map((tag) => (

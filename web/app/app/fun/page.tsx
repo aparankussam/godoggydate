@@ -67,6 +67,14 @@ export default function FunPage() {
 
   useEffect(() => { trackEvent('fun_hub_open', {}); }, []);
 
+  // An opened card renders below its box, often under the bottom nav: bring it into view, as the iPhone Playroom does.
+  useEffect(() => {
+    if (!open) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const t = setTimeout(() => document.getElementById('playroom-open')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }), 60);
+    return () => clearTimeout(t);
+  }, [open]);
+
   // ── Auth loading ────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
@@ -100,6 +108,7 @@ export default function FunPage() {
         : 'Guess the dog in six tries';
   const stamp = g.stampTotal > 0 ? `${g.stamped} of ${g.stampTotal} stamped` : 'A bucket list of real-world quests';
   const photoCount = savedProfile ? getRenderablePhotos(savedProfile.photos).length : 0;
+  const openPanel = (node: React.ReactNode) => node && <div id="playroom-open" className="scroll-mt-20">{node}</div>;
 
   return (
     <div className="min-h-screen">
@@ -156,11 +165,13 @@ export default function FunPage() {
               <ZoomieCard label="Excuse Note" glyph="📝" glimpse="A “my dog ate it” note, made to share" href="/excuse" onClick={track('excuse')} />
             </ToyBox>
 
-            {open === 'roast' && <RoastSection savedProfile={savedProfile} />}
-            {open === 'texts' && <TextsSection savedProfile={savedProfile} />}
-            {open === 'apology' && <ApologySection savedProfile={savedProfile} />}
-            {open === 'review' && <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />}
-            {open === 'quiz' && <DogQuizSection savedProfile={savedProfile} />}
+            {openPanel(
+              (open === 'roast' && <RoastSection savedProfile={savedProfile} />) ||
+              (open === 'texts' && <TextsSection savedProfile={savedProfile} />) ||
+              (open === 'apology' && <ApologySection savedProfile={savedProfile} />) ||
+              (open === 'review' && <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />) ||
+              (open === 'quiz' && <DogQuizSection savedProfile={savedProfile} />),
+            )}
 
             <ToyBox title="Treat Lab" emoji="🦴" tint="bg-kraft" layout="grid">
               <ZoomieCard label="Wanted Poster" glyph="🤠" thumb={thumb} glimpse={`Make ${name} a wanted poster`} active={open === 'wanted'} onClick={toggle('wanted')} />
@@ -180,27 +191,25 @@ export default function FunPage() {
               )}
             </ToyBox>
 
-            {open === 'wanted' && (
-              <div id="wanted" className="scroll-mt-20"><WantedPosterWeb savedProfile={savedProfile} dogId={authUser.uid} /></div>
+            {openPanel(
+              (open === 'wanted' && <WantedPosterWeb savedProfile={savedProfile} dogId={authUser.uid} />) ||
+              (open === 'plaque' && <PlaqueCard savedProfile={savedProfile} />) ||
+              (open === 'lifestage' && <LifeStageCard savedProfile={savedProfile} onEditProfile={() => router.push('/app/profile')} />) ||
+              (open === 'letter' &&
+                (pickLetterMilestone(savedProfile) ? (
+                  <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
+                ) : (
+                  <p className="rounded-2xl border-2 border-brown bg-paper p-4 text-sm font-bold text-brown">
+                    A letter from {name} arrives on their Gotcha Day or birthday. Add those dates in Pupfile, under About, and it will be ready the week they come around.
+                  </p>
+                ))) ||
+              (open === 'dogday' && <DiptychSection savedProfile={savedProfile} />),
             )}
-            {open === 'plaque' && <PlaqueCard savedProfile={savedProfile} />}
-            {open === 'lifestage' && <LifeStageCard savedProfile={savedProfile} onEditProfile={() => router.push('/app/profile')} />}
-            {open === 'letter' &&
-              (pickLetterMilestone(savedProfile) ? (
-                <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
-              ) : (
-                <p className="rounded-2xl border-2 border-brown bg-paper p-4 text-sm font-bold text-brown">
-                  A letter from {name} arrives on their Gotcha Day or birthday. Add those dates in Pupfile, under About, and it will be ready the week they come around.
-                </p>
-              ))}
-            {open === 'dogday' && <DiptychSection savedProfile={savedProfile} />}
 
-            <ToyBox title="Adventures" emoji="🗺️" tint="bg-sky" layout="grid">
+            <ToyBox title="Adventures" emoji="🗺️" tint="bg-note" layout="grid">
               <ZoomieCard label="Adventure Passport" glyph="🗺️" glimpse={stamp} active={open === 'passport'} onClick={toggle('passport')} />
             </ToyBox>
-            {open === 'passport' && (
-              <div id="passport" className="scroll-mt-20"><AdventurePassportWeb savedProfile={savedProfile} dogId={authUser.uid} /></div>
-            )}
+            {openPanel(open === 'passport' && <AdventurePassportWeb savedProfile={savedProfile} dogId={authUser.uid} />)}
           </>
         )}
       </div>

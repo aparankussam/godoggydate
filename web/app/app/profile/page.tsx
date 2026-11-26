@@ -49,6 +49,7 @@ import { getHouseholdDogsForUser } from '../../../lib/household';
 import type { HouseholdDog } from '../../../lib/household';
 import type { Reminder } from '../../../../shared/types';
 import { getVaccinationStatus, isPubliclyDiscoverable } from '../../../../shared/profile';
+import { dogSummaryLine, showsMeetAgain } from '../../../../shared/dogLabels';
 import ProfileDialog from '../../../components/profile/ProfileDialog';
 import DogtypeCollection from '../../../components/DogtypeCollection';
 import { loadRevealed, onDiscoveriesChange } from '../../../lib/dogtypeDiscovery';
@@ -811,7 +812,7 @@ export default function ProfilePage() {
                 )}
                 {photos.length > 1 && (
                   safeActive === coverIndex ? (
-                    <p className="text-[13px] font-bold text-brown-mid">★ This is {name}&apos;s cover photo. Edit the profile to change what part shows.</p>
+                    <p className="text-[13px] font-bold text-brown-mid">★ This is {name}&apos;s cover photo. Edit the Pupfile to change what part shows.</p>
                   ) : (
                     <button type="button" onClick={() => makeCover(safeActive)} disabled={savingCover} className="btn-secondary self-start px-4 py-2 text-sm disabled:opacity-60">
                       {savingCover ? 'Saving…' : '★ Make this the cover photo'}
@@ -825,7 +826,7 @@ export default function ProfilePage() {
                   <button type="button" onClick={() => openEdit()} className="btn-secondary px-4 py-2 text-sm">✏️ Edit</button>
                 </div>
                 <p className="text-sm text-brown-mid">
-                  {[savedProfile.breed, savedProfile.age, savedProfile.sex, savedProfile.location].filter(Boolean).join(' · ')}
+                  {dogSummaryLine(savedProfile)}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
@@ -849,7 +850,7 @@ export default function ProfilePage() {
                       ⭐ Best Friends with {bestFriendName}
                     </span>
                   )}
-                  {(savedProfile.ratingCount ?? 0) > 0 && (
+                  {showsMeetAgain(savedProfile) && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-brown bg-cream px-3 py-1.5 text-xs font-bold text-brown">
                       🐾 {Math.round((savedProfile.meetAgainRate ?? 0) * 100)}% would meet again
                       <span className="font-normal">({savedProfile.ratingCount} playdate{savedProfile.ratingCount === 1 ? '' : 's'} rated)</span>

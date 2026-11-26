@@ -321,7 +321,7 @@ export default function DogtypeQuiz() {
           onClick={() => trackEvent('quiz_signup_cta', { code: result.code, ref })}
           className="mt-0.5 flex min-h-[44px] items-center justify-center text-sm font-black text-brown underline decoration-2 underline-offset-[3px]"
         >
-          Make it official: create {dogLabel === 'your dog' ? "your dog's" : `${trimmedName}'s`} profile
+          Make it official: create {dogLabel === 'your dog' ? "your dog's" : `${trimmedName}'s`} Pupfile
         </Link>
       </div>
 

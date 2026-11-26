@@ -185,7 +185,7 @@ export default function LostDogPage() {
     return (
       <div className="mx-auto w-full max-w-md px-4 py-10">
         <p className="card px-5 py-4 text-[16px] font-extrabold text-brown">
-          Create your dog&apos;s profile first, then set up their lost-dog kit. <Link href="/app/profile" className="underline">Go to Pupfile</Link>
+          Create your dog&apos;s Pupfile first, then set up their lost-dog kit. <Link href="/app/profile" className="underline">Go to Pupfile</Link>
         </p>
       </div>
     );

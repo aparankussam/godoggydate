@@ -80,7 +80,7 @@ export default function PlacesPage() {
   return (
     <div className="min-h-screen">
       <header className="flex h-14 items-center gap-3 px-4">
-        <Link href="/app/pack" className="min-h-[44px] inline-flex items-center text-[15px] font-black text-brown underline underline-offset-2">← Pack Days</Link>
+        <Link href="/app/pack?view=spots" className="min-h-[44px] inline-flex items-center text-[15px] font-black text-brown underline underline-offset-2">← Sniff Spots</Link>
         <h1 className="font-display text-[26px] leading-none text-brown">Where we go</h1>
       </header>
       <div className="space-y-4 p-4 lg:mx-auto lg:max-w-2xl lg:px-8 lg:py-8">
@@ -123,7 +123,7 @@ export default function PlacesPage() {
             })}
             {places && places.length === 0 && extraParks.length === 0 && (
               <p className="card p-4 text-[15px] font-extrabold text-brown-mid">
-                No {PLACE_CATEGORIES[category].noun} has 3 owners yet, which is when we start showing a place. Tag yours from your profile to help it get there.
+                No {PLACE_CATEGORIES[category].noun} has 3 owners yet, which is when we start showing a place. Tag yours in Sniff Spots to help it get there.
               </p>
             )}
 

@@ -288,7 +288,7 @@ export default function MatchesPage() {
     <div className="min-h-screen">
       {/* Header: a paper strip with an ink rule, like the chat header */}
       <header className="sticky top-0 z-40 bg-cream border-b-2 border-brown px-5 h-14 flex items-center">
-        <h1 className="font-display text-2xl text-brown">Matches</h1>
+        <h1 className="font-display text-[26px] leading-none text-brown">Matches</h1>
       </header>
 
       {/* Mobile keeps the original full-bleed p-4 column. Desktop gets a

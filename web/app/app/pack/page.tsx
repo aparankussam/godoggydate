@@ -39,6 +39,16 @@ export default function PackDaysPage() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'days' | 'feed' | 'spots'>('days');
 
+  // The tab lives in ?view= so a refresh, a shared link or the Places back link lands on it.
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get('view');
+    if (v === 'feed' || v === 'spots') setView(v);
+  }, []);
+  const pickView = (v: 'days' | 'feed' | 'spots') => {
+    setView(v);
+    window.history.replaceState(null, '', v === 'days' ? '/app/pack' : `/app/pack?view=${v}`);
+  };
+
   useEffect(() => {
     const { auth } = getFirebase();
     return onAuthStateChanged(auth, (user) => {
@@ -114,7 +124,7 @@ export default function PackDaysPage() {
           </span>
           {current.label}
         </h1>
-        {canHost && nearby.length + mine.length + elsewhere.length > 0 && (
+        {view === 'days' && canHost && nearby.length + mine.length + elsewhere.length > 0 && (
           <Link href="/app/pack/new" className="btn-secondary inline-flex min-h-[44px] items-center px-4 py-1.5 text-[15px]">Host one</Link>
         )}
       </header>
@@ -129,7 +139,7 @@ export default function PackDaysPage() {
               type="button"
               role="tab"
               aria-selected={view === v.id}
-              onClick={() => setView(v.id)}
+              onClick={() => pickView(v.id)}
               className={`min-h-[44px] rounded-full border-2 border-brown px-4 font-display text-[15px] ${view === v.id ? 'bg-brown text-cream' : 'bg-cream text-brown'}`}
             >
               {v.label}
@@ -152,14 +162,14 @@ export default function PackDaysPage() {
         {view === 'days' && !canHost && events && (
           <div className="card p-5 text-center">
             <p className="font-display text-2xl text-brown">Add your dog to join in</p>
-            <p className="mt-1 text-[15px] font-extrabold text-brown-mid">Finish your dog&apos;s profile to RSVP or host a Pack Day.</p>
+            <p className="mt-1 text-[15px] font-extrabold text-brown-mid">Finish your dog&apos;s Pupfile to RSVP or host a Pack Day.</p>
             <Link href="/app" className="btn-primary inline-flex min-h-[52px] items-center mt-3 px-6 py-2.5">Set up my dog</Link>
           </div>
         )}
 
-        {error && <p role="alert" className="rounded-xl border-2 border-brown bg-cream px-4 py-3 text-[15px] font-black text-brown">{error}</p>}
+        {view === 'days' && error && <p role="alert" className="rounded-xl border-2 border-brown bg-cream px-4 py-3 text-[15px] font-black text-brown">{error}</p>}
 
-        {!events && !error && (
+        {view === 'days' && !events && !error && (
           <div className="flex items-center justify-center py-16">
             <span className="text-brown animate-spin motion-reduce:animate-none" role="status" aria-label="Loading"><PawIcon size={32} /></span>
           </div>
