@@ -31,5 +31,20 @@
     "social",
     "lifestyle"
   ],
-  "screenshots": []
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "My dog is lost",
+      "short_name": "Lost dog",
+      "description": "Alert your neighbors now",
+      "url": "/app/lost/now",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }

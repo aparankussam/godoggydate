@@ -44,6 +44,19 @@
     <false/>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
+    <key>UIApplicationShortcutItems</key>
+    <array>
+      <dict>
+        <key>UIApplicationShortcutItemType</key>
+        <string>com.godoggydate.app.lostdog</string>
+        <key>UIApplicationShortcutItemTitle</key>
+        <string>My dog is lost</string>
+        <key>UIApplicationShortcutItemSubtitle</key>
+        <string>Alert your neighbors now</string>
+        <key>UIApplicationShortcutItemIconSymbolName</key>
+        <string>exclamationmark.triangle.fill</string>
+      </dict>
+    </array>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSAppTransportSecurity</key>
