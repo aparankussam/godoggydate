@@ -16,6 +16,7 @@ function pngSize(file) {
 const PNG_SIZES = {
   'web/public/icons/icon-192.png': 192,
   'web/public/icons/icon-512.png': 512,
+  'web/public/icons/icon-maskable-512.png': 512,
   'web/public/icons/apple-touch-icon.png': 180,
   'web/public/icons/favicon-32.png': 32,
   'mobile/assets/icon.png': 1024,
