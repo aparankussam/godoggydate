@@ -25,6 +25,7 @@ import { useLiveMatchRefresh } from '../../../lib/useLiveMatchRefresh';
 import { discoverFromProfiles, effectiveCode, loadDiscoveries, loadDogSnapshots, onDiscoveriesChange } from '../../../lib/dogtypeDiscovery';
 import type { DogtypeDogMap, DogtypeLedger } from '../../../../shared/progress';
 import SignInGate from '../../../components/SignInGate';
+import GrowPackCard, { GROW_PACK_BELOW } from '../../../components/GrowPackCard';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -336,6 +337,9 @@ export default function MatchesPage() {
             </Link>
           </div>
         )}
+        {!loading && !error && matches.length === 0 && (
+          <div className="mt-4"><GrowPackCard uid={authUser.uid} /></div>
+        )}
 
         {/* Matches list — a single column on mobile (identical to the native
             app), a card grid once there's room for one. */}
@@ -352,8 +356,8 @@ export default function MatchesPage() {
               const newType = !!typeEntry && typeEntry.dogId === m.otherDogId && !typeEntry.seen;
 
               return (
+                <div key={m.matchId} className="flex flex-col gap-1.5">
                 <div
-                  key={m.matchId}
                   className="card rounded-[1.4rem] flex items-center gap-3 p-3 hover:-translate-y-0.5 transition-all"
                 >
                   {/* Photo — its own link, to the dog's profile. Previously
@@ -418,8 +422,19 @@ export default function MatchesPage() {
                     </div>
                   </Link>
                 </div>
+                {/* A quiet match: nobody has written yet, so offer the next step to actually meeting. */}
+                {!hasLastMsg && m.chatUnlocked && (
+                  <Link
+                    href={`/app/messages/${m.matchId}?plan=1`}
+                    className="ml-3 inline-flex min-h-[36px] items-center gap-1.5 self-start rounded-full border-2 border-brown bg-note px-3 text-xs font-black text-brown"
+                  >
+                    📅 Suggest a playdate with {name}
+                  </Link>
+                )}
+                </div>
               );
             })}
+            {matches.length < GROW_PACK_BELOW && <GrowPackCard uid={authUser.uid} />}
           </div>
         )}
       </div>

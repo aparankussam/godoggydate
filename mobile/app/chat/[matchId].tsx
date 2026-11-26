@@ -185,7 +185,7 @@ function draftToDate(draft: PlaydateDetails): Date {
 }
 
 export default function ChatScreen() {
-  const { matchId, name } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[] }>();
+  const { matchId, name, plan } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[]; plan?: string }>();
   const { user } = useSession();
   const resolvedMatchId = Array.isArray(matchId) ? matchId[0] : matchId;
   const resolvedName = Array.isArray(name) ? name[0] : name;
@@ -246,6 +246,13 @@ export default function ChatScreen() {
 
   // Effective chat access: per-match unlock OR Founding Member entitlement.
   const canChat = chatUnlocked || hasLifetime;
+  // From Matches' "Suggest a playdate": open the proposal form once chat is available.
+  const planOpened = useRef(false);
+  useEffect(() => {
+    if (plan !== '1' || !canChat || planOpened.current) return;
+    planOpened.current = true;
+    setShowPlaydateForm(true);
+  }, [plan, canChat]);
   const dogName = resolvedName || match?.dog.name || 'your match';
   const otherProfile = match?.dog.profile ?? null;
   // The photo the dog leads with (cover pick, else AI hero, else first real

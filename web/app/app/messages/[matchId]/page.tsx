@@ -388,6 +388,14 @@ export default function ChatPage() {
 
   // Effective chat access: per-match unlock OR lifetime entitlement.
   const canChat = chatUnlocked || hasLifetime;
+  // From Matches' "Suggest a playdate": open the proposal form once chat is available.
+  const planOpened = useRef(false);
+  useEffect(() => {
+    if (planOpened.current || !canChat) return;
+    if (new URLSearchParams(window.location.search).get('plan') !== '1') return;
+    planOpened.current = true;
+    setShowPlaydateForm(true);
+  }, [canChat]);
 
   // ── Validate match access + load counterpart profile ─────────────────────────
   // Realtime listener (not a one-time getDoc): once a payment succeeds, the
