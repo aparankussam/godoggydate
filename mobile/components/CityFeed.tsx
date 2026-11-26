@@ -10,6 +10,7 @@ import { useFocusEffect } from 'expo-router';
 import { colors, fonts } from '../constants/theme';
 import { Heading, Paper, PaperButton, PinkButton, Slip, Tag, type } from './pack/kit';
 import PackDayCard from './PackDayCard';
+import LostAlertCard from './LostAlertCard';
 import { createCityPost, loadCityFeed, updateCityPost } from '../lib/cityFeed';
 import { openReportSheet } from '../lib/reports';
 import { CITY_FEED_LIMITS, POST_TEMPLATES, POST_TEMPLATE_KEYS } from '../../shared/cityFeed';
@@ -73,8 +74,12 @@ export default function CityFeed({ uid, city, canPost, blocked, reloadToken }: P
     return <Slip tone="info"><Text style={type.body}>Add your city to your dog’s profile to see what’s happening nearby.</Text></Slip>;
   }
 
+  // Lost dogs are pinned above everything, newest first; the rest stays in feed order.
+  const lostItems = (items ?? []).filter((i) => i.kind === 'lost').sort((a, b) => b.sortMs - a.sortMs);
+
   return (
     <View>
+      {lostItems.map((item) => item.kind === 'lost' && <LostAlertCard key={`l${item.id}`} id={item.id} data={item.data} uid={uid} />)}
       {template ? (
         <Paper style={styles.composer}>
           <Heading size={20}>{POST_TEMPLATES[template].emoji} {POST_TEMPLATES[template].label}</Heading>
@@ -114,16 +119,7 @@ export default function CityFeed({ uid, city, canPost, blocked, reloadToken }: P
           const e = days.get(item.id);
           return e ? <PackDayCard key={`d${item.id}`} event={e} badge={e.hostUid === uid ? 'hosting' : e.attendeeUids.includes(uid) ? 'going' : undefined} /> : null;
         }
-        if (item.kind === 'lost') {
-          const d = item.data;
-          return (
-            <Paper key={`l${item.id}`} style={styles.card}>
-              <Tag label="Lost dog" icon="alert" dark />
-              <Text style={type.strong}>{String(d.dogName ?? d.title ?? 'A dog is missing nearby')}</Text>
-              {!!(d.lastSeen ?? d.lastSeenPlace) && <Text style={type.soft}>Last seen: {String(d.lastSeen ?? d.lastSeenPlace)}</Text>}
-            </Paper>
-          );
-        }
+        if (item.kind === 'lost') return null; // pinned above
         const mine = item.authorUid === uid;
         const t = POST_TEMPLATES[item.template];
         if (!t) return null;

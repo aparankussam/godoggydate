@@ -51,8 +51,16 @@ export async function loadCityFeed(
   lost?.docs.forEach((d) => {
     const a = d.data();
     const live = a.status !== 'found' && a.status !== 'resolved' && !(typeof a.expiresAtMs === 'number' && a.expiresAtMs <= nowMs);
-    if (live) {
-      items.push({ kind: 'lost', id: d.id, authorUid: String(a.authorUid ?? a.ownerUid ?? ''), sortMs: Number(a.createdAtMs ?? 0), data: a });
+    // A dog found in the last day stays up as "home", so neighbors see the loop close.
+    const foundAt = a.foundAt as { toMillis?: () => number } | undefined;
+    const foundMs = typeof foundAt?.toMillis === 'function' ? foundAt.toMillis() : 0;
+    const recentlyFound = a.status === 'found' && foundMs > 0 && nowMs - foundMs < 24 * 60 * 60 * 1000;
+    if (live || recentlyFound) {
+      // Alerts are written with ownerId and a server createdAt Timestamp; reading
+      // createdAtMs/authorUid here sorted every alert as 1970 and hid it from blocks.
+      const created = a.createdAt as { toMillis?: () => number } | undefined;
+      const sortMs = typeof created?.toMillis === 'function' ? created.toMillis() : Number(a.createdAtMs ?? 0);
+      items.push({ kind: 'lost', id: d.id, authorUid: String(a.ownerId ?? a.authorUid ?? ''), sortMs, data: { ...a, createdAtMs: sortMs } });
     }
   });
   return { items: mergeFeed(items, blocked), days: cityDays };
