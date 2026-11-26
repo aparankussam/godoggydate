@@ -12,7 +12,7 @@ import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
 import { getEntitlements, getFoundingMemberLink, isProActive } from '../lib/entitlements';
 import { takePendingPackDay } from '../lib/packDayPending';
-import { PawCoin, Tape, StickerDog, Chevron } from '../components/StickerBits';
+import { Tape, StickerDog, Chevron } from '../components/StickerBits';
 
 export default function HomePage() {
   const router = useRouter();
@@ -301,9 +301,9 @@ export default function HomePage() {
       {/* CTA */}
       <section className="bg-brown py-16">
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <span aria-hidden="true" className="mx-auto mb-5 flex justify-center">
-            <PawCoin size={56} />
-          </span>
+          <div className="mx-auto mb-6 max-w-[300px]">
+            <AnimatedLogo />
+          </div>
           <h2 className="font-display text-4xl text-paper mb-4">
             Start with who your dog is
           </h2>
@@ -323,9 +323,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="bg-paper border-t-[2.5px] border-brown py-8">
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-2 font-display text-xl text-brown">
-            <PawCoin size={28} /> GoDoggyDate
-          </span>
+          <BrandLogo height={40} />
           <div className="text-center sm:text-left">
             <p className="text-sm font-semibold text-brown-mid">
               © <CopyrightYear /> GoDoggyDate. Made for dogs everywhere.

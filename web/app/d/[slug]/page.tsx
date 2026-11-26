@@ -19,8 +19,8 @@ import { parseDogSlugToUid, toDogSlug } from '../../../lib/dogSlug';
 import { getRenderablePhotos, resolveHeroIndex } from '../../../lib/photos';
 import DogTradingCard from '../../../components/DogTradingCard';
 import ScaleToFit from '../../../components/ScaleToFit';
-import { PawCoin } from '../../../components/StickerBits';
 import type { SavedDogProfile } from '../../../lib/auth';
+import BrandLogo from '../../../components/BrandLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,8 +146,8 @@ export default async function PublicDogPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen flex flex-col items-center px-5 py-10 gap-8">
-      <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-2xl text-brown">
-        <PawCoin size={32} /> GoDoggyDate
+      <Link href="/" aria-label="GoDoggyDate home" className="inline-flex min-h-[44px] items-center">
+        <BrandLogo height={44} />
       </Link>
 
       <h1 className="sr-only">{profile.name} on GoDoggyDate</h1>

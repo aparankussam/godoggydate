@@ -54,6 +54,7 @@ import TodayPanel from '../../components/TodayPanel';
 import { shareOrDownloadCard } from '../../lib/shareCard';
 import { toDogSlug } from '../../lib/dogSlug';
 import { takePendingPackDay } from '../../lib/packDayPending';
+import BrandLogo from '../../components/BrandLogo';
 
 // ── Seed feed ─────────────────────────────────────────────────────────────────
 type FeedDog = DiscoverFeedDog;
@@ -820,11 +821,15 @@ export default function AppPage() {
       {/* ── Top bar: the paw coin and one Chewy title on the sky ───────────── */}
       {(showDeck || !authUser || !showEmpty) && (
         <header className="flex min-h-12 shrink-0 items-center gap-2.5 px-4 pt-3">
-          {coin}
           {showDeck ? (
-            <h1 className="min-w-0 flex-1 truncate font-display text-[21px] leading-none">Who wants to play?</h1>
+            <>
+              {coin}
+              <h1 className="min-w-0 flex-1 truncate font-display text-[21px] leading-none">Who wants to play?</h1>
+            </>
           ) : (
-            <span className="min-w-0 flex-1 truncate font-display text-[21px] leading-none">GoDoggyDate</span>
+            <span className="min-w-0 flex-1">
+              <BrandLogo height={36} />
+            </span>
           )}
           {!authLoading && !authUser && (
             <button

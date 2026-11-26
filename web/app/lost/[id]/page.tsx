@@ -9,8 +9,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadPublicLostAlert } from '../../../lib/lostPublic';
 import LostSightingForm from '../../../components/LostSightingForm';
-import { FlyerSheet, PawIcon } from '../../../components/PackDayFlyer';
+import { FlyerSheet } from '../../../components/PackDayFlyer';
 import { lostFacts, timeAgo } from '../../../../shared/lostDog';
+import BrandLogo from '../../../components/BrandLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,13 +50,7 @@ export default async function PublicLostDogPage({ params }: PageProps) {
   return (
     <div className="flex min-h-screen flex-col items-center gap-5 px-3.5 pb-10 pt-3">
       <Link href="/" className="flex items-center gap-2.5 self-start px-1.5">
-        <span
-          aria-hidden="true"
-          className="flex h-9 w-9 -rotate-[8deg] items-center justify-center rounded-full border-2 border-brown bg-cream text-brown shadow-[0_3px_0_rgba(42,31,74,0.28)]"
-        >
-          <PawIcon size={20} />
-        </span>
-        <span className="font-display text-[26px] leading-none text-brown">GoDoggyDate</span>
+        <BrandLogo height={40} />
       </Link>
 
       <FlyerSheet className="w-full max-w-md">

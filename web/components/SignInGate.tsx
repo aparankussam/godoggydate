@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import AuthModal from './AuthModal';
-import { PawCoin } from './StickerBits';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   title: string;
@@ -23,7 +23,7 @@ export default function SignInGate({ title }: Props) {
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-24">
       <div className="card flex w-full max-w-sm flex-col items-center gap-4 px-6 py-8 text-center">
       <AuthModal isOpen={open} onClose={() => setOpen(false)} />
-      <PawCoin size={56} />
+      <BrandLogo height={44} />
       <h1 className="font-display text-2xl text-brown">{title}</h1>
       <button type="button" onClick={() => setOpen(true)} className="btn-primary px-8 py-3">
         Sign in

@@ -106,3 +106,14 @@ test('header logo box shows all of the art', () => {
   const top = (887 - visible) * posY;
   assert.ok(top <= 176 && top + visible >= 616, `shows rows ${Math.round(top)}..${Math.round(top + visible)}`);
 });
+
+test('no page still shows the old paw-and-text logo', () => {
+  // The old mark was a PawCoin/PawIcon badge next to "GoDoggyDate" in the display font.
+  const OLD = [/<PawCoin[^>]*\/>\s*GoDoggyDate/, /font-display text-\[(21|26)px\] leading-none[^"]*">GoDoggyDate</];
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith('.tsx') ? [path.join(d, e.name)] : []);
+  for (const f of [...walk(at('web/app')), ...walk(at('web/components'))]) {
+    const src = fs.readFileSync(f, 'utf8');
+    for (const re of OLD) assert.ok(!re.test(src), `old logo in ${path.relative(root, f)}`);
+  }
+});

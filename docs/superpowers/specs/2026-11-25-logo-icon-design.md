@@ -47,3 +47,10 @@ Brand colours (from the live site): blue `#8FC9F2`, pink `#FF5C8D`, purple `#2A1
 - Exact export sizes per platform, and resampling (no content changes).
 - The splash and adaptive-icon background colour: use the icon's blue so any padding matches.
 - Where the header logo component lives, and its display size.
+
+## Where each version goes (owner asked for every spot, 2026-11-25)
+
+- **Animation** (plays while on screen, rests, replays; still logo under Reduce Motion): the landing hero, the landing's closing "Start with who your dog is" section, and the sign-in popup. These are welcome moments with room to breathe. Only one is on screen at a time.
+- **Still logo**: every page header and footer (landing, quiz, Barkle, excuse, Dogtype result, public dog page, lost-dog and Pack Day pages, playdate-safety), the signed-in app's top bar and sidebar, the error page and the sign-in gate.
+- **Unchanged**: small paw icons that are loading spinners, empty-state art or card decoration, not the brand mark. The 404 page keeps its drawn dog.
+- **Not yet done**: the shareable cards (Dogtype, Roast, Trading card and others), which print "GoDoggyDate" as text, and the link-preview (Open Graph) images, which need a PNG version of the logo.

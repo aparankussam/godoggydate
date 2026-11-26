@@ -5,7 +5,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { PawCoin } from './StickerBits';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { trackEvent } from '../lib/analytics';
 import {
@@ -22,6 +21,7 @@ import {
   type InAppBrowserInfo,
 } from '../lib/inAppBrowser';
 import { getFirebase } from '../shared/utils/firebase';
+import AnimatedLogo from './AnimatedLogo';
 
 // Bump when the Terms change materially, so acceptance can be re-collected.
 const TERMS_VERSION = '2026-11';
@@ -400,10 +400,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
           <span aria-hidden="true">×</span>
         </button>
 
-        <span className="-mt-2"><PawCoin size={56} /></span>
+        <div className="-mt-2 w-full max-w-[240px]"><AnimatedLogo /></div>
 
         <div className="text-center">
-          <h2 id="auth-modal-title" className="font-display text-2xl text-brown mb-1">GoDoggyDate</h2>
+          <h2 id="auth-modal-title" className="sr-only">GoDoggyDate</h2>
           <p className="text-brown-light text-sm leading-relaxed">
             Local dog playdates with compatible dogs, plus your dog&apos;s whole life in one place.
           </p>
