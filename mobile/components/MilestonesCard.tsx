@@ -20,6 +20,8 @@ interface Props {
   savedProfile: SavedDogProfile;
   /** The owner's uid. When set, shares carry a link to the dog's public page. */
   userId?: string;
+  /** Owner view: offers "Add date" for a missing birthday or Gotcha Day (opens Edit at the dates). */
+  onAddDate?: () => void;
 }
 
 const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string }>(
@@ -41,7 +43,7 @@ const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string
 );
 CelebrationCard.displayName = 'CelebrationCard';
 
-export default function MilestonesCard({ savedProfile, userId }: Props) {
+export default function MilestonesCard({ savedProfile, userId, onAddDate }: Props) {
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -77,8 +79,16 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
     setSharing(false);
   }
 
-  // Nothing real to celebrate or count down to — render nothing.
-  if (!celebrating && !next) return null;
+  // Real dates only, never samples: a missing one is shown as a gap to fill.
+  const missing = onAddDate
+    ? [
+        !savedProfile.birthMonth && { key: 'birthday', emoji: '🎂', title: `${dogName}'s birthday` },
+        !savedProfile.adoptionDate && { key: 'gotcha', emoji: '🏠', title: 'Gotcha Day' },
+      ].filter((m): m is { key: string; emoji: string; title: string } => !!m)
+    : [];
+
+  // Nothing real to celebrate, count down to or fill in — render nothing.
+  if (!celebrating && !next && missing.length === 0) return null;
 
   if (celebrating) {
     return (
@@ -101,20 +111,35 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   return (
     <View style={styles.countdownCard}>
       <Text style={styles.eyebrow}>Coming up</Text>
-      <View style={styles.countdownRow}>
-        <Text style={styles.countdownEmoji}>{next!.emoji}</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.countdownTitle} numberOfLines={1}>{next!.title}</Text>
-          <Text style={styles.countdownSub}>
-            {next!.subtitle} · {next!.daysUntil === 1 ? 'tomorrow' : `in ${next!.daysUntil} days`}
-          </Text>
+      {next && (
+        <View style={styles.countdownRow}>
+          <Text style={styles.countdownEmoji}>{next.emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.countdownTitle} numberOfLines={1}>{next.title}</Text>
+            <Text style={styles.countdownSub}>
+              {next.subtitle} · {next.daysUntil === 1 ? 'tomorrow' : `in ${next.daysUntil} days`}
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
+      {missing.map((m) => (
+        <View key={m.key} style={[styles.countdownRow, styles.missingRow]}>
+          <Text style={[styles.countdownEmoji, styles.missingFaded]}>{m.emoji}</Text>
+          <Text style={[styles.countdownTitle, styles.missingFaded, { flex: 1 }]} numberOfLines={1}>{m.title}</Text>
+          <Pressable onPress={onAddDate} accessibilityRole="button" accessibilityLabel={`Add ${m.title} date`} hitSlop={8} style={styles.addDate}>
+            <Text style={styles.addDateText}>Add date</Text>
+          </Pressable>
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  missingRow: { marginTop: 8 },
+  missingFaded: { opacity: 0.55 },
+  addDate: { borderWidth: 2, borderColor: colors.ink, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: colors.paper },
+  addDateText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   section: {
     backgroundColor: colors.cream,
     borderRadius: radius.xl,

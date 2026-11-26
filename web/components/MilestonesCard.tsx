@@ -15,6 +15,8 @@ import { publicDogUrl } from '../lib/dogSlug';
 interface Props {
   savedProfile: SavedDogProfile;
   userId: string;
+  /** Owner view: offers "Add date" for a missing birthday or Gotcha Day (opens Edit at the dates). */
+  onAddDate?: () => void;
 }
 
 function CelebrationCard({
@@ -42,7 +44,7 @@ function CelebrationCard({
   );
 }
 
-export default function MilestonesCard({ savedProfile, userId }: Props) {
+export default function MilestonesCard({ savedProfile, userId, onAddDate }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -84,7 +86,15 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   }
 
   // Nothing real to celebrate or count down to — render nothing.
-  if (!celebrating && !next) return null;
+  // Real dates only, never samples: a missing one is shown as a gap to fill.
+  const missing = onAddDate
+    ? [
+        !savedProfile.birthMonth && { key: 'birthday', emoji: '🎂', title: `${dogName}'s birthday` },
+        !savedProfile.adoptionDate && { key: 'gotcha', emoji: '🏠', title: 'Gotcha Day' },
+      ].filter((m): m is { key: string; emoji: string; title: string } => !!m)
+    : [];
+
+  if (!celebrating && !next && missing.length === 0) return null;
 
   if (celebrating) {
     return (
@@ -114,15 +124,26 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   return (
     <section className="card rounded-[1.8rem] px-5 py-4">
       <p className="text-xs font-bold text-brown-mid">Coming up</p>
-      <div className="mt-1 flex items-center gap-3">
-        <span className="text-2xl" aria-hidden="true">{next!.emoji}</span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-brown truncate">{next!.title}</p>
-          <p className="text-xs text-brown-mid">
-            {next!.subtitle} · {next!.daysUntil === 1 ? 'tomorrow' : `in ${next!.daysUntil} days`}
-          </p>
+      {next && (
+        <div className="mt-1 flex items-center gap-3">
+          <span className="text-2xl" aria-hidden="true">{next.emoji}</span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-brown truncate">{next.title}</p>
+            <p className="text-xs text-brown-mid">
+              {next.subtitle} · {next.daysUntil === 1 ? 'tomorrow' : `in ${next.daysUntil} days`}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
+      {missing.map((m) => (
+        <div key={m.key} className="mt-2 flex items-center gap-3">
+          <span className="text-2xl opacity-50" aria-hidden="true">{m.emoji}</span>
+          <p className="min-w-0 flex-1 truncate text-sm font-bold text-brown/60">{m.title}</p>
+          <button type="button" onClick={onAddDate} className="min-h-[36px] rounded-full border-2 border-brown bg-cream px-3 text-xs font-black text-brown">
+            Add date
+          </button>
+        </div>
+      ))}
     </section>
   );
 }
