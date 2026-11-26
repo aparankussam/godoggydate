@@ -24,7 +24,7 @@ module.exports = {
     splash: {
       image: './assets/splash.png',
       resizeMode: 'contain',
-      backgroundColor: '#FDF6EE',
+      backgroundColor: '#FFFFFF',
     },
     assetBundlePatterns: ['**/*'],
     ios: {
@@ -53,7 +53,7 @@ module.exports = {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#FDF6EE',
+        backgroundColor: '#FFFFFF',
       },
       package: 'com.godoggydate.app',
       permissions: ['ACCESS_FINE_LOCATION', 'CAMERA', 'READ_EXTERNAL_STORAGE'],
