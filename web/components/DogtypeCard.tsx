@@ -7,6 +7,7 @@
 // social object a stranger sees and wants for their own dog.
 
 import type { Dogtype } from '../../shared/dogtype';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   dogtype: Dogtype;
@@ -97,7 +98,7 @@ export default function DogtypeCard({ dogtype, dogName, photoUrl, photoFocus, in
         </div>
 
         <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between">
-          <p className="font-display text-sm text-white">GoDoggyDate</p>
+          <ShareLogo height={28} />
           <p className="text-[10px] text-white/60">godoggydate.com</p>
         </div>
       </div>

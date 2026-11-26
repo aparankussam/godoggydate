@@ -32,6 +32,7 @@ import {
   MAX_ENERGY,
   type BoopState,
 } from '../../../../lib/boops';
+import ShareLogo from '../../../../components/ShareLogo';
 
 const CONFETTI = ['🐾', '🐾', '🐾', '✨', '🦴', '🎉', '🐾', '💖'];
 
@@ -432,7 +433,7 @@ export default function SnootPage() {
               paddingTop: 10,
             }}
           >
-            <span style={{ fontSize: 13, color: '#ffffff' }}>GoDoggyDate</span>
+            <ShareLogo height={26} />
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>godoggydate.com</span>
           </div>
         </div>

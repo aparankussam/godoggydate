@@ -4,6 +4,7 @@
 // reward" of the Playdate Payout. Reuses the trading-card visual language.
 
 import { getPrimaryRenderablePhoto } from '../lib/photos';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   dogName: string;
@@ -75,7 +76,7 @@ export default function PlaydateMemoryCard({ dogName, dogBreed, photos, stars, i
         {verdict && <p className="mt-3 text-white/85 text-sm font-semibold">Our dogs played. {verdict}</p>}
 
         <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between">
-          <p className="font-display text-sm text-white">GoDoggyDate</p>
+          <ShareLogo height={28} />
           <p className="text-xs text-white/70">godoggydate.com</p>
         </div>
       </div>

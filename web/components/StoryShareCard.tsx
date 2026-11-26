@@ -14,6 +14,7 @@
 // path every other card uses, so photo/CORS behaviour is identical.
 
 import { shareOrDownloadCard, type ShareCardOptions } from '../lib/shareCard';
+import ShareLogo from './ShareLogo';
 
 /** Brand-safe background themes. Solid gradients only (no backdrop-blur) so
  *  html2canvas captures them faithfully — same constraint as DogtypeCard. */
@@ -144,7 +145,7 @@ export default function StoryShareCard({
         {/* Baked-in brand footer — screenshots strip metadata, so the URL has
             to live on the pixels themselves. */}
         <div className="mt-7 pt-5 border-t border-white/20 flex items-center justify-between">
-          <p className="font-display text-white" style={{ fontSize: 24 }}>GoDoggyDate</p>
+          <ShareLogo height={48} />
           <p className="text-white/60" style={{ fontSize: 16 }}>{footerUrl}</p>
         </div>
       </div>

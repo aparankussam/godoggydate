@@ -18,6 +18,7 @@ import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { loadAdventures, onProgressChange, setAdventureDone } from '../lib/progressSync';
 import { adventuresFor, ADVENTURE_COUNT } from '../../shared/adventures';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -159,7 +160,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
             className="mt-auto pt-4 flex items-center justify-between"
             style={{ borderTop: '1px solid rgba(255,255,255,0.2)' }}
           >
-            <p className="font-display text-sm">GoDoggyDate</p>
+            <ShareLogo height={28} />
             <p className="text-xs text-white">godoggydate.com</p>
           </div>
         </div>

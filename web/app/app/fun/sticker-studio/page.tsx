@@ -20,6 +20,7 @@ import { trackEvent } from '../../../../lib/analytics';
 import { loadAllTime, loadBoops, unlockedStickers, nextSticker, STICKERS, type Sticker } from '../../../../lib/boops';
 import { onProgressChange } from '../../../../lib/progressSync';
 import SignInGate from '../../../../components/SignInGate';
+import ShareLogo from '../../../../components/ShareLogo';
 
 const CANVAS = 320;
 const STICKER = 56;
@@ -234,9 +235,10 @@ export default function StickerStudioPage() {
           ))}
 
           {/* Brand baked into the captured region so a repost keeps the back-link. */}
-          <div className="absolute bottom-2 right-2.5 pointer-events-none">
+          <div className="absolute bottom-2 right-2.5 pointer-events-none flex flex-col items-end gap-0.5">
+            <ShareLogo height={20} />
             <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.9)', fontFamily: 'system-ui, sans-serif' }}>
-              GoDoggyDate · godoggydate.com
+              godoggydate.com
             </span>
           </div>
         </div>

@@ -23,6 +23,7 @@ import { trackEvent } from '../lib/analytics';
 import { computeDogtype } from '../../shared/dogtype';
 import { computePlaque } from '../../shared/plaque';
 import type { Plaque } from '../../shared/plaque';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -151,9 +152,7 @@ const PlaquePlate = forwardRef<HTMLDivElement, PlateProps>(function PlaquePlate(
             className="w-full mt-3 pt-2 flex items-center justify-between"
             style={{ borderTop: '1px solid rgba(201,162,75,0.4)' }}
           >
-            <p className="font-display" style={{ fontSize: 12, color: ENGRAVE }}>
-              GoDoggyDate
-            </p>
+            <ShareLogo height={24} />
             <p style={{ fontSize: 9.5, color: '#9C8A5F' }}>godoggydate.com</p>
           </div>
         </div>

@@ -19,6 +19,7 @@ import { formatUsDate, reminderDueLabel } from '../../shared/dates';
 import type { SavedDogProfile } from '../lib/auth';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import type { Reminder } from '../../shared/types';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   profile: SavedDogProfile;
@@ -228,7 +229,7 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
           owner wrote about their own dog.
         </p>
         <div className="mt-2 flex items-center justify-between">
-          <p className="font-display text-sm text-brown">GoDoggyDate</p>
+          <ShareLogo height={26} />
           <p className="text-[10px] text-brown-light">godoggydate.com</p>
         </div>
       </div>

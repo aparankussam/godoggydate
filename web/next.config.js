@@ -121,6 +121,11 @@ module.exports = {
   images: { unoptimized: true },
   // Don't advertise the framework on every response.
   poweredByHeader: false,
+  // Link previews read the logo from disk (lib/ogLogo.tsx), and public/ isn't
+  // shipped inside the server functions, so bundle it with each preview route.
+  experimental: {
+    outputFileTracingIncludes: { '/**/opengraph-image*': ['./public/brand/godoggydate-logo-share.png'] },
+  },
   // Inlined into the browser bundle so error reports say which release they came
   // from (lib/errorReporting.ts). Vercel provides the commit SHA at build time.
   env: {

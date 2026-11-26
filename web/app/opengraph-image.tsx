@@ -6,6 +6,7 @@
 // Pure static brand content. Mirrors the ImageResponse pattern in
 // app/quiz/opengraph-image.tsx.
 import { ImageResponse } from 'next/og';
+import { ogLogoImg } from '../lib/ogLogo';
 
 export const dynamic = 'force-static';
 export const alt = "GoDoggyDate — Your dog's whole life, in one place";
@@ -28,10 +29,7 @@ export default function OpengraphImage() {
           color: '#4A3728',
         }}
       >
-        <div style={{ display: 'flex', fontSize: 120, lineHeight: 1 }}>🐾</div>
-        <div style={{ display: 'flex', fontSize: 96, fontWeight: 700, marginTop: 28, lineHeight: 1.05 }}>
-          GoDoggyDate
-        </div>
+        {ogLogoImg(190)}
         <div style={{ display: 'flex', fontSize: 42, marginTop: 20, color: '#6B5545' }}>
           Your dog&apos;s whole life, in one place
         </div>

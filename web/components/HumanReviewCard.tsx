@@ -11,6 +11,7 @@
 // baked INSIDE the captured region — a reposted screenshot keeps the back-link.
 
 import { forwardRef } from 'react';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   stars: number;
@@ -163,7 +164,7 @@ const HumanReviewCard = forwardRef<HTMLDivElement, Props>(function HumanReviewCa
           className="mt-5 pt-3 flex items-center justify-between"
           style={{ borderTop: `1px solid ${RULE}` }}
         >
-          <p className="font-display" style={{ fontSize: 13, color: INK }}>GoDoggyDate</p>
+          <ShareLogo height={26} />
           <p style={{ fontSize: 10, color: INK_SOFT }}>godoggydate.com</p>
         </div>
       </div>

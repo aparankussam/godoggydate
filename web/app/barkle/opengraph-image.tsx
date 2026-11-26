@@ -5,6 +5,7 @@
 // provides it. Pure static content, mirrors the ImageResponse pattern in
 // app/quiz/opengraph-image.tsx.
 import { ImageResponse } from 'next/og';
+import { ogLogoImg } from '../../lib/ogLogo';
 
 export const dynamic = 'force-static';
 export const alt = 'Barkle — the daily dog game';
@@ -52,7 +53,8 @@ export default function OpengraphImage() {
             fontWeight: 700,
           }}
         >
-          🐾 GoDoggyDate · godoggydate.com
+          {ogLogoImg(52)}
+          <span style={{ marginLeft: 20 }}>godoggydate.com</span>
         </div>
       </div>
     ),

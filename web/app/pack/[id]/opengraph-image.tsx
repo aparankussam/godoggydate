@@ -1,6 +1,7 @@
 // web/app/pack/[id]/opengraph-image.tsx
 // The link preview for a shared Pack Day (iMessage / WhatsApp / Discord / X).
 import { ImageResponse } from 'next/og';
+import { ogLogoImg } from '../../../lib/ogLogo';
 import { loadPublicPackDay } from '../../../lib/packDayPublic';
 import { PACK_DAY_FORMATS, formatPackDayWhen } from '../../../../shared/packDay';
 
@@ -50,13 +51,15 @@ export default async function OpengraphImage({ params }: { params: { id: string 
         <div
           style={{
             display: 'flex',
+            alignItems: 'center',
             marginTop: 56,
             paddingTop: 24,
             borderTop: '2px solid rgba(255,255,255,0.25)',
             fontSize: 30,
           }}
         >
-          🐾 GoDoggyDate · bring your dog
+          {ogLogoImg(52)}
+          <span style={{ marginLeft: 20 }}>bring your dog</span>
         </div>
       </div>
     ),

@@ -10,6 +10,7 @@ import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import { breedConfidencePhrase } from '../lib/vibeCheck';
 import { FOUNDING_PACK_SIZE } from '../../shared/utils/stripe';
 import { temperamentLabel } from '../../shared/temperament';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   profile: SavedDogProfile;
@@ -145,7 +146,7 @@ export default function DogTradingCard({ profile, innerRef }: Props) {
         )}
 
         <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between">
-          <p className="font-display text-sm text-white">GoDoggyDate</p>
+          <ShareLogo height={28} />
           <p className="text-[10px] text-white/50">godoggydate.com</p>
         </div>
       </div>

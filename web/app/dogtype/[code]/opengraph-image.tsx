@@ -3,6 +3,7 @@
 // up in iMessage/WhatsApp/Discord/X when someone shares "my dog is a Zoomie
 // Menace". Pure static content from the shared/dogtype catalogue.
 import { ImageResponse } from 'next/og';
+import { ogLogoImg } from '../../../lib/ogLogo';
 import { DOGTYPE_CODES, dogtypeByCode } from '../../../../shared/dogtype';
 
 export const alt = 'A GoDoggyDate Dogtype';
@@ -86,7 +87,8 @@ export default function OpengraphImage({ params }: { params: { code: string } })
             fontWeight: 700,
           }}
         >
-          🐾 GoDoggyDate · godoggydate.com
+          {ogLogoImg(52)}
+          <span style={{ marginLeft: 20 }}>godoggydate.com</span>
         </div>
       </div>
     ),

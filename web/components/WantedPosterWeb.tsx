@@ -23,6 +23,7 @@ import { getHeroPhoto, resolveHeroIndex, getHeroFocus, getRenderablePhotos } fro
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { computeWanted } from '../../shared/wanted';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -224,7 +225,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
               className="w-full mt-4 pt-2 flex items-center justify-between"
               style={{ borderTop: `1px solid ${INK_SOFT}` }}
             >
-              <p className="font-display" style={{ fontSize: 13, color: INK }}>GoDoggyDate</p>
+              <ShareLogo height={26} />
               <p style={{ fontSize: 10, color: INK_SOFT }}>godoggydate.com</p>
             </div>
           </div>

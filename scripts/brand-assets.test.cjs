@@ -42,7 +42,7 @@ test('cut-out logo has transparency and the art size', () => {
 
 test('every brand file the site ships is used, and every used one exists', () => {
   const dir = at('web/public/brand');
-  const code = ['web/components/BrandLogo.tsx', 'web/components/AnimatedLogo.tsx']
+  const code = ['web/components/BrandLogo.tsx', 'web/components/AnimatedLogo.tsx', 'web/components/ShareLogo.tsx', 'web/lib/ogLogo.tsx']
     .map((f) => fs.readFileSync(at(f), 'utf8')).join('\n');
   for (const f of fs.readdirSync(dir)) assert.ok(code.includes(`/brand/${f}`), `unused brand file: ${f}`);
   for (const [, f] of code.matchAll(/\/brand\/([\w.-]+)/g)) assert.ok(fs.existsSync(path.join(dir, f)), `missing /brand/${f}`);
@@ -125,4 +125,33 @@ test('favicon.ico is the new icon', () => {
   assert.strictEqual(b[6], 48, 'expected a 48px icon');
   const sha = require('node:crypto').createHash('sha256').update(b).digest('hex');
   assert.notStrictEqual(sha, 'adb4e4ccd7c1a1615cd335f30257ce0b751a6ac034afa2d7148b2bf1b6f17b95', 'favicon.ico is still the old paw');
+});
+
+const walkTsx = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+  e.isDirectory() ? walkTsx(path.join(d, e.name)) : e.name.endsWith('.tsx') ? [path.join(d, e.name)] : []);
+
+test('share logo is a trimmed PNG with transparency', () => {
+  // Link previews (satori) can't read WebP, and html2canvas ignores object-fit, so both use this file.
+  const file = 'web/public/brand/godoggydate-logo-share.png';
+  assert.deepStrictEqual(pngSize(file), [900, 234]);
+  assert.strictEqual(fs.readFileSync(at(file))[25], 6, 'expected RGBA (colour type 6)');
+});
+
+test('share cards show the logo, not the brand name as text', () => {
+  const OLD = />\s*GoDoggyDate( · godoggydate\.com)?\s*<\/(p|span)>/;
+  for (const f of [...walkTsx(at('web/app')), ...walkTsx(at('web/components'))]) {
+    assert.ok(!OLD.test(fs.readFileSync(f, 'utf8')), `text brand in ${path.relative(root, f)}`);
+  }
+});
+
+test('every link preview image uses the logo', () => {
+  const files = walkTsx(at('web/app')).filter((f) => f.endsWith('opengraph-image.tsx'));
+  assert.ok(files.length >= 7, `found ${files.length} opengraph images`);
+  // public/ isn't in the server functions; without this the dynamic previews can't read the logo.
+  assert.ok(/outputFileTracingIncludes[^}]*godoggydate-logo-share\.png/.test(fs.readFileSync(at('web/next.config.js'), 'utf8')), 'logo not traced into preview routes');
+  for (const f of files) {
+    const src = fs.readFileSync(f, 'utf8');
+    assert.ok(src.includes('ogLogo'), `no logo in ${path.relative(root, f)}`);
+    assert.ok(!/🐾 GoDoggyDate|>\s*GoDoggyDate\s*</.test(src), `text brand in ${path.relative(root, f)}`);
+  }
 });

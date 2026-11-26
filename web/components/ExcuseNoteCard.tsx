@@ -21,6 +21,7 @@
 
 import { forwardRef } from 'react';
 import type { ExcuseNote } from '../../shared/excuseNote';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   note: ExcuseNote;
@@ -144,7 +145,7 @@ const ExcuseNoteCard = forwardRef<HTMLDivElement, Props>(function ExcuseNoteCard
             className="mt-1.5 pt-1.5 flex items-center justify-between"
             style={{ borderTop: `1px solid ${INK_SOFT}` }}
           >
-            <p className="font-display" style={{ fontSize: 11, color: INK }}>GoDoggyDate</p>
+            <ShareLogo height={22} />
             <p style={{ fontSize: 8.5, color: INK_SOFT }}>godoggydate.com</p>
           </div>
         </div>
