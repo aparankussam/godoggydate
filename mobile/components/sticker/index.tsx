@@ -459,8 +459,11 @@ export function StickerHeader({
   right,
   style,
   large,
+  leading,
 }: {
   title: string;
+  /** Replaces the paw coin, e.g. the logo on the home tab. */
+  leading?: ReactNode;
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
   /** Tab-page title size (Pack Days, Playroom, Pupfile); the default stays compact for Discover's deck. */
@@ -468,7 +471,7 @@ export function StickerHeader({
 }) {
   return (
     <View style={[styles.header, style]}>
-      <PawCoin size={large ? 34 : 28} />
+      {leading ?? <PawCoin size={large ? 34 : 28} />}
       <Text style={[styles.headerTitle, large && styles.headerTitleLarge]} accessibilityRole="header" numberOfLines={1}>
         {title}
       </Text>

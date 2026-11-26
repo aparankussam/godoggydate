@@ -823,7 +823,9 @@ export default function AppPage() {
         <header className="flex min-h-12 shrink-0 items-center gap-2.5 px-4 pt-3">
           {showDeck ? (
             <>
-              {coin}
+              {/* Home tab carries the logo on phones, as in the app; on desktop the sidebar already shows it. */}
+              <span className="shrink-0 lg:hidden"><BrandLogo height={28} /></span>
+              <span className="hidden lg:block">{coin}</span>
               <h1 className="min-w-0 flex-1 truncate font-display text-[21px] leading-none">Who wants to play?</h1>
             </>
           ) : (

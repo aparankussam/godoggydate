@@ -27,6 +27,10 @@ interface Props {
   deckTotal: number;
   radiusApplied: boolean;
   radiusMiles: number;
+  /** The 10/25/50/100 mi chips; null when distances can't be measured. */
+  radiusControl?: ReactNode;
+  /** Dogs just past the radius, for the "try a wider radius" line. */
+  beyondRadiusCount?: number;
   checking: boolean;
   lastCheckedLabel: string | null;
   onCheckAgain: () => void;
@@ -53,6 +57,8 @@ export default function DiscoverEmpty({
   deckTotal,
   radiusApplied,
   radiusMiles,
+  radiusControl,
+  beyondRadiusCount = 0,
   checking,
   lastCheckedLabel,
   onCheckAgain,
@@ -238,6 +244,17 @@ export default function DiscoverEmpty({
         )}
       </View>
 
+      {radiusControl ? (
+        <View style={styles.radiusBlock}>
+          {radiusControl}
+          {beyondRadiusCount > 0 && radiusMiles < 100 ? (
+            <Text style={styles.widen}>
+              {beyondRadiusCount} more {beyondRadiusCount === 1 ? 'dog is' : 'dogs are'} farther than {radiusMiles} mi. Try a wider radius.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* While you wait: real screens only */}
       <View style={styles.waitCard}>
         <Tape width={46} height={15} angle={4} style={{ top: -8, right: 44 }} />
@@ -325,6 +342,8 @@ export default function DiscoverEmpty({
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28 },
   logo: { marginBottom: 12 },
+  radiusBlock: { marginBottom: 18, gap: 8 },
+  widen: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink, textAlign: 'center' },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   topText: { flex: 1 },
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },

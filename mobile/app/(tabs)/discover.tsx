@@ -25,6 +25,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import SwipeCard, { type SwipeCardRef } from '../../components/SwipeCard';
 import DiscoverEmpty from '../../components/discover/DiscoverEmpty';
+import BrandLogo from '../../components/BrandLogo';
+import RadiusChips from '../../components/discover/RadiusChips';
 import {
   PawIcon,
   PrimaryButton,
@@ -43,6 +45,8 @@ import {
   fetchDiscoverFeed,
   refreshDiscoverDog,
   DEFAULT_DISCOVER_RADIUS_MILES,
+  loadDiscoverRadius,
+  saveDiscoverRadius,
   type DiscoverDog,
 } from '../../lib/discover';
 import { recordSwipe } from '../../lib/matching';
@@ -95,6 +99,11 @@ export default function DiscoverTab() {
   const { user, profile, profileComplete, saveProfile, loading: sessionLoading } = useSession();
   const [deck, setDeck] = useState<DiscoverDog[]>([]);
   const [radiusApplied, setRadiusApplied] = useState(false);
+  const [radiusMiles, setRadiusMiles] = useState(DEFAULT_DISCOVER_RADIUS_MILES);
+  const [beyondRadiusCount, setBeyondRadiusCount] = useState(0);
+  const [showRadius, setShowRadius] = useState(false);
+  const radiusRef = useRef(radiusMiles);
+  radiusRef.current = radiusMiles;
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -190,10 +199,11 @@ export default function DiscoverTab() {
       if (mode === 'manual') setChecking(true);
 
       try {
-        const result = await fetchDiscoverFeed(uid);
+        const result = await fetchDiscoverFeed(uid, { radiusMiles: radiusRef.current });
         if (seq !== fetchSeqRef.current) return;
         setDeck(result.dogs);
         setRadiusApplied(result.radiusApplied);
+        setBeyondRadiusCount(result.beyondRadiusCount);
         setIndex(0);
         if (mode === 'manual') setLikeCount(0);
         // Only a completed query counts as a check — a failed one must not be
@@ -214,6 +224,27 @@ export default function DiscoverTab() {
 
   const loadDeckRef = useRef(loadDeck);
   loadDeckRef.current = loadDeck;
+
+  // The radius picked last time on this phone; reload if it differs from the default.
+  useEffect(() => {
+    let active = true;
+    loadDiscoverRadius().then((miles) => {
+      if (!active || miles === radiusRef.current) return;
+      radiusRef.current = miles;
+      setRadiusMiles(miles);
+      void loadDeckRef.current('manual');
+    });
+    return () => { active = false; };
+  }, []);
+
+  function changeRadius(miles: number) {
+    if (miles === radiusRef.current) return;
+    radiusRef.current = miles;
+    setRadiusMiles(miles);
+    saveDiscoverRadius(miles);
+    trackEvent('discover_radius_changed', { miles });
+    void loadDeckRef.current('manual');
+  }
 
   // First load for this account, then a silent reload whenever something the
   // deck depends on changes: stored coords landing (so the radius filter
@@ -545,7 +576,9 @@ export default function DiscoverTab() {
             profile={profile}
             deckTotal={deck.length}
             radiusApplied={radiusApplied}
-            radiusMiles={DEFAULT_DISCOVER_RADIUS_MILES}
+            radiusMiles={radiusMiles}
+            radiusControl={radiusApplied ? <RadiusChips value={radiusMiles} onChange={changeRadius} /> : null}
+            beyondRadiusCount={radiusApplied ? beyondRadiusCount : 0}
             checking={checking}
             lastCheckedLabel={lastCheckedAt !== null ? formatClockTime(lastCheckedAt) : null}
             onCheckAgain={handleCheckAgain}
@@ -568,7 +601,29 @@ export default function DiscoverTab() {
         </ScrollView>
       ) : (
         <>
-          <StickerHeader title="Who wants to play?" style={styles.header} />
+          {/* Discover is the home tab, so it carries the logo, as the empty state and the website do. */}
+          <StickerHeader
+            title="Who wants to play?"
+            leading={<BrandLogo height={28} />}
+            right={
+              radiusApplied ? (
+                <Pressable
+                  onPress={() => setShowRadius((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Search radius ${radiusMiles} miles. Change`}
+                  style={styles.radiusPill}
+                >
+                  <Text style={styles.radiusPillText}>{radiusMiles} mi ▾</Text>
+                </Pressable>
+              ) : undefined
+            }
+            style={styles.header}
+          />
+          {showRadius && radiusApplied ? (
+            <View style={styles.radiusRow}>
+              <RadiusChips value={radiusMiles} onChange={(miles) => { setShowRadius(false); changeRadius(miles); }} />
+            </View>
+          ) : null}
 
           <VisibilityNotice show={!!profile && profileComplete && !isPubliclyDiscoverable(profile)} onPress={openProfileTab} />
 
@@ -730,6 +785,9 @@ function VisibilityNotice({ show, onPress }: { show: boolean; onPress: () => voi
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sky },
   header: { paddingTop: 6 },
+  radiusPill: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.paper, justifyContent: 'center' },
+  radiusPillText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  radiusRow: { paddingHorizontal: 16, paddingBottom: 6 },
 
   gate: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, gap: 22 },
   gateCard: {
