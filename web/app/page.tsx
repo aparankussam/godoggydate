@@ -137,11 +137,11 @@ export default function HomePage() {
 
             <div className="absolute -right-3.5 -top-7 z-[4] w-40 rotate-[4deg] overflow-hidden rounded-[9px] border-2 border-brown bg-paper text-center shadow-[0_3px_0_rgba(42,31,74,0.28)]">
               <p className="bg-brown px-0 pb-1 pt-[3px] text-xs font-black leading-[1.2] tracking-[0.3px] text-paper">Kaju&apos;s Dogtype</p>
-              <p className="whitespace-nowrap px-1 pt-1 font-display text-[19px] leading-[1.05]">The Zoomie Menace</p>
+              <p className="whitespace-nowrap px-1 pt-1 font-display text-[20px] leading-[1.05]">The Zoomie Menace</p>
               <p className="px-1.5 pb-[5px] pt-px text-[13px] font-extrabold leading-[1.2] text-brown-mid">Maximum dog.</p>
             </div>
 
-            <p className="absolute -right-2 top-[247px] z-[3] m-0 -rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12.5px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)] lg:top-[295px]">
+            <p className="absolute -right-2 top-[247px] z-[3] m-0 -rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)] lg:top-[295px]">
               Sample card
             </p>
 
@@ -163,7 +163,7 @@ export default function HomePage() {
             </div>
             <p className="m-0 pb-1.5 pt-[3px] text-center">
               <span className="block font-display text-[20px] leading-[1.05]">Your dog?</span>
-              <span className="block text-[12.5px] font-black leading-[15px]">Dogtype: ?</span>
+              <span className="block text-[12px] font-black leading-[15px]">Dogtype: ?</span>
             </p>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => handleCTA('hero_primary')}
-                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[25px] leading-none tracking-[0.3px]"
+                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[26px] leading-none tracking-[0.3px]"
               >
                 Open the app
                 <Chevron />
@@ -195,14 +195,14 @@ export default function HomePage() {
               <Link
                 href="/quiz?ref=hero"
                 onClick={() => trackEvent('cta_click', { source: 'hero_quiz', signed_in: false })}
-                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[25px] leading-none tracking-[0.3px]"
+                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[26px] leading-none tracking-[0.3px]"
               >
                 Find your dog&apos;s Dogtype
                 <Chevron />
               </Link>
             )}
             {!signedIn && (
-              <p className="absolute -right-1 -top-[15px] m-0 rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12.5px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)]">
+              <p className="absolute -right-1 -top-[15px] m-0 rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)]">
                 Free · 90 seconds, no signup
               </p>
             )}
@@ -218,7 +218,7 @@ export default function HomePage() {
       <section aria-label="What to know" className="rounded-t-[22px] border-t-[2.5px] border-brown bg-paper px-5 pb-6 pt-[18px]">
         <ul className="mx-auto w-fit max-w-full list-none p-0">
           {trust.map((t) => (
-            <li key={t} className="flex items-center gap-2.5 text-[15.5px] font-extrabold leading-[30px] text-brown">
+            <li key={t} className="flex items-center gap-2.5 text-[15px] font-extrabold leading-[30px] text-brown">
               <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />
               {t}
             </li>

@@ -28,7 +28,7 @@ interface Props {
 // Comedy-club palette, literal hex for faithful html2canvas capture.
 const STAGE = '#241014'; // deep brick-red house
 const STAGE_2 = '#3A1A18';
-const SPOT = '#F5B731'; // spotlight gold
+const SPOT = '#FFC56B'; // spotlight gold
 const CREAM = '#FFF9EC';
 const CREAM_SOFT = '#E9D9C6';
 const PRIMARY = '#FF5C8D';

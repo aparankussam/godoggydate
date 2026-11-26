@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
   soundChipLocked: { opacity: 0.55 },
   soundEmoji: { fontSize: 22 },
   soundLabel: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
-  soundLock: { fontFamily: fonts.bold, fontSize: 11, color: colors.brownMid },
+  soundLock: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid },
   container: { flex: 1, backgroundColor: colors.sky },
   header: {
     flexDirection: 'row',

@@ -95,7 +95,7 @@ export default async function OpengraphImage({ params }: { params: { slug: strin
                 borderRadius: 999,
                 padding: '8px 20px',
                 marginBottom: 24,
-                color: '#F5B731',
+                color: '#FFC56B',
                 fontSize: 24,
                 fontWeight: 700,
               }}

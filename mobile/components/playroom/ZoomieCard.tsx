@@ -13,19 +13,26 @@ interface Props {
   glyph: GlyphName;
   thumb?: ReactNode;
   active?: boolean;
+  /** Not tried yet: a small corner tag, instead of the old Collar grid. */
+  isNew?: boolean;
   onPress: () => void;
   accessibilityLabel?: string;
 }
 
-export default function ZoomieCard({ label, glimpse, glyph, thumb, active, onPress, accessibilityLabel }: Props) {
+export default function ZoomieCard({ label, glimpse, glyph, thumb, active, isNew, onPress, accessibilityLabel }: Props) {
   return (
     <Pressable
       style={({ pressed }) => [styles.card, active && styles.active, pressed && styles.pressed]}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? `${label}. ${glimpse}`}
+      accessibilityLabel={accessibilityLabel ?? (isNew ? `${label}, not tried yet. ${glimpse}` : `${label}. ${glimpse}`)}
       onPress={onPress}
     >
-      <View style={styles.icon}>{thumb ?? <Glyph name={glyph} size={22} />}</View>
+      {isNew && (
+        <View style={styles.tag} accessibilityElementsHidden>
+          <Text style={styles.tagText}>New</Text>
+        </View>
+      )}
+      <View style={styles.icon}>{thumb ?? <Glyph name={glyph} size={26} />}</View>
       <Text style={styles.label} numberOfLines={2}>{label}</Text>
       <Text style={styles.glimpse} numberOfLines={3}>{glimpse}</Text>
     </Pressable>
@@ -48,7 +55,9 @@ const styles = StyleSheet.create({
   },
   active: { backgroundColor: colors.note },
   pressed: { transform: [{ translateY: 1 }], opacity: 0.92 },
+  tag: { position: 'absolute', top: -6, right: -6, backgroundColor: colors.rose, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, zIndex: 1 },
+  tagText: { fontFamily: fonts.black, fontSize: 10, color: colors.cream, letterSpacing: 0.3 },
   icon: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.note, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   label: { fontFamily: fonts.display, fontSize: 18, lineHeight: 21, color: colors.ink },
-  glimpse: { fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid },
+  glimpse: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, color: colors.brownMid },
 });

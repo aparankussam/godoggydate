@@ -1,6 +1,6 @@
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -222,7 +222,7 @@ export default function WelcomeScreen() {
               showAgreeHint && !agreed && styles.checkboxAlert,
             ]}
           >
-            {agreed && <Ionicons name="checkmark-sharp" size={18} color={colors.paper} />}
+            {agreed && <MaterialCommunityIcons name="check-bold" size={18} color={colors.paper} />}
           </Pressable>
           <Text style={styles.agreeText} onPress={toggleAgreed}>
             I&apos;m 18 or older and agree to the{' '}
@@ -252,7 +252,7 @@ export default function WelcomeScreen() {
 
           <SecondaryButton
             label="Sign in with Google"
-            icon={<Ionicons name="logo-google" size={18} color={colors.ink} />}
+            icon={<MaterialCommunityIcons name="google" size={18} color={colors.ink} />}
             onPress={handleGooglePress}
             disabled={!googleConfigured || authBusy}
             style={!agreed && googleConfigured && !authBusy && styles.buttonDim}
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   },
   trustText: {
     fontFamily: fonts.bold,
-    fontSize: 15.5,
+    fontSize: 15,
     lineHeight: 30,
     color: colors.ink,
   },

@@ -14,7 +14,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import type { UserCredential } from 'firebase/auth';
-import { deleteField, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { deleteField, doc, getDoc, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { getFirebase } from '../shared/utils/firebase';
 import {
   isProfileComplete,
@@ -235,4 +235,10 @@ export async function saveUserDogProfile(
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(PROFILE_SAVED_EVENT));
   }
+}
+
+/** Memorial mode on (a 'YYYY-MM-DD' date) or off (null). One field, so nothing else on the profile is rewritten. */
+export async function setMemorial(uid: string, since: string | null): Promise<void> {
+  const { db } = getFirebase();
+  await updateDoc(doc(db, 'dogs', uid), { memorialSince: since });
 }

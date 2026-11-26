@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import { PaperCard, PrimaryButton, SkyBackground, StickerDog, StickerHeader } from '../../components/sticker';
 import {
@@ -258,14 +258,14 @@ export default function MatchesTab() {
                         hitSlop={6}
                         style={styles.suggest}
                       >
-                        <Ionicons name="calendar" size={14} color={colors.ink} />
+                        <MaterialCommunityIcons name="calendar" size={14} color={colors.ink} />
                         <Text style={styles.suggestText}>Suggest a playdate</Text>
                       </Pressable>
                     ) : null}
                   </View>
                   <View style={[styles.chatCoin, !match.chatUnlocked && styles.chatCoinLocked]}>
-                    <Ionicons
-                      name={match.chatUnlocked ? 'chatbubble' : 'lock-closed'}
+                    <MaterialCommunityIcons
+                      name={match.chatUnlocked ? 'chat' : 'lock'}
                       size={19}
                       color={colors.ink}
                     />
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   rowTopSpacer: { flex: 1 },
   dogName: {
     fontFamily: fonts.display,
-    fontSize: 21,
+    fontSize: 22,
     lineHeight: 25,
     color: colors.ink,
     flexShrink: 1,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   breed: {
     flexShrink: 1,
     fontFamily: fonts.bold,
-    fontSize: 13.5,
+    fontSize: 13,
     color: colors.brownMid,
   },
   newTag: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 8,
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.note,
   },
-  suggestText: { fontFamily: fonts.black, fontSize: 12.5, color: colors.ink },
+  suggestText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   lastMessageBold: { fontFamily: fonts.black, color: colors.ink },
   chatCoin: {
     width: 44,

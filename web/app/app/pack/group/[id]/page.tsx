@@ -27,6 +27,7 @@ import type { PackGroup, PackGroupFrequency } from '../../../../../../shared/pac
 import PackDayCard from '../../../../../components/PackDayCard';
 import SignInGate from '../../../../../components/SignInGate';
 import { PawIcon } from '../../../../../components/PackDayFlyer';
+import { Icon } from '../../../../../components/icons';
 
 const MEMBER_PREVIEW = 40;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -161,8 +162,8 @@ export default function PackGroupPage() {
       <div className="p-4 lg:max-w-2xl lg:mx-auto lg:px-8 lg:py-8 space-y-5">
         <section className="card px-5 py-4 space-y-2">
           <h2 className="font-display text-[28px] leading-tight text-brown break-words">{group.name}</h2>
-          <p className="text-[15px] font-black text-brown">📅 {packGroupScheduleLabel(group)}</p>
-          <p className="text-[15px] font-black text-brown">📍 {group.placeName}, {group.city}</p>
+          <p className="text-[15px] font-black text-brown"><Icon name="calendar" /> {packGroupScheduleLabel(group)}</p>
+          <p className="text-[15px] font-black text-brown"><Icon name="map-marker" /> {group.placeName}, {group.city}</p>
           {group.tags.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
               {group.tags.map((t) => <li key={t} className="rounded-full border-2 border-brown bg-note px-2.5 py-0.5 text-[13px] font-black text-brown">{t}</li>)}

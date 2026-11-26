@@ -21,6 +21,7 @@
 import Link from 'next/link';
 import BrandLogo from './BrandLogo';
 import { usePathname } from 'next/navigation';
+import { Icon } from './icons';
 
 interface Props {
   /** New matches not opened yet plus chats with an unread message: one number,
@@ -36,69 +37,18 @@ interface Props {
   hideBottomBar?: boolean;
 }
 
-type TabIcon = 'paw' | 'tree' | 'heart' | 'ball' | 'dog';
+type TabIcon = 'paw' | 'tree' | 'heart' | 'puzzle' | 'dog';
 
 const TABS = [
   { href: '/app',           label: 'Discover',  icon: 'paw'   as TabIcon },
   { href: '/app/pack',      label: 'Pack Days', icon: 'tree'  as TabIcon },
   { href: '/app/matches',  label: 'Matches',   icon: 'heart' as TabIcon, badge: 'unreadMatches'  as const },
-  { href: '/app/fun',       label: 'Playroom',  icon: 'ball'  as TabIcon },
+  { href: '/app/fun',       label: 'Playroom',  icon: 'puzzle' as TabIcon },
   { href: '/app/profile',   label: 'Pupfile',   icon: 'dog'   as TabIcon },
 ] as const;
 
 /** The only destination that works without a dog of your own. */
 const HOUSEHOLD_TABS = TABS.filter((tab) => tab.href === '/app/profile');
-
-/** Filled chunky icons from the design kit. They take the surrounding text
- *  colour (ink normally, paper on the selected ink pill); the small "holes"
- *  on the speech bubble and dog face use the `hole` colour. */
-function TabGlyph({ icon, size = 24, hole }: { icon: TabIcon; size?: number; hole: string }) {
-  const common = { 'aria-hidden': true as const, width: size, height: size, viewBox: '0 0 24 24', className: 'block flex-none' };
-  switch (icon) {
-    case 'paw':
-      return (
-        <svg {...common} fill="currentColor">
-          <ellipse cx="5.2" cy="10.4" rx="2.1" ry="2.8" transform="rotate(-20 5.2 10.4)" />
-          <ellipse cx="9.3" cy="5.9" rx="2.2" ry="3" transform="rotate(-8 9.3 5.9)" />
-          <ellipse cx="14.7" cy="5.9" rx="2.2" ry="3" transform="rotate(8 14.7 5.9)" />
-          <ellipse cx="18.8" cy="10.4" rx="2.1" ry="2.8" transform="rotate(20 18.8 10.4)" />
-          <path d="M12 11.2c-3.3 0-6.1 2.9-6.1 5.9 0 2 1.5 3.1 3.3 3.1 1.1 0 1.9-.5 2.8-.5s1.7.5 2.8.5c1.8 0 3.3-1.1 3.3-3.1 0-3-2.8-5.9-6.1-5.9z" />
-        </svg>
-      );
-    case 'tree':
-      return (
-        <svg {...common} fill="currentColor">
-          <circle cx="12" cy="5.8" r="4.3" /><circle cx="7.2" cy="7.8" r="4" /><circle cx="16.8" cy="7.8" r="4" />
-          <circle cx="5.8" cy="12" r="3.9" /><circle cx="18.2" cy="12" r="3.9" /><circle cx="12" cy="11" r="5.5" />
-          <path d="M10.3 14h3.4v5.3l2.6 3.2H7.7l2.6-3.2z" />
-        </svg>
-      );
-    case 'heart':
-      return (
-        <svg {...common} fill="currentColor">
-          <path d="M12 21s-8.5-5.2-8.5-11.5A4.8 4.8 0 0 1 12 6.5a4.8 4.8 0 0 1 8.5 3C20.5 15.8 12 21 12 21z" />
-        </svg>
-      );
-    case 'ball':
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="9.5" fill="currentColor" />
-          <path d="M3.5 9.2c5.2 1.2 11.8 1.2 17 0M3.5 14.8c5.2-1.2 11.8-1.2 17 0" stroke={hole} strokeWidth="1.7" fill="none" strokeLinecap="round" />
-        </svg>
-      );
-    case 'dog':
-      return (
-        <svg {...common}>
-          <ellipse cx="4.9" cy="10.5" rx="3.1" ry="5.6" transform="rotate(16 4.9 10.5)" fill="currentColor" />
-          <ellipse cx="19.1" cy="10.5" rx="3.1" ry="5.6" transform="rotate(-16 19.1 10.5)" fill="currentColor" />
-          <ellipse cx="12" cy="12.5" rx="7.3" ry="8" fill="currentColor" />
-          <circle cx="9.2" cy="10.8" r="1.25" fill={hole} /><circle cx="14.8" cy="10.8" r="1.25" fill={hole} />
-          <ellipse cx="12" cy="15.8" rx="3.6" ry="2.9" fill={hole} />
-          <ellipse cx="12" cy="14.9" rx="1.6" ry="1.15" fill="currentColor" />
-        </svg>
-      );
-  }
-}
 
 /** Shared by both nav forms so a count never renders differently between them.
  *  Ink with a paper ring: readable on paper and on the selected ink pill. */
@@ -148,7 +98,7 @@ export default function AppNav({ unreadMatches = 0, householdOnly = false, hideB
                   active ? 'bg-brown text-cream' : 'text-brown hover:bg-cream-dark'
                 }`}
               >
-                <TabGlyph icon={tab.icon} hole={active ? '#2A1F4A' : '#FFF9EC'} />
+                <Icon name={tab.icon} size={24} />
                 <span className={`flex-1 text-[15px] ${active ? 'font-black' : 'font-extrabold'}`}>
                   {tab.label}
                 </span>
@@ -181,7 +131,7 @@ export default function AppNav({ unreadMatches = 0, householdOnly = false, hideB
                   active ? 'bg-brown text-cream' : 'text-brown'
                 }`}
               >
-                <TabGlyph icon={tab.icon} size={active ? 20 : 24} hole={active ? '#2A1F4A' : '#FFF9EC'} />
+                <Icon name={tab.icon} size={active ? 22 : 25} />
                 <Badge count={count} className="absolute -top-2 -right-1" />
               </span>
               {tab.label}

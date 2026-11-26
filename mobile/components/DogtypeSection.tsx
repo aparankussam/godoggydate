@@ -18,6 +18,7 @@ import DogtypeStoryCard from './DogtypeStoryCard';
 import { computeDogtype } from '../../shared/dogtype';
 import type { SavedDogProfile } from '../lib/profile';
 import { resolveHeroIndex } from '../lib/coverPhoto';
+import Chevron from './Chevron';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -137,7 +138,7 @@ export default function DogtypeSection({ savedProfile, embedded = false }: Props
 
       {/* How the type was read — the four real axes */}
       <Pressable onPress={() => setShowAxes((v) => !v)}>
-        <Text style={styles.disclosureToggle}>{showAxes ? 'Hide the read ▲' : 'How we read this ▼'}</Text>
+        <Text style={styles.disclosureToggle}>{showAxes ? 'Hide the read' : 'How we read this'} <Chevron open={showAxes} color={styles.disclosureToggle.color} /></Text>
       </Pressable>
       {showAxes && (
         <View style={styles.axesList}>

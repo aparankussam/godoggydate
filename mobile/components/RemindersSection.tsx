@@ -17,6 +17,9 @@ import { askForMedAlarms, syncMedAlarms } from '../lib/medAlarms';
 interface Props {
   dogId: string;
   reminders: Reminder[];
+  /** Owner only: offered after a reminder is removed, in case that is why. */
+  dogName?: string;
+  onPassedAway?: () => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -40,9 +43,10 @@ const DOSE_TIMES: { label: string; hour: number }[] = [
 const dueLabel = reminderDueLabel;
 
 // The usual ones, offered as one-tap starters (never pre-made: a fake due date could be trusted).
-const QUICK_ADD_TYPES: ReminderType[] = ['heartworm', 'flea_tick', 'rabies', 'vet_visit', 'grooming'];
+const QUICK_ADD_TYPES: ReminderType[] = ['heartworm', 'flea_tick', 'rabies', 'vet_visit', 'microchip_check', 'grooming'];
 
-export default function RemindersSection({ dogId, reminders }: Props) {
+export default function RemindersSection({ dogId, reminders, dogName, onPassedAway }: Props) {
+  const [removedOne, setRemovedOne] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [presetType, setPresetType] = useState<ReminderType>('heartworm');
   const [customLabel, setCustomLabel] = useState('');
@@ -160,6 +164,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
     setBusyId(reminder.id);
     try {
       await deleteReminder(dogId, reminder.id);
+      setRemovedOne(true);
     } catch {
       setBusyId(null);
     }
@@ -346,6 +351,11 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           </View>
         );
       })}
+      {removedOne && onPassedAway ? (
+        <Pressable accessibilityRole="button" onPress={onPassedAway} style={styles.passedRow}>
+          <Text style={styles.passedText}>Stopping these because {dogName} passed away?</Text>
+        </Pressable>
+      ) : null}
       {!showAdd && quickAdd.length > 0 && (
         <View style={styles.quickAdd}>
           <Text style={styles.quickAddLabel}>Quick add</Text>
@@ -461,5 +471,7 @@ const styles = StyleSheet.create({
   },
   doneBtnText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   deleteBtn: { paddingHorizontal: 4 },
+  passedRow: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14 },
+  passedText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brownMid, textDecorationLine: 'underline' },
   deleteBtnText: { fontSize: 18, color: colors.brownMid },
 });

@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   },
   rowMain: { flex: 1, minWidth: 0 },
   rowLabel: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
-  rowDue: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.brownMid, marginTop: 2 },
+  rowDue: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 2 },
   rowDueUrgent: { fontFamily: fonts.black, color: colors.ink },
   muted: { flex: 1, fontFamily: fonts.bold, fontSize: 13, color: colors.brownMid, lineHeight: 18 },
   nextUpLabel: { fontFamily: fonts.black, color: colors.ink },
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     fontFamily: fonts.bold,
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.ink,
     textDecorationLine: 'underline',
   },

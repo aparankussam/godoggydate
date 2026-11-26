@@ -25,7 +25,7 @@ interface Props {
 
 // Same palettes as web's StoryShareCard themes (solid gradients only).
 const GRADIENTS = {
-  spark: { colors: ['#7A2E0E', '#FF5C8D', '#F5B731'] as const, locations: [0, 0.55, 1] as const },
+  spark: { colors: ['#7A2E0E', '#FF5C8D', '#FFC56B'] as const, locations: [0, 0.55, 1] as const },
   zen: { colors: ['#241A2E', '#4A3F6E', '#C98A5E'] as const, locations: [0, 0.5, 1] as const },
 };
 

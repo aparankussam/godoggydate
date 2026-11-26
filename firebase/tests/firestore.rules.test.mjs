@@ -734,6 +734,46 @@ describe('lost dog alert', () => {
     await assertFails(getDoc(doc(signedOut(), 'lostAlerts/alert1abc')));
   });
 
+  it('takes where the dog went missing as a plain lat/lng pin', async () => {
+    await assertFails(openAlert(google('a'), 'a', 'alert1abc', { lostLat: 'near the park', lostLng: -83.1 }));
+    await assertFails(openAlert(google('a'), 'a', 'alert1abc', { lostLat: 120, lostLng: -83.1 }));
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc', { lostLat: 42.6, lostLng: -83.15 }));
+  });
+
+  /** A household member raising the alert for the owner's dog: the alert and the owner's pointer. */
+  async function openAlertFor(db, ownerId, alertId, raisedBy) {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'lostAlerts', alertId), alertDoc(ownerId, raisedBy ? { raisedBy } : {}));
+    batch.set(doc(db, 'lostActive', ownerId), { alertId, createdAt: serverTimestamp() });
+    await batch.commit();
+  }
+
+  it('a household member (sitter) can raise and close the alert for the dog they mind', async () => {
+    await seed((db) => setDoc(doc(db, 'dogs/a'), { name: 'Waffles', householdMemberIds: ['sitter'] }));
+    await assertSucceeds(openAlertFor(google('sitter'), 'a', 'alert1abc', 'sitter'));
+    await assertSucceeds(closeAlert(google('sitter'), 'a', 'alert1abc'));
+  });
+
+  it('nobody outside the household can raise it, and raisedBy must be the caller', async () => {
+    await seed((db) => setDoc(doc(db, 'dogs/a'), { name: 'Waffles', householdMemberIds: ['sitter'] }));
+    await assertFails(openAlertFor(google('b'), 'a', 'alert1abc', 'b'));
+    await assertFails(openAlertFor(google('sitter'), 'a', 'alert1abc', 'b'));
+    await assertFails(openAlertFor(google('sitter'), 'a', 'alert1abc', undefined));
+    await assertFails(openAlert(google('a'), 'a', 'alert1abc', { raisedBy: 'a' }));
+  });
+
+  it('"I am helping look": a member adds and removes only their own helper doc, while the alert is open', async () => {
+    await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
+    const helper = (db, uid) => doc(db, `lostAlerts/alert1abc/helpers/${uid}`);
+    await assertFails(setDoc(helper(google('b'), 'c'), { createdAt: serverTimestamp() }));
+    await assertFails(setDoc(helper(google('b'), 'b'), { createdAt: serverTimestamp(), note: 'hi' }));
+    await assertSucceeds(setDoc(helper(google('b'), 'b'), { createdAt: serverTimestamp() }));
+    await assertSucceeds(getDoc(helper(google('a'), 'b')));
+    await assertSucceeds(deleteDoc(helper(google('b'), 'b')));
+    await assertSucceeds(closeAlert(google('a'), 'a', 'alert1abc'));
+    await assertFails(setDoc(helper(google('b'), 'b'), { createdAt: serverTimestamp() }));
+  });
+
   it('sightings (exact pins, finder contact) are readable by the owner only and never writable', async () => {
     await assertSucceeds(openAlert(google('a'), 'a', 'alert1abc'));
     await seed((db) => setDoc(doc(db, 'lostAlerts/alert1abc/sightings/s1'), { message: 'Seen', lat: 42.28, lng: -83.74 }));

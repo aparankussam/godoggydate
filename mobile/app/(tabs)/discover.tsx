@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import SwipeCard, { type SwipeCardRef } from '../../components/SwipeCard';
 import DiscoverEmpty from '../../components/discover/DiscoverEmpty';
@@ -60,6 +60,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '../../lib/firebase';
 import type { SavedDogProfile } from '../../lib/profile';
 import * as Haptics from 'expo-haptics';
+import Chevron from '../../components/Chevron';
 
 /**
  * Minimum gap between automatic deck refreshes (the tab regaining focus, the
@@ -521,6 +522,16 @@ export default function DiscoverTab() {
     );
   }
 
+  if (profile?.memorialSince) {
+    return (
+      <DiscoverGate
+        title={`In loving memory of ${profile.name}`}
+        body={`${profile.name} is out of Discover. Their Pupfile, photos and letters are still here whenever you want them.`}
+        action={<PrimaryButton label={`Open ${profile.name}'s Pupfile`} onPress={() => router.push('/(tabs)/profile')} icon={<PawIcon size={22} />} />}
+      />
+    );
+  }
+
   if (!profileComplete) {
     return (
       <DiscoverGate
@@ -613,7 +624,7 @@ export default function DiscoverTab() {
                   accessibilityLabel={`Search radius ${radiusMiles} miles. Change`}
                   style={styles.radiusPill}
                 >
-                  <Text style={styles.radiusPillText}>{radiusMiles} mi ▾</Text>
+                  <Text style={styles.radiusPillText}>{radiusMiles} mi <Chevron /></Text>
                 </Pressable>
               ) : undefined
             }
@@ -671,7 +682,7 @@ export default function DiscoverTab() {
                   accessibilityLabel={`Pass on ${topDog!.name}`}
                 >
                   <View pointerEvents="none" style={styles.sideEdge} />
-                  <Ionicons name="close" size={24} color={colors.ink} style={styles.sideIcon} />
+                  <MaterialCommunityIcons name="close" size={24} color={colors.ink} style={styles.sideIcon} />
                   <Text style={styles.sideText}>Pass</Text>
                 </Pressable>
               </Animated.View>
@@ -776,7 +787,7 @@ function VisibilityNotice({ show, onPress }: { show: boolean; onPress: () => voi
       </Text>
       <View style={styles.noticeCta}>
         <Text style={styles.noticeCtaText}>Edit profile</Text>
-        <Ionicons name="chevron-forward" size={14} color={colors.ink} />
+        <MaterialCommunityIcons name="chevron-right" size={14} color={colors.ink} />
       </View>
     </Pressable>
   );
@@ -844,7 +855,7 @@ const styles = StyleSheet.create({
   },
   swipeErrorText: {
     fontFamily: fonts.black,
-    fontSize: 13.5,
+    fontSize: 13,
     lineHeight: 18,
     color: colors.ink,
     textAlign: 'center',
@@ -888,7 +899,7 @@ const styles = StyleSheet.create({
   },
   sideEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 5, backgroundColor: colors.border },
   sideIcon: { marginBottom: -1 },
-  sideText: { fontFamily: fonts.black, fontSize: 12.5, lineHeight: 15, color: colors.ink },
+  sideText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.ink },
   woofWrap: { flex: 1 },
   woofBtn: {
     height: 54,
@@ -910,7 +921,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
     fontFamily: fonts.bold,
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 16,
     color: colors.ink,
   },

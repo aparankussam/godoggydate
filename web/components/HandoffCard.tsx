@@ -20,6 +20,7 @@ import type { SavedDogProfile } from '../lib/auth';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../lib/photos';
 import type { Reminder } from '../../shared/types';
 import ShareLogo from './ShareLogo';
+import { Icon } from './icons';
 
 interface Props {
   profile: SavedDogProfile;
@@ -65,7 +66,7 @@ function capitalize(value?: string): string | undefined {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-t border-border px-5 py-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-brown-light">{title}</p>
+      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-brown-light">{title}</p>
       <div className="mt-2">{children}</div>
     </div>
   );
@@ -80,7 +81,7 @@ function TagList({ tags }: { tags: string[] }) {
       {tags.map((tag) => (
         <span
           key={tag}
-          className="rounded-full border-2 border-brown bg-paper px-2.5 py-1 text-xs font-bold text-brown"
+          className="rounded-full border-2 border-brown bg-paper px-2.5 py-1 text-[14px] font-bold text-brown"
         >
           {tag}
         </span>
@@ -135,24 +136,29 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photo} alt={profile.name} className="w-full h-full object-cover" style={{ objectPosition: getHeroFocus(profile) }} />
           ) : (
-            <span className="text-3xl">🐕</span>
+            <Icon name="dog" size={32} className="text-brown" />
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-rose">
+          <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-rose">
             Care sheet
           </p>
           <p className="font-display text-2xl text-brown leading-tight truncate">{profile.name}</p>
-          {identity && <p className="text-xs text-brown-light truncate">{identity}</p>}
+          {identity && <p className="text-[14px] text-brown-light">{identity}</p>}
         </div>
       </div>
 
       {/* Owner-declared safety. Both lists print verbatim; when the owner
           declared nothing we say exactly that, rather than implying this dog
           is fine with everyone — an empty answer is not a clearance. */}
+      {behaviorFlags.includes('escape artist') && (
+        <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-[14px] font-black leading-snug text-red-700">
+          ⚠️ Escape artist: watch doors and gates, and check the leash and collar before every walk.
+        </p>
+      )}
       <Section title="What the owner flagged">
         {declaredNothing ? (
-          <p className="text-xs leading-relaxed text-brown-mid">
+          <p className="text-[14px] leading-relaxed text-brown-mid">
             The owner didn&apos;t flag anything here. That means nothing was declared — not that
             nothing applies.
           </p>
@@ -160,13 +166,13 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
           <div className="flex flex-col gap-3">
             {notGoodWith.length > 0 && (
               <div>
-                <p className="mb-1.5 text-xs font-semibold text-brown-mid">Not a good match with</p>
+                <p className="mb-1.5 text-[14px] font-semibold text-brown-mid">Not a good match with</p>
                 <TagList tags={notGoodWith} />
               </div>
             )}
             {behaviorFlags.length > 0 && (
               <div>
-                <p className="mb-1.5 text-xs font-semibold text-brown-mid">Good to know before meeting</p>
+                <p className="mb-1.5 text-[14px] font-semibold text-brown-mid">Good to know before meeting</p>
                 <TagList tags={behaviorFlags} />
               </div>
             )}
@@ -181,21 +187,21 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
       <Section title="Vaccination">
         {vaccinated === false ? (
           <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5">
-            <p className="text-xs font-bold text-red-700">Owner marked: NOT vaccinated</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-red-700/80">
+            <p className="text-[14px] font-bold text-red-700">Owner marked: NOT vaccinated</p>
+            <p className="mt-0.5 text-[13px] leading-relaxed text-red-700/80">
               Ask before any contact with other dogs.
             </p>
           </div>
         ) : vaccinated === true ? (
           <div className="rounded-xl border-2 border-brown bg-paper px-3 py-2.5">
-            <p className="text-xs font-bold text-brown">Owner marked: vaccinated</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
+            <p className="text-[14px] font-bold text-brown">Owner marked: vaccinated</p>
+            <p className="mt-0.5 text-[13px] leading-relaxed text-brown-light">
               Self-reported. No record was checked — ask for paperwork if you need it.
             </p>
           </div>
         ) : (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-            <p className="text-xs font-bold text-amber-800">Vaccination status not stated</p>
+            <p className="text-[14px] font-bold text-amber-800">Vaccination status not stated</p>
           </div>
         )}
       </Section>
@@ -209,8 +215,8 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
               const due = dueText(r.dueDate);
               return (
                 <div key={r.id} className="flex items-baseline justify-between gap-3">
-                  <span className="text-xs font-semibold text-brown truncate">{r.label}</span>
-                  <span className={`text-[11px] shrink-0 ${due.urgent ? 'font-bold text-red-600' : 'text-brown-light'}`}>
+                  <span className="text-[14px] font-semibold text-brown truncate">{r.label}</span>
+                  <span className={`text-[13px] shrink-0 ${due.urgent ? 'font-bold text-red-600' : 'text-brown-light'}`}>
                     {due.text}
                   </span>
                 </div>
@@ -224,13 +230,13 @@ export default function HandoffCard({ profile, reminders = [], innerRef }: Props
           screenshotted and forwarded, and it has to keep saying this after it
           leaves the app. */}
       <div className="border-t-2 border-brown bg-cream-dark px-5 py-3.5">
-        <p className="text-[11px] leading-relaxed text-brown-light">
+        <p className="text-[13px] leading-relaxed text-brown-light">
           GoDoggyDate does not verify any of this. Everything above is what {profile.name}&apos;s
           owner wrote about their own dog.
         </p>
         <div className="mt-2 flex items-center justify-between">
           <ShareLogo height={26} />
-          <p className="text-[10px] text-brown-light">godoggydate.com</p>
+          <p className="text-[12px] text-brown-light">godoggydate.com</p>
         </div>
       </div>
     </div>

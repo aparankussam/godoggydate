@@ -107,6 +107,21 @@ export function makeCityFeedFunctions({ db, sendLimitedPush }: CityFeedDeps) {
       createdAtMs: now,
       expiresAtMs: postExpiresAtMs(template, now),
     });
+    // "Found a Pup" meets "Lost dog": every owner with an open alert in this city
+    // hears about it straight away, so the two sides of a reunion find each other.
+    if (template === 'found_dog' && city) {
+      try {
+        const open = await db.collection('lostAlerts').where('city', '==', city).where('status', '==', 'active').limit(20).get();
+        const owners = [...new Set(open.docs.map((d) => d.get('ownerId')).filter((o): o is string => typeof o === 'string' && o !== uid))];
+        await Promise.all(owners.map((owner) => sendLimitedPush(owner, {
+          title: `🔎 A neighbor found a dog near ${place || city}`,
+          body: 'Could it be yours? Open Neighbarkhood to see the post.',
+          data: { type: 'cityPost', postId: ref.id, link: 'https://godoggydate.com/app/pack?view=feed' },
+        }, 'urgent').catch(() => false)));
+      } catch (err) {
+        console.warn('found dog: could not notify lost-dog owners', err); // the post itself stands
+      }
+    }
     return { postId: ref.id };
   });
 

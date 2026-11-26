@@ -11,13 +11,14 @@ import { onAuthStateChanged } from '../../../../lib/auth';
 import type { User } from '../../../../lib/auth';
 import AuthModal from '../../../../components/AuthModal';
 import { acceptHouseholdInvite } from '../../../../lib/household';
+import { Icon } from '../../../../components/icons';
 
 export default function HouseholdJoinPage() {
   // useSearchParams() opts the page out of static rendering unless wrapped
   // in Suspense — without this, `next build` fails prerendering this route
   // entirely (caught building this feature, not a pre-existing issue).
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><span className="text-4xl animate-spin">🐾</span></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Icon name="paw" size={40} className="animate-spin text-brown" /></div>}>
       <HouseholdJoinContent />
     </Suspense>
   );
@@ -63,7 +64,7 @@ function HouseholdJoinContent() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 gap-6">
-      <span className="text-5xl">🐾</span>
+      <Icon name="paw" size={48} className="text-brown" />
       <div className="text-center max-w-xs">
         <p className="font-display text-2xl text-brown">Join a household</p>
         <p className="mt-2 text-sm font-semibold text-brown">
@@ -76,7 +77,7 @@ function HouseholdJoinContent() {
           <p className="font-display text-xl text-brown">You&apos;re in! 🐾</p>
         </div>
       ) : authLoading ? (
-        <span className="text-3xl animate-spin">🐾</span>
+        <Icon name="paw" size={32} className="animate-spin text-brown" />
       ) : !authUser ? (
         <>
           <button onClick={() => setShowAuthModal(true)} className="btn-primary px-8 py-3 shadow-lg">

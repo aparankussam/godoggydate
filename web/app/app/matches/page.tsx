@@ -8,8 +8,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   collection, query, where, getDocs,
-  doc, getDoc,
+  doc, getDoc, orderBy, limit,
 } from 'firebase/firestore';
+import { formatPlaydateWhen } from '../../../../shared/playdates';
 import { getFirebase } from '../../../shared/utils/firebase';
 import { onAuthStateChanged } from '../../../lib/auth';
 import type { User } from '../../../lib/auth';
@@ -27,6 +28,7 @@ import type { DogtypeDogMap, DogtypeLedger } from '../../../../shared/progress';
 import SignInGate from '../../../components/SignInGate';
 import GrowPackCard, { GROW_PACK_BELOW } from '../../../components/GrowPackCard';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../../../../shared/utils/stripe';
+import { Icon } from '../../../components/icons';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,10 +49,21 @@ interface MatchDoc {
   unread: boolean;
 }
 
+/** The newest message in a thread. The match doc only holds a placeholder. */
+interface LastMessage {
+  text?: string;
+  fromUserId?: string;
+  senderId?: string;
+  type?: 'playdate_proposal' | 'playdate_confirmed';
+  playdate?: { date: string; time?: string | null };
+  moderated?: boolean;
+}
+
 interface MatchWithProfile extends MatchDoc {
   otherUserId:  string;
   otherDogId:   string;
   otherProfile: SavedDogProfile | null;
+  preview: LastMessage | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -102,14 +115,28 @@ function relativeTime(seconds: number | null | undefined): string | null {
   return `${Math.floor(days / 365)}y ago`;
 }
 
-/** Preview line for a match that has activity. The stored lastMessage is a
- *  constant placeholder ('New message') and message text is deliberately NOT
- *  copied into the match doc (privacy), so attribute the sender + relative
- *  time instead of surfacing the meaningless constant. */
+/** Who wrote last, and what. Same wording as the iPhone list (lastMessageLine
+ *  in mobile/lib/matches.ts); "sent a message" when it couldn't be read. */
 function messagePreview(m: MatchWithProfile, selfUid: string, otherName: string): string {
-  const rel = relativeTime(m.lastMessageTime?.seconds);
-  const sender = m.lastMessageFromUid && m.lastMessageFromUid === selfUid ? 'You' : otherName;
-  return rel ? `${sender} sent a message · ${rel}` : `${sender} sent a message`;
+  const p = m.preview;
+  const from = p?.fromUserId ?? p?.senderId ?? m.lastMessageFromUid;
+  const who = from && from === selfUid ? 'You' : otherName;
+  if (!p) return `${who} sent a message`;
+  if (p.moderated) return `${who}: Message removed`;
+  if (p.type === 'playdate_proposal' && p.playdate) return `${who} proposed a playdate for ${formatPlaydateWhen(p.playdate)}`;
+  if (p.type === 'playdate_confirmed' && p.playdate) return `${who} confirmed the playdate for ${formatPlaydateWhen(p.playdate)}`;
+  const text = typeof p.text === 'string' ? p.text.replace(/\s+/g, ' ').trim() : '';
+  return text ? `${who}: ${text}` : `${who} sent a message`;
+}
+
+async function fetchLastMessage(matchId: string): Promise<LastMessage | null> {
+  try {
+    const { db } = getFirebase();
+    const snap = await getDocs(query(collection(db, 'matches', matchId, 'messages'), orderBy('createdAt', 'desc'), limit(1)));
+    return (snap.docs[0]?.data() as LastMessage | undefined) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
@@ -176,7 +203,9 @@ async function fetchMatchesForUser(uid: string): Promise<MatchWithProfile[]> {
           gone = true;
         }
       } catch { /* offline — proceed without profile */ }
-      return { ...m, otherUserId, otherDogId, otherProfile, gone };
+      // A locked chat shows no message text.
+      const preview = m.lastMessage && m.chatUnlocked ? await fetchLastMessage(m.matchId) : null;
+      return { ...m, otherUserId, otherDogId, otherProfile, preview, gone };
     }),
   );
 
@@ -273,7 +302,7 @@ export default function MatchesPage() {
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
-        <span className="text-4xl animate-spin">🐾</span>
+        <Icon name="paw" size={40} className="animate-spin text-brown" />
       </div>
     );
   }
@@ -287,8 +316,8 @@ export default function MatchesPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header: a paper strip with an ink rule, like the chat header */}
-      <header className="sticky top-0 z-40 bg-cream border-b-2 border-brown px-5 h-14 flex items-center">
+      {/* Header: the title on the sky, like every other tab */}
+      <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center">
         <h1 className="font-display text-[26px] leading-none text-brown">Matches</h1>
       </header>
 
@@ -308,7 +337,7 @@ export default function MatchesPage() {
         {/* Error */}
         {error && !loading && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <span className="text-4xl" aria-hidden="true">😕</span>
+            <Icon name="help-circle" size={40} className="text-brown" />
             <p className="text-brown-mid text-sm font-bold">{error}</p>
             <button
               onClick={() => {
@@ -324,7 +353,7 @@ export default function MatchesPage() {
         {/* Empty state */}
         {!loading && !error && matches.length === 0 && (
           <div className="card rounded-[2rem] px-6 py-10 flex flex-col items-center justify-center gap-4 text-center">
-            <span className="text-6xl" aria-hidden="true">🐾</span>
+            <Icon name="paw" size={60} className="text-brown" />
             <p className="font-display text-2xl text-brown">No matches yet</p>
             <p className="text-brown-mid text-sm font-semibold max-w-xs leading-relaxed">
               A match happens when you and another dog parent both like each other&apos;s dogs.
@@ -373,7 +402,7 @@ export default function MatchesPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={photo} alt={name} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-4xl" aria-hidden="true">🐕</span>
+                        <Icon name="dog" size={36} className="text-brown" />
                       )}
                     </Link>
                     {/* Unread dot on the photo's corner, as on iPhone. */}
@@ -388,10 +417,14 @@ export default function MatchesPage() {
                   {/* Info + chat icon — link to the chat thread. */}
                   <Link href={`/app/messages/${m.matchId}`} className="flex-1 min-w-0 flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className={`font-display text-brown text-xl leading-tight truncate ${m.unread ? 'underline decoration-primary decoration-[3px] underline-offset-4' : ''}`}>
-                        {name}
-                        {m.unread && <span className="sr-only"> (unread messages)</span>}
-                      </p>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className={`min-w-0 font-display text-brown text-xl leading-tight truncate ${m.unread ? 'underline decoration-primary decoration-[3px] underline-offset-4' : ''}`}>
+                          {name}
+                          {m.unread && <span className="sr-only"> (unread messages)</span>}
+                        </p>
+                        {/* Time at the top right, as on iPhone, so it is never cut off. */}
+                        {hasLastMsg && <span className="shrink-0 text-xs font-bold text-brown-mid">{relativeTime(m.lastMessageTime?.seconds)}</span>}
+                      </div>
                       <div className="flex items-center gap-2">
                         <p className="min-w-0 text-sm font-bold text-brown-mid truncate">{breed}</p>
                         {(newType || !hasLastMsg) && (
@@ -418,7 +451,7 @@ export default function MatchesPage() {
                         m.chatUnlocked ? 'bg-cream' : 'bg-cream-dark'
                       }`}
                     >
-                      {m.chatUnlocked ? '💬' : '🔒'}
+                      <Icon name={m.chatUnlocked ? 'chat' : 'lock'} size={22} className="text-brown" />
                     </div>
                   </Link>
                 </div>
@@ -428,7 +461,7 @@ export default function MatchesPage() {
                     href={`/app/messages/${m.matchId}?plan=1`}
                     className="ml-3 inline-flex min-h-[36px] items-center gap-1.5 self-start rounded-full border-2 border-brown bg-note px-3 text-xs font-black text-brown"
                   >
-                    📅 Suggest a playdate with {name}
+                    <Icon name="calendar" size={16} /> Suggest a playdate with {name}
                   </Link>
                 )}
                 </div>

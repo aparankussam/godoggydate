@@ -6,19 +6,21 @@
 import { Children, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../../constants/theme';
+import { Glyph, type GlyphName } from '../pack/kit';
+import Chevron from '../Chevron';
 
 const VISIBLE = 4;
 
 interface Props {
   title: string;
-  emoji: string;
+  icon: GlyphName;
   tint: string;
   // 'grid' = 2-column cards (tilted like stickers); 'stack' = full-width rows.
   layout: 'grid' | 'stack';
   children: ReactNode;
 }
 
-export default function ToyBox({ title, emoji, tint, layout, children }: Props) {
+export default function ToyBox({ title, icon, tint, layout, children }: Props) {
   const [all, setAll] = useState(false);
   const items = Children.toArray(children);
   const extra = items.length - VISIBLE;
@@ -26,7 +28,7 @@ export default function ToyBox({ title, emoji, tint, layout, children }: Props) 
   return (
     <View style={[styles.box, { backgroundColor: tint }]}>
       <View style={styles.head}>
-        <Text style={styles.emoji} accessible={false}>{emoji}</Text>
+        <View style={styles.icon}><Glyph name={icon} size={28} /></View>
         <Text style={styles.title} accessibilityRole="header">{title}</Text>
       </View>
       <View style={layout === 'grid' ? styles.grid : styles.stack}>
@@ -43,7 +45,7 @@ export default function ToyBox({ title, emoji, tint, layout, children }: Props) 
           accessibilityState={{ expanded: all }}
           onPress={() => setAll((v) => !v)}
         >
-          <Text style={styles.moreText}>{all ? 'Show less ▲' : `Show all ${items.length} ▼`}</Text>
+          <Text style={styles.moreText}>{all ? 'Show less' : `Show all ${items.length}`} <Chevron open={all} /></Text>
         </Pressable>
       )}
     </View>
@@ -56,7 +58,7 @@ const styles = StyleSheet.create({
     shadowColor: colors.ink, shadowOpacity: 0.14, shadowOffset: { width: 0, height: 6 }, shadowRadius: 0,
   },
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  emoji: { fontSize: 28, transform: [{ rotate: '-6deg' }] },
+  icon: { transform: [{ rotate: '-6deg' }] },
   title: { fontFamily: fonts.display, fontSize: 26, lineHeight: 30, color: colors.ink },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   cell: { width: '48%', flexGrow: 1 },

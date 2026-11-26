@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import type { DogArchetype } from '../../shared/types';
+import { Icon } from './icons';
 
 interface Props {
   archetype: DogArchetype;
@@ -32,7 +33,7 @@ export default function VibeTypeCard({ archetype }: Props) {
           <p className="font-display text-lg text-brown leading-tight truncate">{archetype.name}</p>
           <p className="text-[11px] text-brown-light">Tap to see why</p>
         </div>
-        <span className="shrink-0 text-brown-light text-sm">{expanded ? '▲' : '▼'}</span>
+        <span className="shrink-0 text-brown-light text-sm"><Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={20} /></span>
       </div>
 
       {expanded && (

@@ -1,6 +1,6 @@
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import ProfileEditor from '../components/ProfileEditor';
@@ -70,7 +70,7 @@ export default function OnboardingScreen() {
 
         {householdOnly ? (
           <Pressable style={styles.householdLinkRow} onPress={() => router.replace('/household')}>
-            <Ionicons name="chevron-back" size={16} color={colors.ink} />
+            <MaterialCommunityIcons name="chevron-left" size={16} color={colors.ink} />
             <Text style={styles.householdLink}>Back to your household</Text>
           </Pressable>
         ) : showJoin ? (

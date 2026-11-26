@@ -14,7 +14,7 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, type ReactNode } from 'react';
 import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
 import CompatBreakdown from './CompatBreakdown';
 import type { DiscoverDog } from '../lib/discover';
@@ -152,7 +152,7 @@ function MatchModalContent({
             <PrimaryButton
               label={`Say hi to ${dog.name}`}
               onPress={onSayHi}
-              icon={<Ionicons name="chatbubble-ellipses" size={24} color={colors.ink} />}
+              icon={<MaterialCommunityIcons name="chat-processing" size={24} color={colors.ink} />}
             />
           )}
           {showPitch && <Text style={styles.pitch}>{getChatUnlockPitch()}</Text>}
@@ -183,7 +183,7 @@ function MatchModalContent({
         <View style={styles.bothRow}>
           <Text style={styles.bothText}>You both said WOOF.</Text>
           <View style={styles.distancePill}>
-            <Ionicons name="location-sharp" size={14} color={colors.ink} />
+            <MaterialCommunityIcons name="map-marker" size={14} color={colors.ink} />
             <Text style={styles.distanceText} numberOfLines={1}>
               {distanceSummary}
             </Text>
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     transform: [{ rotate: '-1.5deg' }],
   },
-  distanceText: { flexShrink: 1, fontFamily: fonts.black, fontSize: 13.5, lineHeight: 17, color: colors.ink },
+  distanceText: { flexShrink: 1, fontFamily: fonts.black, fontSize: 13, lineHeight: 17, color: colors.ink },
 
   polaroids: { marginTop: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 8 },
   polaroidTape: { top: -6, left: '50%', marginLeft: -38, zIndex: 5 },
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     color: colors.ink,
   },
-  polaroidSub: { textAlign: 'center', fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 16, color: colors.brownMid },
+  polaroidSub: { textAlign: 'center', fontFamily: fonts.bold, fontSize: 12, lineHeight: 16, color: colors.brownMid },
 
   fitRow: { marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   fitSticker: {
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   fitNum: { fontFamily: fonts.display, fontSize: 32, lineHeight: 32, color: colors.ink },
-  fitLabel: { fontFamily: fonts.black, fontSize: 12, lineHeight: 13, color: colors.ink, textAlign: 'center' },
+  fitLabel: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.ink, textAlign: 'center' },
   reasonNote: {
     flexShrink: 1,
     marginLeft: -8,
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
     transform: [{ rotate: '1.5deg' }],
   },
-  reasonNoteText: { fontFamily: fonts.black, fontSize: 13.5, lineHeight: 19, color: colors.ink },
+  reasonNoteText: { fontFamily: fonts.black, fontSize: 13, lineHeight: 19, color: colors.ink },
 
   slip: {
     marginTop: 16,
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 4,
   },
-  slipTitle: { fontFamily: fonts.black, fontSize: 15.5, lineHeight: 20, color: colors.ink, marginBottom: 6 },
+  slipTitle: { fontFamily: fonts.black, fontSize: 15, lineHeight: 20, color: colors.ink, marginBottom: 6 },
   bullet: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
   bulletAmber: {
     backgroundColor: colors.amber,
@@ -536,12 +536,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
-  bulletText: { flex: 1, fontFamily: fonts.bold, fontSize: 14.5, lineHeight: 21, color: colors.ink },
+  bulletText: { flex: 1, fontFamily: fonts.bold, fontSize: 15, lineHeight: 21, color: colors.ink },
   bulletStrong: { fontFamily: fonts.black },
   link: { fontFamily: fonts.black, textDecorationLine: 'underline' },
-  slipSmall: { marginTop: 6, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid },
+  slipSmall: { marginTop: 6, fontFamily: fonts.bold, fontSize: 12, lineHeight: 17, color: colors.brownMid },
   mathBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
-  mathText: { fontFamily: fonts.black, fontSize: 12.5, color: colors.brownMid, textDecorationLine: 'underline' },
+  mathText: { fontFamily: fonts.black, fontSize: 12, color: colors.brownMid, textDecorationLine: 'underline' },
 
   inlineCtas: { marginTop: 18, gap: 10 },
   footer: {

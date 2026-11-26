@@ -18,7 +18,7 @@ import { openReportSheet } from '../../lib/reports';
 import { breedConfidencePhrase } from '../../lib/vibeCheck';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 import { getRenderablePhotos } from '../../lib/photos';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import VibeTypeCard from '../../components/VibeTypeCard';
 import DogtypeRevealCard from '../../components/DogtypeRevealCard';
 import { effectiveCode, loadDiscoveries, loadDogSnapshots, loadRevealed, markDiscoverySeen, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
@@ -28,7 +28,7 @@ import { PrimaryButton, SkyBackground, StickerDog, Tape } from '../../components
 import { colors, fonts } from '../../constants/theme';
 import type { SavedDogProfile } from '../../lib/profile';
 import { foundingBadgeLabel } from '../../../shared/founding';
-import { uniqueTemperament } from '../../../shared/temperament';
+import { uniqueTemperament, sentenceCase } from '../../../shared/temperament';
 
 // Mirrors mobile/components/SwipeCard.tsx's heroIndexFor — the photo this
 // screen should open on: the owner's cover pick (or AI hero), clamped to the
@@ -188,7 +188,7 @@ export default function MatchedDogProfileScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.ink} />
+          <MaterialCommunityIcons name="chevron-left" size={26} color={colors.ink} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>{profile.name}&apos;s profile</Text>
         {otherUserId && (
@@ -199,7 +199,7 @@ export default function MatchedDogProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Report or block ${profile.name}`}
           >
-            <Ionicons name="ellipsis-horizontal" size={22} color={colors.ink} />
+            <MaterialCommunityIcons name="dots-horizontal" size={22} color={colors.ink} />
           </Pressable>
         )}
       </View>
@@ -309,7 +309,7 @@ export default function MatchedDogProfileScreen() {
               <Text style={styles.sectionLabel}>Play style</Text>
               <View style={styles.tagRow}>
                 {profile.playStyles!.map((p) => (
-                  <View key={p} style={styles.tag}><Text style={styles.tagText}>{p}</Text></View>
+                  <View key={p} style={styles.tag}><Text style={styles.tagText}>{sentenceCase(p)}</Text></View>
                 ))}
               </View>
             </View>
@@ -317,7 +317,7 @@ export default function MatchedDogProfileScreen() {
 
           <PrimaryButton
             label={`Message ${profile.name}`}
-            icon={<Ionicons name="chatbubble" size={20} color={colors.ink} />}
+            icon={<MaterialCommunityIcons name="chat" size={20} color={colors.ink} />}
             onPress={() => router.push({ pathname: '/chat/[matchId]', params: { matchId: resolvedMatchId ?? '', name: profile.name } })}
             style={styles.messageBtn}
           />
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   foundingBadgeText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
   vibeSection: { marginTop: 18, gap: 10 },
-  aiLabel: { fontFamily: fonts.black, fontSize: 12.5, color: colors.ink, marginBottom: 2, paddingHorizontal: 2 },
+  aiLabel: { fontFamily: fonts.black, fontSize: 12, color: colors.ink, marginBottom: 2, paddingHorizontal: 2 },
   bio: { fontFamily: fonts.bold, fontSize: 15, fontStyle: 'italic', color: colors.ink, lineHeight: 21, paddingHorizontal: 2 },
   about: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink, lineHeight: 21, paddingHorizontal: 2 },
   muttMeter: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, paddingHorizontal: 2 },

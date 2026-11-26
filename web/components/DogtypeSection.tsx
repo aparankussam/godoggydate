@@ -18,6 +18,7 @@ import { computeDogtype } from '../../shared/dogtype';
 import { loadRevealed, markRevealed, onDiscoveriesChange } from '../lib/dogtypeDiscovery';
 import ScaleToFit from './ScaleToFit';
 import { ShareIcon } from './StickerBits';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -111,7 +112,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
         >
           <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-[3px] border-dashed border-brown-mid bg-cream-dark font-display text-3xl text-brown-mid" aria-hidden="true">?</span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Dogtype</span>
+            <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-rose">Dogtype</span>
             <span className="block font-display text-xl leading-tight text-brown">Tap to reveal {dogName}&apos;s Dogtype</span>
             <span className="block text-[13px] font-semibold text-brown-mid">A shareable card, read from their real profile.</span>
           </span>
@@ -140,7 +141,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
       >
         <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-[3px] border-brown bg-gold-light text-3xl" aria-hidden="true">{dogtype.emoji}</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-rose">{dogName} is</span>
+          <span className="block text-[12px] font-bold uppercase tracking-[0.16em] text-rose">{dogName} is</span>
           <span className="block font-display text-2xl leading-tight text-brown">{dogtype.name}</span>
           <span className="block font-hand text-xl leading-tight text-brown">{dogtype.tagline}</span>
         </span>
@@ -208,7 +209,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
         <div className="mt-2 space-y-2">
           {dogtype.axes.map((a) => (
             <div key={a.key} className="flex items-center gap-2 text-sm">
-              <span className="w-24 shrink-0 text-[11px] font-bold uppercase tracking-wide text-brown-light">
+              <span className="w-24 shrink-0 text-[12px] font-bold uppercase tracking-wide text-brown-light">
                 {a.axis}
               </span>
               <span className="font-semibold text-brown">
@@ -217,7 +218,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
               <span className="text-brown-light text-xs">over {a.other.label}</span>
             </div>
           ))}
-          <p className="text-[11px] text-brown-light leading-snug">
+          <p className="text-[12px] text-brown-light leading-snug">
             Read from what you told us — energy, play style, sociability, and temperament. It never changes on
             its own; update the profile and it updates with you. A playful identity, not a clinical test.
           </p>
@@ -232,7 +233,7 @@ export default function DogtypeSection({ savedProfile, userId }: Props) {
         onClick={() => setOpen((v) => !v)}
         className="mt-1 flex min-h-[44px] w-full items-center justify-center text-sm font-black text-rose"
       >
-        {open ? 'Show less ▲' : `See ${dogName}'s full Dogtype ▼`}
+        {open ? 'Show less' : `See ${dogName}'s full Dogtype`} <Icon name={open ? 'chevron-up' : 'chevron-down'} />
       </button>
 
       {/* Off-screen 9:16 story card — rendered for html2canvas capture only. */}

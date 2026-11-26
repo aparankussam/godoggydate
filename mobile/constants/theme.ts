@@ -48,7 +48,7 @@ export const fonts = {
   displaySemibold: 'Chewy_400Regular',
   hand: 'Caveat_700Bold',             // one handwritten owner line, never buttons
   body: 'Nunito_400Regular',
-  semibold: 'Nunito_700Bold',
+  semibold: 'Nunito_800ExtraBold',  // same as bold: 400 body, 800 labels, 900 buttons
   bold: 'Nunito_800ExtraBold',
   black: 'Nunito_900Black',
 };

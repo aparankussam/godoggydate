@@ -26,7 +26,7 @@ const BarkleResultCard = forwardRef<View, Props>(({ puzzleNumber, results, won }
   return (
     <View ref={ref} collapsable={false} style={styles.card}>
       <LinearGradient
-        colors={won ? ['#7A2E0E', '#FF5C8D', '#F5B731'] : ['#241A2E', '#4A3F6E', '#4D4373']}
+        colors={won ? ['#7A2E0E', '#FF5C8D', '#FFC56B'] : ['#241A2E', '#4A3F6E', '#4D4373']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}

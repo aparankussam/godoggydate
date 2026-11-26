@@ -6,6 +6,7 @@
 
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   limit,
@@ -22,6 +23,7 @@ import { getFirebase } from '../shared/utils/firebase';
 import { absoluteUrl } from './site';
 import { lostPageUrl, type LostAlert, type LostKit } from '../../shared/lostDog';
 
+import { coarsenPin } from '../../shared/lostDog';
 export { lostFacts, medicineNeeds, LOST_LIMITS } from '../../shared/lostDog';
 export type { LostAlert, LostKit } from '../../shared/lostDog';
 
@@ -92,16 +94,23 @@ export interface NewAlertInput {
   lastSeen?: string;
   city?: string;
   state?: string;
+  /** Where the dog went missing, if the owner shared it: neighbors around it are told first. */
+  lostPin?: { lat: number; lng: number } | null;
+  /** A household member raising the alert for the owner's dog: the owner's uid. */
+  forOwnerId?: string;
 }
 
 /** Opens the alert and its one-active pointer in a single batch (the rules need both together). */
 export async function createLostAlert(uid: string, input: NewAlertInput): Promise<string> {
+  // The dog doc id is the owner's uid; a sitter raises it for that dog and is recorded as raisedBy.
+  const ownerId = input.forOwnerId || uid;
   const { db } = getFirebase();
   const ref = doc(collection(db, 'lostAlerts'));
   const clean = (v?: string) => (v?.trim() ? v.trim() : undefined);
   const data: Record<string, unknown> = {
-    ownerId: uid,
-    dogId: uid,
+    ownerId,
+    dogId: ownerId,
+    ...(ownerId !== uid ? { raisedBy: uid } : {}),
     dogName: input.dogName.trim().slice(0, 60) || 'My dog',
     microchipped: input.microchipped,
     medicines: input.medicines.slice(0, 5),
@@ -110,10 +119,12 @@ export async function createLostAlert(uid: string, input: NewAlertInput): Promis
   };
   const optional = { breed: clean(input.breed), size: clean(input.size), markings: clean(input.markings), photoUrl: clean(input.photoUrl), lastSeen: clean(input.lastSeen), city: clean(input.city), state: clean(input.state) };
   for (const [k, v] of Object.entries(optional)) if (v) data[k] = v;
+  const pin = input.lostPin ? coarsenPin(input.lostPin.lat, input.lostPin.lng) : null;
+  if (pin) { data.lostLat = pin.lat; data.lostLng = pin.lng; }
 
   const batch = writeBatch(db);
   batch.set(ref, data);
-  batch.set(doc(db, 'lostActive', uid), { alertId: ref.id, createdAt: serverTimestamp() });
+  batch.set(doc(db, 'lostActive', ownerId), { alertId: ref.id, createdAt: serverTimestamp() });
   await batch.commit();
   return ref.id;
 }
@@ -159,4 +170,24 @@ export function onSightings(alertId: string, callback: (s: Sighting[]) => void):
     })),
     () => callback([]),
   );
+}
+
+// ── "I'm helping look" ────────────────────────────────────────────────────────
+// One doc per helper at lostAlerts/{id}/helpers/{uid}, holding only a timestamp.
+
+/** Live count of neighbors helping, and whether `uid` is one of them. */
+export function onHelpers(alertId: string, uid: string | undefined, callback: (h: { count: number; mine: boolean }) => void): () => void {
+  const { db } = getFirebase();
+  return onSnapshot(
+    collection(db, 'lostAlerts', alertId, 'helpers'),
+    (snap) => callback({ count: snap.size, mine: !!uid && snap.docs.some((d) => d.id === uid) }),
+    () => callback({ count: 0, mine: false }),
+  );
+}
+
+export async function setHelping(alertId: string, uid: string, helping: boolean): Promise<void> {
+  const { db } = getFirebase();
+  const ref = doc(db, 'lostAlerts', alertId, 'helpers', uid);
+  if (helping) await setDoc(ref, { createdAt: serverTimestamp() });
+  else await deleteDoc(ref);
 }

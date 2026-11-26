@@ -13,6 +13,7 @@ import {
   getUserDogProfile,
   isProfileComplete,
   saveUserDogProfile,
+  setMemorial,
 } from '../../../lib/auth';
 import { collection, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { getFirebase } from '../../../shared/utils/firebase';
@@ -34,8 +35,10 @@ import DogtypeSection from '../../../components/DogtypeSection';
 import ModerationNotice from '../../../components/ModerationNotice';
 import EarnedStickers from '../../../components/EarnedStickers';
 import { feedback } from '../../../lib/feedback';
+import { GearIcon, Icon, SirenIcon } from '../../../components/icons';
 import LostDogButton from '../../../components/LostDogButton';
 import LostKitCard from '../../../components/LostKitCard';
+import EmergencyCard from '../../../components/EmergencyCard';
 import MilestonesCard from '../../../components/MilestonesCard';
 import ProUpsellCard from '../../../components/ProUpsellCard';
 import { useProEntitlement } from '../../../lib/useProEntitlement';
@@ -59,7 +62,7 @@ import { computeDogtype } from '../../../../shared/dogtype';
 import PublicPageSwitch from '../../../components/PublicPageSwitch';
 import BlockedList from '../../../components/BlockedList';
 import FirstNameSwitch from '../../../components/FirstNameSwitch';
-import { uniqueTemperament } from '../../../../shared/temperament';
+import { uniqueTemperament, sentenceCase } from '../../../../shared/temperament';
 
 // What stops this profile from counting as complete, in plain words. Mirrors
 // the checks in shared/profile.ts isProfileComplete so the list and the status
@@ -421,6 +424,25 @@ export default function ProfilePage() {
     setEditFocus(focus);
     setShowEdit(true);
   }
+  async function toggleMemorial() {
+    if (!authUser || !savedProfile) return;
+    const on = !savedProfile.memorialSince;
+    const ok = window.confirm(on
+      ? `Mark ${savedProfile.name} as passed away?\n\n${savedProfile.name}'s Pupfile becomes a memorial. They leave Discover, and birthday and reminder notifications stop. Photos, letters and matches stay. You can undo this.`
+      : `Turn off memorial mode?\n\n${savedProfile.name} comes back to Discover and notifications start again.`);
+    if (!ok) return;
+    const since = on ? new Date().toISOString().slice(0, 10) : null;
+    try {
+      await setMemorial(authUser.uid, since);
+      trackEvent('memorial_mode', { on });
+      setSavedProfile((prev) => (prev ? { ...prev, memorialSince: since } : prev));
+      setConfirmDelete(false);
+      setSheet(null);
+    } catch {
+      window.alert('That didn’t save. Please try again.');
+    }
+  }
+
   function closeEdit() {
     setShowEdit(false);
     setEditFocus(null);
@@ -470,7 +492,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
-        <span className="text-4xl animate-spin">🐾</span>
+        <Icon name="paw" size={40} className="animate-spin text-brown" />
       </div>
     );
   }
@@ -605,6 +627,16 @@ export default function ProfilePage() {
               </button>
             ) : (
               <div className="px-4 py-4 rounded-b-2xl bg-cream">
+                {/* A grieving owner may be about to erase everything: offer the memorial first. */}
+                {savedProfile && !savedProfile.memorialSince && (
+                  <div className="mb-3 rounded-xl border-2 border-brown bg-note p-3">
+                    <p className="text-sm font-bold text-brown">Has {savedProfile.name} passed away?</p>
+                    <p className="mt-1 text-xs leading-relaxed text-brown">You can keep their photos and letters as a memorial instead of deleting everything.</p>
+                    <button type="button" onClick={toggleMemorial} disabled={deleting} className="btn-secondary mt-2 px-4 py-2 text-xs disabled:opacity-50">
+                      Keep as a memorial
+                    </button>
+                  </div>
+                )}
                 <p className="text-sm font-semibold text-brown">Delete your account permanently?</p>
                 <p className="mt-1 text-xs leading-relaxed text-brown-mid">
                   This removes your dog&apos;s profile, all matches, messages, and swipe history.
@@ -660,26 +692,16 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center">
         <h1 className="font-display text-[26px] leading-none text-brown">Pupfile</h1>
         {authUser && (
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex items-center gap-1.5">
             {/* Panic first: one tap from the Pupfile to the lost-dog alert. */}
-            {savedProfile && <LostDogButton uid={authUser.uid} dogName={savedProfile.name?.trim() || 'Your dog'} compact />}
-            {savedProfile && (
-              <button
-                type="button"
-                onClick={() => setSheet('share')}
-                aria-label="Share the card and public page"
-                className="flex h-11 w-11 items-center justify-center rounded-full border-[2.5px] border-b-4 border-brown bg-paper text-lg text-brown"
-              >
-                📤
-              </button>
-            )}
+            {savedProfile && !savedProfile.memorialSince && <LostDogButton uid={authUser.uid} dogName={savedProfile.name?.trim() || 'Your dog'} compact />}
             <button
               type="button"
               onClick={() => setSheet('settings')}
               aria-label="Settings and account"
-              className="flex h-11 w-11 items-center justify-center rounded-full border-[2.5px] border-b-4 border-brown bg-paper text-lg text-brown"
+              className="flex h-11 w-11 items-center justify-center text-brown"
             >
-              ⚙️
+              <GearIcon />
             </button>
           </div>
         )}
@@ -710,7 +732,7 @@ export default function ProfilePage() {
             flashed "No profile yet" before its own view replaced it. */}
         {!savedProfile && !householdChecked && (
           <div className="flex justify-center py-12">
-            <span className="text-4xl animate-spin">🐾</span>
+            <Icon name="paw" size={40} className="animate-spin text-brown" />
           </div>
         )}
 
@@ -743,6 +765,13 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
+                  {/* Many dogs go missing with a sitter: the household can raise the alert too. */}
+                  <Link
+                    href={`/app/lost/now?dog=${dog.dogId}`}
+                    className="mb-3 flex min-h-[48px] items-center justify-center rounded-full border-2 border-brown bg-red-600 px-4 font-display text-[18px] text-white"
+                  >
+                    <SirenIcon size={18} /> {dog.profile.name || 'This dog'} is lost
+                  </Link>
                   <RemindersSection
                     dogId={dog.dogId}
                     reminders={householdReminders[dog.dogId] ?? []}
@@ -756,7 +785,7 @@ export default function ProfilePage() {
         {/* No profile yet — and not in anyone's household either. */}
         {!savedProfile && householdChecked && householdDogs.length === 0 && (
           <div className="flex flex-col items-center gap-4 py-12 text-center">
-            <span className="text-6xl">🐾</span>
+            <Icon name="paw" size={60} className="text-brown" />
             <p className="font-display text-2xl text-brown">No profile yet</p>
             <p className="text-brown-mid text-sm">Set up your dog&apos;s profile to start swiping.</p>
             <button onClick={() => openEdit()} className="btn-primary px-6 py-3">Create Profile</button>
@@ -788,7 +817,7 @@ export default function ProfilePage() {
                   />
                 </button>
               ) : (
-                <div className="flex aspect-[4/3] w-full items-center justify-center bg-note text-7xl" aria-hidden="true">🐕</div>
+                <div className="flex aspect-[4/3] w-full items-center justify-center bg-note text-7xl" aria-hidden="true"><Icon name="dog" size={72} /></div>
               )}
 
               <div className="flex flex-col gap-3 px-5 pb-5 pt-4">
@@ -808,7 +837,7 @@ export default function ProfilePage() {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={url} alt="" className="h-full w-full object-cover" />
                         {i === coverIndex && (
-                          <span className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brown text-[11px] text-paper" aria-hidden="true">★</span>
+                          <span className="absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brown text-[12px] text-paper" aria-hidden="true"><Icon name="star" size={13} /></span>
                         )}
                       </button>
                     ))}
@@ -816,10 +845,10 @@ export default function ProfilePage() {
                 )}
                 {photos.length > 1 && (
                   safeActive === coverIndex ? (
-                    <p className="text-[13px] font-bold text-brown-mid">★ This is {name}&apos;s cover photo. Edit the Pupfile to change what part shows.</p>
+                    <p className="text-[13px] font-bold text-brown-mid"><Icon name="star" size={14} /> This is {name}&apos;s cover photo. Edit the Pupfile to change what part shows.</p>
                   ) : (
                     <button type="button" onClick={() => makeCover(safeActive)} disabled={savingCover} className="btn-secondary self-start px-4 py-2 text-sm disabled:opacity-60">
-                      {savingCover ? 'Saving…' : '★ Make this the cover photo'}
+                      {savingCover ? 'Saving…' : <><Icon name="star" /> Make this the cover photo</>}
                     </button>
                   )
                 )}
@@ -827,7 +856,8 @@ export default function ProfilePage() {
 
                 <div className="flex items-center gap-3">
                   <h2 className="min-w-0 flex-1 truncate font-display text-3xl leading-tight text-brown">{savedProfile.name}</h2>
-                  <button type="button" onClick={() => openEdit()} className="btn-secondary px-4 py-2 text-sm">✏️ Edit</button>
+                  <button type="button" onClick={() => openEdit()} className="btn-secondary px-4 py-2 text-sm"><Icon name="pencil" /> Edit</button>
+                  <button type="button" onClick={() => setSheet('share')} aria-label="Share the card and public page" className="btn-secondary px-4 py-2 text-sm"><Icon name="export-variant" /> Share</button>
                 </div>
                 <p className="text-sm text-brown-mid">
                   {dogSummaryLine(savedProfile)}
@@ -846,24 +876,24 @@ export default function ProfilePage() {
                       type="button"
                       onClick={() => { setSection('dogtype'); menuRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                       aria-label={`${ownType.name}. Open the Dogtype section`}
-                      className="inline-flex items-center gap-1.5 rounded-full border-2 border-brown bg-note px-3 py-1.5 text-xs font-extrabold text-brown"
+                      className="inline-flex items-center gap-1.5 rounded-full border-2 border-brown bg-cream px-3 py-1.5 text-xs font-extrabold text-brown"
                     >
-                      <span aria-hidden="true">✦</span> {ownType.name}
+                      <Icon name="creation" size={14} className="text-rose" /> {ownType.name}
                     </button>
                   )}
                   {(typeof savedProfile.foundingPackNumber === 'number' || hasLifetime) && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-brown px-3 py-1.5 text-xs font-bold text-cream">
-                      {foundingBadgeLabel(savedProfile.foundingPackNumber)}
+                      <Icon name="star" size={14} className="text-gold" /> {foundingBadgeLabel(savedProfile.foundingPackNumber).replace('⭐ ', '')}
                     </span>
                   )}
                   {bestFriendName && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-brown bg-cream px-3 py-1.5 text-xs font-bold text-brown">
-                      ⭐ Best Friends with {bestFriendName}
+                    <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-brown bg-cream px-3 py-1.5 text-xs font-extrabold text-brown">
+                      <Icon name="star" size={14} className="text-amber-spine" /> Best Friends with {bestFriendName}
                     </span>
                   )}
                   {showsMeetAgain(savedProfile) && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-brown bg-cream px-3 py-1.5 text-xs font-bold text-brown">
-                      🐾 {Math.round((savedProfile.meetAgainRate ?? 0) * 100)}% would meet again
+                    <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-brown bg-cream px-3 py-1.5 text-xs font-extrabold text-brown">
+                      <Icon name="paw" size={14} /> {Math.round((savedProfile.meetAgainRate ?? 0) * 100)}% would meet again
                       <span className="font-normal">({savedProfile.ratingCount} playdate{savedProfile.ratingCount === 1 ? '' : 's'} rated)</span>
                     </span>
                   )}
@@ -874,7 +904,15 @@ export default function ProfilePage() {
                   </p>
                 )}
 
-                {!complete ? (
+                {savedProfile.memorialSince ? (
+                  <div className="rounded-xl border-2 border-brown bg-note px-3 py-2.5">
+                    <p className="font-display text-[20px] leading-tight text-brown">🌈 In loving memory of {savedProfile.name}</p>
+                    <p className="text-[13px] font-bold leading-snug text-brown">Their photos, letters and friends stay here. No birthday or reminder notifications, and {savedProfile.name} is out of Discover.</p>
+                    <button type="button" onClick={toggleMemorial} className="min-h-[44px] text-[13px] font-black text-brown underline underline-offset-2">
+                      Turn off memorial mode
+                    </button>
+                  </div>
+                ) : !complete ? (
                   <p className="text-xs font-bold text-brown">
                     Profile needs a few more details
                     {missing.length > 0 ? `: ${missing.join(', ')}.` : '.'}
@@ -889,7 +927,7 @@ export default function ProfilePage() {
                 )}
                 {/* The one next step, in the photo block. Discover needs a dog of your own,
                     so a household member (no dog) is not offered it. */}
-                {!householdOnly && (
+                {!householdOnly && !savedProfile.memorialSince && (
                   complete ? (
                     <Link
                       href="/app"
@@ -949,7 +987,7 @@ export default function ProfilePage() {
                     <div className="px-4 py-3">
                       <p className="mb-2 text-sm text-brown-mid">Play style</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {savedProfile.playStyles.map((x) => (<span key={x} className="chip text-xs">{x}</span>))}
+                        {savedProfile.playStyles.map((x) => (<span key={x} className="chip text-xs">{sentenceCase(x)}</span>))}
                       </div>
                     </div>
                   )}
@@ -959,8 +997,13 @@ export default function ProfilePage() {
 
             {section === 'dates' && (
               <div className="flex flex-col gap-5">
-                <RemindersSection dogId={authUser.uid} reminders={reminders} />
-                <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} onAddDate={() => openEdit('birthday')} />
+                <RemindersSection
+                  dogId={authUser.uid}
+                  reminders={reminders}
+                  dogName={savedProfile.name}
+                  onPassedAway={savedProfile.memorialSince ? undefined : toggleMemorial}
+                />
+                {!savedProfile.memorialSince && <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} onAddDate={() => openEdit('birthday')} />}
               </div>
             )}
 
@@ -976,6 +1019,7 @@ export default function ProfilePage() {
               <div className="flex flex-col gap-5">
                 {/* Safety first: the lost-dog kit leads Care, as in the app. */}
                 {savedProfile && <LostKitCard uid={authUser.uid} dogName={savedProfile.name} />}
+                {savedProfile && <EmergencyCard />}
                 <div className="card flex flex-col items-center gap-4 rounded-[1.8rem] px-5 py-5">
                   <div className="self-start">
                     <p className="text-sm font-semibold text-brown">Handoff card</p>
@@ -985,7 +1029,7 @@ export default function ProfilePage() {
                   </div>
                   <HandoffCard profile={savedProfile} reminders={reminders} innerRef={handoffRef} />
                   <button onClick={handleShareHandoff} disabled={sharingHandoff} className="btn-secondary px-6 py-2.5 text-sm disabled:opacity-50">
-                    {sharingHandoff ? 'Rendering…' : '📤 Share the handoff card'}
+                    {sharingHandoff ? 'Rendering…' : <><Icon name="export-variant" /> Share the handoff card</>}
                   </button>
                 </div>
                 <HouseholdSection
@@ -1006,7 +1050,7 @@ export default function ProfilePage() {
                       <DogTradingCard profile={savedProfile} innerRef={cardRef} />
                     </div>
                     <button onClick={handleShareCard} disabled={sharingCard} className="btn-secondary px-6 py-2.5 text-sm disabled:opacity-50">
-                      {sharingCard ? 'Rendering…' : '📤 Share this card'}
+                      {sharingCard ? 'Rendering…' : <><Icon name="export-variant" /> Share this card</>}
                     </button>
                     <PublicPageSwitch uid={authUser.uid} dogName={savedProfile.name} enabled={savedProfile.publicPage !== false} />
                   </div>

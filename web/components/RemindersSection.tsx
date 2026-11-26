@@ -14,6 +14,9 @@ import type { Reminder, ReminderType } from '../../shared/types';
 interface Props {
   dogId: string;
   reminders: Reminder[];
+  /** Owner only: offered after a reminder is removed, in case that is why. */
+  dogName?: string;
+  onPassedAway?: () => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -29,9 +32,10 @@ function toDateInputValue(ms: number): string {
 }
 
 // The usual ones, offered as one-tap starters (never pre-made: a fake due date could be trusted).
-const QUICK_ADD_TYPES: ReminderType[] = ['heartworm', 'flea_tick', 'rabies', 'vet_visit', 'grooming'];
+const QUICK_ADD_TYPES: ReminderType[] = ['heartworm', 'flea_tick', 'rabies', 'vet_visit', 'microchip_check', 'grooming'];
 
-export default function RemindersSection({ dogId, reminders }: Props) {
+export default function RemindersSection({ dogId, reminders, dogName, onPassedAway }: Props) {
+  const [removedOne, setRemovedOne] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [presetType, setPresetType] = useState<ReminderType>('heartworm');
   const [customLabel, setCustomLabel] = useState('');
@@ -111,6 +115,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
     setBusyId(reminder.id);
     try {
       await deleteReminder(dogId, reminder.id);
+      setRemovedOne(true);
     } catch {
       setBusyId(null);
     }
@@ -253,6 +258,11 @@ export default function RemindersSection({ dogId, reminders }: Props) {
             );
           })}
         </div>
+      )}
+      {removedOne && onPassedAway && (
+        <button type="button" onClick={onPassedAway} className="min-h-[44px] w-full border-t border-border px-4 text-left text-[13px] font-semibold text-brown-mid underline underline-offset-2">
+          Stopping these because {dogName} passed away?
+        </button>
       )}
       {!showAdd && quickAdd.length > 0 && (
         <div className="border-t border-border px-4 py-3">

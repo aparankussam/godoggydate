@@ -13,6 +13,7 @@ import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
 import ApologyCard from './ApologyCard';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -90,7 +91,7 @@ export default function ApologySection({ savedProfile }: Props) {
     <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
         <p className="text-xs font-bold text-brown">Just for fun</p>
-        <h2 className="font-display text-xl text-brown leading-tight">📝 {dogName}&apos;s Notes-App Apology</h2>
+        <h2 className="font-display text-xl text-brown leading-tight"><Icon name="note-text" /> {dogName}&apos;s Notes-App Apology</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           The celebrity non-apology, but it&apos;s a dog. Tell us what they did — {dogName} will issue a formal
           statement taking absolutely no responsibility.

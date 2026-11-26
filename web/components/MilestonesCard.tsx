@@ -11,6 +11,7 @@ import { computeMilestones, type Milestone } from '../../shared/milestones';
 import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { publicDogUrl } from '../lib/dogSlug';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -18,6 +19,8 @@ interface Props {
   /** Owner view: offers "Add date" for a missing birthday or Gotcha Day (opens Edit at the dates). */
   onAddDate?: () => void;
 }
+
+const MILESTONE_ICONS = { birthday: 'cake-variant', gotcha: 'home', godoggy_anniversary: 'paw' } as const;
 
 function CelebrationCard({
   milestone,
@@ -89,9 +92,9 @@ export default function MilestonesCard({ savedProfile, userId, onAddDate }: Prop
   // Real dates only, never samples: a missing one is shown as a gap to fill.
   const missing = onAddDate
     ? [
-        !savedProfile.birthMonth && { key: 'birthday', emoji: '🎂', title: `${dogName}'s birthday` },
-        !savedProfile.adoptionDate && { key: 'gotcha', emoji: '🏠', title: 'Gotcha Day' },
-      ].filter((m): m is { key: string; emoji: string; title: string } => !!m)
+        !savedProfile.birthMonth && { key: 'birthday' as const, title: `${dogName}'s birthday` },
+        !savedProfile.adoptionDate && { key: 'gotcha' as const, title: 'Gotcha Day' },
+      ].filter((m): m is { key: 'birthday' | 'gotcha'; title: string } => !!m)
     : [];
 
   if (!celebrating && !next && missing.length === 0) return null;
@@ -126,7 +129,7 @@ export default function MilestonesCard({ savedProfile, userId, onAddDate }: Prop
       <p className="text-xs font-bold text-brown-mid">Coming up</p>
       {next && (
         <div className="mt-1 flex items-center gap-3">
-          <span className="text-2xl" aria-hidden="true">{next.emoji}</span>
+          <Icon name={MILESTONE_ICONS[next.kind]} size={24} className="text-brown" />
           <div className="min-w-0">
             <p className="text-sm font-bold text-brown truncate">{next.title}</p>
             <p className="text-xs text-brown-mid">
@@ -137,7 +140,7 @@ export default function MilestonesCard({ savedProfile, userId, onAddDate }: Prop
       )}
       {missing.map((m) => (
         <div key={m.key} className="mt-2 flex items-center gap-3">
-          <span className="text-2xl opacity-50" aria-hidden="true">{m.emoji}</span>
+          <Icon name={MILESTONE_ICONS[m.key]} size={24} className="text-brown opacity-50" />
           <p className="min-w-0 flex-1 truncate text-sm font-bold text-brown/60">{m.title}</p>
           <button type="button" onClick={onAddDate} className="min-h-[36px] rounded-full border-2 border-brown bg-cream px-3 text-xs font-black text-brown">
             Add date

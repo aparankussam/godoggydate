@@ -14,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, fonts } from '../../constants/theme';
 import { BackHeader, Gingham, Heading, Paper, PaperButton, PinkButton, Slip } from '../../components/pack/kit';
 import WantedPosterCard from '../../components/WantedPosterCard';
+import { SafetyButton } from '../../components/SafetyCard';
 import { useSession } from '../../lib/session';
 import { getHeroPhoto } from '../../lib/photos';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
@@ -30,6 +31,7 @@ import {
   medicineNeeds,
   onMyActiveAlert,
   onSightings,
+  onHelpers,
   saveLostKit,
   type LostAlert,
   type Sighting,
@@ -73,6 +75,9 @@ export default function LostDogScreen() {
     if (!active) { setSightings([]); return; }
     return onSightings(active.id, setSightings);
   }, [active?.id]);
+
+  const [helperCount, setHelperCount] = useState(0);
+  useEffect(() => (active ? onHelpers(active.id, undefined, (h) => setHelperCount(h.count)) : undefined), [active?.id]);
 
   const medicines = useMemo(() => medicineNeeds(reminders), [reminders]);
   const kitPhoto = photoUrl || heroPhoto || undefined;
@@ -187,6 +192,7 @@ export default function LostDogScreen() {
         <BackHeader title={`${active.dogName} is lost`} onBack={() => router.back()} />
         <ScrollView contentContainerStyle={styles.content}>
           <Slip tone="error">People near {active.city || 'you'} have been alerted. Share the poster to reach more neighbors.</Slip>
+          {helperCount > 0 && <Slip tone="ok">🔦 {helperCount} {helperCount === 1 ? 'neighbor is' : 'neighbors are'} helping look for {active.dogName}.</Slip>}
 
           <View style={styles.center}>
             <WantedPosterCard
@@ -262,11 +268,9 @@ export default function LostDogScreen() {
         {!profile.city ? <Slip tone="amber">Add your city to {dogName}&apos;s profile so neighbors nearby can be alerted.</Slip> : null}
 
         {/* One emergency flow: save what's here, then the one-question alert screen. */}
-        <PinkButton
+        <SafetyButton
           label="My dog is lost"
-          icon="alert-octagon"
           onPress={async () => { if (await saveKit(true)) router.push('/lost/now'); }}
-          accessibilityHint="Opens the alert: one question, then your neighbors are alerted"
         />
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.skip}><Text style={styles.skipText}>Not now</Text></Pressable>
       </ScrollView>

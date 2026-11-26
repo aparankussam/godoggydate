@@ -24,6 +24,7 @@ import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { computeWanted } from '../../shared/wanted';
 import ShareLogo from './ShareLogo';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -127,7 +128,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
     <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
         <p className="text-xs font-bold text-brown">Just for fun</p>
-        <h2 className="font-display text-xl text-brown leading-tight">🤠 {dogName}&apos;s Wanted Poster</h2>
+        <h2 className="font-display text-xl text-brown leading-tight"><Icon name="card-account-details-star" /> {dogName}&apos;s Wanted Poster</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Every &ldquo;crime&rdquo; is one of {dogName}&apos;s own real traits, reworded into frontier comedy. It&apos;s
           a joke built entirely out of true things.
@@ -238,7 +239,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
         aria-expanded={showPicker}
         className="btn-secondary w-full mt-4"
       >
-        📸 Change the mugshot
+        <Icon name="camera" /> Change the mugshot
       </button>
 
       {showPicker && (
@@ -275,7 +276,7 @@ export default function WantedPosterWeb({ savedProfile, dogId }: Props) {
               onClick={() => fileInputRef.current?.click()}
               className="rounded-full border border-brown px-4 py-2 text-sm font-bold text-brown hover:bg-cream-dark transition-colors motion-reduce:transition-none"
             >
-              🖼 Use a photo from your device
+              <Icon name="image" /> Use a photo from your device
             </button>
             {mugshot && heroPhoto && (
               <button

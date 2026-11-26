@@ -7,7 +7,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { colors, fonts } from '../constants/theme';
-import { Heading, Paper, PaperButton } from './pack/kit';
+import { SafetyCard, safetyText } from './SafetyCard';
+import SirenIcon from './SirenIcon';
+import { PaperButton } from './pack/kit';
 import { getLostKit, type LostKit } from '../lib/lostDog';
 import { kitReadiness } from '../../shared/lostDog';
 
@@ -28,28 +30,22 @@ export default function LostDogCard({ uid, dogName }: { uid: string; dogName: st
   }
 
   return (
-    <Paper style={styles.card}>
-      <View style={styles.headRow}>
-        <Heading size={22}>Lost dog kit</Heading>
-        {kit && <Text style={styles.count}>{r.done} of {r.total} ready</Text>}
-      </View>
-      <View style={styles.track}><View style={[styles.fill, { width: `${(r.done / r.total) * 100}%` }]} /></View>
-      <Text style={styles.body}>
+    <SafetyCard banner="LOST DOG KIT" icon={<SirenIcon size={18} color={colors.danger} />} right={kit ? `${r.done} OF ${r.total} READY` : undefined}>
+      <View style={[styles.track, r.done === 0 && styles.trackEmpty]}><View style={[styles.fill, { width: `${(r.done / r.total) * 100}%` }]} /></View>
+      <Text style={safetyText.body}>
         Finish it now, while all is calm. If {dogName} ever goes missing, one tap alerts your Pack and neighbors with all of it.
       </Text>
       {kit && r.missing.length > 0 && <Text style={styles.missing}>Still to add: {r.missing.join(', ')}</Text>}
       <PaperButton icon="clipboard-check-outline" label="Finish the kit" onPress={() => router.push('/lost')} />
-    </Paper>
+    </SafetyCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { gap: 10, marginBottom: 16 },
-  headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  count: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
   track: { height: 8, borderRadius: 4, backgroundColor: colors.creamDark, overflow: 'hidden' },
+  // Nothing done yet: a dashed outline reads as "to fill", not a stray line.
+  trackEmpty: { backgroundColor: 'transparent', borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.brownMid },
   fill: { height: 8, borderRadius: 4, backgroundColor: colors.danger },
-  body: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
   missing: { fontFamily: fonts.black, fontSize: 13, color: colors.brownMid },
   readyRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48,

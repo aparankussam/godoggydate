@@ -19,7 +19,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { checkContent } from './contentFilter';
 import { isOwnStoragePhotoUrl } from './photoUrl';
 import type { PhotoUrlPolicy } from './photoUrl';
-import { cleanLine, helpersToThank, planAudience } from './lostDogLogic';
+import { NEARBY_LAT_WINDOW, cleanLine, helpersToThank, nearbyMembers, planAudience } from './lostDogLogic';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIGHTING_PUSH_GAP_MS = 2 * 60 * 1000;
@@ -88,6 +88,17 @@ export function makeLostDogFunctions({ db, sendPushToUser, isBlockedEitherWay, p
     return dogs.docs.map((d) => d.id);
   }
 
+  // Members around where the dog went missing (a ~1 km pin from the alert
+  // screen's "Use where I am now"), whichever city they're in. One range query
+  // on lat, then distance in memory: no geohash index needed.
+  async function membersNearPin(lat: number, lng: number): Promise<string[]> {
+    const dogs = await db.collection('dogs')
+      .where('lat', '>=', lat - NEARBY_LAT_WINDOW)
+      .where('lat', '<=', lat + NEARBY_LAT_WINDOW)
+      .limit(2000)
+      .get();
+    return nearbyMembers(dogs.docs.map((d) => ({ id: d.id, lat: d.get('lat'), lng: d.get('lng') })), { lat, lng });
+  }
   const onLostAlertCreated = functions.firestore
     .document('lostAlerts/{alertId}')
     .onCreate(async (snap, context) => {
@@ -128,6 +139,11 @@ export function makeLostDogFunctions({ db, sendPushToUser, isBlockedEitherWay, p
       // are still told, the whole city is not.
       const earlier = await db.collection('lostAlerts').where('ownerId', '==', ownerId).limit(10).get();
       const nowMs = Date.now();
+      // Where the dog went missing, rounded to ~1 km so the public alert never holds an exact spot.
+      const pin = typeof raw.lostLat === 'number' && typeof raw.lostLng === 'number'
+        && Math.abs(raw.lostLat) <= 90 && Math.abs(raw.lostLng) <= 180
+        ? { lat: Math.round(raw.lostLat * 100) / 100, lng: Math.round(raw.lostLng * 100) / 100 }
+        : null;
       const repeat = earlier.docs.some((d) => d.id !== alertId && nowMs - ((d.data().createdAt as Timestamp | undefined)?.toMillis() ?? 0) < DAY_MS);
 
       await snap.ref.update({
@@ -138,11 +154,14 @@ export function makeLostDogFunctions({ db, sendPushToUser, isBlockedEitherWay, p
         medicines,
         markings: cleanOwnerText(raw.markings, 200),
         lastSeen: cleanOwnerText(raw.lastSeen, 80),
+        lostLat: pin ? pin.lat : FieldValue.delete(),
+        lostLng: pin ? pin.lng : FieldValue.delete(),
         notifiedAt: FieldValue.serverTimestamp(),
       });
 
       const audience = planAudience({
         ownerId,
+        nearbyMembers: pin && !repeat ? await membersNearPin(pin.lat, pin.lng) : [],
         matchPartners: await matchPartners(ownerId),
         packDayAttendees: city ? await packDayAttendees(city, state) : [],
         cityMembers: city && state ? await cityMembers(city, state) : [],
@@ -153,6 +172,18 @@ export function makeLostDogFunctions({ db, sendPushToUser, isBlockedEitherWay, p
         body: 'Tap to see the poster. If you spot this dog, tell the owner.',
         data: { type: 'lost', alertId, kind: 'alert' },
       };
+      // Raised by a sitter or other household member: the owner hears first, by
+      // name, and the person who raised it is not told about their own alert.
+      const raisedBy = typeof raw.raisedBy === 'string' && raw.raisedBy !== ownerId ? raw.raisedBy : null;
+      if (raisedBy) {
+        await sendPushToUser(ownerId, {
+          title: `🚨 ${dogName} was reported lost`,
+          body: 'Someone in your household raised the alert. Tap to see it and the sightings.',
+          data: { type: 'lost', alertId, kind: 'owner' },
+        }).catch((err: unknown) => console.warn('lost dog: owner push failed', err));
+        audience.first = audience.first.filter((u) => u !== raisedBy);
+        audience.rest = audience.rest.filter((u) => u !== raisedBy);
+      }
       const first = await pushAll(audience.first, ownerId, payload);
       const rest = await pushAll(audience.rest, ownerId, payload);
       await snap.ref.update({ notifiedFirst: first, notifiedRest: rest });

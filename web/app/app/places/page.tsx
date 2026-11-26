@@ -15,6 +15,8 @@ import type { PublicPlace } from '../../../lib/places';
 import { nearbyLine, packDayParks, placeCityKey, placeIdFor, PLACE_CATEGORIES, PLACE_CATEGORY_KEYS } from '../../../../shared/places';
 import type { PlaceCategory } from '../../../../shared/places';
 import SignInGate from '../../../components/SignInGate';
+import { Icon } from '../../../components/icons';
+import { PLACE_ICONS } from '../../../../shared/placeIcons';
 
 export default function PlacesPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -80,8 +82,8 @@ export default function PlacesPage() {
   return (
     <div className="min-h-screen">
       <header className="flex h-14 items-center gap-3 px-4">
-        <Link href="/app/pack?view=spots" className="min-h-[44px] inline-flex items-center text-[15px] font-black text-brown underline underline-offset-2">← Sniff Spots</Link>
-        <h1 className="font-display text-[26px] leading-none text-brown">Where we go</h1>
+        <Link href="/app/pack?view=spots" className="min-h-[44px] inline-flex items-center text-[15px] font-black text-brown underline underline-offset-2">← Back</Link>
+        <h1 className="font-display text-[26px] leading-none text-brown">Sniff Spots</h1>
       </header>
       <div className="space-y-4 p-4 lg:mx-auto lg:max-w-2xl lg:px-8 lg:py-8">
         {profileLoaded && !cityKey ? (
@@ -94,7 +96,7 @@ export default function PlacesPage() {
                   key={key} type="button" onClick={() => setCategory(key)} aria-pressed={key === category}
                   className={`min-h-[44px] rounded-full border-2 border-brown px-4 text-[14px] font-black ${key === category ? 'bg-brown text-paper' : 'bg-cream text-brown'}`}
                 >
-                  {PLACE_CATEGORIES[key].emoji} {PLACE_CATEGORIES[key].label}
+                  <Icon name={PLACE_ICONS[key]} /> {PLACE_CATEGORIES[key].label}
                 </button>
               ))}
             </div>

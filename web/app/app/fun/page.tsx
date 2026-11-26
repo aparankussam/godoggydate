@@ -33,6 +33,19 @@ import ToyBox from '../../../components/playroom/ToyBox';
 import { usePlayroomGlimpses } from '../../../lib/playroomGlimpses';
 import { pickLetterMilestone } from '../../../lib/letter';
 import { getHeroPhoto, getRenderablePhotos, resolveHeroIndex } from '../../../lib/photos';
+import { Icon } from '../../../components/icons';
+import TodayCard from '../../../components/playroom/TodayCard';
+import { useCharms } from '../../../lib/charms';
+import { CHARM_LIST, pickOfDay, type CharmInfo } from '../../../../shared/charms';
+
+// Charms whose toy is its own page; the rest open in place on this one.
+const CHARM_PAGES: Record<string, string> = {
+  barkle: '/barkle',
+  snoot: '/app/fun/snoot',
+  'sticker-studio': '/app/fun/sticker-studio',
+  card: '/app/profile?share=1',
+  excuse: '/excuse',
+};
 
 export default function FunPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -41,6 +54,7 @@ export default function FunPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const router = useRouter();
+  const { earned, earn } = useCharms(authUser?.uid);
   const g = usePlayroomGlimpses(authUser?.uid, savedProfile);
 
   // ── Auth observer ───────────────────────────────────────────────────────────
@@ -79,7 +93,7 @@ export default function FunPage() {
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
-        <span className="text-4xl animate-spin">🐾</span>
+        <Icon name="paw" size={40} className="animate-spin text-brown" />
       </div>
     );
   }
@@ -95,11 +109,23 @@ export default function FunPage() {
   const photo = savedProfile ? getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile)) : null;
   // eslint-disable-next-line @next/next/no-img-element
   const thumb = photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : undefined;
+  // The Adventure Passport's panel is 'passport'; its charm is 'adventures'.
   const toggle = (key: string) => () => {
     trackEvent('playroom_card_open', { feature: key });
+    earn(key === 'passport' ? 'adventures' : key);
     setOpen((cur) => (cur === key ? null : key));
   };
-  const track = (feature: string) => () => trackEvent('playroom_card_open', { feature });
+  const track = (feature: string) => () => {
+    trackEvent('playroom_card_open', { feature });
+    earn(feature);
+  };
+  const pickCharm = (charm: CharmInfo) => {
+    trackEvent('playroom_card_open', { feature: charm.id, via: 'today' });
+    earn(charm.id);
+    const page = CHARM_PAGES[charm.id];
+    if (page) router.push(page);
+    else setOpen(charm.id === 'adventures' ? 'passport' : charm.id);
+  };
   const streakLine =
     g.streak.current > 0
       ? `${g.streak.current}-day streak${g.streak.best > g.streak.current ? ` · best ${g.streak.best}` : ''}`
@@ -119,7 +145,7 @@ export default function FunPage() {
       <div className="mx-auto max-w-2xl space-y-5 p-4 lg:px-8 lg:py-8">
         {profileLoading && !savedProfile && (
           <div className="flex items-center justify-center py-16">
-            <span className="text-3xl animate-spin">🐾</span>
+            <Icon name="paw" size={32} className="animate-spin text-brown" />
           </div>
         )}
 
@@ -137,32 +163,33 @@ export default function FunPage() {
 
         {savedProfile && (
           <>
-            {/* Today's Barkle, alone at the top */}
-            <section className="rounded-[1.5rem] border-2 border-brown bg-paper p-4 shadow-[0_6px_0_rgba(42,31,74,0.14)]">
-              <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-rose">Today’s Barkle</p>
-              <h2 className="mt-1 font-display text-2xl leading-tight text-brown">{streakLine}</h2>
-              <Link href="/barkle" onClick={() => trackEvent('fun_hub_click', { source: 'playroom', target: 'barkle' })} className="btn-primary mt-3 block text-center">
-                Play today’s Barkle
-              </Link>
-            </section>
+            <TodayCard
+              dogName={name}
+              streakLine={streakLine}
+              onPlayBarkle={() => { trackEvent('fun_hub_click', { source: 'playroom', target: 'barkle' }); earn('barkle'); }}
+              pick={pickOfDay(CHARM_LIST, earned, ['barkle'])}
+              onTryPick={pickCharm}
+              earned={earned}
+            />
 
             {/* Zoomies: everything you play. Treat Lab: keepsakes you make and
                 share. Adventures: real-world quests. One card open at a time,
                 and it opens below its own box, same as the iPhone Playroom. */}
-            <ToyBox title="Zoomies" emoji="🎾" tint="bg-gold-light" layout="grid">
+            <ToyBox title="Zoomies" icon="tennis-ball" tint="bg-gold-light" layout="grid">
               <ZoomieCard
                 label="Snoot Boop"
-                glyph="🐽"
+                glyph="gesture-tap"
                 glimpse={g.boops > 0 ? `${g.boops} boops${g.nextStickerAt ? ` · next sticker at ${g.nextStickerAt}` : ''}` : `Boop ${name}'s snoot to earn stickers`}
+                isNew={!earned.includes('snoot')}
                 href="/app/fun/snoot"
                 onClick={track('snoot')}
               />
-              <ZoomieCard label={`Roast ${name}`} glyph="🔥" glimpse="A kind-hearted roast from their real profile" active={open === 'roast'} onClick={toggle('roast')} />
-              <ZoomieCard label={`Texts from ${name}`} glyph="💬" glimpse="A thread of texts to you, in their voice" active={open === 'texts'} onClick={toggle('texts')} />
-              <ZoomieCard label="Dog quiz" glyph="❓" glimpse="Pass the phone: how well do friends know them?" active={open === 'quiz'} onClick={toggle('quiz')} />
-              <ZoomieCard label="Notes-App Apology" glyph="🗒️" glimpse={`The apology ${name} would type`} active={open === 'apology'} onClick={toggle('apology')} />
-              <ZoomieCard label="My Human Review" glyph="⭐" glimpse={`${name} reviews you`} active={open === 'review'} onClick={toggle('review')} />
-              <ZoomieCard label="Excuse Note" glyph="📝" glimpse="A “my dog ate it” note, made to share" href="/excuse" onClick={track('excuse')} />
+              <ZoomieCard label={`Roast ${name}`} glyph="fire" glimpse="A kind-hearted roast from their real profile" active={open === 'roast'} isNew={!earned.includes('roast')} onClick={toggle('roast')} />
+              <ZoomieCard label={`Texts from ${name}`} glyph="message-text" glimpse="A thread of texts to you, in their voice" active={open === 'texts'} isNew={!earned.includes('texts')} onClick={toggle('texts')} />
+              <ZoomieCard label="Dog quiz" glyph="help-circle" glimpse="Pass the phone: how well do friends know them?" active={open === 'quiz'} isNew={!earned.includes('quiz')} onClick={toggle('quiz')} />
+              <ZoomieCard label="Notes-App Apology" glyph="note-text" glimpse={`The apology ${name} would type`} active={open === 'apology'} isNew={!earned.includes('apology')} onClick={toggle('apology')} />
+              <ZoomieCard label="My Human Review" glyph="star" glimpse={`${name} reviews you`} active={open === 'review'} isNew={!earned.includes('review')} onClick={toggle('review')} />
+              <ZoomieCard label="Excuse Note" glyph="note-edit" glimpse="A “my dog ate it” note, made to share" isNew={!earned.includes('excuse')} href="/excuse" onClick={track('excuse')} />
             </ToyBox>
 
             {openPanel(
@@ -173,21 +200,22 @@ export default function FunPage() {
               (open === 'quiz' && <DogQuizSection savedProfile={savedProfile} />),
             )}
 
-            <ToyBox title="Treat Lab" emoji="🦴" tint="bg-kraft" layout="grid">
-              <ZoomieCard label="Wanted Poster" glyph="🤠" thumb={thumb} glimpse={`Make ${name} a wanted poster`} active={open === 'wanted'} onClick={toggle('wanted')} />
-              <ZoomieCard label="Trading card" glyph="🃏" thumb={thumb} glimpse={`Share ${name}’s card and public page`} href="/app/profile?share=1" onClick={track('card')} />
-              <ZoomieCard label="Employee of the Month" glyph="🏅" glimpse="A plaque for the office dog" active={open === 'plaque'} onClick={toggle('plaque')} />
-              <ZoomieCard label="Life stage" glyph="🎂" glimpse={`Where ${name} is in life, and what this stage needs`} active={open === 'lifestage'} onClick={toggle('lifestage')} />
+            <ToyBox title="Treat Lab" icon="bone" tint="bg-kraft" layout="grid">
+              <ZoomieCard label="Wanted Poster" glyph="card-account-details-star" thumb={thumb} glimpse={`Make ${name} a wanted poster`} active={open === 'wanted'} isNew={!earned.includes('wanted')} onClick={toggle('wanted')} />
+              <ZoomieCard label="Trading card" glyph="card-account-details-star" thumb={thumb} glimpse={`Share ${name}’s card and public page`} isNew={!earned.includes('card')} href="/app/profile?share=1" onClick={track('card')} />
+              <ZoomieCard label="Employee of the Month" glyph="medal" glimpse="A plaque for the office dog" active={open === 'plaque'} isNew={!earned.includes('plaque')} onClick={toggle('plaque')} />
+              <ZoomieCard label="Life stage" glyph="cake-variant" glimpse={`Where ${name} is in life, and what this stage needs`} active={open === 'lifestage'} isNew={!earned.includes('lifestage')} onClick={toggle('lifestage')} />
               <ZoomieCard
                 label="Sticker Studio"
-                glyph="🎨"
+                glyph="sticker-emoji"
                 glimpse={g.stickers > 0 ? `${g.stickers} sticker${g.stickers === 1 ? '' : 's'} earned` : 'Earn stickers by booping, then stick them on photos'}
+                isNew={!earned.includes('sticker-studio')}
                 href="/app/fun/sticker-studio"
                 onClick={track('sticker-studio')}
               />
-              <ZoomieCard label={`A letter from ${name}`} glyph="✉️" glimpse={g.letterLine} active={open === 'letter'} onClick={toggle('letter')} />
+              <ZoomieCard label={`A letter from ${name}`} glyph="email" glimpse={g.letterLine} active={open === 'letter'} isNew={!earned.includes('letter')} onClick={toggle('letter')} />
               {photoCount >= DIPTYCH_MIN_PHOTOS && (
-                <ZoomieCard label="National Dog Day" glyph="🖼️" glimpse="Then and now, side by side" active={open === 'dogday'} onClick={toggle('dogday')} />
+                <ZoomieCard label="National Dog Day" glyph="image-multiple" glimpse="Then and now, side by side" active={open === 'dogday'} onClick={toggle('dogday')} />
               )}
             </ToyBox>
 
@@ -206,8 +234,8 @@ export default function FunPage() {
               (open === 'dogday' && <DiptychSection savedProfile={savedProfile} />),
             )}
 
-            <ToyBox title="Adventures" emoji="🗺️" tint="bg-note" layout="grid">
-              <ZoomieCard label="Adventure Passport" glyph="🗺️" glimpse={stamp} active={open === 'passport'} onClick={toggle('passport')} />
+            <ToyBox title="Adventures" icon="map" tint="bg-note" layout="grid">
+              <ZoomieCard label="Adventure Passport" glyph="map-marker-path" glimpse={stamp} active={open === 'passport'} isNew={!earned.includes('adventures')} onClick={toggle('passport')} />
             </ToyBox>
             {openPanel(open === 'passport' && <AdventurePassportWeb savedProfile={savedProfile} dogId={authUser.uid} />)}
           </>

@@ -22,6 +22,7 @@ import {
 } from '../lib/inAppBrowser';
 import { getFirebase } from '../shared/utils/firebase';
 import AnimatedLogo from './AnimatedLogo';
+import { Icon } from './icons';
 
 // Bump when the Terms change materially, so acceptance can be re-collected.
 const TERMS_VERSION = '2026-11';
@@ -539,8 +540,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: Props) {
         )}
 
         <ul className="w-full space-y-1.5 text-xs leading-relaxed text-brown-light">
-          <li>🔒 We use your Google or Apple account only to sign you in. We never post to your accounts.</li>
-          <li>📍 Your dog&apos;s location is never exact — other owners only see your general area.</li>
+          <li><Icon name="lock" /> We use your Google or Apple account only to sign you in. We never post to your accounts.</li>
+          <li><Icon name="map-marker" /> Your dog&apos;s location is never exact — other owners only see your general area.</li>
         </ul>
 
         <p className="text-xs text-brown-light">Free to join · No subscription needed</p>

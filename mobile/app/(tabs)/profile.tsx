@@ -42,7 +42,13 @@ import type { Reminder } from '../../../shared/types';
 import { foundingBadgeLabel } from '../../../shared/founding';
 import { computeDogtype } from '../../../shared/dogtype';
 import { dogAboutText, dogSummaryLine, showsMeetAgain } from '../../../shared/dogLabels';
-import LostDogButton from '../../components/LostDogButton';
+import LostDogButton, { LostSirenHint } from '../../components/LostDogButton';
+import EmergencyCard from '../../components/EmergencyCard';
+import { setMemorial } from '../../lib/profile';
+
+// Drawn in mobile/assets/icons/make-icons.cjs (same paths as web/components/icons.tsx).
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro bundles static assets through require()
+const GEAR = require('../../assets/icons/gear.png');
 
 function openWebLink(url: string) {
   Linking.openURL(url).catch(() => {
@@ -295,7 +301,52 @@ export default function ProfileTab() {
     }
   }
 
-  async function handleDeleteAccount() {
+  // Memorial mode, when a dog has passed away. Reached from "Delete account",
+  // from removing a reminder, and (to undo it) from the memorial banner.
+  function confirmMemorial(on: boolean) {
+    if (!user || !profile) return;
+    Alert.alert(
+      on ? `Mark ${profile.name} as passed away?` : 'Turn off memorial mode?',
+      on
+        ? `${profile.name}'s Pupfile becomes a memorial. They leave Discover, and birthday and reminder notifications stop. Photos, letters and matches stay. You can undo this.`
+        : `${profile.name} comes back to Discover and notifications start again.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: on ? 'Mark as passed away' : 'Turn off',
+          onPress: async () => {
+            try {
+              await setMemorial(user.uid, on ? new Date().toISOString().slice(0, 10) : null);
+              trackEvent('memorial_mode', { on });
+              setSheet(null);
+              await refreshProfile();
+            } catch {
+              Alert.alert('That didn’t save', 'Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  /** A grieving owner may be about to erase everything: offer the memorial first. */
+  function handleDeleteAccount() {
+    if (!profile || profile.memorialSince) {
+      confirmDeleteAccount();
+      return;
+    }
+    Alert.alert(
+      `Has ${profile.name} passed away?`,
+      'You can keep their photos and letters as a memorial instead of deleting everything.',
+      [
+        { text: 'Keep as a memorial', onPress: () => confirmMemorial(true) },
+        { text: 'Delete my account', style: 'destructive', onPress: confirmDeleteAccount },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }
+
+  function confirmDeleteAccount() {
     // Same wording as web (web/app/app/profile/page.tsx). The Terms allow
     // refunds within 14 days, so this must not say purchases aren't refunded.
     Alert.alert(
@@ -414,29 +465,22 @@ export default function ProfileTab() {
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >
-        <View style={styles.titleRow}>
+        <View style={[styles.titleRow, styles.headerRow]}>
           <Text style={styles.title}>Pupfile</Text>
           <View style={styles.titleButtons}>
             {/* Panic first: one tap from the Pupfile to the lost-dog alert. */}
-            <LostDogButton uid={user.uid} dogName={profile.name?.trim() || 'Your dog'} compact />
+            {!profile.memorialSince && <LostDogButton uid={user.uid} dogName={profile.name?.trim() || 'Your dog'} compact />}
             <Pressable
-              style={styles.iconButton}
-              accessibilityRole="button"
-              accessibilityLabel="Share the card and public page"
-              onPress={() => setSheet('share')}
-            >
-              <Glyph name="export-variant" size={20} />
-            </Pressable>
-            <Pressable
-              style={styles.iconButton}
+              style={styles.gearButton}
               accessibilityRole="button"
               accessibilityLabel="Settings and account"
               onPress={() => setSheet('settings')}
             >
-              <Glyph name="cog" size={20} />
+              <Image source={GEAR} style={styles.gear} />
             </Pressable>
           </View>
         </View>
+        {!profile.memorialSince && <LostSirenHint dogName={profile.name?.trim() || 'your dog'} />}
 
         {/* E5: shown only while the server's notice doc exists. A new notice
             means the server just cleared text on the dog doc, so re-read it. */}
@@ -519,7 +563,12 @@ export default function ProfileTab() {
             )}
             <View style={styles.nameRow}>
               <Text style={[styles.name, styles.nameFlex]} numberOfLines={1}>{profile.name}</Text>
-              <PaperButton small icon="pencil" label="Edit" onPress={() => openEditor()} accessibilityLabel="Edit profile" />
+              <Pressable style={styles.smallIconButton} accessibilityRole="button" accessibilityLabel="Edit profile" onPress={() => openEditor()}>
+                <Glyph name="pencil" size={18} />
+              </Pressable>
+              <Pressable style={styles.smallIconButton} accessibilityRole="button" accessibilityLabel="Share the card and public page" onPress={() => setSheet('share')}>
+                <Glyph name="export-variant" size={18} />
+              </Pressable>
             </View>
             <Text style={styles.meta}>
               {dogSummaryLine(profile)}
@@ -583,14 +632,24 @@ export default function ProfileTab() {
                   </View>
                 )}
             </View>
-            <View style={styles.badgeRow}>
-              <Glyph name={profileComplete ? 'check-circle' : 'progress-pencil'} size={16} />
-              <Text style={styles.badge}>
-                {profileComplete ? 'Showing in Discover' : 'Profile still needs a few details'}
-              </Text>
-            </View>
+            {profile.memorialSince ? (
+              <View style={styles.memorial}>
+                <Text style={styles.memorialTitle}>🌈 In loving memory of {profile.name}</Text>
+                <Text style={styles.memorialBody}>Their photos, letters and friends stay here. No birthday or reminder notifications, and {profile.name} is out of Discover.</Text>
+                <Pressable accessibilityRole="button" onPress={() => confirmMemorial(false)} style={styles.memorialUndo}>
+                  <Text style={styles.memorialUndoText}>Turn off memorial mode</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.badgeRow}>
+                <Glyph name={profileComplete ? 'check-circle' : 'progress-pencil'} size={16} />
+                <Text style={styles.badge}>
+                  {profileComplete ? 'Showing in Discover' : 'Profile still needs a few details'}
+                </Text>
+              </View>
+            )}
             {/* The one next step, in the photo block (same as the website). */}
-            {profileComplete ? (
+            {profile.memorialSince ? null : profileComplete ? (
               <PinkButton
                 label="Start swiping"
                 onPress={() => {
@@ -641,8 +700,13 @@ export default function ProfileTab() {
         {section === 'dates' && (
           <>
             <PushPermissionCard />
-            <RemindersSection dogId={user.uid} reminders={reminders} />
-            <MilestonesCard savedProfile={profile} userId={user.uid} onAddDate={() => openEditor('birthday')} />
+            <RemindersSection
+              dogId={user.uid}
+              reminders={reminders}
+              dogName={profile.name}
+              onPassedAway={profile.memorialSince ? undefined : () => confirmMemorial(true)}
+            />
+            {!profile.memorialSince && <MilestonesCard savedProfile={profile} userId={user.uid} onAddDate={() => openEditor('birthday')} />}
           </>
         )}
 
@@ -658,6 +722,7 @@ export default function ProfileTab() {
           <>
         {/* Safety first: the lost-dog kit leads Care. */}
         {user && profile && <LostDogCard uid={user.uid} dogName={profile.name} />}
+        {user && profile && <EmergencyCard />}
         {/* C2: the care sheet for a sitter or walker. Not gated on a complete
             profile, as on web: it has nothing to do with swiping. */}
         {user && profile && (
@@ -695,7 +760,7 @@ export default function ProfileTab() {
         <SafeAreaView style={styles.container}>
           <Gingham />
           <ScrollView contentContainerStyle={styles.content}>
-            <View style={styles.titleRow}>
+            <View style={[styles.titleRow, styles.headerRow]}>
               <Text style={styles.title}>{sheet === 'share' ? 'Share' : 'Settings'}</Text>
               <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Close" onPress={() => setSheet(null)}>
                 <Glyph name="close" size={20} />
@@ -703,7 +768,7 @@ export default function ProfileTab() {
             </View>
             {sheet === 'share' && <TradingCardShare profile={profile} userId={user.uid} />}
             {sheet === 'settings' && (
-              <>
+              <View style={styles.settingsStack}>
         {/* goDoggyDate Pro — gated on !loading so a subscriber never sees the
             upsell flash before entitlements resolve. onLayout records the
             position so an upsell nudge can scroll here. */}
@@ -752,7 +817,7 @@ export default function ProfileTab() {
             <Text style={styles.legalLink}>Terms of Service</Text>
           </Pressable>
         </View>
-              </>
+              </View>
             )}
           </ScrollView>
         </SafeAreaView>
@@ -779,8 +844,23 @@ const ink = colors.ink;
 const softInk = colors.brownMid;
 
 const styles = StyleSheet.create({
+  memorial: { backgroundColor: colors.note, borderRadius: 14, borderWidth: 2, borderColor: colors.ink, padding: 12, gap: 4, marginTop: 6 },
+  memorialTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  memorialBody: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 19, color: colors.ink },
+  memorialUndo: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  memorialUndoText: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, textDecorationLine: 'underline' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   titleButtons: { flexDirection: 'row', gap: 10 },
+  // Room between the header buttons and the photo card.
+  headerRow: { marginBottom: 12 },
+  settingsStack: { gap: 12 },
+  // Settings is the quiet one: a plain ink gear (no circle) beside the red siren.
+  gearButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  gear: { width: 26, height: 26, tintColor: colors.ink },
+  smallIconButton: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: colors.paper,
+    borderWidth: 2, borderBottomWidth: 3.5, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center',
+  },
   iconButton: {
     width: 44,
     height: 44,
@@ -798,7 +878,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: colors.note,
+    backgroundColor: colors.cream,
     borderWidth: 2,
     borderColor: colors.ink,
     borderRadius: 999,
@@ -942,7 +1022,7 @@ const styles = StyleSheet.create({
   vibeBio: {
     marginTop: 3,
     fontFamily: fonts.hand,
-    fontSize: 21,
+    fontSize: 22,
     lineHeight: 25,
     color: ink,
   },
@@ -966,7 +1046,7 @@ const styles = StyleSheet.create({
   },
   memberBadgeText: {
     fontFamily: fonts.black,
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.cream,
   },
   trustBadge: {
@@ -982,7 +1062,7 @@ const styles = StyleSheet.create({
   },
   trustBadgeText: {
     fontFamily: fonts.black,
-    fontSize: 12.5,
+    fontSize: 12,
     color: ink,
   },
   trustBadgeSubtext: {
@@ -1002,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   bestFriendBadgeText: {
     fontFamily: fonts.black,
-    fontSize: 12.5,
+    fontSize: 12,
     color: ink,
   },
   primaryButton: {
@@ -1028,7 +1108,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   revealBody: { flex: 1, minWidth: 0 },
-  revealCtaText: { fontFamily: fonts.display, fontSize: 21, lineHeight: 24, color: ink },
+  revealCtaText: { fontFamily: fonts.display, fontSize: 22, lineHeight: 24, color: ink },
   revealCtaSub: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: softInk, marginTop: 2 },
   playroomCard: {
     ...paperCard.paper,
@@ -1043,7 +1123,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: softInk,
   },
-  playroomTitle: { fontFamily: fonts.display, fontSize: 21, lineHeight: 24, color: ink },
+  playroomTitle: { fontFamily: fonts.display, fontSize: 22, lineHeight: 24, color: ink },
   playroomDesc: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: ink, marginTop: 4 },
   playroomCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 6 },
   playroomCta: { fontFamily: fonts.black, fontSize: 15, color: ink, textDecorationLine: 'underline' },

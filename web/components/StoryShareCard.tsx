@@ -23,7 +23,7 @@ export type StoryTheme = 'spark' | 'zen' | 'gold';
 const GRADIENTS: Record<StoryTheme, string> = {
   spark: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 45%, #FF5C8D 100%)',
   zen: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 50%, #8FC9F2 100%)',
-  gold: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 50%, #F5B731 100%)',
+  gold: 'linear-gradient(160deg, #2A1F4A 0%, #4A3F6E 50%, #FFC56B 100%)',
 };
 
 interface Props {

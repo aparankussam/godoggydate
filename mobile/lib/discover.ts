@@ -230,6 +230,7 @@ export async function fetchDiscoverFeed(
     .filter(({ id, saved }) => {
       if (id === userId) return false;
       if (isSeedUserId(id)) return false;
+      if (saved.memorialSince) return false; // a dog that has passed away is never offered as a match
       if (swipedIds.has(id)) return false;
       if (blockedIds.has(id)) return false;
       return isProfileComplete(saved);

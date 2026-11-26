@@ -25,6 +25,7 @@ import {
   medicineNeeds,
   onMyActiveAlert,
   onSightings,
+  onHelpers,
   saveLostKit,
   type LostAlert,
   type Sighting,
@@ -34,7 +35,9 @@ import { CONTENT_FILTER_MESSAGE, checkContent } from '../../../../shared/content
 import type { Reminder } from '../../../../shared/types';
 import QrSvg from '../../../components/QrSvg';
 import SignInGate from '../../../components/SignInGate';
+import { safetyButtonClass } from '../../../components/SafetyCard';
 import { FlyerSheet, PawIcon } from '../../../components/PackDayFlyer';
+import { Icon, SirenIcon } from '../../../components/icons';
 
 const field = 'w-full rounded-xl border-2 border-brown bg-white px-3 py-2.5 text-[16px] text-brown';
 
@@ -83,6 +86,9 @@ export default function LostDogPage() {
     if (!activeId) { setSightings([]); return; }
     return onSightings(activeId, setSightings);
   }, [activeId]);
+
+  const [helperCount, setHelperCount] = useState(0);
+  useEffect(() => (activeId ? onHelpers(activeId, undefined, (h) => setHelperCount(h.count)) : undefined), [activeId]);
 
   const medicines = useMemo(() => medicineNeeds(reminders), [reminders]);
   const dogName = profile?.name?.trim() || 'Your dog';
@@ -173,10 +179,15 @@ export default function LostDogPage() {
         <p role="status" className="print:hidden rounded-xl bg-cream-dark px-4 py-3 text-[16px] font-black text-rose">
           People near {active.city || 'you'} have been alerted. Share the poster to reach more neighbors.
         </p>
+        {helperCount > 0 && (
+          <p role="status" className="print:hidden rounded-xl border-2 border-brown bg-paper px-4 py-3 text-[15px] font-black text-brown">
+            <Icon name="flashlight" /> {helperCount} {helperCount === 1 ? 'neighbor is' : 'neighbors are'} helping look for {active.dogName}.
+          </p>
+        )}
 
         <FlyerSheet>
           <p className="text-center font-display text-[56px] leading-none tracking-wide text-rose">LOST</p>
-          <p className="text-center text-[17px] font-black text-brown">HAVE YOU SEEN THIS DOG?</p>
+          <p className="text-center text-[16px] font-black text-brown">HAVE YOU SEEN THIS DOG?</p>
           {active.photoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={active.photoUrl} alt={`${active.dogName}, the missing dog`} className="mx-auto mt-3 aspect-square w-full max-w-[280px] rounded-2xl border-[3px] border-brown object-cover" />
@@ -192,8 +203,8 @@ export default function LostDogPage() {
         </FlyerSheet>
 
         <div className="print:hidden flex gap-3">
-          <button type="button" onClick={copyLink} className="btn-primary min-h-[48px] flex-1 text-[17px]">Copy the link</button>
-          <button type="button" onClick={() => window.print()} className="btn-secondary min-h-[48px] flex-1 text-[17px]">Print the poster</button>
+          <button type="button" onClick={copyLink} className="btn-primary min-h-[48px] flex-1 text-[16px]">Copy the link</button>
+          <button type="button" onClick={() => window.print()} className="btn-secondary min-h-[48px] flex-1 text-[16px]">Print the poster</button>
         </div>
         {note && <p role="status" className="print:hidden text-[14px] font-extrabold text-brown-mid">{note}</p>}
         {error && <p role="alert" className="print:hidden text-[15px] font-black text-rose">{error}</p>}
@@ -219,7 +230,7 @@ export default function LostDogPage() {
           ))}
         </section>
 
-        <button type="button" onClick={found} disabled={busy === 'found'} className="print:hidden btn-secondary min-h-[52px] text-[19px] disabled:opacity-60">
+        <button type="button" onClick={found} disabled={busy === 'found'} className="print:hidden btn-secondary min-h-[52px] text-[20px] disabled:opacity-60">
           {busy === 'found' ? 'Closing…' : `${active.dogName} is found 🎉`}
         </button>
       </div>
@@ -268,7 +279,7 @@ export default function LostDogPage() {
             : <p className="text-[13px] font-extrabold text-brown-mid">None. Add a Daily medicine reminder on your Pupfile, under Dates, and it appears here and on the poster.</p>}
         </div>
 
-        <button type="button" onClick={() => saveKit()} disabled={busy === 'kit'} className="btn-secondary min-h-[48px] w-full text-[17px] disabled:opacity-60">
+        <button type="button" onClick={() => saveKit()} disabled={busy === 'kit'} className="btn-secondary min-h-[48px] w-full text-[16px] disabled:opacity-60">
           {busy === 'kit' ? 'Saving…' : 'Save the kit'}
         </button>
         {note && <p role="status" className="text-[13px] font-extrabold text-brown-mid">{note}</p>}
@@ -285,9 +296,9 @@ export default function LostDogPage() {
       <button
         type="button"
         onClick={async () => { if (await saveKit(true)) router.push('/app/lost/now'); }}
-        className="btn-primary min-h-[56px] w-full text-[22px]"
+        className={`${safetyButtonClass()} min-h-[56px] font-display text-[22px]`}
       >
-        My dog is lost
+        <SirenIcon size={20} /> My dog is lost
       </button>
       <Link href="/app" className="text-center text-[15px] font-extrabold text-brown underline">Not now</Link>
     </div>

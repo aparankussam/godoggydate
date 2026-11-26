@@ -31,7 +31,7 @@ export default async function OpengraphImage({ params }: { params: { id: string 
           color: '#fff',
         }}
       >
-        <div style={{ display: 'flex', fontSize: 34, fontWeight: 700, color: '#F5B731' }}>
+        <div style={{ display: 'flex', fontSize: 34, fontWeight: 700, color: '#FFC56B' }}>
           {event?.official ? '⭐ Official Pack Day' : 'Pack Day'}
           {format ? `  ·  ${format.emoji} ${format.label}` : ''}
         </div>

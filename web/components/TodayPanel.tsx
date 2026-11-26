@@ -24,6 +24,7 @@ import type { SavedDogProfile } from '../lib/auth';
 import { trackEvent } from '../lib/analytics';
 import type { Reminder } from '../../shared/types';
 import { foundingBadgeLabel } from '../../shared/founding';
+import { Icon } from './icons';
 
 interface Props {
   dogId: string;
@@ -298,7 +299,7 @@ export default function TodayPanel({ dogId, savedProfile, variant, onEditProfile
         {typeof savedProfile?.foundingPackNumber === 'number' && (
           <p className="px-4 py-2.5 text-xs text-brown-light">
             <span className="font-bold text-brown">
-              {foundingBadgeLabel(savedProfile.foundingPackNumber)}
+              <Icon name="star" size={14} className="text-gold" /> {foundingBadgeLabel(savedProfile.foundingPackNumber).replace('⭐ ', '')}
             </span>
             {dogName ? ` · ${dogName}’s number for good` : ''}
           </p>

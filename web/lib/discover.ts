@@ -494,6 +494,7 @@ export async function loadDiscoverDeck(
 
   for (const dog of candidates.dogs) {
     if (blockedIds.has(dog.id)) continue;
+    if (dog.memorialSince) continue; // a dog that has passed away is never offered as a match
     const miles = milesBetween(baseDog, dog);
     let locality: DiscoverFeedDog['locality'] | null = null;
     if (isKnown(miles)) {

@@ -11,6 +11,8 @@ import { Heading, Paper, PaperButton, PinkButton, Slip, type } from './pack/kit'
 import { listMyPlaceTags, placeErrorMessage, removePlaceTag, tagPlace, type MyPlaceTag } from '../lib/places';
 import { CONTENT_FILTER_MESSAGE, checkContent } from '../../shared/contentFilter';
 import { nearbyLine, PLACE_CATEGORIES, PLACE_CATEGORY_KEYS, PLACE_NAME_MAX, type PlaceCategory } from '../../shared/places';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { PLACE_ICONS } from '../../shared/placeIcons';
 
 export default function WhereWeGoSection({ uid, city }: { uid: string; city?: string }) {
   const [tags, setTags] = useState<MyPlaceTag[] | null>(null);
@@ -58,7 +60,7 @@ export default function WhereWeGoSection({ uid, city }: { uid: string; city?: st
         {tags?.map((tag) => (
           <View key={tag.placeId} style={styles.tagRow}>
             <View style={{ flex: 1 }}>
-              <Text style={type.strong}>{PLACE_CATEGORIES[tag.category].emoji} {tag.name}</Text>
+              <Text style={type.strong}><MaterialCommunityIcons name={PLACE_ICONS[tag.category]} size={16} color={colors.ink} /> {tag.name}</Text>
               <Text style={type.small}>{nearbyLine(tag.ownerCount, 'this place') ?? PLACE_CATEGORIES[tag.category].label}</Text>
             </View>
             <Pressable onPress={() => remove(tag)} accessibilityRole="button" accessibilityLabel={`Remove ${tag.name}`} hitSlop={8}>
@@ -72,7 +74,7 @@ export default function WhereWeGoSection({ uid, city }: { uid: string; city?: st
           {PLACE_CATEGORY_KEYS.map((key) => (
             <Pressable key={key} onPress={() => setCategory(key)} accessibilityRole="button" accessibilityState={{ selected: key === category }}
               style={[styles.chip, key === category && styles.chipOn]}>
-              <Text style={styles.chipText}>{PLACE_CATEGORIES[key].emoji} {PLACE_CATEGORIES[key].label}</Text>
+              <Text style={styles.chipText}><MaterialCommunityIcons name={PLACE_ICONS[key]} size={16} color={colors.ink} /> {PLACE_CATEGORIES[key].label}</Text>
             </Pressable>
           ))}
         </View>

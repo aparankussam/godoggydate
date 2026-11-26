@@ -33,6 +33,7 @@ import {
   type BoopState,
 } from '../../../../lib/boops';
 import ShareLogo from '../../../../components/ShareLogo';
+import { Icon } from '../../../../components/icons';
 
 const CONFETTI = ['🐾', '🐾', '🐾', '✨', '🦴', '🎉', '🐾', '💖'];
 
@@ -210,7 +211,7 @@ export default function SnootPage() {
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
-        <span className="text-4xl animate-spin">🐾</span>
+        <Icon name="paw" size={40} className="animate-spin text-brown" />
       </div>
     );
   }
@@ -361,7 +362,7 @@ export default function SnootPage() {
             disabled={sharing || state.allTime === 0}
             className="btn-primary px-6 py-3 disabled:opacity-60"
           >
-            {sharing ? 'Rendering…' : '📤 Share count'}
+            {sharing ? 'Rendering…' : <><Icon name="export-variant" /> Share count</>}
           </button>
           {stickerCount > 0 && (
             <Link
@@ -369,7 +370,7 @@ export default function SnootPage() {
               onClick={() => feedback.tap()}
               className="rounded-full border-2 border-brown px-5 py-3 text-sm font-bold text-brown hover:bg-cream-dark transition-colors"
             >
-              🎨 Sticker Studio · {stickerCount}
+              <Icon name="sticker-emoji" /> Sticker Studio · {stickerCount}
             </Link>
           )}
         </div>
@@ -434,7 +435,7 @@ export default function SnootPage() {
             }}
           >
             <ShareLogo height={26} />
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>godoggydate.com</span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>godoggydate.com</span>
           </div>
         </div>
       </div>

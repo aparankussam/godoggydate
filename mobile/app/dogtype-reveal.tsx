@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts } from '../constants/theme';
@@ -152,7 +152,7 @@ export default function DogtypeRevealScreen() {
           <View style={styles.actions}>
             <PrimaryButton
               label={sharing ? 'Preparing…' : `Share ${dogName}'s Dogtype`}
-              icon={sharing ? undefined : <Ionicons name="share-outline" size={24} color={colors.ink} />}
+              icon={sharing ? undefined : <MaterialCommunityIcons name="export-variant" size={24} color={colors.ink} />}
               onPress={handleShare}
               disabled={sharing}
               style={styles.fullWidth}

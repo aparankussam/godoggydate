@@ -34,6 +34,7 @@ import {
   type DogQuizScoreboardEntry,
 } from '../../shared/dogQuiz';
 import ShareLogo from './ShareLogo';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -184,7 +185,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
   return (
     <section className="card p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">Pass the phone 📱</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-rose">Pass the phone 📱</p>
         <h2 className="font-display text-xl text-brown leading-tight">Who actually knows {dogName}?</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Ten questions about {dogName}. You set the real answers, then hand the phone around — friends and
@@ -209,7 +210,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
               </button>
             </div>
           )}
-          <p className="mt-3 text-[11px] text-brown-light leading-snug">
+          <p className="mt-3 text-[12px] text-brown-light leading-snug">
             You answer first, as the owner — those become the correct answers. Everyone else is scored against
             them. Scores are just how many they matched, nothing more.
           </p>
@@ -220,10 +221,10 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {phase === 'setup' && currentQuestion && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-rose">
               Answer key · {stepIdx + 1} of {total}
             </p>
-            <span className="text-[11px] font-bold text-brown-light">🔒 owner only</span>
+            <span className="text-[12px] font-bold text-brown-light"><Icon name="lock" size={12} /> owner only</span>
           </div>
           <ProgressBar current={stepIdx} total={total} />
           <p className="mt-3 font-display text-lg text-brown leading-snug">
@@ -264,7 +265,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
       {phase === 'lobby' && (
         <div>
           <div className="rounded-xl bg-cream-dark border-2 border-brown px-3.5 py-3">
-            <p className="text-sm font-bold text-brown">🔒 Answer key locked in ({total} answers)</p>
+            <p className="text-sm font-bold text-brown"><Icon name="lock" /> Answer key locked in ({total} answers)</p>
             <p className="mt-0.5 text-xs text-brown-light leading-snug">
               Hand the phone to a friend or family member. They’ll answer the same {total} questions — no peeking
               at your answers.
@@ -316,10 +317,10 @@ export default function DogQuizSection({ savedProfile }: Props) {
             </p>
           </div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
+            <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-rose">
               Question {stepIdx + 1} of {total}
             </p>
-            <span className="text-[11px] font-bold text-brown-light">{activeGuest}’s guesses</span>
+            <span className="text-[12px] font-bold text-brown-light">{activeGuest}’s guesses</span>
           </div>
           <ProgressBar current={stepIdx} total={total} />
           <p className="mt-3 font-display text-lg text-brown leading-snug">
@@ -364,7 +365,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
                 </p>
               );
             })()}
-            <p className="mt-1 text-[11px] text-brown-light">
+            <p className="mt-1 text-[12px] text-brown-light">
               matched {dogName}’s owner’s answers · a playful label, not a real score
             </p>
           </div>
@@ -405,7 +406,7 @@ export default function DogQuizSection({ savedProfile }: Props) {
               disabled={sharing}
               className="btn-secondary w-full disabled:opacity-60"
             >
-              {sharing ? 'Preparing…' : '📤 Share the scoreboard'}
+              {sharing ? 'Preparing…' : <><Icon name="export-variant" /> Share the scoreboard</>}
             </button>
           </div>
         </div>
@@ -481,10 +482,10 @@ function ScoreboardCard({
       }}
     >
       <div className="flex flex-col px-6 pt-6 pb-5">
-        <p className="font-bold uppercase" style={{ fontSize: 11, letterSpacing: 2.4, color: PRIMARY }}>
+        <p className="font-bold uppercase" style={{ fontSize: 12, letterSpacing: 2.4, color: PRIMARY }}>
           Pass the phone 📱
         </p>
-        <h3 className="font-display leading-tight mt-1" style={{ fontSize: 25, color: BROWN }}>
+        <h3 className="font-display leading-tight mt-1" style={{ fontSize: 26, color: BROWN }}>
           Who actually knows {dogName}?
         </h3>
         <p className="mt-1" style={{ fontSize: 12, color: BROWN_LIGHT }}>
@@ -510,7 +511,7 @@ function ScoreboardCard({
                   <span style={{ fontSize: 15, width: 24 }}>{medal}</span>
                   <span
                     className="font-display truncate"
-                    style={{ fontSize: 19, color: leader ? '#FFFFFF' : BROWN, maxWidth: 170 }}
+                    style={{ fontSize: 20, color: leader ? '#FFFFFF' : BROWN, maxWidth: 170 }}
                   >
                     {e.name}
                   </span>
@@ -530,7 +531,7 @@ function ScoreboardCard({
           style={{ borderTop: `1px solid ${BORDER}` }}
         >
           <ShareLogo height={26} />
-          <p style={{ fontSize: 10, color: BROWN_MID }}>godoggydate.com</p>
+          <p style={{ fontSize: 12, color: BROWN_MID }}>godoggydate.com</p>
         </div>
       </div>
     </div>

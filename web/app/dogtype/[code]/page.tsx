@@ -83,7 +83,7 @@ export default function DogtypePage({ params }: PageProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {type.axes.map((a) => (
             <div key={a.key} className="card p-4 rounded-2xl">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-brown-light">{a.axis}</p>
+              <p className="text-[12px] font-bold uppercase tracking-wide text-brown-light">{a.axis}</p>
               <p className="mt-1 font-display text-lg text-brown">
                 {a.pole.emoji} {a.pole.label}
                 <span className="text-brown-light text-sm font-body font-normal"> over {a.other.label}</span>

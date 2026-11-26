@@ -88,6 +88,8 @@ export interface DogProfile {
   specialNeeds: SpecialNeed[];
   behaviorFlags: BehaviorFlag[];
   bio?: string;
+  /** Memorial mode (see shared/profile.ts SavedDogProfile.memorialSince). */
+  memorialSince?: string;
 
   // Mode (strictly separate)
   mode: 'playdate' | 'breeding';
@@ -185,7 +187,7 @@ export interface DogAIProfile {
 // advances recurring reminders when marked complete.
 export type ReminderType =
   | 'heartworm' | 'flea_tick' | 'booster' | 'rabies' | 'license'
-  | 'grooming' | 'vet_visit' | 'insurance_claim' | 'medication' | 'custom';
+  | 'grooming' | 'vet_visit' | 'insurance_claim' | 'medication' | 'microchip_check' | 'custom';
 
 export interface Reminder {
   id: string;

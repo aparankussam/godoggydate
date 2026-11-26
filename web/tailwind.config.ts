@@ -12,8 +12,8 @@ const config: Config = {
         primary: '#FF5C8D',
         'primary-light': '#FF8FB0',
         'primary-dark': '#D63A6B',
-        gold: '#F5B731',
-        'gold-light': '#FAD56A',
+        gold: '#FFC56B',
+        'gold-light': '#FFE2AE',
         cream: '#FFF9EC',
         'cream-dark': '#F3ECDC',
         brown: '#2A1F4A',
@@ -31,9 +31,11 @@ const config: Config = {
         fit: '#6FDB9C',
         note: '#DCEEFB',
         amber: { DEFAULT: '#FFC56B', spine: '#E8820C' },
-        // Tailwind's red-500 is 3.8:1 on white; as error text it needs red-600.
-        red: { 500: '#DC2626' },
+        // One red, the app's colors.danger. 700 is its darker shade for text on tints.
+        red: { 500: '#D93A3A', 600: '#D93A3A', 700: '#B32D2D' },
       },
+      // Matches the app's three Nunito weights: 400 body, 800 labels, 900 buttons.
+      fontWeight: { semibold: '800', bold: '800' },
       fontFamily: {
         display: ['var(--font-chewy)', 'Nunito', 'system-ui', 'sans-serif'],
         hand: ['var(--font-caveat)', 'cursive'],

@@ -23,7 +23,7 @@ interface Props {
 function gradientFor(code: string): [string, string, string] {
   const spark = code[0] === 'E';
   return spark
-    ? ['#7A2E0E', '#FF5C8D', '#F5B731']
+    ? ['#7A2E0E', '#FF5C8D', '#FFC56B']
     : ['#241A2E', '#4A3F6E', '#C98A5E'];
 }
 

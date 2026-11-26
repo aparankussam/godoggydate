@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PrimaryButton } from './sticker';
 import { colors, fonts, radius } from '../constants/theme';
 import { uploadDogPhoto } from '../lib/storage';
@@ -45,7 +45,7 @@ import {
   toAdoptionDateIso,
   toIsoDate,
 } from '../../shared/dates';
-import { temperamentLabel } from '../../shared/temperament';
+import { temperamentLabel, sentenceCase } from '../../shared/temperament';
 
 // Placeholder text: clearly lighter than typed ink so empty fields read empty.
 const PLACEHOLDER = '#8E87A8';
@@ -127,7 +127,7 @@ const NOT_GOOD_WITH_OPTIONS = [
 const BEHAVIOR_FLAG_OPTIONS = [
   'needs slow introduction', 'easily overstimulated', 'resource guarding',
   'anxious with dogs', 'prefers calm dogs', 'not comfortable with kids',
-  'reactive on leash only',
+  'reactive on leash only', 'escape artist',
 ] as const;
 
 // Two explicit answers plus a third state — neither selected — which is the
@@ -774,7 +774,7 @@ export default function ProfileEditor({
           accessibilityRole="button"
           accessibilityLabel="Back to profile without saving"
         >
-          <Ionicons name="chevron-back" size={18} color={colors.ink} />
+          <MaterialCommunityIcons name="chevron-left" size={18} color={colors.ink} />
           <Text style={styles.cancelText}>Back</Text>
         </Pressable>
       )}
@@ -831,13 +831,13 @@ export default function ProfileEditor({
                 accessibilityRole="button"
                 accessibilityLabel="Remove photo"
               >
-                <Ionicons name="close" size={16} color={colors.paper} />
+                <MaterialCommunityIcons name="close" size={16} color={colors.paper} />
               </Pressable>
             </View>
           ))}
           {photos.length < 6 && (
             <Pressable style={styles.addPhoto} onPress={pickPhoto} accessibilityRole="button" accessibilityLabel="Add photo">
-              <Ionicons name="add-circle" size={30} color={colors.ink} />
+              <MaterialCommunityIcons name="plus-circle" size={30} color={colors.ink} />
               <Text style={styles.addPhotoText}>Add photo</Text>
             </Pressable>
           )}
@@ -887,7 +887,7 @@ export default function ProfileEditor({
               </View>
             ) : (
               <View style={styles.vibeBusyRow}>
-                <Ionicons name="sparkles" size={17} color={colors.ink} />
+                <MaterialCommunityIcons name="creation" size={17} color={colors.ink} />
                 <Text style={styles.vibeButtonText}>
                   {initialProfile?.ai?.vibeCheck ? 'Redo the Vibe Check' : 'Fill this in from the photos'}
                 </Text>
@@ -1058,7 +1058,7 @@ export default function ProfileEditor({
           {PLAY_STYLE_OPTIONS.map((option) => (
             <ChoiceChip
               key={option}
-              label={option}
+              label={sentenceCase(option)}
               active={playStyles.includes(option)}
               onPress={() => setPlayStyles((prev) => toggleIn(prev, option))}
             />
@@ -1100,7 +1100,7 @@ export default function ProfileEditor({
           {BEHAVIOR_FLAG_OPTIONS.map((option) => (
             <ChoiceChip
               key={option}
-              label={option}
+              label={sentenceCase(option)}
               active={behaviorFlags.includes(option)}
               onPress={() => setBehaviorFlags((prev: string[]) => (
                 prev.includes(option) ? prev.filter((item: string) => item !== option) : [...prev, option]
@@ -1538,7 +1538,7 @@ const styles = StyleSheet.create({
   },
   helper: {
     fontFamily: fonts.semibold,
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 17,
     color: colors.brownMid,
     marginBottom: 10,
@@ -1575,7 +1575,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontFamily: fonts.bold,
     color: colors.ink,
-    fontSize: 13.5,
+    fontSize: 13,
   },
   chipTextActive: { color: colors.paper },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -1621,7 +1621,7 @@ const styles = StyleSheet.create({
   error: {
     marginTop: 6,
     fontFamily: fonts.bold,
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.danger,
   },
   orText: {

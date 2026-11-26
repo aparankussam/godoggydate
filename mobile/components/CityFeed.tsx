@@ -6,13 +6,14 @@
 
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { colors, fonts } from '../constants/theme';
 import { Heading, Paper, PaperButton, PinkButton, Slip, Tag, type } from './pack/kit';
 import PackDayCard from './PackDayCard';
 import LostAlertCard from './LostAlertCard';
 import { createCityPost, loadCityFeed, updateCityPost } from '../lib/cityFeed';
 import { openReportSheet } from '../lib/reports';
+import SirenIcon from './SirenIcon';
 import { CITY_FEED_LIMITS, POST_TEMPLATES, POST_TEMPLATE_KEYS } from '../../shared/cityFeed';
 import type { FeedItem, PostTemplate } from '../../shared/cityFeed';
 import type { PackDay } from '../../shared/packDay';
@@ -84,6 +85,17 @@ export default function CityFeed({ uid, city, canPost, blocked, reloadToken }: P
         <Paper style={styles.composer}>
           <Heading size={20}>{POST_TEMPLATES[template].emoji} {POST_TEMPLATES[template].label}</Heading>
           <Text style={type.soft}>{POST_TEMPLATES[template].prompt}</Text>
+          {/* A found dog may already have a family looking: show their alerts first. */}
+          {template === 'found_dog' && lostItems.some((i) => i.kind === 'lost' && i.data.status !== 'found') && (
+            <Slip tone="amber">
+              <Text style={type.body}>Is it one of these lost dogs? Tap one to tell the family:</Text>
+              {lostItems.map((i) => i.kind === 'lost' && i.data.status !== 'found' && (
+                <Text key={i.id} style={styles.lostLink} onPress={() => router.push({ pathname: '/lost/[id]', params: { id: i.id } })} accessibilityRole="link">
+                  <SirenIcon size={15} color={colors.danger} /> {String(i.data.dogName ?? 'A dog')}{i.data.lastSeen ? `, last seen ${String(i.data.lastSeen)}` : ''}
+                </Text>
+              ))}
+            </Slip>
+          )}
           <TextInput
             style={[styles.input, styles.multiline]} value={text} onChangeText={setText} multiline
             maxLength={CITY_FEED_LIMITS.maxTextLength} placeholder="Keep it short and friendly"
@@ -101,7 +113,9 @@ export default function CityFeed({ uid, city, canPost, blocked, reloadToken }: P
       ) : canPost ? (
         <View style={styles.chips}>
           {POST_TEMPLATE_KEYS.map((k) => (
-            <PaperButton key={k} small label={`${POST_TEMPLATES[k].emoji} ${POST_TEMPLATES[k].label}`} onPress={() => setTemplate(k)} />
+            <View key={k} style={styles.chipCell}>
+              <PaperButton small label={`${POST_TEMPLATES[k].emoji} ${POST_TEMPLATES[k].label}`} onPress={() => setTemplate(k)} style={styles.chipBtn} />
+            </View>
           ))}
         </View>
       ) : (
@@ -156,7 +170,9 @@ export default function CityFeed({ uid, city, canPost, blocked, reloadToken }: P
 
 const styles = StyleSheet.create({
   composer: { gap: 10, marginBottom: 18 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8, marginBottom: 18 },
+  chipCell: { width: '48.5%' },
+  chipBtn: { paddingHorizontal: 4 }, // "Walkies Wanted" stays on one line
   gate: { marginBottom: 18 },
   input: {
     borderWidth: 2, borderColor: colors.ink, borderRadius: 12, backgroundColor: colors.cream,
@@ -165,5 +181,6 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   loading: { paddingVertical: 40 },
   card: { marginBottom: 14, gap: 8 },
+  lostLink: { fontFamily: fonts.black, fontSize: 15, color: colors.ink, textDecorationLine: 'underline', marginTop: 6 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
 });

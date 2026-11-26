@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
   shareMedal: { fontSize: 14, width: 22 },
   shareName: { flex: 1, fontFamily: fonts.display, fontSize: 18, color: colors.brown },
   shareNameLeader: { color: colors.cream },
-  shareScore: { fontFamily: fonts.display, fontSize: 19, color: colors.rose, marginLeft: 8 },
+  shareScore: { fontFamily: fonts.display, fontSize: 20, color: colors.rose, marginLeft: 8 },
   shareScoreLeader: { color: colors.cream },
   shareScoreDenom: { fontFamily: fonts.display, fontSize: 13, color: colors.brownMid },
   shareScoreDenomLeader: { color: '#FFF3DA' },

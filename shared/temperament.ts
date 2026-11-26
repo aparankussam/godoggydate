@@ -16,3 +16,8 @@ export function temperamentLabel(value: string): string {
 export function uniqueTemperament(values: readonly string[]): string[] {
   return Array.from(new Set(values.map(temperamentLabel)));
 }
+
+/** Chips read in sentence case; stored values (many lowercase) are unchanged. */
+export function sentenceCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}

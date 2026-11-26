@@ -8,7 +8,7 @@
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import type { SavedDogProfile } from '../../../shared/profile';
 import { getHeroPhoto } from '../../lib/photos';
@@ -148,19 +148,19 @@ export default function DiscoverEmpty({
     {
       key: 'dogtype',
       text: `See ${dogName}’s Dogtype`,
-      icon: <Ionicons name="pricetag" size={ICON} color={colors.ink} />,
+      icon: <MaterialCommunityIcons name="tag" size={ICON} color={colors.ink} />,
       href: '/dogtype-reveal',
     },
     {
       key: 'roast',
       text: `Get ${dogName} roasted (affectionately)`,
-      icon: <Ionicons name="flame" size={ICON} color={colors.ink} />,
+      icon: <MaterialCommunityIcons name="fire" size={ICON} color={colors.ink} />,
       href: '/fun/playroom',
     },
     {
       key: 'barkle',
       text: 'Play today’s Barkle breed puzzle',
-      icon: <Ionicons name="grid" size={ICON - 2} color={colors.ink} />,
+      icon: <MaterialCommunityIcons name="view-grid" size={ICON - 2} color={colors.ink} />,
       href: '/fun/barkle',
     },
     // Only a nudge while neither date is on file.
@@ -176,7 +176,7 @@ export default function DiscoverEmpty({
         ]),
     {
       key: 'packday',
-      text: city ? `Be the first to host a Pack Day in ${city}` : 'Be the first to host a Pack Day',
+      text: city ? `Host ${city}’s first Pack Day` : 'Host the first Pack Day',
       icon: <MaterialCommunityIcons name="tree" size={ICON} color={colors.ink} />,
       href: '/pack/new',
     },
@@ -235,7 +235,7 @@ export default function DiscoverEmpty({
               label={waitlistBusy ? 'Adding you…' : 'Tell me when neighbors join'}
               onPress={handleJoinWaitlist}
               disabled={waitlistBusy}
-              icon={<Ionicons name="notifications" size={22} color={colors.ink} />}
+              icon={<MaterialCommunityIcons name="bell" size={22} color={colors.ink} />}
             />
             <Text style={styles.helper} accessibilityLiveRegion="polite">
               {waitlistNote ?? 'We’ll send one notification when a neighbor joins.'}
@@ -273,7 +273,7 @@ export default function DiscoverEmpty({
           >
             <View style={styles.waitIcon}>{item.icon}</View>
             <Text style={styles.waitText}>{item.text}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.ink} />
+            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.ink} />
           </Pressable>
         ))}
       </View>
@@ -307,7 +307,7 @@ export default function DiscoverEmpty({
               style={({ pressed }) => [styles.shareBtn, pressed && { transform: [{ translateY: 1 }] }, sharingCard && { opacity: 0.6 }]}
             >
               <View pointerEvents="none" style={styles.shareEdge} />
-              <Ionicons name="share-outline" size={19} color={colors.ink} />
+              <MaterialCommunityIcons name="export-variant" size={19} color={colors.ink} />
               <Text style={styles.shareBtnText} numberOfLines={2}>
                 {sharingCard ? 'Preparing…' : `Share ${dogName}’s Card`}
               </Text>
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28 },
   logo: { marginBottom: 12 },
   radiusBlock: { marginBottom: 18, gap: 8 },
-  widen: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink, textAlign: 'center' },
+  widen: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center' },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   topText: { flex: 1 },
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
   },
-  joinedStrong: { fontFamily: fonts.black, fontSize: 14.5, lineHeight: 20, color: colors.ink },
+  joinedStrong: { fontFamily: fonts.black, fontSize: 15, lineHeight: 20, color: colors.ink },
   joinedNote: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.ink, marginTop: 2 },
   textBtn: { minHeight: 44, justifyContent: 'center' },
   textBtnText: {

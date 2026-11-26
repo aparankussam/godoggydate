@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   canvas: { width: CANVAS, height: CANVAS, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.note, borderWidth: 2, borderColor: colors.ink },
   canvasEmpty: { alignItems: 'center', justifyContent: 'center' },
   canvasBrand: { position: 'absolute', bottom: 8, right: 10, alignItems: 'flex-end', gap: 2 },
-  canvasBrandText: { fontFamily: fonts.bold, fontSize: 9, color: 'rgba(255,255,255,0.85)' },
+  canvasBrandText: { fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   placed: { position: 'absolute', width: STICKER, height: STICKER, alignItems: 'center', justifyContent: 'center' },
   placedEmoji: { fontSize: 52 },
   hint: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'center' },

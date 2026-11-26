@@ -22,6 +22,8 @@ import { LOST_CHECKLIST } from '../../../../../shared/lostDog';
 import { CONTENT_FILTER_MESSAGE, checkContent } from '../../../../../shared/contentFilter';
 import type { Reminder } from '../../../../../shared/types';
 import SignInGate from '../../../../components/SignInGate';
+import { getHouseholdDogsForUser } from '../../../../lib/household';
+import { Icon } from '../../../../components/icons';
 
 export default function LostNowPage() {
   const router = useRouter();
@@ -33,8 +35,14 @@ export default function LostNowPage() {
   const [active, setActive] = useState<LostAlert | null | undefined>(undefined);
   const [lastSeen, setLastSeen] = useState('');
   const [sending, setSending] = useState(false);
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  // ?dog=<ownerUid>: a sitter or other household member raising the alert for the dog they mind.
+  const [forOwnerId, setForOwnerId] = useState<string | undefined>(undefined);
+  const [alertId, setAlertId] = useState<string | null>(null);
+  const alertHref = (id: string | null) => (forOwnerId && id ? `/lost/${id}` : '/app/lost');
 
   useEffect(() => {
     const { auth } = getFirebase();
@@ -44,19 +52,45 @@ export default function LostNowPage() {
   const uid = authUser?.uid;
   useEffect(() => {
     if (!uid) return;
-    getUserDogProfile(uid).then(setProfile).catch(() => setProfile(null));
-    getLostKit(uid).then(setKit).catch(() => {});
-    const offReminders = onReminders(uid, setReminders);
-    const offAlert = onMyActiveAlert(uid, setActive);
+    const dog = new URLSearchParams(window.location.search).get('dog');
+    const owner = dog && dog !== uid ? dog : undefined;
+    setForOwnerId(owner);
+    const targetId = owner ?? uid;
+    if (owner) {
+      getHouseholdDogsForUser(uid)
+        .then((list) => setProfile(list.find((d) => d.dogId === owner)?.profile ?? null))
+        .catch(() => setProfile(null));
+    } else {
+      getUserDogProfile(uid).then(setProfile).catch(() => setProfile(null));
+      getLostKit(uid).then(setKit).catch(() => {}); // the kit is private to the owner
+    }
+    const offReminders = onReminders(targetId, setReminders);
+    const offAlert = onMyActiveAlert(targetId, setActive);
     return () => { offReminders(); offAlert(); };
   }, [uid]);
 
   // Already lost and not just sent from here: go straight to the open alert.
-  useEffect(() => { if (active && !sent) router.replace('/app/lost'); }, [active, sent, router]);
+  useEffect(() => {
+    if (active && !sent) router.replace(forOwnerId ? `/lost/${active.id}` : '/app/lost');
+  }, [active, sent, router, forOwnerId]);
 
   const medicines = useMemo(() => medicineNeeds(reminders), [reminders]);
   const dogName = profile?.name?.trim() || 'Your dog';
   const photo = kit.photoUrl || (profile ? getHeroPhoto(profile.photos, resolveHeroIndex(profile)) : null) || undefined;
+
+  function useMyLocation() {
+    if (!navigator.geolocation) { setError('Location is not available here. Type where you last saw them instead.'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setPin({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLastSeen((cur) => cur.trim() || 'Near where I am now');
+        setLocating(false);
+      },
+      () => { setError('Could not find you. Type where you last saw them instead.'); setLocating(false); },
+      { timeout: 10000 },
+    );
+  }
 
   async function send() {
     if (!uid || sending) return;
@@ -64,7 +98,8 @@ export default function LostNowPage() {
     if (lastSeen.trim() && !checkContent(lastSeen).ok) { setError(CONTENT_FILTER_MESSAGE); return; }
     setSending(true);
     try {
-      await createLostAlert(uid, {
+      const id = await createLostAlert(uid, {
+        forOwnerId,
         dogName,
         breed: profile?.breed,
         size: profile?.size,
@@ -75,8 +110,10 @@ export default function LostNowPage() {
         lastSeen,
         city: profile?.city,
         state: profile?.state,
+        lostPin: pin,
       });
-      trackEvent('lost_alert_created', { from: 'panic', hadKit: !!(kit.photoUrl || kit.markings) });
+      trackEvent('lost_alert_created', { from: forOwnerId ? 'household' : 'panic', hadKit: !!(kit.photoUrl || kit.markings) });
+      setAlertId(id);
       setSent(true);
     } catch {
       setError('Could not send the alert. Please check your connection and try again.');
@@ -85,7 +122,7 @@ export default function LostNowPage() {
     }
   }
 
-  if (authLoading) return <div className="py-24 text-center text-3xl">🐾</div>;
+  if (authLoading) return <div className="py-24 text-center text-brown"><Icon name="paw" size={32} /></div>;
   if (!authUser) return <SignInGate emoji="🚨" title="Sign in to alert your neighbors" />;
   if (profile === null) {
     return (
@@ -101,7 +138,7 @@ export default function LostNowPage() {
     return (
       <div className="mx-auto max-w-xl space-y-4 p-4 lg:py-8">
         <p role="status" className="rounded-xl border-2 border-emerald-700 bg-paper px-4 py-3 text-[15px] font-black text-brown">
-          Neighbors near {profile?.city || 'you'} are being alerted about {dogName}.
+          Neighbors near {profile?.city || 'you'} are being alerted about {dogName}.{forOwnerId ? ' Their owner is being told too.' : ''}
         </p>
         <h1 className="font-display text-[28px] leading-none text-brown">What to do now</h1>
         <ol className="space-y-3">
@@ -115,7 +152,7 @@ export default function LostNowPage() {
             </li>
           ))}
         </ol>
-        <Link href="/app/lost" className="flex min-h-[60px] items-center justify-center rounded-full border-2 border-brown bg-red-600 px-4 font-display text-[22px] text-white">
+        <Link href={alertHref(alertId)} className="flex min-h-[60px] items-center justify-center rounded-full border-2 border-brown bg-red-600 px-4 font-display text-[22px] text-white">
           Open the alert: poster and sightings
         </Link>
       </div>
@@ -138,9 +175,17 @@ export default function LostNowPage() {
           onChange={(e) => setLastSeen(e.target.value)}
           maxLength={LOST_LIMITS.lastSeen}
           placeholder="e.g. Beaver Park, near the creek"
-          className="mt-1.5 w-full rounded-xl border-2 border-brown bg-white px-4 py-3.5 text-[17px] text-brown"
+          className="mt-1.5 w-full rounded-xl border-2 border-brown bg-white px-4 py-3.5 text-[16px] text-brown"
         />
       </label>
+      <button
+        type="button"
+        onClick={useMyLocation}
+        disabled={locating}
+        className="btn-secondary inline-flex min-h-[44px] items-center px-4 text-sm disabled:opacity-60"
+      >
+        <Icon name="map-marker" /> {locating ? 'Finding you…' : pin ? 'Neighbors around here are told first' : 'Use where I am now'}
+      </button>
       {error && <p role="alert" className="text-[15px] font-black text-rose">{error}</p>}
       <button
         type="button"

@@ -9,7 +9,7 @@ import { colors, fonts, radius } from '../constants/theme';
 import { stripEmoji } from './pack/kit';
 import type { SavedDogProfile } from '../lib/profile';
 import { getVaccinationStatus } from '../../shared/profile';
-import { uniqueTemperament } from '../../shared/temperament';
+import { uniqueTemperament, sentenceCase } from '../../shared/temperament';
 
 const SIZE_LABELS: Record<string, string> = {
   S: 'Small',
@@ -77,7 +77,7 @@ export default function ProfileDetailsCard({ profile, hideIdentity = false }: { 
         <Text style={styles.rowLabel}>Temperament</Text>
         <View style={styles.chips}>
           {temperament.map((item) => (
-            <View key={item} style={styles.chip}><Text style={styles.chipText}>{stripEmoji(item)}</Text></View>
+            <View key={item} style={styles.chip}><Text style={styles.chipText}>{sentenceCase(stripEmoji(item))}</Text></View>
           ))}
         </View>
       </View>
@@ -87,7 +87,7 @@ export default function ProfileDetailsCard({ profile, hideIdentity = false }: { 
         <Text style={styles.rowLabel}>Play style</Text>
         <View style={styles.chips}>
           {playStyles.map((item) => (
-            <View key={item} style={styles.chip}><Text style={styles.chipText}>{stripEmoji(item)}</Text></View>
+            <View key={item} style={styles.chip}><Text style={styles.chipText}>{sentenceCase(stripEmoji(item))}</Text></View>
           ))}
         </View>
       </View>

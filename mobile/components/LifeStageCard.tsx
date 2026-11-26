@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
-  focusText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink, lineHeight: 19 },
+  focusText: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, lineHeight: 19 },
   focusStrong: { fontFamily: fonts.black, color: colors.brown },
   nudgeCard: {
     backgroundColor: colors.cream,

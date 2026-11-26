@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   toggleOwner: { fontFamily: fonts.bold, color: colors.brownMid },
   toggleCta: {
     fontFamily: fonts.black,
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.brownMid,
     textDecorationLine: 'underline',
   },
@@ -272,14 +272,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 4,
   },
-  mirrorLabel: { fontFamily: fonts.black, fontSize: 12.5, color: colors.brownMid },
+  mirrorLabel: { fontFamily: fonts.black, fontSize: 12, color: colors.brownMid },
   mirrorList: { gap: 2 },
   mirrorCaution: {
     fontFamily: fonts.black,
     textDecorationLine: 'underline',
     textDecorationColor: colors.amber,
   },
-  footnote: { fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 18, color: colors.brownMid },
+  footnote: { fontFamily: fonts.bold, fontSize: 12, lineHeight: 18, color: colors.brownMid },
   guideLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   link: {
     fontFamily: fonts.black,

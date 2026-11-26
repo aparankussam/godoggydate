@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
 import { StickerDog } from './sticker';
 import BrandLogo from './BrandLogo';
@@ -54,14 +54,14 @@ const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, 
         <Text style={styles.badgeText}>Playdate · Confirmed</Text>
       </View>
       <View style={styles.ball} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Ionicons name="tennisball" size={20} color={colors.ink} />
+        <MaterialCommunityIcons name="tennis-ball" size={20} color={colors.ink} />
       </View>
 
       <View style={styles.infoPanel}>
         {clampedStars !== null && clampedStars > 0 && (
           <View style={styles.stars} accessibilityLabel={`${clampedStars} out of 5 stars`}>
             {Array.from({ length: clampedStars }).map((_, i) => (
-              <Ionicons key={i} name="star" size={24} color={colors.paper} />
+              <MaterialCommunityIcons key={i} name="star" size={24} color={colors.paper} />
             ))}
           </View>
         )}

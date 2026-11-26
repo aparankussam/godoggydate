@@ -189,7 +189,7 @@ export function timeAgo(thenMs: number, nowMs: number): string {
 export const LOST_CHECKLIST: { title: string; body: string }[] = [
   { title: 'Search close to home first', body: 'Most lost dogs are found within a mile. Check under porches, in garages and along their usual walk.' },
   { title: 'Call shelters and animal control', body: 'Call every shelter and animal control office nearby, and visit in person if you can. Calls get missed.' },
-  { title: 'Call your microchip company', body: 'Report the chip as lost so a vet or shelter scan comes straight back to you.' },
+  { title: 'Call your microchip company', body: 'Report the chip as lost so a vet or shelter scan comes straight back to you. Not sure which company? Look the chip up at petmicrochiplookup.org.' },
   { title: 'Share the poster', body: 'Post it in neighborhood groups and apps, and print it for local shops, vets and parks.' },
   { title: 'Leave something that smells like home', body: 'Put an unwashed shirt or their bed outside your door. Dogs follow familiar smells back.' },
 ];

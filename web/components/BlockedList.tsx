@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { BLOCKS_CHANGED_EVENT, listBlockedMembers, unblockUser, type BlockedMember } from '../lib/blocks';
+import { Icon } from './icons';
 
 interface Props {
   userId: string;
@@ -98,7 +99,7 @@ export default function BlockedList({ userId }: Props) {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={m.dogPhoto} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-xl" aria-hidden="true">🐕</span>
+                    <Icon name="dog" size={22} className="text-brown" />
                   )}
                 </div>
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-brown">{name}</p>

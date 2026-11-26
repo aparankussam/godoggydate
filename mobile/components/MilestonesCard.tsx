@@ -15,6 +15,7 @@ import { captureAndShare } from '../lib/shareCard';
 import { dogPageUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import type { SavedDogProfile } from '../lib/profile';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -28,7 +29,7 @@ const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string
   ({ milestone, dogName }, ref) => (
     <View ref={ref} collapsable={false} style={styles.celebrate}>
       <LinearGradient
-        colors={['#B45309', '#FF5C8D', '#F5B731']}
+        colors={['#B45309', '#FF5C8D', '#FFC56B']}
         locations={[0, 0.55, 1]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
@@ -42,6 +43,8 @@ const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string
   ),
 );
 CelebrationCard.displayName = 'CelebrationCard';
+
+const MILESTONE_ICONS = { birthday: 'cake-variant', gotcha: 'home', godoggy_anniversary: 'paw' } as const;
 
 export default function MilestonesCard({ savedProfile, userId, onAddDate }: Props) {
   const cardRef = useRef<View>(null);
@@ -82,9 +85,9 @@ export default function MilestonesCard({ savedProfile, userId, onAddDate }: Prop
   // Real dates only, never samples: a missing one is shown as a gap to fill.
   const missing = onAddDate
     ? [
-        !savedProfile.birthMonth && { key: 'birthday', emoji: '🎂', title: `${dogName}'s birthday` },
-        !savedProfile.adoptionDate && { key: 'gotcha', emoji: '🏠', title: 'Gotcha Day' },
-      ].filter((m): m is { key: string; emoji: string; title: string } => !!m)
+        !savedProfile.birthMonth && { key: 'birthday' as const, title: `${dogName}'s birthday` },
+        !savedProfile.adoptionDate && { key: 'gotcha' as const, title: 'Gotcha Day' },
+      ].filter((m): m is { key: 'birthday' | 'gotcha'; title: string } => !!m)
     : [];
 
   // Nothing real to celebrate, count down to or fill in — render nothing.
@@ -113,7 +116,7 @@ export default function MilestonesCard({ savedProfile, userId, onAddDate }: Prop
       <Text style={styles.eyebrow}>Coming up</Text>
       {next && (
         <View style={styles.countdownRow}>
-          <Text style={styles.countdownEmoji}>{next.emoji}</Text>
+          <View style={styles.countdownIcon}><MaterialCommunityIcons name={MILESTONE_ICONS[next.kind]} size={24} color={colors.ink} /></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.countdownTitle} numberOfLines={1}>{next.title}</Text>
             <Text style={styles.countdownSub}>
@@ -124,7 +127,7 @@ export default function MilestonesCard({ savedProfile, userId, onAddDate }: Prop
       )}
       {missing.map((m) => (
         <View key={m.key} style={[styles.countdownRow, styles.missingRow]}>
-          <Text style={[styles.countdownEmoji, styles.missingFaded]}>{m.emoji}</Text>
+          <View style={[styles.countdownIcon, styles.missingFaded]}><MaterialCommunityIcons name={MILESTONE_ICONS[m.key]} size={24} color={colors.ink} /></View>
           <Text style={[styles.countdownTitle, styles.missingFaded, { flex: 1 }]} numberOfLines={1}>{m.title}</Text>
           <Pressable onPress={onAddDate} accessibilityRole="button" accessibilityLabel={`Add ${m.title} date`} hitSlop={8} style={styles.addDate}>
             <Text style={styles.addDateText}>Add date</Text>
@@ -199,7 +202,7 @@ const styles = StyleSheet.create({
     color: colors.brownMid,
   },
   countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  countdownEmoji: { fontSize: 26 },
+  countdownIcon: { width: 28, alignItems: 'center' },
   countdownTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.brown },
   countdownSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 1 },
 });

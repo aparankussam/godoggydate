@@ -18,8 +18,8 @@ import { resolveHeroIndex } from '../../lib/coverPhoto';
 import { usePlayroomGlimpses } from '../../lib/playroomGlimpses';
 import ZoomieCard from '../../components/playroom/ZoomieCard';
 import ToyBox from '../../components/playroom/ToyBox';
-import Collar from '../../components/playroom/Collar';
-import { useCharms, type Charm } from '../../lib/charms';
+import TodayCard from '../../components/playroom/TodayCard';
+import { todaysPick, useCharms, type Charm } from '../../lib/charms';
 import LifeStageCard from '../../components/LifeStageCard';
 import RoastSection from '../../components/RoastSection';
 import ApologySection from '../../components/ApologySection';
@@ -61,7 +61,7 @@ export default function PlayroomTab() {
     else if (params.panel) openHere('panel', params.panel);
   }, [params.treat, params.panel]);
   const pickCharm = (charm: Charm) => {
-    trackEvent('playroom_card_open', { feature: charm.id, via: 'collar' });
+    trackEvent('playroom_card_open', { feature: charm.id, via: 'today' });
     const href = charm.href;
     const linkParams = typeof href === 'object' ? (href.params as { treat?: string; panel?: string } | undefined) : undefined;
     if (linkParams?.treat) openHere('treat', linkParams.treat);
@@ -116,31 +116,30 @@ export default function PlayroomTab() {
       <ScrollView ref={scroll} contentContainerStyle={styles.content}>
         <Heading size={32}>Playroom</Heading>
 
-        <Collar earned={earned} dogName={name} onPick={pickCharm} />
-
-        <View style={[card.paper, styles.hero]}>
-          <Text style={styles.eyebrow}>Today’s Barkle</Text>
-          <Text style={styles.heroTitle}>{streakLine}</Text>
-          <PinkButton
-            label="Play today’s Barkle"
-            onPress={() => { trackEvent('fun_open', { feature: 'barkle' }); void earn('barkle'); router.push('/fun/barkle'); }}
-          />
-        </View>
+        <TodayCard
+          dogName={name}
+          streakLine={streakLine}
+          onPlayBarkle={() => { trackEvent('fun_open', { feature: 'barkle' }); void earn('barkle'); router.push('/fun/barkle'); }}
+          pick={todaysPick(earned)}
+          onTryPick={pickCharm}
+          earned={earned}
+        />
 
         <View onLayout={(e) => { zoomY.current = e.nativeEvent.layout.y; }}>
-          <ToyBox title="Zoomies" emoji="🎾" tint={colors.goldLight} layout="grid">
+          <ToyBox title="Zoomies" icon="tennis-ball" tint={colors.goldLight} layout="grid">
             <ZoomieCard
               label="Snoot Boop"
               glyph="gesture-tap"
               glimpse={g.boops > 0 ? `${g.boops} boops${g.nextStickerAt ? ` · next sticker at ${g.nextStickerAt}` : ''}` : `Boop ${name}'s snoot to earn stickers`}
+              isNew={!earned.includes('snoot')}
               onPress={open('snoot', '/fun/snoot')}
             />
-            <ZoomieCard label={`Roast ${name}`} glyph="fire" glimpse="A kind-hearted roast from their real profile" active={treat === 'roast'} onPress={treatKey('roast')} />
-            <ZoomieCard label={`Texts from ${name}`} glyph="message-text" glimpse="A thread of texts to you, in their voice" active={treat === 'texts'} onPress={treatKey('texts')} />
-            <ZoomieCard label="Dog quiz" glyph="help-circle" glimpse="Pass the phone: how well do friends know them?" active={treat === 'quiz'} onPress={treatKey('quiz')} />
-            <ZoomieCard label="Notes-App Apology" glyph="note-text" glimpse={`The apology ${name} would type`} active={treat === 'apology'} onPress={treatKey('apology')} />
-            <ZoomieCard label="My Human Review" glyph="star" glimpse={`${name} reviews you`} active={treat === 'review'} onPress={treatKey('review')} />
-            <ZoomieCard label="Excuse Note" glyph="note-edit" glimpse="A “my dog ate it” note, made to share" onPress={open('excuse', '/fun/excuse')} />
+            <ZoomieCard label={`Roast ${name}`} glyph="fire" glimpse="A kind-hearted roast from their real profile" active={treat === 'roast'} isNew={!earned.includes('roast')} onPress={treatKey('roast')} />
+            <ZoomieCard label={`Texts from ${name}`} glyph="message-text" glimpse="A thread of texts to you, in their voice" active={treat === 'texts'} isNew={!earned.includes('texts')} onPress={treatKey('texts')} />
+            <ZoomieCard label="Dog quiz" glyph="help-circle" glimpse="Pass the phone: how well do friends know them?" active={treat === 'quiz'} isNew={!earned.includes('quiz')} onPress={treatKey('quiz')} />
+            <ZoomieCard label="Notes-App Apology" glyph="note-text" glimpse={`The apology ${name} would type`} active={treat === 'apology'} isNew={!earned.includes('apology')} onPress={treatKey('apology')} />
+            <ZoomieCard label="My Human Review" glyph="star" glimpse={`${name} reviews you`} active={treat === 'review'} isNew={!earned.includes('review')} onPress={treatKey('review')} />
+            <ZoomieCard label="Excuse Note" glyph="note-edit" glimpse="A “my dog ate it” note, made to share" isNew={!earned.includes('excuse')} onPress={open('excuse', '/fun/excuse')} />
           </ToyBox>
         </View>
 
@@ -151,15 +150,16 @@ export default function PlayroomTab() {
         {treat === 'quiz' && <DogQuizSection savedProfile={profile} />}
 
         <View onLayout={(e) => { labY.current = e.nativeEvent.layout.y; }}>
-          <ToyBox title="Treat Lab" emoji="🦴" tint={colors.kraft} layout="grid">
-            <ZoomieCard label="Wanted Poster" glyph="card-account-details-star" thumb={thumb} glimpse={`Make ${name} a wanted poster`} onPress={open('wanted', '/fun/wanted')} />
-            <ZoomieCard label="Trading card" glyph="card-account-details-star" thumb={thumb} glimpse={`Share ${name}’s card and public page`} active={panel === 'card'} onPress={toggle('card')} />
-            <ZoomieCard label="Employee of the Month" glyph="medal" glimpse="A plaque for the office dog" active={treat === 'plaque'} onPress={treatKey('plaque')} />
-            <ZoomieCard label="Life stage" glyph="cake-variant" glimpse={`Where ${name} is in life, and what this stage needs`} active={treat === 'lifestage'} onPress={treatKey('lifestage')} />
+          <ToyBox title="Treat Lab" icon="bone" tint={colors.kraft} layout="grid">
+            <ZoomieCard label="Wanted Poster" glyph="card-account-details-star" thumb={thumb} glimpse={`Make ${name} a wanted poster`} isNew={!earned.includes('wanted')} onPress={open('wanted', '/fun/wanted')} />
+            <ZoomieCard label="Trading card" glyph="card-account-details-star" thumb={thumb} glimpse={`Share ${name}’s card and public page`} active={panel === 'card'} isNew={!earned.includes('card')} onPress={toggle('card')} />
+            <ZoomieCard label="Employee of the Month" glyph="medal" glimpse="A plaque for the office dog" active={treat === 'plaque'} isNew={!earned.includes('plaque')} onPress={treatKey('plaque')} />
+            <ZoomieCard label="Life stage" glyph="cake-variant" glimpse={`Where ${name} is in life, and what this stage needs`} active={treat === 'lifestage'} isNew={!earned.includes('lifestage')} onPress={treatKey('lifestage')} />
             <ZoomieCard
               label="Sticker Studio"
               glyph="sticker-emoji"
               glimpse={g.stickers > 0 ? `${g.stickers} sticker${g.stickers === 1 ? '' : 's'} earned` : 'Earn stickers by booping, then stick them on photos'}
+              isNew={!earned.includes('sticker-studio')}
               onPress={open('sticker-studio', '/fun/sticker-studio')}
             />
             <ZoomieCard
@@ -167,6 +167,7 @@ export default function PlayroomTab() {
               glyph="email-outline"
               glimpse={g.letterLine}
               active={panel === 'letter'}
+              isNew={!earned.includes('letter')}
               onPress={toggle('letter')}
             />
             {shouldShowDiptych(profile) && (
@@ -190,8 +191,8 @@ export default function PlayroomTab() {
         {panel === 'card' && <TradingCardShare profile={profile} userId={user.uid} />}
         {panel === 'dogday' && <DiptychSection savedProfile={profile} />}
 
-        <ToyBox title="Adventures" emoji="🗺️" tint={colors.note} layout="grid">
-          <ZoomieCard label="Adventure Passport" glyph="map-marker-path" glimpse={`${stamp}. Do it for real, add a photo, and it stamps.`} onPress={open('adventures', '/fun/adventures')} />
+        <ToyBox title="Adventures" icon="map" tint={colors.note} layout="grid">
+          <ZoomieCard label="Adventure Passport" glyph="map-marker-path" glimpse={`${stamp}. Do it for real, add a photo, and it stamps.`} isNew={!earned.includes('adventures')} onPress={open('adventures', '/fun/adventures')} />
         </ToyBox>
       </ScrollView>
     </SafeAreaView>
@@ -201,9 +202,6 @@ export default function PlayroomTab() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.sky },
   content: { padding: 16, paddingBottom: 40, gap: 14 },
-  hero: { borderRadius: 22, padding: 16, gap: 10 },
-  eyebrow: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: colors.rose },
-  heroTitle: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28, color: colors.ink },
   note: { borderRadius: 18, padding: 14 },
   noteText: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },

@@ -26,6 +26,7 @@ import type { HouseholdDog } from '../../lib/household';
 import RemindersSection from '../../components/RemindersSection';
 import { HouseholdJoinForm } from '../../components/HouseholdSection';
 import type { Reminder } from '../../../shared/types';
+import SirenIcon from '../../components/SirenIcon';
 
 const AGE_LABELS: Record<string, string> = { puppy: 'Puppy', adult: 'Adult', senior: 'Senior' };
 
@@ -135,6 +136,15 @@ export default function HouseholdScreen() {
             {householdDogs.map((dog) => (
               <View key={dog.dogId}>
                 <DogSummary dog={dog} />
+                {/* Many dogs go missing with a sitter: the household can raise the alert too. */}
+                <Pressable
+                  onPress={() => router.push({ pathname: '/lost/now', params: { dog: dog.dogId } })}
+                  accessibilityRole="button"
+                  style={styles.lostBtn}
+                >
+                  <SirenIcon size={22} />
+                  <Text style={styles.lostBtnText}>{dog.profile.name || 'This dog'} is lost</Text>
+                </Pressable>
                 <RemindersSection dogId={dog.dogId} reminders={reminders[dog.dogId] ?? []} />
               </View>
             ))}
@@ -182,7 +192,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontFamily: fonts.bold,
-    fontSize: 14.5,
+    fontSize: 15,
     color: colors.ink,
     lineHeight: 20,
     marginBottom: 16,
@@ -214,7 +224,9 @@ const styles = StyleSheet.create({
   dogPhotoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.note },
   dogText: { flex: 1 },
   dogName: { fontFamily: fonts.display, fontSize: 24, lineHeight: 28, color: colors.ink },
-  dogDetails: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink, marginTop: 2 },
+  lostBtn: { flexDirection: 'row', gap: 8, minHeight: 48, borderRadius: 24, backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  lostBtnText: { fontFamily: fonts.display, fontSize: 18, color: '#fff' },
+  dogDetails: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, marginTop: 2 },
   emptyCard: {
     backgroundColor: colors.paper,
     borderRadius: 24,
@@ -224,8 +236,8 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
-  emptyTitle: { fontFamily: fonts.display, fontSize: 21, lineHeight: 25, color: colors.ink },
-  emptyBody: { fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 19, color: colors.brownMid, marginBottom: 4 },
+  emptyTitle: { fontFamily: fonts.display, fontSize: 22, lineHeight: 25, color: colors.ink },
+  emptyBody: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 19, color: colors.brownMid, marginBottom: 4 },
   actions: { gap: 12, marginTop: 8, alignItems: 'stretch' },
   signOutButton: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 },
   signOutText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },

@@ -4,6 +4,33 @@
 // plain node. The Firestore and push work is in ./lostDog.
 
 export const CITY_AUDIENCE_CAP = 500;
+/** How far from where the dog was lost a member is "nearby". Most lost dogs are found within a mile or two. */
+export const NEARBY_MILES = 5;
+/** Latitude half-window for the nearby query: 5 miles is about 0.073 degrees. */
+export const NEARBY_LAT_WINDOW = 0.075;
+
+/** Straight-line miles between two points (haversine). */
+export function milesBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 3958.8 * 2 * Math.asin(Math.sqrt(h));
+}
+
+/** Members whose dog is within `miles` of the pin, nearest first. Skips anyone without numeric coordinates. */
+export function nearbyMembers(
+  dogs: Array<{ id: string; lat?: unknown; lng?: unknown }>,
+  pin: { lat: number; lng: number },
+  miles: number = NEARBY_MILES,
+): string[] {
+  return dogs
+    .filter((d) => typeof d.lat === 'number' && typeof d.lng === 'number')
+    .map((d) => ({ id: d.id, miles: milesBetween(pin, { lat: d.lat as number, lng: d.lng as number }) }))
+    .filter((d) => d.miles <= miles)
+    .sort((a, b) => a.miles - b.miles)
+    .map((d) => d.id);
+}
 
 export interface AudienceInput {
   ownerId: string;
@@ -13,6 +40,8 @@ export interface AudienceInput {
   packDayAttendees: string[];
   /** Everyone whose dog profile is in the owner's city. */
   cityMembers: string[];
+  /** Members within NEARBY_MILES of where the dog was lost, nearest first (empty without a pin). */
+  nearbyMembers?: string[];
   /** False when the owner already raised an alert in the last day: their Pack and
    *  Pack Day people are still told, the rest of the city is not. */
   broadcast: boolean;
@@ -35,7 +64,9 @@ function unique(list: string[], skip: Set<string>): string[] {
 
 export function planAudience(input: AudienceInput): Audience {
   const seen = new Set<string>([input.ownerId]);
-  const first = unique([...input.matchPartners, ...input.packDayAttendees], seen);
+  // People closest to where the dog went missing are the likeliest to see it,
+  // whatever city that is, so they are told first along with the owner's Pack.
+  const first = unique([...(input.nearbyMembers ?? []), ...input.matchPartners, ...input.packDayAttendees], seen);
   const rest = input.broadcast ? unique(input.cityMembers, seen).slice(0, CITY_AUDIENCE_CAP) : [];
   return { first, rest };
 }

@@ -759,7 +759,7 @@ export default function AppPage() {
     }]),
     {
       href: '/app/pack/new',
-      text: savedProfile?.city ? `Be the first to host a Pack Day in ${savedProfile.city}` : 'Be the first to host a Pack Day',
+      text: savedProfile?.city ? `Host ${savedProfile.city}’s first Pack Day` : 'Host the first Pack Day',
       icon: (
         <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="#2A1F4A" className="shrink-0">
           <circle cx="12" cy="5.8" r="4.3" /><circle cx="7.2" cy="7.8" r="4" /><circle cx="16.8" cy="7.8" r="4" />
@@ -778,6 +778,18 @@ export default function AppPage() {
       <PawIcon size={17} />
     </div>
   );
+
+  // Memorial mode: the owner's dog has passed away, so there is no deck to show.
+  if (authUser && savedProfile?.memorialSince) {
+    return (
+      <div className="mx-auto flex min-h-[60dvh] max-w-md flex-col items-center justify-center gap-4 px-6 text-center text-brown">
+        <span className="text-5xl" aria-hidden="true">🌈</span>
+        <h1 className="font-display text-[28px] leading-tight">In loving memory of {savedProfile.name}</h1>
+        <p className="text-[15px] font-bold leading-snug">{savedProfile.name} is out of Discover. Their Pupfile, photos and letters are still here whenever you want them.</p>
+        <Link href="/app/profile" className="btn-primary px-6 py-3">Open {savedProfile.name}&apos;s Pupfile</Link>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -826,7 +838,7 @@ export default function AppPage() {
               {/* Home tab carries the logo on phones, as in the app; on desktop the sidebar already shows it. */}
               <span className="shrink-0 lg:hidden"><BrandLogo height={28} /></span>
               <span className="hidden lg:block">{coin}</span>
-              <h1 className="min-w-0 flex-1 truncate font-display text-[21px] leading-none">Who wants to play?</h1>
+              <h1 className="min-w-0 flex-1 truncate font-display text-[22px] leading-none">Who wants to play?</h1>
             </>
           ) : (
             <span className="min-w-0 flex-1">
@@ -1075,7 +1087,7 @@ export default function AppPage() {
                         type="button"
                         disabled={waitlistBusy}
                         onClick={handleJoinWaitlist}
-                        className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-4 pb-1 text-[25px] leading-none disabled:opacity-60"
+                        className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-4 pb-1 text-[26px] leading-none disabled:opacity-60"
                       >
                         <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="#2A1F4A" className="shrink-0">
                           <path d="M12 2.4a1.7 1.7 0 0 1 1.7 1.7v.6a6.3 6.3 0 0 1 4.6 6.1v3.4l1.8 3a1.1 1.1 0 0 1-.94 1.66H4.84A1.1 1.1 0 0 1 3.9 17.2l1.8-3v-3.4a6.3 6.3 0 0 1 4.6-6.1v-.6A1.7 1.7 0 0 1 12 2.4z" />
@@ -1127,7 +1139,7 @@ export default function AppPage() {
                   className="relative mt-6 rotate-[0.8deg] rounded-md bg-cream px-3 pb-1 pt-3 shadow-[0_0_0_1.5px_#2A1F4A,0_8px_14px_rgba(42,31,74,0.22)]"
                 >
                   <Tape className="-top-2 right-11" width={46} height={15} rotate={4} />
-                  <h2 id="while-you-wait" className="mb-1.5 ml-0.5 font-display text-[21px] leading-none">While you wait</h2>
+                  <h2 id="while-you-wait" className="mb-1.5 ml-0.5 font-display text-[22px] leading-none">While you wait</h2>
                   <ul>
                     {waitItems.map((item) => (
                       <li key={item.text} className="border-t-[1.5px] border-dashed border-brown/40">

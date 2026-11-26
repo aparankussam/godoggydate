@@ -29,7 +29,7 @@ import { BREEDS } from '../../shared/types/breeds';
 import { checkContent, CONTENT_FILTER_MESSAGE } from '../../shared/contentFilter';
 import { PROFILE_TEXT_LIMITS } from '../../shared/profileInput';
 import CoverPhotoEditor from './CoverPhotoEditor';
-import { temperamentLabel } from '../../shared/temperament';
+import { temperamentLabel, sentenceCase } from '../../shared/temperament';
 
 const SIZES: { value: 'S' | 'M' | 'L' | 'XL'; label: string }[] = [
   { value: 'S', label: 'Small' },
@@ -130,7 +130,7 @@ const NOT_GOOD_WITH_OPTIONS = [
 const BEHAVIOR_FLAG_OPTIONS = [
   'needs slow introduction', 'easily overstimulated', 'resource guarding',
   'anxious with dogs', 'prefers calm dogs', 'not comfortable with kids',
-  'reactive on leash only',
+  'reactive on leash only', 'escape artist',
 ];
 
 const DEFAULT_PROMPTS = [
@@ -1033,7 +1033,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             </button>
             <span className="text-xs text-brown-light">{photos.length}/{MAX_PHOTOS}</span>
           </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
+          <p className="mt-1.5 text-[12px] leading-relaxed text-brown-light">
             Choose images from your device. The first photo becomes the main card image.
           </p>
           {photoNotice && <p role="status" className="mt-1 text-xs text-amber-700">{photoNotice}</p>}
@@ -1069,7 +1069,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               <p className="mt-2 text-xs text-brown-light leading-relaxed">
                 {vibeCheckResult.archetypeDescription}
               </p>
-              <p className="mt-2 text-[11px] text-brown-light">
+              <p className="mt-2 text-[12px] text-brown-light">
                 Filled in breed, size, energy, and tags below — check them over.
               </p>
             </div>
@@ -1218,7 +1218,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             <span>Energetic ⚡</span>
           </div>
           {/* Say where the number came from, so an estimate is never mistaken for an answer. */}
-          <p data-testid="energy-note" className={`mt-1 text-[11px] leading-snug ${energySource === 'none' ? 'text-amber-700' : 'text-brown-light'}`}>
+          <p data-testid="energy-note" className={`mt-1 text-[12px] leading-snug ${energySource === 'none' ? 'text-amber-700' : 'text-brown-light'}`}>
             {energySource === 'none' && 'Not set yet. Pick temperament and play style below, or drag the slider.'}
             {energySource === 'picks' && `Auto-set from your picks (${suggestEnergy({ temperament, playStyles, age, quizLetter: null }).reasons.join(', ')}). Drag to change.`}
             {energySource === 'quiz' && 'Auto-set from your Dogtype quiz answer. Drag to change.'}
@@ -1279,7 +1279,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 aria-pressed={playStyles.includes(option)}
                 className={`chip min-h-[40px] text-xs ${playStyles.includes(option) ? 'chip-active' : ''}`}
               >
-                {option}
+                {sentenceCase(option)}
               </button>
             ))}
           </div>
@@ -1293,7 +1293,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             click something untrue. */}
         <div className="card p-4">
           <h3 className="font-display text-xl text-brown">Safety</h3>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
+          <p className="mt-0.5 text-[12px] leading-relaxed text-brown-light">
             Other owners see these on your dog&apos;s card in your name (&ldquo;{name.trim() || 'Your dog'}&apos;s
             owner prefers no puppies&rdquo;), and the app ranks dogs that clash with them lower. Nobody
             verifies them. Skip anything that doesn&apos;t apply.
@@ -1328,7 +1328,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
                 aria-pressed={behaviorFlags.includes(option)}
                 className={`chip min-h-[40px] text-xs ${behaviorFlags.includes(option) ? 'chip-active' : ''}`}
               >
-                {option}
+                {sentenceCase(option)}
               </button>
             ))}
           </div>
@@ -1383,14 +1383,14 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           {/* Said BEFORE saving: a ZIP is private and never published, so a profile
               with only a ZIP is invisible to other dogs. City + state is what makes
               it discoverable. */}
-          <p data-testid="location-help" className="mt-2 text-[11px] leading-relaxed text-brown-light">
+          <p data-testid="location-help" className="mt-2 text-[12px] leading-relaxed text-brown-light">
             <span className="font-semibold text-brown-mid">City + state</span> makes {name.trim() || 'your dog'} discoverable to
             nearby dogs (we show the city, never an address). A{' '}
             <span className="font-semibold text-brown-mid">ZIP alone</span> stays private, and other dogs
             won&apos;t see {name.trim() ? `${name.trim()}'s` : 'your'} profile.
           </p>
           {zip.trim() && !(city.trim() && usState.trim()) && (
-            <p role="status" className="mt-2 rounded-lg border-l-4 border-amber-spine bg-amber px-2.5 py-1.5 text-[11px] leading-snug text-amber-900">
+            <p role="status" className="mt-2 rounded-lg border-l-4 border-amber-spine bg-amber px-2.5 py-1.5 text-[12px] leading-snug text-amber-900">
               With only a ZIP, other dogs can&apos;t see this profile yet. Add a city and state to be discoverable.
             </p>
           )}
@@ -1458,7 +1458,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             marked …" or an honest blank — never a verification. */}
         <div className="card p-4">
           <h3 className="font-display text-xl text-brown">Vaccination</h3>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
+          <p className="mt-0.5 text-[12px] leading-relaxed text-brown-light">
             Nobody verifies any of this. Other owners see it attributed to you, exactly as you enter it.
           </p>
 
@@ -1483,7 +1483,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               errors.rabiesExpiry ? 'border-red-500' : 'border-ink'
             }`}
           />
-          <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
+          <p className="mt-1.5 text-[12px] leading-relaxed text-brown-light">
             The date printed on the certificate — the one boarding, daycare, groomers and landlords all
             ask for. Keep it here and you&apos;ll stop digging through email for it.
           </p>
@@ -1514,13 +1514,13 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
               </button>
             ))}
           </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
+          <p className="mt-1.5 text-[12px] leading-relaxed text-brown-light">
             Leave both off if you&apos;d rather not say — tap a selected answer to clear it.
           </p>
 
           {/* The exact string other owners will read, so there's no gap between
               what you entered and what the app claims on your behalf. */}
-          <p className="mt-3 rounded-xl bg-cream-dark px-3 py-2 text-[11px] leading-relaxed text-brown-mid">
+          <p className="mt-3 rounded-xl bg-cream-dark px-3 py-2 text-[12px] leading-relaxed text-brown-mid">
             Others will see:{' '}
             <span className="font-semibold text-brown">{vaccinationPreview.label}</span>
           </p>
@@ -1530,7 +1530,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
             life-stage read and the birthday / Gotcha Day celebration cards. */}
         <div className="card p-4">
           <h3 className="font-display text-xl text-brown">🎂 Birthday &amp; milestones</h3>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-brown-light">
+          <p className="mt-0.5 text-[12px] leading-relaxed text-brown-light">
             Optional — unlocks {name.trim() || 'your dog'}&apos;s life stage plus birthday and Gotcha Day
             celebrations.
           </p>
@@ -1573,7 +1573,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           />
           {errors.adoptionDate && <p className="mt-1 text-xs text-red-500">{errors.adoptionDate}</p>}
 
-          <p className="mt-1.5 text-[11px] leading-relaxed text-brown-light">
+          <p className="mt-1.5 text-[12px] leading-relaxed text-brown-light">
             Don&apos;t know the exact day? Month and year is enough — type 06/2021 and we&apos;ll celebrate the
             month. For the birthday, even just the year (2021) works.
           </p>

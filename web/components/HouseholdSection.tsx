@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createHouseholdInvite, removeHouseholdMember } from '../lib/household';
+import { Icon } from './icons';
 
 interface Props {
   /** The signed-in user's own dog. The invite text used to hardcode "Kaju",
@@ -109,7 +110,7 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
               onClick={handleCopy}
               className="btn-secondary py-2 text-xs"
             >
-              {copied ? 'Copied!' : '📋 Copy invite link'}
+              {copied ? 'Copied!' : <><Icon name="content-copy" /> Copy invite link</>}
             </button>
           </div>
         ) : (

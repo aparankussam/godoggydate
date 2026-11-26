@@ -8,43 +8,42 @@ import { useCallback, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { trackEvent } from './analytics';
+import { CHARM_LIST, charmLabel, charmVoiceLine, nextCharm as pickNext, pickOfDay, type CharmInfo } from '../../shared/charms';
 
-export interface Charm {
-  id: string;
-  emoji: string;
-  /** `{name}` is replaced with the dog's name. */
-  label: string;
+export interface Charm extends CharmInfo {
   href: Href;
 }
 
 const treat = (id: string): Href => ({ pathname: '/(tabs)/playroom', params: { treat: id } });
 const panel = (id: string): Href => ({ pathname: '/(tabs)/playroom', params: { panel: id } });
 
-// Order is the order "next charm" suggests them in: quick toys first.
-export const CHARMS: Charm[] = [
-  { id: 'barkle', emoji: '🧩', label: 'Barkle', href: '/fun/barkle' },
-  { id: 'snoot', emoji: '👃', label: 'Snoot Boop', href: '/fun/snoot' },
-  { id: 'sticker-studio', emoji: '🎨', label: 'Sticker Studio', href: '/fun/sticker-studio' },
-  { id: 'roast', emoji: '🔥', label: 'Roast {name}', href: treat('roast') },
-  { id: 'wanted', emoji: '🤠', label: 'Wanted Poster', href: '/fun/wanted' },
-  { id: 'texts', emoji: '💬', label: 'Texts from {name}', href: treat('texts') },
-  { id: 'card', emoji: '🃏', label: 'Trading card', href: panel('card') },
-  { id: 'apology', emoji: '🙏', label: 'Notes-App Apology', href: treat('apology') },
-  { id: 'adventures', emoji: '🗺️', label: 'Adventure Passport', href: '/fun/adventures' },
-  { id: 'review', emoji: '⭐', label: 'My Human Review', href: treat('review') },
-  { id: 'excuse', emoji: '📝', label: 'Excuse Note', href: '/fun/excuse' },
-  { id: 'quiz', emoji: '❓', label: 'Dog quiz', href: treat('quiz') },
-  { id: 'plaque', emoji: '🏅', label: 'Employee of the Month', href: treat('plaque') },
-  { id: 'letter', emoji: '💌', label: 'A letter from {name}', href: panel('letter') },
-  { id: 'lifestage', emoji: '🎂', label: 'Life stage', href: treat('lifestage') },
-];
+const HREFS: Record<string, Href> = {
+  barkle: '/fun/barkle',
+  snoot: '/fun/snoot',
+  'sticker-studio': '/fun/sticker-studio',
+  roast: treat('roast'),
+  wanted: '/fun/wanted',
+  texts: treat('texts'),
+  card: panel('card'),
+  apology: treat('apology'),
+  adventures: '/fun/adventures',
+  review: treat('review'),
+  excuse: '/fun/excuse',
+  quiz: treat('quiz'),
+  plaque: treat('plaque'),
+  letter: panel('letter'),
+  lifestage: treat('lifestage'),
+};
 
-export const charmLabel = (charm: Charm, dogName: string) => charm.label.replace('{name}', dogName);
+export const CHARMS: Charm[] = CHARM_LIST.map((c) => ({ ...c, href: HREFS[c.id] }));
 
-/** The first charm not yet on the collar, skipping the toy you're in. */
-export function nextCharm(earned: string[], skip?: string): Charm | null {
-  return CHARMS.find((c) => c.id !== skip && !earned.includes(c.id)) ?? null;
-}
+export { charmLabel, charmVoiceLine };
+
+export const nextCharm = (earned: string[], skip?: string): Charm | null => pickNext(CHARMS, earned, skip);
+
+/** The toy featured on today's Today card: one untried toy, same for every
+ *  owner today. `barkle` is excluded since it already has its own row. */
+export const todaysPick = (earned: string[]): Charm | null => pickOfDay(CHARMS, earned, ['barkle']);
 
 const key = (uid: string) => `charms:${uid}`;
 

@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import { colors, fonts } from '../../constants/theme';
 import { BackHeader, Gingham, Paper, PaperButton, Slip } from '../../components/pack/kit';
@@ -18,6 +18,8 @@ import { getHeroPhoto } from '../../lib/photos';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
 import { trackEvent } from '../../lib/analytics';
 import { onReminders } from '../../lib/reminders';
+import { getHouseholdDogsForUser } from '../../lib/household';
+import type { SavedDogProfile } from '../../lib/profile';
 import { LOST_LIMITS, createLostAlert, getLostKit, medicineNeeds, onMyActiveAlert, type LostAlert, type LostKit } from '../../lib/lostDog';
 import { LOST_CHECKLIST } from '../../../shared/lostDog';
 import { CONTENT_FILTER_MESSAGE, checkContent } from '../../../shared/contentFilter';
@@ -26,28 +28,44 @@ import type { Reminder } from '../../../shared/types';
 export default function LostNowScreen() {
   const { user, profile } = useSession();
   const uid = user?.uid;
-  const dogName = profile?.name?.trim() || 'Your dog';
-  const heroPhoto = getHeroPhoto(profile?.photos, resolveHeroIndex(profile));
+  // ?dog=<ownerUid>: a sitter or other household member raising the alert for the dog they mind.
+  const { dog: dogParam } = useLocalSearchParams<{ dog?: string }>();
+  const forOwnerId = typeof dogParam === 'string' && dogParam && dogParam !== uid ? dogParam : undefined;
+  const [householdDog, setHouseholdDog] = useState<SavedDogProfile | null | undefined>(undefined);
+  const target = forOwnerId ? householdDog : profile;
+  const targetId = forOwnerId ?? uid;
+  const dogName = target?.name?.trim() || 'Your dog';
+  const heroPhoto = getHeroPhoto(target?.photos, resolveHeroIndex(target ?? undefined));
+  const [alertId, setAlertId] = useState<string | null>(null);
+  const alertPath = (id: string | null) => (forOwnerId && id ? `/lost/${id}` : '/lost');
 
   const [kit, setKit] = useState<LostKit>({});
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [active, setActive] = useState<LostAlert | null | undefined>(undefined);
   const [lastSeen, setLastSeen] = useState('');
   const [locating, setLocating] = useState(false);
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    if (!uid) return;
-    getLostKit(uid).then(setKit).catch(() => {});
-    const offReminders = onReminders(uid, setReminders);
-    const offAlert = onMyActiveAlert(uid, setActive);
+    if (!uid || !forOwnerId) return;
+    getHouseholdDogsForUser(uid)
+      .then((list) => setHouseholdDog(list.find((d) => d.dogId === forOwnerId)?.profile ?? null))
+      .catch(() => setHouseholdDog(null));
+  }, [uid, forOwnerId]);
+
+  useEffect(() => {
+    if (!uid || !targetId) return;
+    if (!forOwnerId) getLostKit(uid).then(setKit).catch(() => {}); // the kit is private to the owner
+    const offReminders = onReminders(targetId, setReminders);
+    const offAlert = onMyActiveAlert(targetId, setActive);
     return () => { offReminders(); offAlert(); };
-  }, [uid]);
+  }, [uid, targetId, forOwnerId]);
 
   // Already lost and not just sent from here: go straight to the open alert.
   useEffect(() => {
-    if (active && !sent) router.replace('/lost');
+    if (active && !sent) router.replace(alertPath(active.id) as never);
   }, [active, sent]);
 
   const medicines = useMemo(() => medicineNeeds(reminders), [reminders]);
@@ -59,6 +77,7 @@ export default function LostNowScreen() {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (!perm.granted) { Alert.alert('Location is off', 'Type where you last saw them instead.'); return; }
       const pos = await Location.getCurrentPositionAsync({});
+      setPin({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       const [place] = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
       const street = place?.street || place?.name;
       const label = street ? `Near ${street}${place?.city ? `, ${place.city}` : ''}` : place?.city ? `Near ${place.city}` : 'Near where I am now';
@@ -75,19 +94,22 @@ export default function LostNowScreen() {
     if (lastSeen.trim() && !checkContent(lastSeen).ok) { Alert.alert('Please check the text', CONTENT_FILTER_MESSAGE); return; }
     setSending(true);
     try {
-      await createLostAlert(uid, {
+      const id = await createLostAlert(uid, {
+        forOwnerId,
         dogName,
-        breed: profile?.breed,
-        size: profile?.size,
+        breed: target?.breed,
+        size: target?.size,
         markings: kit.markings,
         photoUrl: photo,
         microchipped: !!kit.microchip?.trim(),
         medicines,
         lastSeen,
-        city: profile?.city,
-        state: profile?.state,
+        city: target?.city,
+        state: target?.state,
+        lostPin: pin,
       });
-      trackEvent('lost_alert_created', { from: 'panic', hadKit: !!(kit.photoUrl || kit.markings) });
+      trackEvent('lost_alert_created', { from: forOwnerId ? 'household' : 'panic', hadKit: !!(kit.photoUrl || kit.markings) });
+      setAlertId(id);
       setSent(true);
     } catch {
       Alert.alert('Could not send the alert', 'Please check your connection and try again.');
@@ -96,7 +118,11 @@ export default function LostNowScreen() {
     }
   }
 
-  if (!user || !profile) {
+  if (forOwnerId && target === undefined) {
+    return <SafeAreaView style={styles.container}><Gingham /><BackHeader title="Lost dog" onBack={() => router.back()} /></SafeAreaView>;
+  }
+
+  if (!user || !target) {
     return (
       <SafeAreaView style={styles.container}>
         <Gingham />
@@ -110,9 +136,9 @@ export default function LostNowScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <Gingham />
-        <BackHeader title="Alert sent" onBack={() => router.replace('/lost')} />
+        <BackHeader title="Alert sent" onBack={() => router.replace(alertPath(alertId) as never)} />
         <ScrollView contentContainerStyle={styles.content}>
-          <Slip tone="ok">Neighbors near {profile.city || 'you'} are being alerted about {dogName}.</Slip>
+          <Slip tone="ok">Neighbors near {target.city || 'you'} are being alerted about {dogName}.{forOwnerId ? ' Their owner is being told too.' : ''}</Slip>
           <Text style={styles.h2}>What to do now</Text>
           {LOST_CHECKLIST.map((step, i) => (
             <Paper key={step.title} style={styles.step}>
@@ -123,7 +149,7 @@ export default function LostNowScreen() {
               ) : null}
             </Paper>
           ))}
-          <Pressable onPress={() => router.replace('/lost')} style={styles.redBtn} accessibilityRole="button">
+          <Pressable onPress={() => router.replace(alertPath(alertId) as never)} style={styles.redBtn} accessibilityRole="button">
             <Text style={styles.redBtnText}>Open the alert: poster and sightings</Text>
           </Pressable>
         </ScrollView>
@@ -151,7 +177,7 @@ export default function LostNowScreen() {
             maxLength={LOST_LIMITS.lastSeen}
             accessibilityLabel={`Where did you last see ${dogName}?`}
           />
-          <PaperButton small icon="map-marker" label={locating ? 'Finding you…' : 'Use where I am now'} busy={locating} onPress={useMyLocation} />
+          <PaperButton small icon="map-marker" label={locating ? 'Finding you…' : pin ? '✓ Neighbors around here are told first' : 'Use where I am now'} busy={locating} onPress={useMyLocation} />
 
           <Pressable onPress={send} disabled={sending} style={[styles.redBtn, sending && { opacity: 0.6 }]} accessibilityRole="button">
             <Text style={styles.redBtnText}>{sending ? 'Sending…' : 'Alert my neighbors'}</Text>
@@ -176,7 +202,7 @@ const styles = StyleSheet.create({
   question: { fontFamily: fonts.black, fontSize: 18, color: colors.ink, marginTop: 4 },
   input: {
     borderWidth: 2, borderColor: colors.ink, borderRadius: 14, backgroundColor: colors.paper,
-    paddingHorizontal: 14, paddingVertical: 14, fontFamily: fonts.bold, fontSize: 17, color: colors.ink,
+    paddingHorizontal: 14, paddingVertical: 14, fontFamily: fonts.bold, fontSize: 16, color: colors.ink,
   },
   redBtn: {
     minHeight: 60, borderRadius: 30, backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.ink,

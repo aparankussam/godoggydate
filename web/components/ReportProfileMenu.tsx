@@ -295,7 +295,7 @@ export function SafetySheet({
                   rows={3}
                   className="mt-1 w-full rounded-2xl border border-border bg-cream px-3 py-2 text-sm text-brown outline-none focus:border-primary/40"
                 />
-                <span className="block text-right text-[10px] text-brown-light">{note.length}/{MAX_REPORT_NOTE_LENGTH}</span>
+                <span className="block text-right text-[12px] text-brown-light">{note.length}/{MAX_REPORT_NOTE_LENGTH}</span>
               </label>
             )}
             {error && <p role="alert" className="mt-3 text-center text-xs font-semibold text-red-600">{error}</p>}
@@ -418,7 +418,7 @@ export default function ReportProfileMenu({ targetUserId, matchId, eventId, post
         className={
           variant === 'dots'
             ? 'flex h-11 w-11 items-center justify-center rounded-full border-2 border-brown bg-cream shadow-[inset_0_-3px_0_#E3D6BA] transition-all hover:brightness-95 active:translate-y-px'
-            : 'rounded-full bg-white/80 px-3.5 py-2.5 text-[11px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white'
+            : 'rounded-full bg-white/80 px-3.5 py-2.5 text-[12px] font-bold tracking-[0.08em] uppercase text-brown shadow-[0_6px_18px_rgba(0,0,0,0.12)] backdrop-blur-sm transition-colors hover:bg-white'
         }
       >
         {variant === 'dots' ? (

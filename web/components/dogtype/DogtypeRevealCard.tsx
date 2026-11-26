@@ -64,7 +64,7 @@ export default function DogtypeRevealCard({ ownName, ownCode, otherName, otherCo
         <div className="min-w-0">
           {variant !== 'same' && <p className="text-sm font-extrabold text-brown-mid">{otherName} is</p>}
           <h3 className="font-display text-[28px] leading-tight text-brown">{maskName ? `${otherName} is just like ${ownName}` : headline}</h3>
-          <p className="font-hand text-[21px] leading-tight text-brown">{maskName ? `Watch ${ownName}'s reveal in Pupfile to see which.` : type.tagline}</p>
+          <p className="font-hand text-[22px] leading-tight text-brown">{maskName ? `Watch ${ownName}'s reveal in Pupfile to see which.` : type.tagline}</p>
         </div>
       </div>
       {!compact && !maskName && <p className="mt-3 text-sm font-semibold leading-relaxed text-brown-mid">{type.blurb}</p>}

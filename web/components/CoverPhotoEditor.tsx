@@ -87,7 +87,7 @@ export default function CoverPhotoEditor({ photos, coverIndex, focusX, focusY, o
           style={{ left: `${focusX}%`, top: `${focusY}%` }}
         />
       </div>
-      <p className="mt-2 text-center text-[11px] text-brown-light">
+      <p className="mt-2 text-center text-[12px] text-brown-light">
         Drag to choose what shows on {photos.length > 1 ? 'the card — or pick another photo below.' : 'the card.'}
       </p>
 

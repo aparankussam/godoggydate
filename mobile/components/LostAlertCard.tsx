@@ -4,11 +4,12 @@
 // can do (report a sighting, share the poster). A dog found in the last day
 // shows as "home" so the loop visibly closes. Mirrors web/components/LostAlertCard.tsx.
 
+import { useEffect, useState } from 'react';
 import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import SirenIcon from './SirenIcon';
 import { colors, fonts } from '../constants/theme';
-import { lostAlertUrl } from '../lib/lostDog';
+import { lostAlertUrl, onHelpers, setHelping } from '../lib/lostDog';
 import { lostFacts, timeAgo } from '../../shared/lostDog';
 import { trackEvent } from '../lib/analytics';
 
@@ -18,6 +19,12 @@ export default function LostAlertCard({ id, data, uid }: { id: string; data: Rec
   const mine = data.ownerId === uid;
   const photo = typeof data.photoUrl === 'string' ? data.photoUrl : undefined;
   const createdMs = Number(data.createdAtMs ?? 0);
+  const [helpers, setHelpers] = useState({ count: 0, mine: false });
+  useEffect(() => (found ? undefined : onHelpers(id, uid, setHelpers)), [id, uid, found]);
+  const toggleHelping = () => {
+    trackEvent('lost_helping', { on: !helpers.mine });
+    setHelping(id, uid, !helpers.mine).catch(() => {});
+  };
   const facts = lostFacts({
     breed: data.breed as string | undefined,
     size: data.size as string | undefined,
@@ -46,7 +53,7 @@ export default function LostAlertCard({ id, data, uid }: { id: string; data: Rec
   return (
     <View style={styles.card} accessible={false}>
       <View style={styles.banner}>
-        <Ionicons name="alert-circle" size={16} color="#fff" />
+        <SirenIcon size={18} />
         <Text style={styles.bannerText}>LOST DOG{createdMs > 0 ? ` · ${timeAgo(createdMs, Date.now())}` : ''}</Text>
       </View>
       <View style={styles.body}>
@@ -55,8 +62,16 @@ export default function LostAlertCard({ id, data, uid }: { id: string; data: Rec
           <Text style={styles.name}>{name}</Text>
           {!!data.lastSeen && <Text style={styles.lastSeen}>Last seen: {String(data.lastSeen)}</Text>}
           {facts.map((f) => <Text key={f} style={styles.fact}>{f}</Text>)}
+          {helpers.count > 0 && (
+            <Text style={styles.helping}>🔦 {helpers.count} {helpers.count === 1 ? 'neighbor is' : 'neighbors are'} helping look</Text>
+          )}
         </View>
       </View>
+      {!mine && (
+        <Pressable onPress={toggleHelping} accessibilityRole="button" accessibilityState={{ selected: helpers.mine }} style={[styles.helpBtn, helpers.mine && styles.helpBtnOn]}>
+          <Text style={[styles.btnText, helpers.mine && styles.helpBtnOnText]}>{helpers.mine ? '✓ You’re helping look' : 'I’m helping look'}</Text>
+        </Pressable>
+      )}
       <View style={styles.actions}>
         {mine ? (
           <Pressable onPress={() => router.push('/lost')} style={[styles.btn, styles.btnPrimary]} accessibilityRole="button">
@@ -93,6 +108,10 @@ const styles = StyleSheet.create({
   btnPrimary: { backgroundColor: colors.danger, borderColor: colors.danger },
   btnText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
   btnPrimaryText: { fontFamily: fonts.black, fontSize: 14, color: '#fff' },
+  helping: { fontFamily: fonts.black, fontSize: 13, color: colors.danger },
+  helpBtn: { marginHorizontal: 12, marginBottom: 8, minHeight: 40, borderRadius: 20, borderWidth: 2, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  helpBtnOn: { backgroundColor: colors.ink },
+  helpBtnOnText: { color: '#fff' },
   foundCard: { borderColor: '#2E8B57', padding: 12, gap: 4 },
   foundBanner: { fontFamily: fonts.black, fontSize: 13, color: '#2E8B57', letterSpacing: 0.6 },
 });

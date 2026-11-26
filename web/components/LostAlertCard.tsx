@@ -5,11 +5,12 @@
 // can do (report a sighting, share the poster). A dog found in the last day
 // shows as "home" so the loop visibly closes. Mirrors mobile/components/LostAlertCard.tsx.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { lostAlertUrl } from '../lib/lostDog';
+import { lostAlertUrl, onHelpers, setHelping } from '../lib/lostDog';
 import { lostFacts, timeAgo } from '../../shared/lostDog';
 import { trackEvent } from '../lib/analytics';
+import { Icon, SirenIcon } from './icons';
 
 export default function LostAlertCard({ id, data, uid }: { id: string; data: Record<string, unknown>; uid: string }) {
   const [copied, setCopied] = useState(false);
@@ -17,6 +18,13 @@ export default function LostAlertCard({ id, data, uid }: { id: string; data: Rec
   const mine = data.ownerId === uid;
   const photo = typeof data.photoUrl === 'string' ? data.photoUrl : undefined;
   const createdMs = Number(data.createdAtMs ?? 0);
+  const found = data.status === 'found';
+  const [helpers, setHelpers] = useState({ count: 0, mine: false });
+  useEffect(() => (found ? undefined : onHelpers(id, uid, setHelpers)), [id, uid, found]);
+  const toggleHelping = () => {
+    trackEvent('lost_helping', { on: !helpers.mine });
+    setHelping(id, uid, !helpers.mine).catch(() => {});
+  };
   const facts = lostFacts({
     breed: data.breed as string | undefined,
     size: data.size as string | undefined,
@@ -40,7 +48,7 @@ export default function LostAlertCard({ id, data, uid }: { id: string; data: Rec
     } catch { /* cancelled */ }
   }
 
-  if (data.status === 'found') {
+  if (found) {
     return (
       <div className="rounded-[1.1rem] border-[3px] border-emerald-700 bg-paper p-4">
         <p className="text-[12px] font-black uppercase tracking-wider text-emerald-700">🎉 Home safe</p>
@@ -52,7 +60,7 @@ export default function LostAlertCard({ id, data, uid }: { id: string; data: Rec
   return (
     <div className="overflow-hidden rounded-[1.1rem] border-[3px] border-red-600 bg-paper">
       <p className="bg-red-600 px-3 py-1.5 text-[13px] font-black uppercase tracking-wider text-white">
-        🚨 Lost dog{createdMs > 0 ? ` · ${timeAgo(createdMs, Date.now())}` : ''}
+        <SirenIcon size={16} /> Lost dog{createdMs > 0 ? ` · ${timeAgo(createdMs, Date.now())}` : ''}
       </p>
       <div className="flex gap-3 p-3">
         {photo && (
@@ -63,8 +71,23 @@ export default function LostAlertCard({ id, data, uid }: { id: string; data: Rec
           <p className="font-display text-[22px] leading-tight text-brown">{name}</p>
           {!!data.lastSeen && <p className="text-[14px] font-black text-brown">Last seen: {String(data.lastSeen)}</p>}
           {facts.map((f) => <p key={f} className="text-[13px] font-bold text-brown-mid">{f}</p>)}
+          {helpers.count > 0 && (
+            <p className="text-[13px] font-black text-red-600"><Icon name="flashlight" size={16} /> {helpers.count} {helpers.count === 1 ? 'neighbor is' : 'neighbors are'} helping look</p>
+          )}
         </div>
       </div>
+      {!mine && (
+        <div className="px-3 pb-2">
+          <button
+            type="button"
+            onClick={toggleHelping}
+            aria-pressed={helpers.mine}
+            className={`flex min-h-[40px] w-full items-center justify-center rounded-full border-2 border-brown text-[14px] font-black ${helpers.mine ? 'bg-brown text-cream' : 'bg-paper text-brown'}`}
+          >
+            {helpers.mine ? '✓ You’re helping look' : 'I’m helping look'}
+          </button>
+        </div>
+      )}
       <div className="flex gap-2 px-3 pb-3">
         <Link
           href={mine ? '/app/lost' : `/lost/${id}`}

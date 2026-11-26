@@ -7,6 +7,7 @@
 
 import type { SavedDogProfile } from '../lib/auth';
 import { computeLifeStage } from '../../shared/lifeStage';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -26,7 +27,7 @@ export default function LifeStageCard({ savedProfile, onEditProfile }: Props) {
   if (!read) {
     return (
       <section className="card rounded-[1.8rem] px-5 py-4">
-        <p className="text-sm font-bold text-brown">🎂 {name}&apos;s life stage</p>
+        <p className="text-sm font-bold text-brown"><Icon name="cake-variant" /> {name}&apos;s life stage</p>
         <p className="mt-1 text-xs leading-relaxed text-brown-mid">
           Add {name}&apos;s birth year and we&apos;ll show where they are in their life, and what this stage needs.
         </p>

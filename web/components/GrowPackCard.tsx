@@ -14,6 +14,7 @@ import { listUpcomingPackDays } from '../lib/packDay';
 import { formatPackDayWhen, type PackDay } from '../../shared/packDay';
 import { toFullProfile } from '../../shared/profile';
 import { trackEvent } from '../lib/analytics';
+import { Icon, type IconName } from './icons';
 
 /** Below this many matches the card shows; past it the list is busy enough. */
 export const GROW_PACK_BELOW = 5;
@@ -28,7 +29,7 @@ function savedRadius(): number {
   }
 }
 
-interface Row { key: string; icon: string; title: string; body: string; href?: string; onClick?: () => void }
+interface Row { key: string; icon: IconName; title: string; body: string; href?: string; onClick?: () => void }
 
 export default function GrowPackCard({ uid }: { uid: string }) {
   const [profile, setProfile] = useState<SavedDogProfile | null>(null);
@@ -74,32 +75,32 @@ export default function GrowPackCard({ uid }: { uid: string }) {
 
   const rows: Row[] = [];
   if (feed && feed.unseen > 0) {
-    rows.push({ key: 'swipe', icon: '🐾', title: 'Keep swiping', href: '/app',
+    rows.push({ key: 'swipe', icon: 'paw', title: 'Keep swiping', href: '/app',
       body: `${feed.unseen} ${feed.unseen === 1 ? 'dog' : 'dogs'} near you that you haven’t seen yet.` });
   } else if (feed && feed.beyond > 0) {
-    rows.push({ key: 'widen', icon: '🧭', title: 'Look a little farther', href: '/app',
+    rows.push({ key: 'widen', icon: 'compass', title: 'Look a little farther', href: '/app',
       body: `You’ve seen everyone within ${feed.radius} mi. ${feed.beyond} more ${feed.beyond === 1 ? 'dog is' : 'dogs are'} just past that.` });
   }
-  rows.push({ key: 'invite', icon: '💌', title: copied ? 'Link copied' : 'Invite a friend', onClick: invite,
+  rows.push({ key: 'invite', icon: 'export-variant', title: copied ? 'Link copied' : 'Invite a friend', onClick: invite,
     body: `Know a dog ${name} gets along with? Invite their human.` });
   if (packDay) {
-    rows.push({ key: 'packday', icon: '🌳', title: 'Meet dogs at a Pack Day', href: `/app/pack/${packDay.id}`,
+    rows.push({ key: 'packday', icon: 'tree', title: 'Meet dogs at a Pack Day', href: `/app/pack/${packDay.id}`,
       body: `${packDay.title} · ${formatPackDayWhen(packDay)}` });
   } else if (packDay === null) {
-    rows.push({ key: 'host', icon: '🌳', title: 'Meet dogs at a Pack Day', href: '/app/pack',
-      body: city ? `Host the first one in ${city}. Six dogs is a great Pack Day.` : 'Host one at your usual park. Six dogs is a great Pack Day.' });
+    rows.push({ key: 'host', icon: 'tree', title: 'Meet dogs at a Pack Day', href: '/app/pack',
+      body: city ? `Host the first one in ${city}. Six dogs is plenty.` : 'Host one at your usual park. Six dogs is plenty.' });
   }
-  rows.push({ key: 'dogtypes', icon: '✨', title: 'Collect Dogtypes', href: '/app/profile?tab=dogtype',
+  rows.push({ key: 'dogtypes', icon: 'creation', title: 'Collect Dogtypes', href: '/app/profile?tab=dogtype',
     body: 'Every match reveals their Dogtype. See how many you’ve found.' });
 
   const inner = (row: Row) => (
     <>
-      <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-brown bg-note">{row.icon}</span>
+      <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-brown bg-note text-brown"><Icon name={row.icon} size={22} /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-black text-brown">{row.title}</span>
         <span className="block text-[13px] font-bold leading-snug text-brown-mid">{row.body}</span>
       </span>
-      <span aria-hidden="true" className="text-brown">›</span>
+      <Icon name="chevron-right" size={18} className="text-brown" />
     </>
   );
 

@@ -12,7 +12,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
 import type { DiscoverDog } from '../lib/discover';
 import { focusForPhoto, resolveHeroIndex, type CoverFocus } from '../lib/coverPhoto';
@@ -328,7 +328,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
               <Animated.View style={[StyleSheet.absoluteFill, pawBurstStyle]} pointerEvents="none">
                 {PAW_BURST_SPOTS.map((spot, i) => (
                   <View key={i} style={[styles.burstPaw, spot]}>
-                    <Ionicons name="paw" size={30} color={colors.ink} />
+                    <MaterialCommunityIcons name="paw" size={30} color={colors.ink} />
                   </View>
                 ))}
               </Animated.View>
@@ -354,7 +354,7 @@ const SwipeCard = forwardRef<SwipeCardRef, Props>(
                       accessibilityLabel={`Report or block ${dog.name}`}
                       onAccessibilityTap={onReport}
                     >
-                      <Ionicons name="ellipsis-horizontal" size={22} color={colors.ink} />
+                      <MaterialCommunityIcons name="dots-horizontal" size={22} color={colors.ink} />
                     </View>
                   </GestureDetector>
                 )}
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  counterText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 15, color: colors.ink },
+  counterText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.ink },
 
   fitCorner: {
     position: 'absolute',
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   facts: {
     fontFamily: fonts.black,
-    fontSize: 14.5,
+    fontSize: 15,
     lineHeight: 19,
     color: colors.ink,
     marginTop: 2,

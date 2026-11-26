@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
 import { PawIcon, PrimaryButton } from './sticker';
 
@@ -36,7 +36,7 @@ export default function PlaydateRatingModal({ visible, dogName, onSubmit, onDism
       <View style={styles.overlay}>
         <View style={styles.card} accessibilityViewIsModal>
           <View style={styles.coin} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            <Ionicons name="tennisball" size={26} color={colors.ink} />
+            <MaterialCommunityIcons name="tennis-ball" size={26} color={colors.ink} />
           </View>
           <Text style={styles.title} accessibilityRole="header">How did it go with {dogName}?</Text>
           <Text style={styles.subtitle}>This feeds the trust score every other dog parent sees.</Text>
@@ -52,7 +52,7 @@ export default function PlaydateRatingModal({ visible, dogName, onSubmit, onDism
                 accessibilityLabel={`${n} star${n > 1 ? 's' : ''}`}
                 accessibilityState={{ selected: n <= stars }}
               >
-                <Ionicons name={n <= stars ? 'star' : 'star-outline'} size={34} color={colors.ink} />
+                <MaterialCommunityIcons name={n <= stars ? 'star' : 'star-outline'} size={34} color={colors.ink} />
               </Pressable>
             ))}
           </View>
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     transform: [{ rotate: '-8deg' }],
   },
-  title: { fontFamily: fonts.display, fontSize: 25, lineHeight: 28, color: colors.ink, textAlign: 'center' },
+  title: { fontFamily: fonts.display, fontSize: 26, lineHeight: 28, color: colors.ink, textAlign: 'center' },
   subtitle: {
     fontFamily: fonts.bold,
     fontSize: 14,

@@ -6,7 +6,7 @@
 
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import { PawIcon, PrimaryButton, SecondaryButton } from '../sticker';
 
@@ -27,19 +27,19 @@ export default function PlaydateTicket({ align, header, when, place, status, act
   return (
     <View style={[styles.ticket, { alignSelf: self }]}>
       <View style={styles.strip}>
-        <Ionicons name="ticket" size={18} color={colors.paper} />
+        <MaterialCommunityIcons name="ticket" size={18} color={colors.paper} />
         <Text style={styles.stripText} numberOfLines={2}>{header}</Text>
       </View>
       <View style={styles.body}>
         <View style={styles.row}>
-          <Ionicons name="calendar" size={24} color={colors.ink} />
+          <MaterialCommunityIcons name="calendar" size={24} color={colors.ink} />
           <View style={styles.rowText}>
             <Text style={styles.rowLabel}>When</Text>
             <Text style={styles.rowValue}>{when}</Text>
           </View>
         </View>
         <View style={styles.row}>
-          <Ionicons name="location" size={24} color={colors.ink} />
+          <MaterialCommunityIcons name="map-marker" size={24} color={colors.ink} />
           <View style={styles.rowText}>
             <Text style={styles.rowLabel}>Where</Text>
             <Text style={styles.rowValue}>{place}</Text>
@@ -77,8 +77,8 @@ type TicketButtonProps = {
 
 function iconFor(icon: TicketButtonProps['icon'], size: number) {
   if (icon === 'paw') return <PawIcon size={size} />;
-  if (icon === 'clock') return <Ionicons name="time-outline" size={size} color={colors.ink} />;
-  if (icon === 'calendar') return <Ionicons name="calendar" size={size} color={colors.ink} />;
+  if (icon === 'clock') return <MaterialCommunityIcons name="clock" size={size} color={colors.ink} />;
+  if (icon === 'calendar') return <MaterialCommunityIcons name="calendar" size={size} color={colors.ink} />;
   return undefined;
 }
 
@@ -190,15 +190,15 @@ const styles = StyleSheet.create({
   stripText: {
     flex: 1,
     fontFamily: fonts.black,
-    fontSize: 13.5,
+    fontSize: 13,
     lineHeight: 18,
     color: colors.paper,
   },
   body: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowText: { flex: 1, minWidth: 0 },
-  rowLabel: { fontFamily: fonts.black, fontSize: 12, lineHeight: 15, color: colors.brownMid },
-  rowValue: { fontFamily: fonts.black, fontSize: 15.5, lineHeight: 20, color: colors.ink },
+  rowLabel: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.brownMid },
+  rowValue: { fontFamily: fonts.black, fontSize: 15, lineHeight: 20, color: colors.ink },
   status: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
   perforation: { marginTop: 14, height: 2, justifyContent: 'center' },
   perfLine: {
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   btnFull: { width: '100%' },
   btnCream: { minHeight: 48, paddingTop: 6, paddingBottom: 10 },
-  creamText: { fontSize: 15.5 },
+  creamText: { fontSize: 15 },
   btnQuiet: { minHeight: 46, paddingTop: 6, paddingBottom: 10 },
   quietText: { fontSize: 14, color: colors.brownMid },
   note: { fontFamily: fonts.black, fontSize: 14, lineHeight: 19, color: colors.ink },

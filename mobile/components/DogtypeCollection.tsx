@@ -23,6 +23,7 @@ import {
 import { computeDogtype, dogtypeByCode } from '../../shared/dogtype';
 import { discoveredOrder, type DogtypeDogMap, type DogtypeLedger } from '../../shared/progress';
 import type { SavedDogProfile } from '../lib/profile';
+import Chevron from './Chevron';
 
 interface Props {
   userId: string;
@@ -161,7 +162,7 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
 
         {tiles.length > COMPACT && (
           <Pressable style={styles.toggle} accessibilityRole="button" onPress={() => setShowAll((v) => !v)}>
-            <Text style={styles.toggleText}>{showAll ? 'Show fewer ▲' : `Show all ${TOTAL} ▼`}</Text>
+            <Text style={styles.toggleText}>{showAll ? 'Show fewer' : `Show all ${TOTAL}`} <Chevron open={showAll} color={styles.toggleText.color} /></Text>
           </Pressable>
         )}
       </View>
@@ -209,12 +210,12 @@ const styles = StyleSheet.create({
   tileMet: { backgroundColor: colors.note },
   tileHidden: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.brownMid },
   tileEmoji: { fontSize: 24 },
-  tileName: { fontFamily: fonts.black, fontSize: 10.5, lineHeight: 12, textAlign: 'center', color: colors.ink },
+  tileName: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, textAlign: 'center', color: colors.ink },
   tileQ: { fontFamily: fonts.display, fontSize: 26, color: colors.brownMid },
   count: { position: 'absolute', top: 3, right: 4, backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 5 },
-  countText: { fontFamily: fonts.black, fontSize: 10, color: colors.paper },
+  countText: { fontFamily: fonts.black, fontSize: 12, color: colors.paper },
   hiddenPanel: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.brownMid, borderRadius: 16, padding: 12, gap: 4 },
-  hiddenTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.ink },
+  hiddenTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
   hiddenBody: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.ink },
   toggle: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
   toggleText: { fontFamily: fonts.black, fontSize: 14, color: colors.rose },

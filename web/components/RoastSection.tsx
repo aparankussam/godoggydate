@@ -15,6 +15,7 @@ import { shareOrDownloadStoryCard } from './StoryShareCard';
 import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
 import RoastCard from './RoastCard';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -76,7 +77,7 @@ export default function RoastSection({ savedProfile }: Props) {
     <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
         <p className="text-xs font-bold text-brown">Just for fun</p>
-        <h2 className="font-display text-xl text-brown leading-tight">🎤 Roast {dogName}</h2>
+        <h2 className="font-display text-xl text-brown leading-tight"><Icon name="microphone" /> Roast {dogName}</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           A certified <em>affectionate</em> roast: three loving jabs at {dogName}&apos;s zoomies, drama, and nap
           schedule, then one warm compliment to land it. Built only from {dogName}&apos;s own profile — never a word

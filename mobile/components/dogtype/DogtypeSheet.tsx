@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   stickerEmoji: { fontSize: 36 },
   eyebrow: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: colors.rose },
   name: { fontFamily: fonts.display, fontSize: 26, lineHeight: 30, color: colors.ink },
-  tagline: { fontFamily: fonts.hand, fontSize: 21, lineHeight: 24, color: colors.ink },
+  tagline: { fontFamily: fonts.hand, fontSize: 22, lineHeight: 24, color: colors.ink },
   meta: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brownMid },
   blurb: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.brownMid },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
