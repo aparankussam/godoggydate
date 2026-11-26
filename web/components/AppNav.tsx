@@ -19,6 +19,7 @@
 // AppLayoutShell, which also decides householdOnly).
 
 import Link from 'next/link';
+import BrandLogo from './BrandLogo';
 import { usePathname } from 'next/navigation';
 
 interface Props {
@@ -130,14 +131,8 @@ export default function AppNav({ unreadMatches = 0, householdOnly = false, hideB
     <>
       {/* ── Desktop: left sidebar rail ───────────────────────────────────── */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r-[2.5px] border-brown bg-cream px-4 py-6">
-        <Link href="/app" className="flex items-center gap-2.5 px-3 pb-6">
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 -rotate-[8deg] items-center justify-center rounded-full border-2 border-brown bg-cream text-brown shadow-[0_3px_0_rgba(42,31,74,0.28)]"
-          >
-            <TabGlyph icon="paw" size={20} hole="#FFF9EC" />
-          </span>
-          <span className="font-display text-2xl leading-none text-brown">GoDoggyDate</span>
+        <Link href="/app" className="flex min-h-[44px] items-center px-3 pb-6">
+          <BrandLogo height={44} />
         </Link>
 
         <nav aria-label="Main" className="flex flex-col gap-1">

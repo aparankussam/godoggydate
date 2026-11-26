@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import AuthModal from '../components/AuthModal';
 import FoundingPackSection from '../components/FoundingPackSection';
 import CopyrightYear from '../components/CopyrightYear';
+import BrandLogo from '../components/BrandLogo';
+import AnimatedLogo from '../components/AnimatedLogo';
 import { trackEvent } from '../lib/analytics';
 import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
@@ -101,8 +103,7 @@ export default function HomePage() {
         <div className="lg:col-span-2">
           <header className="flex h-[50px] items-center justify-between pl-4 pr-2 pt-1.5">
             <Link href="/" aria-label="GoDoggyDate home" className="flex min-h-[44px] items-center gap-2">
-              <PawCoin size={34} />
-              <span className="font-display text-[26px] leading-none tracking-[0.3px] text-brown">GoDoggyDate</span>
+              <BrandLogo height={40} />
             </Link>
             <button
               type="button"
@@ -168,6 +169,9 @@ export default function HomePage() {
         </div>
 
         <div className="lg:pb-6">
+          <div className="mx-[18px] mb-3 max-w-[360px]">
+            <AnimatedLogo />
+          </div>
           <h1 className="mx-[18px] mt-1.5 font-display text-[34px] font-normal leading-none tracking-[0.2px] text-brown lg:text-6xl lg:leading-[1.02]">
             Find a dog who
             <br />
