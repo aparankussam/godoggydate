@@ -20,6 +20,14 @@ import CityFeed from '../../../components/CityFeed';
 import type { PackDay } from '../../../../shared/packDay';
 import { PawIcon, TreeIcon } from '../../../components/PackDayFlyer';
 import SignInGate from '../../../components/SignInGate';
+import WhereWeGoSection from '../../../components/WhereWeGoSection';
+
+// Same three views, labels and blurbs as the iPhone Pack Days tab.
+const VIEWS: { id: 'days' | 'feed' | 'spots'; label: string; blurb: string }[] = [
+  { id: 'days', label: 'Pack Days', blurb: 'Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the dogs yours actually clicks with. Free to join.' },
+  { id: 'feed', label: 'Neighbarkhood', blurb: 'Barks from dog people nearby: ask the Pack, give something away, find a walk buddy.' },
+  { id: 'spots', label: 'Sniff Spots', blurb: 'The vets, groomers and parks your Pack uses. Tag yours; no reviews, just a count.' },
+];
 
 export default function PackDaysPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -29,6 +37,7 @@ export default function PackDaysPage() {
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [groups, setGroups] = useState<{ mine: PackGroup[]; discover: PackGroup[] }>({ mine: [], discover: [] });
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'days' | 'feed' | 'spots'>('days');
 
   useEffect(() => {
     const { auth } = getFirebase();
@@ -90,6 +99,7 @@ export default function PackDaysPage() {
 
   const canHost = isProfileComplete(profile);
   const city = profile?.city?.trim().toLowerCase();
+  const current = VIEWS.find((v) => v.id === view) ?? VIEWS[0];
   const nearbyGroups = groups.discover.filter((g) => !blocked.has(g.hostUid) && (!city || g.city.trim().toLowerCase() === city));
 
   return (
@@ -102,7 +112,7 @@ export default function PackDaysPage() {
           >
             <TreeIcon size={18} />
           </span>
-          Pack Days
+          {current.label}
         </h1>
         {canHost && nearby.length + mine.length + elsewhere.length > 0 && (
           <Link href="/app/pack/new" className="btn-secondary inline-flex min-h-[44px] items-center px-4 py-1.5 text-[15px]">Host one</Link>
@@ -110,12 +120,36 @@ export default function PackDaysPage() {
       </header>
 
       <div className="p-4 lg:max-w-2xl lg:mx-auto lg:px-8 lg:py-8 space-y-6">
-        <p className="text-[15px] font-extrabold text-brown leading-snug">
-          Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the
-          dogs yours actually clicks with. Free to join.
-        </p>
+        <p className="text-[15px] font-extrabold text-brown leading-snug">{current.blurb}</p>
 
-        {!canHost && events && (
+        <div role="tablist" aria-label="Pack Days sections" className="flex flex-wrap gap-2">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={view === v.id}
+              onClick={() => setView(v.id)}
+              className={`min-h-[44px] rounded-full border-2 border-brown px-4 font-display text-[15px] ${view === v.id ? 'bg-brown text-cream' : 'bg-cream text-brown'}`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        {view === 'feed' && (
+          <>
+            <Link href="/app/lost" className="card block px-5 py-3.5">
+              <p className="font-display text-[20px] leading-tight text-brown">Lost dog alert</p>
+              <p className="text-[13px] font-extrabold text-brown-mid">Bring them home. One tap tells your Pack and neighbors.</p>
+            </Link>
+            <CityFeed uid={authUser.uid} city={profile?.city?.trim() || undefined} canPost={canHost} blocked={blocked} />
+          </>
+        )}
+
+        {view === 'spots' && <WhereWeGoSection uid={authUser.uid} city={profile?.city} />}
+
+        {view === 'days' && !canHost && events && (
           <div className="card p-5 text-center">
             <p className="font-display text-2xl text-brown">Add your dog to join in</p>
             <p className="mt-1 text-[15px] font-extrabold text-brown-mid">Finish your dog&apos;s profile to RSVP or host a Pack Day.</p>
@@ -131,7 +165,7 @@ export default function PackDaysPage() {
           </div>
         )}
 
-        {mine.length > 0 && (
+        {view === 'days' && mine.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">Yours</h2>
             {mine.map((e) => (
@@ -140,7 +174,7 @@ export default function PackDaysPage() {
           </section>
         )}
 
-        {events && (
+        {view === 'days' && events && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">
               {profile?.city ? `Coming up in ${profile.city}` : 'Coming up'}
@@ -167,14 +201,14 @@ export default function PackDaysPage() {
           </section>
         )}
 
-        {elsewhere.length > 0 && (
+        {view === 'days' && elsewhere.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">{nearby.length === 0 ? 'Upcoming in nearby cities' : 'Other cities'}</h2>
             {elsewhere.map((e) => <PackDayCard key={e.id} event={e} />)}
           </section>
         )}
 
-        {events && (groups.mine.length > 0 || nearbyGroups.length > 0 || canHost) && (
+        {view === 'days' && events && (groups.mine.length > 0 || nearbyGroups.length > 0 || canHost) && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">Standing groups</h2>
             {[...groups.mine, ...nearbyGroups].map((g) => (
@@ -194,10 +228,6 @@ export default function PackDaysPage() {
           </section>
         )}
 
-        <section className="space-y-3">
-          <h2 className="font-display text-[22px] leading-none text-brown">Around the neighborhood</h2>
-          <CityFeed uid={authUser.uid} city={profile?.city?.trim() || undefined} canPost={canHost} blocked={blocked} />
-        </section>
       </div>
     </div>
   );

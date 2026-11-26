@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { getFirebase } from '../../../shared/utils/firebase';
 import { onAuthStateChanged, getUserDogProfile } from '../../../lib/auth';
 import type { User, SavedDogProfile } from '../../../lib/auth';
@@ -23,11 +24,11 @@ import ApologySection from '../../../components/ApologySection';
 import TextsSection from '../../../components/TextsSection';
 import DogQuizSection from '../../../components/DogQuizSection';
 import PlaqueCard from '../../../components/PlaqueCard';
+import LifeStageCard from '../../../components/LifeStageCard';
 import SignInGate from '../../../components/SignInGate';
 import DiptychSection, { DIPTYCH_MIN_PHOTOS } from '../../../components/DiptychSection';
 import LetterSection from '../../../components/LetterSection';
 import ZoomieCard from '../../../components/playroom/ZoomieCard';
-import TreatRow from '../../../components/playroom/TreatRow';
 import ToyBox from '../../../components/playroom/ToyBox';
 import { usePlayroomGlimpses } from '../../../lib/playroomGlimpses';
 import { pickLetterMilestone } from '../../../lib/letter';
@@ -38,8 +39,8 @@ export default function FunPage() {
   const [authLoading, setAuthLoading] = useState(true);
   const [savedProfile, setSavedProfile] = useState<SavedDogProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [panel, setPanel] = useState<'letter' | 'wanted' | 'passport' | 'dogday' | null>(null);
-  const [treat, setTreat] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const router = useRouter();
   const g = usePlayroomGlimpses(authUser?.uid, savedProfile);
 
   // ── Auth observer ───────────────────────────────────────────────────────────
@@ -86,15 +87,11 @@ export default function FunPage() {
   const photo = savedProfile ? getHeroPhoto(savedProfile.photos, resolveHeroIndex(savedProfile)) : null;
   // eslint-disable-next-line @next/next/no-img-element
   const thumb = photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : undefined;
-  const togglePanel = (key: NonNullable<typeof panel>) => () => {
+  const toggle = (key: string) => () => {
     trackEvent('playroom_card_open', { feature: key });
-    setPanel((cur) => (cur === key ? null : key));
+    setOpen((cur) => (cur === key ? null : key));
   };
   const track = (feature: string) => () => trackEvent('playroom_card_open', { feature });
-  const toggleTreat = (key: string) => () => {
-    trackEvent('playroom_card_open', { feature: key });
-    setTreat((cur) => (cur === key ? null : key));
-  };
   const streakLine =
     g.streak.current > 0
       ? `${g.streak.current}-day streak${g.streak.best > g.streak.current ? ` · best ${g.streak.best}` : ''}`
@@ -140,6 +137,9 @@ export default function FunPage() {
               </Link>
             </section>
 
+            {/* Zoomies: everything you play. Treat Lab: keepsakes you make and
+                share. Adventures: real-world quests. One card open at a time,
+                and it opens below its own box, same as the iPhone Playroom. */}
             <ToyBox title="Zoomies" emoji="🎾" tint="bg-gold-light" layout="grid">
               <ZoomieCard
                 label="Snoot Boop"
@@ -148,6 +148,25 @@ export default function FunPage() {
                 href="/app/fun/snoot"
                 onClick={track('snoot')}
               />
+              <ZoomieCard label={`Roast ${name}`} glyph="🔥" glimpse="A kind-hearted roast from their real profile" active={open === 'roast'} onClick={toggle('roast')} />
+              <ZoomieCard label={`Texts from ${name}`} glyph="💬" glimpse="A thread of texts to you, in their voice" active={open === 'texts'} onClick={toggle('texts')} />
+              <ZoomieCard label="Dog quiz" glyph="❓" glimpse="Pass the phone: how well do friends know them?" active={open === 'quiz'} onClick={toggle('quiz')} />
+              <ZoomieCard label="Notes-App Apology" glyph="🗒️" glimpse={`The apology ${name} would type`} active={open === 'apology'} onClick={toggle('apology')} />
+              <ZoomieCard label="My Human Review" glyph="⭐" glimpse={`${name} reviews you`} active={open === 'review'} onClick={toggle('review')} />
+              <ZoomieCard label="Excuse Note" glyph="📝" glimpse="A “my dog ate it” note, made to share" href="/excuse" onClick={track('excuse')} />
+            </ToyBox>
+
+            {open === 'roast' && <RoastSection savedProfile={savedProfile} />}
+            {open === 'texts' && <TextsSection savedProfile={savedProfile} />}
+            {open === 'apology' && <ApologySection savedProfile={savedProfile} />}
+            {open === 'review' && <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />}
+            {open === 'quiz' && <DogQuizSection savedProfile={savedProfile} />}
+
+            <ToyBox title="Treat Lab" emoji="🦴" tint="bg-kraft" layout="grid">
+              <ZoomieCard label="Wanted Poster" glyph="🤠" thumb={thumb} glimpse={`Make ${name} a wanted poster`} active={open === 'wanted'} onClick={toggle('wanted')} />
+              <ZoomieCard label="Trading card" glyph="🃏" thumb={thumb} glimpse={`Share ${name}’s card and public page`} href="/app/profile?share=1" onClick={track('card')} />
+              <ZoomieCard label="Employee of the Month" glyph="🏅" glimpse="A plaque for the office dog" active={open === 'plaque'} onClick={toggle('plaque')} />
+              <ZoomieCard label="Life stage" glyph="🎂" glimpse={`Where ${name} is in life, and what this stage needs`} active={open === 'lifestage'} onClick={toggle('lifestage')} />
               <ZoomieCard
                 label="Sticker Studio"
                 glyph="🎨"
@@ -155,23 +174,18 @@ export default function FunPage() {
                 href="/app/fun/sticker-studio"
                 onClick={track('sticker-studio')}
               />
-              <ZoomieCard label="Wanted Poster" glyph="🤠" thumb={thumb} glimpse={`Make ${name} a wanted poster`} active={panel === 'wanted'} onClick={togglePanel('wanted')} />
-              <ZoomieCard label="Trading card" glyph="🃏" thumb={thumb} glimpse={`Share ${name}’s card and public page`} href="/app/profile?share=1" onClick={track('card')} />
-              <ZoomieCard label="Adventure Passport" glyph="🗺️" glimpse={stamp} active={panel === 'passport'} onClick={togglePanel('passport')} />
-              <ZoomieCard label="Excuse Note" glyph="📝" glimpse="A “my dog ate it” note, made to share" href="/excuse" onClick={track('excuse')} />
-              <ZoomieCard label={`A letter from ${name}`} glyph="✉️" glimpse={g.letterLine} active={panel === 'letter'} onClick={togglePanel('letter')} />
+              <ZoomieCard label={`A letter from ${name}`} glyph="✉️" glimpse={g.letterLine} active={open === 'letter'} onClick={toggle('letter')} />
               {photoCount >= DIPTYCH_MIN_PHOTOS && (
-                <ZoomieCard label="National Dog Day" glyph="🖼️" glimpse="Then and now, side by side" active={panel === 'dogday'} onClick={togglePanel('dogday')} />
+                <ZoomieCard label="National Dog Day" glyph="🖼️" glimpse="Then and now, side by side" active={open === 'dogday'} onClick={toggle('dogday')} />
               )}
             </ToyBox>
 
-            {panel === 'wanted' && (
+            {open === 'wanted' && (
               <div id="wanted" className="scroll-mt-20"><WantedPosterWeb savedProfile={savedProfile} dogId={authUser.uid} /></div>
             )}
-            {panel === 'passport' && (
-              <div id="passport" className="scroll-mt-20"><AdventurePassportWeb savedProfile={savedProfile} dogId={authUser.uid} /></div>
-            )}
-            {panel === 'letter' &&
+            {open === 'plaque' && <PlaqueCard savedProfile={savedProfile} />}
+            {open === 'lifestage' && <LifeStageCard savedProfile={savedProfile} onEditProfile={() => router.push('/app/profile')} />}
+            {open === 'letter' &&
               (pickLetterMilestone(savedProfile) ? (
                 <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
               ) : (
@@ -179,28 +193,14 @@ export default function FunPage() {
                   A letter from {name} arrives on their Gotcha Day or birthday. Add those dates in Pupfile, under About, and it will be ready the week they come around.
                 </p>
               ))}
-            {panel === 'dogday' && <DiptychSection savedProfile={savedProfile} />}
+            {open === 'dogday' && <DiptychSection savedProfile={savedProfile} />}
 
-            <ToyBox title="Treat Lab" emoji="🦴" tint="bg-kraft" layout="stack">
-              <TreatRow title={`Roast ${name}`} glimpse="A kind-hearted roast, built from their real profile" open={treat === 'roast'} onToggle={toggleTreat('roast')}>
-                <RoastSection savedProfile={savedProfile} />
-              </TreatRow>
-              <TreatRow title={`Texts from ${name}`} glimpse="A thread of texts to you, in their voice" open={treat === 'texts'} onToggle={toggleTreat('texts')}>
-                <TextsSection savedProfile={savedProfile} />
-              </TreatRow>
-              <TreatRow title="Notes-App Apology" glimpse={`The apology ${name} would type, if they could`} open={treat === 'apology'} onToggle={toggleTreat('apology')}>
-                <ApologySection savedProfile={savedProfile} />
-              </TreatRow>
-              <TreatRow title="My Human Review" glimpse={`${name} reviews you`} open={treat === 'review'} onToggle={toggleTreat('review')}>
-                <HumanReviewSection savedProfile={savedProfile} userId={authUser.uid} />
-              </TreatRow>
-              <TreatRow title="Dog quiz" glimpse="Pass the phone: how well do friends know them?" open={treat === 'quiz'} onToggle={toggleTreat('quiz')}>
-                <DogQuizSection savedProfile={savedProfile} />
-              </TreatRow>
-              <TreatRow title="Employee of the Month" glimpse="A plaque for the office dog" open={treat === 'plaque'} onToggle={toggleTreat('plaque')}>
-                <PlaqueCard savedProfile={savedProfile} />
-              </TreatRow>
+            <ToyBox title="Adventures" emoji="🗺️" tint="bg-sky" layout="grid">
+              <ZoomieCard label="Adventure Passport" glyph="🗺️" glimpse={stamp} active={open === 'passport'} onClick={toggle('passport')} />
             </ToyBox>
+            {open === 'passport' && (
+              <div id="passport" className="scroll-mt-20"><AdventurePassportWeb savedProfile={savedProfile} dogId={authUser.uid} /></div>
+            )}
           </>
         )}
       </div>

@@ -63,7 +63,7 @@ export default function PlacesScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <Gingham />
-      <BackHeader title="Where we go" onBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/profile'))} />
+      <BackHeader title="Where we go" onBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/pack'))} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {!cityKey ? (
           <Slip tone="amber">Add your city and state to your dog’s profile to see places near you.</Slip>

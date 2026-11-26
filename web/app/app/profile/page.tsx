@@ -30,11 +30,9 @@ import { toDogSlug } from '../../../lib/dogSlug';
 import { onReminders } from '../../../lib/reminders';
 import RemindersSection from '../../../components/RemindersSection';
 import HouseholdSection from '../../../components/HouseholdSection';
-import WhereWeGoSection from '../../../components/WhereWeGoSection';
 import DogtypeSection from '../../../components/DogtypeSection';
 import ModerationNotice from '../../../components/ModerationNotice';
 import EarnedStickers from '../../../components/EarnedStickers';
-import LifeStageCard from '../../../components/LifeStageCard';
 import { feedback } from '../../../lib/feedback';
 import MilestonesCard from '../../../components/MilestonesCard';
 import ProUpsellCard from '../../../components/ProUpsellCard';
@@ -950,7 +948,6 @@ export default function ProfilePage() {
                     </div>
                   )}
                 </div>
-                <LifeStageCard savedProfile={savedProfile} onEditProfile={() => openEdit('birthday')} />
               </div>
             )}
 
@@ -988,7 +985,6 @@ export default function ProfilePage() {
                   memberIds={savedProfile.householdMemberIds ?? []}
                   memberNames={savedProfile.householdMemberNames}
                 />
-                <WhereWeGoSection uid={authUser.uid} city={savedProfile.city} />
               </div>
             )}
 
