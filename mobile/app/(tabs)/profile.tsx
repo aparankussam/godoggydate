@@ -41,7 +41,7 @@ import { webUrl } from '../../lib/webLinks';
 import type { Reminder } from '../../../shared/types';
 import { foundingBadgeLabel } from '../../../shared/founding';
 import { computeDogtype } from '../../../shared/dogtype';
-import { dogSummaryLine, showsMeetAgain } from '../../../shared/dogLabels';
+import { dogAboutText, dogSummaryLine, showsMeetAgain } from '../../../shared/dogLabels';
 
 function openWebLink(url: string) {
   Linking.openURL(url).catch(() => {
@@ -521,6 +521,13 @@ export default function ProfileTab() {
             <Text style={styles.meta}>
               {dogSummaryLine(profile)}
             </Text>
+            {dogAboutText(profile) ? (
+              <Text style={styles.about}>{dogAboutText(profile)}</Text>
+            ) : (
+              <Pressable onPress={() => openEditor()} accessibilityRole="button" hitSlop={8}>
+                <Text style={styles.aboutAdd}>+ Add a few lines about {profile.name}</Text>
+              </Pressable>
+            )}
             <View style={styles.statusBadgeRow}>
               {charmCount > 0 && (
                 <Pressable
@@ -632,7 +639,7 @@ export default function ProfileTab() {
           <>
             <PushPermissionCard />
             <RemindersSection dogId={user.uid} reminders={reminders} />
-            <MilestonesCard savedProfile={profile} userId={user.uid} />
+            <MilestonesCard savedProfile={profile} userId={user.uid} onAddDate={() => openEditor('birthday')} />
           </>
         )}
 
@@ -907,6 +914,8 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     color: ink,
   },
+  about: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 21, color: ink, marginTop: 6 },
+  aboutAdd: { fontFamily: fonts.black, fontSize: 14, color: colors.rose, marginTop: 6, textDecorationLine: 'underline' },
   meta: {
     fontFamily: fonts.black,
     fontSize: 15,

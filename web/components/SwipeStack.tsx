@@ -16,6 +16,7 @@ import { LimitsBlock } from './OwnerLimits';
 import { plain, FitSticker, PawIcon, PlaceTicket, Tape, fitTone, vaccinationLine } from './DiscoverBits';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { uniqueTemperament } from '../../shared/temperament';
+import { dogAboutText } from '../../shared/dogLabels';
 
 interface FeedDog {
   id: string;
@@ -384,14 +385,14 @@ export default function SwipeStack({
                     </div>
 
                     {/* Vibe Check bio + breed read: the dog's own voice, written at onboarding. */}
-                    {selectedDog.ai?.vibeCheck && (selectedDog.ai.vibeCheck.bio || selectedDog.ai.vibeCheck.breedGuess) && (
+                    {(dogAboutText(selectedDog) || selectedDog.ai?.vibeCheck?.breedGuess) && (
                       <div className="rounded-xl border-2 border-brown/30 bg-cream px-3 py-2">
-                        {selectedDog.ai.vibeCheck.bio && (
-                          <p className="text-sm font-extrabold italic leading-snug text-brown-mid [overflow-wrap:anywhere]">
-                            &ldquo;{selectedDog.ai.vibeCheck.bio}&rdquo;
+                        {dogAboutText(selectedDog) && (
+                          <p className="text-sm font-extrabold leading-snug text-brown-mid [overflow-wrap:anywhere]">
+                            {dogAboutText(selectedDog)}
                           </p>
                         )}
-                        {selectedDog.ai.vibeCheck.breedGuess && (
+                        {selectedDog.ai?.vibeCheck?.breedGuess && (
                           <p className="mt-1 text-xs font-extrabold text-brown-mid">
                             AI&apos;s read: {selectedDog.ai.vibeCheck.breedGuess.name} ·{' '}
                             {breedConfidencePhrase(selectedDog.ai.vibeCheck.breedGuess.confidence)}

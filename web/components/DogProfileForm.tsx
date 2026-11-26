@@ -212,6 +212,7 @@ interface ValidationErrors {
   city: string;
   state: string;
   personality: string;
+  bio: string;
   prompts: string;
   rabiesExpiry: string;
   birthDate: string;
@@ -271,6 +272,7 @@ const EMPTY_ERRORS: ValidationErrors = {
   city: '',
   state: '',
   personality: '',
+  bio: '',
   prompts: '',
   rabiesExpiry: '',
   birthDate: '',
@@ -310,6 +312,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   // bare "2021".
   const [birthDate, setBirthDate] = useState('');
   const [adoptionDateInput, setAdoptionDateInput] = useState('');
+  const [bio, setBio] = useState('');
   const [prompts, setPrompts] = useState(
     DEFAULT_PROMPTS.map((prompt) => ({ prompt, answer: '' })),
   );
@@ -351,6 +354,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
   const zipRef = useRef<HTMLInputElement | null>(null);
   const locationRef = useRef<HTMLInputElement | null>(null);
   const promptsRef = useRef<HTMLDivElement | null>(null);
+  const bioRef = useRef<HTMLTextAreaElement | null>(null);
   const stateRef = useRef<HTMLSelectElement | null>(null);
   const rabiesExpiryRef = useRef<HTMLInputElement | null>(null);
 
@@ -427,6 +431,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
     setCoverPhotoIndex(typeof initialProfile.coverPhotoIndex === 'number' ? initialProfile.coverPhotoIndex : -1);
     setCoverFocusX(typeof initialProfile.coverFocusX === 'number' ? initialProfile.coverFocusX : 50);
     setCoverFocusY(typeof initialProfile.coverFocusY === 'number' ? initialProfile.coverFocusY : 50);
+    // No About line yet: start from the AI Vibe Check line as a draft the owner can keep or rewrite.
+    setBio((initialProfile.bio ?? initialProfile.ai?.vibeCheck?.bio ?? '').slice(0, PROFILE_TEXT_LIMITS.bio));
     setPrompts(
       DEFAULT_PROMPTS.map((prompt) => {
         const existing = initialProfile.prompts?.find((item) => item.prompt === prompt);
@@ -662,6 +668,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       city: !hasZip && !hasCity ? 'Enter a city or use ZIP' : contentFilterError(city),
       state: !hasZip && hasCity && !hasState ? 'Select a state' : '',
       personality: temperament.length === 0 && playStyles.length === 0 ? 'Pick at least one' : '',
+      bio: contentFilterError(bio),
       prompts: prompts.some((prompt) => contentFilterError(prompt.answer)) ? CONTENT_FILTER_MESSAGE : '',
       // The three date fields below are OPTIONAL — blank stays valid and still
       // clears the stored value. But a NON-EMPTY value that can't be parsed
@@ -709,6 +716,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       'city',
       'state',
       'personality',
+      'bio',
       'prompts',
       'rabiesExpiry',
       'birthDate',
@@ -730,6 +738,7 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
       city: locationRef.current,
       state: stateRef.current,
       personality: null,
+      bio: bioRef.current,
       prompts: promptsRef.current,
       rabiesExpiry: rabiesExpiryRef.current,
       // birthDateRef is also the 'Add birth date' deep-link target from
@@ -909,6 +918,8 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           const parsed = parseUsDateInput(adoptionDateInput);
           return parsed.ok ? toAdoptionDateIso(parsed.value) : null;
         })(),
+        // null, not undefined, so clearing it actually clears under { merge: true }.
+        bio: bio.trim() || null,
         prompts: prompts
           .map((prompt) => ({ ...prompt, answer: prompt.answer.trim() }))
           .filter((prompt) => prompt.answer),
@@ -1389,6 +1400,29 @@ export default function DogProfileForm({ onSaved, saving, initialProfile, focusS
           <label id="dog-about-label" className="mb-2 block font-display text-xl text-brown">
             About your dog <span className="font-body text-sm font-semibold text-brown-light">(optional)</span>
           </label>
+          <div className="mb-3">
+            <label htmlFor="dog-bio" className="mb-1 block text-xs font-bold text-brown-mid">
+              In a few lines, who is your dog? This shows on their Pupfile and in Discover.
+            </label>
+            <textarea
+              id="dog-bio"
+              ref={bioRef}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={PROFILE_TEXT_LIMITS.bio}
+              rows={4}
+              placeholder="Couch potato until the leash comes out. Loves the creek, side-eyes cats, will trade any toy for cheese."
+              aria-invalid={!!errors.bio}
+              aria-describedby="dog-bio-count"
+              className={`w-full resize-none rounded-xl border-2 bg-white px-4 py-2.5 text-base text-brown outline-none transition-colors focus:border-primary ${
+                errors.bio ? 'border-red-500' : 'border-ink'
+              }`}
+            />
+            <div className="mt-0.5 flex justify-between text-xs">
+              <span className="text-red-500">{errors.bio}</span>
+              <span id="dog-bio-count" className="font-semibold text-brown-light">{bio.length}/{PROFILE_TEXT_LIMITS.bio}</span>
+            </div>
+          </div>
           <div className="flex flex-col gap-3" role="group" aria-labelledby="dog-about-label">
             {prompts.map((prompt, i) => {
               // Only marked after a save attempt, like the other fields.

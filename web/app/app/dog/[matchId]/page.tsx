@@ -303,10 +303,17 @@ export default function MatchedDogProfilePage() {
         )}
 
         {/* Vibe Check: archetype type card + bio + Mutt Meter (breed guess) */}
+        {profile.bio?.trim() && (
+          <div className="px-1">
+            <p className="text-xs font-bold text-brown-mid mb-0.5">About {profile.name}</p>
+            <p className="text-sm leading-relaxed text-brown whitespace-pre-line [overflow-wrap:anywhere]">{profile.bio.trim()}</p>
+          </div>
+        )}
         {vibeCheck && (
           <div className="flex flex-col gap-3">
             <VibeTypeCard archetype={vibeCheck.archetype} />
-            {vibeCheck.bio && (
+            {/* The owner's own About line replaces the AI line when there is one. */}
+            {vibeCheck.bio && !profile.bio?.trim() && (
               <div className="px-1">
                 <p className="text-xs font-bold text-brown-mid mb-0.5">
                   ✨ Written by AI from their photos

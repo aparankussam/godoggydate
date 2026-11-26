@@ -267,10 +267,18 @@ export default function MatchedDogProfileScreen() {
             />
           )}
 
+          {profile.bio?.trim() ? (
+            <View style={styles.vibeSection}>
+              <Text style={styles.aiLabel}>About {profile.name}</Text>
+              <Text style={styles.about}>{profile.bio.trim()}</Text>
+            </View>
+          ) : null}
+
           {vibeCheck && (
             <View style={styles.vibeSection}>
               <VibeTypeCard archetype={vibeCheck.archetype} />
-              {vibeCheck.bio && (
+              {/* The owner's own About line replaces the AI line when there is one. */}
+              {vibeCheck.bio && !profile.bio?.trim() && (
                 <View>
                   {/* Says who wrote it: the bio is in the dog's voice, but the
                       owner didn't type it. Mirrors the web dog page. */}
@@ -371,6 +379,7 @@ const styles = StyleSheet.create({
   vibeSection: { marginTop: 18, gap: 10 },
   aiLabel: { fontFamily: fonts.black, fontSize: 12.5, color: colors.ink, marginBottom: 2, paddingHorizontal: 2 },
   bio: { fontFamily: fonts.bold, fontSize: 15, fontStyle: 'italic', color: colors.ink, lineHeight: 21, paddingHorizontal: 2 },
+  about: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink, lineHeight: 21, paddingHorizontal: 2 },
   muttMeter: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, paddingHorizontal: 2 },
   tagSection: { marginTop: 18 },
   sectionLabel: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, marginBottom: 8 },

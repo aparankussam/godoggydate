@@ -49,7 +49,7 @@ import { getHouseholdDogsForUser } from '../../../lib/household';
 import type { HouseholdDog } from '../../../lib/household';
 import type { Reminder } from '../../../../shared/types';
 import { getVaccinationStatus, isPubliclyDiscoverable } from '../../../../shared/profile';
-import { dogSummaryLine, showsMeetAgain } from '../../../../shared/dogLabels';
+import { dogAboutText, dogSummaryLine, showsMeetAgain } from '../../../../shared/dogLabels';
 import ProfileDialog from '../../../components/profile/ProfileDialog';
 import DogtypeCollection from '../../../components/DogtypeCollection';
 import { loadRevealed, onDiscoveriesChange } from '../../../lib/dogtypeDiscovery';
@@ -828,6 +828,13 @@ export default function ProfilePage() {
                 <p className="text-sm text-brown-mid">
                   {dogSummaryLine(savedProfile)}
                 </p>
+                {dogAboutText(savedProfile) ? (
+                  <p className="text-[15px] font-semibold leading-snug text-brown whitespace-pre-line">{dogAboutText(savedProfile)}</p>
+                ) : (
+                  <button type="button" onClick={() => openEdit()} className="self-start text-sm font-black text-rose underline underline-offset-2">
+                    + Add a few lines about {savedProfile.name}
+                  </button>
+                )}
 
                 <div className="flex flex-wrap gap-2">
                   {ownType && revealed && (
@@ -914,12 +921,6 @@ export default function ProfilePage() {
 
             {section === 'about' && (
               <div className="flex flex-col gap-5">
-                {vibeCheck?.bio && (
-                  <div className="card rounded-[1.8rem] px-5 py-4">
-                    <p className="mb-1 text-xs font-bold text-brown-mid">✨ Vibe Check · a photo read, just for fun</p>
-                    <p className="font-hand text-2xl leading-snug text-brown">“{vibeCheck.bio}”</p>
-                  </div>
-                )}
                 {vibeCheck?.archetype && <VibeTypeCard archetype={vibeCheck.archetype} />}
                 <div className="card divide-y divide-border rounded-[1.8rem]">
                   {[
@@ -955,7 +956,7 @@ export default function ProfilePage() {
             {section === 'dates' && (
               <div className="flex flex-col gap-5">
                 <RemindersSection dogId={authUser.uid} reminders={reminders} />
-                <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} />
+                <MilestonesCard savedProfile={savedProfile} userId={authUser.uid} onAddDate={() => openEdit('birthday')} />
               </div>
             )}
 

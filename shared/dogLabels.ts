@@ -22,3 +22,8 @@ export const MEET_AGAIN_MIN_RATINGS = 3;
 export function showsMeetAgain(p: { ratingCount?: number }): boolean {
   return (p.ratingCount ?? 0) >= MEET_AGAIN_MIN_RATINGS;
 }
+
+/** The "About" text people read: the owner's own words, else the AI Vibe Check line as a stand-in. */
+export function dogAboutText(p: { bio?: string | null; ai?: { vibeCheck?: { bio?: string } } }): string {
+  return p.bio?.trim() || p.ai?.vibeCheck?.bio?.trim() || '';
+}
