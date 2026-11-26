@@ -185,7 +185,7 @@ export default function LostDogPage() {
     return (
       <div className="mx-auto w-full max-w-md px-4 py-10">
         <p className="card px-5 py-4 text-[16px] font-extrabold text-brown">
-          Create your dog&apos;s profile first, then set up their lost-dog kit. <Link href="/app/profile" className="underline">Go to Profile</Link>
+          Create your dog&apos;s profile first, then set up their lost-dog kit. <Link href="/app/profile" className="underline">Go to Pupfile</Link>
         </p>
       </div>
     );
@@ -291,7 +291,7 @@ export default function LostDogPage() {
           <p className="text-[15px] font-black text-brown">Medicine</p>
           {medicines.length > 0
             ? medicines.map((m) => <p key={m} className="text-[15px] font-extrabold text-brown">• {m}</p>)
-            : <p className="text-[13px] font-extrabold text-brown-mid">None. Add a Daily medicine reminder on your Profile and it appears here and on the poster.</p>}
+            : <p className="text-[13px] font-extrabold text-brown-mid">None. Add a Daily medicine reminder on your Pupfile, under Dates, and it appears here and on the poster.</p>}
         </div>
 
         <button type="button" onClick={() => saveKit()} disabled={busy === 'kit'} className="btn-secondary min-h-[48px] w-full text-[17px] disabled:opacity-60">
@@ -307,7 +307,7 @@ export default function LostDogPage() {
 
       {!profile.city && (
         <p className="rounded-xl bg-cream-dark px-4 py-3 text-[14px] font-extrabold text-brown">
-          Add your city to {dogName}&apos;s profile so neighbors nearby can be alerted. <Link href="/app/profile" className="underline">Open Profile</Link>
+          Add your city to {dogName}&apos;s profile so neighbors nearby can be alerted. <Link href="/app/profile" className="underline">Open Pupfile</Link>
         </p>
       )}
       {error && <p role="alert" className="text-[15px] font-black text-rose">{error}</p>}

@@ -486,7 +486,7 @@ export default function ProfilePage() {
           >
             ←
           </button>
-          <span className="font-display text-xl text-brown">Edit Profile</span>
+          <span className="font-display text-xl text-brown">Edit Pupfile</span>
         </header>
         {saveError && (
           <div className="mx-auto max-w-md px-5 pt-4">
@@ -657,7 +657,7 @@ export default function ProfilePage() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-sky/95 backdrop-blur px-5 h-14 flex items-center">
-        <h1 className="font-display text-[26px] leading-none text-brown">Profile</h1>
+        <h1 className="font-display text-[26px] leading-none text-brown">Pupfile</h1>
         {authUser && (
           <div className="ml-auto flex gap-2">
             {savedProfile && (
@@ -898,7 +898,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Section menu */}
-            <div ref={menuRef} role="tablist" aria-label="Profile sections" className="flex gap-1 rounded-full border-2 border-brown bg-paper p-1">
+            <div ref={menuRef} role="tablist" aria-label="Pupfile sections" className="flex gap-1 rounded-full border-2 border-brown bg-paper p-1">
               {SECTIONS.map(({ key, label }) => (
                 <button
                   key={key}

@@ -123,9 +123,9 @@ export default function FunPage() {
             <span className="text-5xl">🐶</span>
             <p className="mt-3 font-display text-xl text-brown">Add your dog first</p>
             <p className="mt-1 text-sm text-brown-mid leading-relaxed">
-              The Playroom is built from your dog&apos;s profile. Set one up and come back.
+              Set up your dog&apos;s Pupfile first. The Playroom is built from it.
             </p>
-            <Link href="/app/profile" className="btn-primary inline-block mt-4 px-6 py-2.5">Go to profile</Link>
+            <Link href="/app/profile" className="btn-primary inline-block mt-4 px-6 py-2.5">Go to Pupfile</Link>
           </div>
         )}
 
@@ -176,7 +176,7 @@ export default function FunPage() {
                 <LetterSection savedProfile={savedProfile} userId={authUser.uid} />
               ) : (
                 <p className="rounded-2xl border-2 border-brown bg-paper p-4 text-sm font-bold text-brown">
-                  A letter from {name} arrives on their Gotcha Day or birthday. Add those dates in Profile, under About, and it will be ready the week they come around.
+                  A letter from {name} arrives on their Gotcha Day or birthday. Add those dates in Pupfile, under About, and it will be ready the week they come around.
                 </p>
               ))}
             {panel === 'dogday' && <DiptychSection savedProfile={savedProfile} />}

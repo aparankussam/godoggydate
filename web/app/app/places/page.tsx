@@ -80,7 +80,7 @@ export default function PlacesPage() {
   return (
     <div className="min-h-screen">
       <header className="flex h-14 items-center gap-3 px-4">
-        <Link href="/app/profile" className="min-h-[44px] inline-flex items-center text-[15px] font-black text-brown underline underline-offset-2">← Profile</Link>
+        <Link href="/app/profile" className="min-h-[44px] inline-flex items-center text-[15px] font-black text-brown underline underline-offset-2">← Pupfile</Link>
         <h1 className="font-display text-[26px] leading-none text-brown">Where we go</h1>
       </header>
       <div className="space-y-4 p-4 lg:mx-auto lg:max-w-2xl lg:px-8 lg:py-8">

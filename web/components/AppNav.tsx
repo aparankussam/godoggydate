@@ -40,10 +40,10 @@ type TabIcon = 'paw' | 'tree' | 'heart' | 'ball' | 'dog';
 
 const TABS = [
   { href: '/app',           label: 'Discover',  icon: 'paw'   as TabIcon },
-  { href: '/app/pack',      label: 'Pack Day',  icon: 'tree'  as TabIcon },
+  { href: '/app/pack',      label: 'Pack Days', icon: 'tree'  as TabIcon },
   { href: '/app/matches',  label: 'Matches',   icon: 'heart' as TabIcon, badge: 'unreadMatches'  as const },
   { href: '/app/fun',       label: 'Playroom',  icon: 'ball'  as TabIcon },
-  { href: '/app/profile',   label: 'Profile',   icon: 'dog'   as TabIcon },
+  { href: '/app/profile',   label: 'Pupfile',   icon: 'dog'   as TabIcon },
 ] as const;
 
 /** The only destination that works without a dog of your own. */
