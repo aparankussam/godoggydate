@@ -28,6 +28,7 @@ import CityFeed from '../../components/CityFeed';
 import WhereWeGoSection from '../../components/WhereWeGoSection';
 import type { PackDay } from '../../../shared/packDay';
 import { packGroupScheduleLabel, type PackGroup } from '../../../shared/packGroup';
+import LostDogButton from '../../components/LostDogButton';
 
 const VIEWS: { id: 'days' | 'feed' | 'spots'; label: string; blurb: string }[] = [
   { id: 'days', label: 'Pack Days', blurb: 'Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the dogs yours actually clicks with. Free to join.' },
@@ -169,14 +170,7 @@ export default function PackDaysTab() {
 
         {view === 'feed' && (
           <>
-            <Pressable
-              onPress={() => router.push('/lost')}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.lostCard, pressed && { opacity: 0.85 }]}
-            >
-              <Text style={styles.lostTitle}>Lost dog alert</Text>
-              <Text style={styles.groupMeta}>Bring them home. One tap tells your Pack and neighbors.</Text>
-            </Pressable>
+            <LostDogButton uid={user.uid} dogName={profile?.name?.trim() || 'Your dog'} />
             <CityFeed uid={user.uid} city={profile?.city?.trim()} canPost={canHost} blocked={blocked} reloadToken={reloadToken} />
           </>
         )}
@@ -320,8 +314,6 @@ const styles = StyleSheet.create({
   chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
   chipOn: { backgroundColor: colors.ink },
   chipText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
-  lostCard: { backgroundColor: colors.cream, borderWidth: 2, borderColor: colors.ink, borderRadius: 16, padding: 14, gap: 3, marginBottom: 14 },
-  lostTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
   loadingBox: { paddingVertical: 64, alignItems: 'center' },
   section: { marginBottom: 14 },
   sectionLabel: { marginBottom: 12 },

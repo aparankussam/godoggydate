@@ -21,6 +21,7 @@ import type { PackDay } from '../../../../shared/packDay';
 import { PawIcon, TreeIcon } from '../../../components/PackDayFlyer';
 import SignInGate from '../../../components/SignInGate';
 import WhereWeGoSection from '../../../components/WhereWeGoSection';
+import LostDogButton from '../../../components/LostDogButton';
 
 // Same three views, labels and blurbs as the iPhone Pack Days tab.
 const VIEWS: { id: 'days' | 'feed' | 'spots'; label: string; blurb: string }[] = [
@@ -149,10 +150,7 @@ export default function PackDaysPage() {
 
         {view === 'feed' && (
           <>
-            <Link href="/app/lost" className="card block px-5 py-3.5">
-              <p className="font-display text-[20px] leading-tight text-brown">Lost dog alert</p>
-              <p className="text-[13px] font-extrabold text-brown-mid">Bring them home. One tap tells your Pack and neighbors.</p>
-            </Link>
+            <LostDogButton uid={authUser.uid} dogName={profile?.name?.trim() || 'Your dog'} />
             <CityFeed uid={authUser.uid} city={profile?.city?.trim() || undefined} canPost={canHost} blocked={blocked} />
           </>
         )}

@@ -42,6 +42,7 @@ import type { Reminder } from '../../../shared/types';
 import { foundingBadgeLabel } from '../../../shared/founding';
 import { computeDogtype } from '../../../shared/dogtype';
 import { dogAboutText, dogSummaryLine, showsMeetAgain } from '../../../shared/dogLabels';
+import LostDogButton from '../../components/LostDogButton';
 
 function openWebLink(url: string) {
   Linking.openURL(url).catch(() => {
@@ -416,6 +417,8 @@ export default function ProfileTab() {
         <View style={styles.titleRow}>
           <Text style={styles.title}>Pupfile</Text>
           <View style={styles.titleButtons}>
+            {/* Panic first: one tap from the Pupfile to the lost-dog alert. */}
+            <LostDogButton uid={user.uid} dogName={profile.name?.trim() || 'Your dog'} compact />
             <Pressable
               style={styles.iconButton}
               accessibilityRole="button"
@@ -653,6 +656,8 @@ export default function ProfileTab() {
 
         {section === 'care' && (
           <>
+        {/* Safety first: the lost-dog kit leads Care. */}
+        {user && profile && <LostDogCard uid={user.uid} dogName={profile.name} />}
         {/* C2: the care sheet for a sitter or walker. Not gated on a complete
             profile, as on web: it has nothing to do with swiping. */}
         {user && profile && (
@@ -673,7 +678,6 @@ export default function ProfileTab() {
           </View>
         )}
 
-        {user && profile && <LostDogCard dogName={profile.name} />}
 
         {user && profile && (
           <HouseholdSection

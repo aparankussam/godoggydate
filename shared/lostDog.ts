@@ -182,3 +182,29 @@ export function timeAgo(thenMs: number, nowMs: number): string {
   const days = Math.round(hours / 24);
   return days === 1 ? 'yesterday' : `${days} days ago`;
 }
+
+// ── Panic mode ─────────────────────────────────────────────────────────────────
+// Someone whose dog just ran off won't remember what to do. The alert screen
+// asks one question and then shows this list, the same on web and app.
+export const LOST_CHECKLIST: { title: string; body: string }[] = [
+  { title: 'Search close to home first', body: 'Most lost dogs are found within a mile. Check under porches, in garages and along their usual walk.' },
+  { title: 'Call shelters and animal control', body: 'Call every shelter and animal control office nearby, and visit in person if you can. Calls get missed.' },
+  { title: 'Call your microchip company', body: 'Report the chip as lost so a vet or shelter scan comes straight back to you.' },
+  { title: 'Share the poster', body: 'Post it in neighborhood groups and apps, and print it for local shops, vets and parks.' },
+  { title: 'Leave something that smells like home', body: 'Put an unwashed shirt or their bed outside your door. Dogs follow familiar smells back.' },
+];
+
+export type LostKitField = 'photo' | 'markings' | 'microchip' | 'vetPhone';
+const KIT_FIELDS: { key: LostKitField; label: string; filled: (k: LostKit) => boolean }[] = [
+  { key: 'photo', label: 'Recent photo', filled: (k) => !!k.photoUrl?.trim() },
+  { key: 'markings', label: 'Markings', filled: (k) => !!k.markings?.trim() },
+  { key: 'microchip', label: 'Microchip number', filled: (k) => !!k.microchip?.trim() },
+  { key: 'vetPhone', label: 'Vet phone', filled: (k) => !!k.vetPhone?.trim() },
+];
+
+/** How ready the lost-dog kit is: "2 of 4", and which parts are still missing. */
+export function kitReadiness(kit: LostKit | null | undefined): { done: number; total: number; missing: string[] } {
+  const k = kit ?? {};
+  const missing = KIT_FIELDS.filter((f) => !f.filled(k)).map((f) => f.label);
+  return { done: KIT_FIELDS.length - missing.length, total: KIT_FIELDS.length, missing };
+}

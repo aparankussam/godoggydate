@@ -23,7 +23,6 @@ import { trackEvent } from '../../lib/analytics';
 import { onReminders } from '../../lib/reminders';
 import {
   LOST_LIMITS,
-  createLostAlert,
   getLostKit,
   lostAlertUrl,
   lostFacts,
@@ -48,7 +47,6 @@ export default function LostDogScreen() {
   const [markings, setMarkings] = useState('');
   const [microchip, setMicrochip] = useState('');
   const [vetPhone, setVetPhone] = useState('');
-  const [lastSeen, setLastSeen] = useState('');
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [active, setActive] = useState<LostAlert | null | undefined>(undefined);
   const [sightings, setSightings] = useState<Sighting[]>([]);
@@ -80,7 +78,7 @@ export default function LostDogScreen() {
   const kitPhoto = photoUrl || heroPhoto || undefined;
 
   function problemWithText(): string | null {
-    for (const t of [markings, lastSeen]) if (t.trim() && !checkContent(t).ok) return CONTENT_FILTER_MESSAGE;
+    for (const t of [markings]) if (t.trim() && !checkContent(t).ok) return CONTENT_FILTER_MESSAGE;
     return null;
   }
 
@@ -124,42 +122,6 @@ export default function LostDogScreen() {
     } catch {
       Alert.alert('Could not save', 'Please try again.');
       return false;
-    } finally {
-      setBusy('');
-    }
-  }
-
-  function confirmLost() {
-    Alert.alert(
-      `Report ${dogName} lost?`,
-      `This sends an alert to people near ${profile?.city || 'you'} and makes a public poster with a link. Your phone number and address are never shown.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'My dog is lost', style: 'destructive', onPress: reportLost },
-      ],
-    );
-  }
-
-  async function reportLost() {
-    if (!uid || busy) return;
-    if (!(await saveKit(true))) return;
-    setBusy('lost');
-    try {
-      await createLostAlert(uid, {
-        dogName,
-        breed: profile?.breed,
-        size: profile?.size,
-        markings,
-        photoUrl: kitPhoto,
-        microchipped: microchip.trim().length > 0,
-        medicines,
-        lastSeen,
-        city: profile?.city,
-        state: profile?.state,
-      });
-      trackEvent('lost_alert_created', {});
-    } catch {
-      Alert.alert('Could not send the alert', 'Please check your connection and try again. If you already have an alert open, close it first.');
     } finally {
       setBusy('');
     }
@@ -297,12 +259,15 @@ export default function LostDogScreen() {
           {savedNote ? <Text style={styles.help} accessibilityLiveRegion="polite">{savedNote}</Text> : null}
         </Paper>
 
-        <Text style={styles.label}>Where were they last seen? <Text style={styles.optional}>(optional, when you report)</Text></Text>
-        <TextInput style={styles.input} value={lastSeen} onChangeText={setLastSeen} maxLength={LOST_LIMITS.lastSeen} placeholder="Near the creek trail off Main St" placeholderTextColor={colors.brownLight} accessibilityLabel="Last seen" />
-
         {!profile.city ? <Slip tone="amber">Add your city to {dogName}&apos;s profile so neighbors nearby can be alerted.</Slip> : null}
 
-        <PinkButton label={busy === 'lost' ? 'Sending the alert…' : 'My dog is lost'} icon="alert-octagon" busy={busy === 'lost'} onPress={confirmLost} accessibilityHint="Alerts your Pack and neighbors and makes a poster" />
+        {/* One emergency flow: save what's here, then the one-question alert screen. */}
+        <PinkButton
+          label="My dog is lost"
+          icon="alert-octagon"
+          onPress={async () => { if (await saveKit(true)) router.push('/lost/now'); }}
+          accessibilityHint="Opens the alert: one question, then your neighbors are alerted"
+        />
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.skip}><Text style={styles.skipText}>Not now</Text></Pressable>
       </ScrollView>
     </SafeAreaView>

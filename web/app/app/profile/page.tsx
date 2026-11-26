@@ -34,6 +34,8 @@ import DogtypeSection from '../../../components/DogtypeSection';
 import ModerationNotice from '../../../components/ModerationNotice';
 import EarnedStickers from '../../../components/EarnedStickers';
 import { feedback } from '../../../lib/feedback';
+import LostDogButton from '../../../components/LostDogButton';
+import LostKitCard from '../../../components/LostKitCard';
 import MilestonesCard from '../../../components/MilestonesCard';
 import ProUpsellCard from '../../../components/ProUpsellCard';
 import { useProEntitlement } from '../../../lib/useProEntitlement';
@@ -659,6 +661,8 @@ export default function ProfilePage() {
         <h1 className="font-display text-[26px] leading-none text-brown">Pupfile</h1>
         {authUser && (
           <div className="ml-auto flex gap-2">
+            {/* Panic first: one tap from the Pupfile to the lost-dog alert. */}
+            {savedProfile && <LostDogButton uid={authUser.uid} dogName={savedProfile.name?.trim() || 'Your dog'} compact />}
             {savedProfile && (
               <button
                 type="button"
@@ -970,6 +974,8 @@ export default function ProfilePage() {
 
             {section === 'care' && (
               <div className="flex flex-col gap-5">
+                {/* Safety first: the lost-dog kit leads Care, as in the app. */}
+                {savedProfile && <LostKitCard uid={authUser.uid} dogName={savedProfile.name} />}
                 <div className="card flex flex-col items-center gap-4 rounded-[1.8rem] px-5 py-5">
                   <div className="self-start">
                     <p className="text-sm font-semibold text-brown">Handoff card</p>
