@@ -117,3 +117,10 @@ test('no page still shows the old paw-and-text logo', () => {
     for (const re of OLD) assert.ok(!re.test(src), `old logo in ${path.relative(root, f)}`);
   }
 });
+
+test('favicon.ico is the new icon', () => {
+  // Browsers fetch /favicon.ico on their own; the old file was the paw.
+  const b = fs.readFileSync(at('web/app/favicon.ico'));
+  assert.strictEqual(b.readUInt16LE(2), 1, 'not an .ico file');
+  assert.strictEqual(b[6], 48, 'expected the 48px export of the new icon');
+});
