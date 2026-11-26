@@ -61,3 +61,38 @@ test('expo', () => {
   assert.ok(paths.length >= 4, 'expected icon, splash, adaptive icon and favicon paths');
   for (const p of paths) assert.ok(fs.existsSync(at(path.join('mobile', p))), `missing ${p}`);
 });
+
+// WebP canvas size: VP8X (extended), VP8L (lossless) or VP8 (lossy).
+function webpSize(file) {
+  const b = fs.readFileSync(at(file));
+  const kind = b.toString('ascii', 12, 16);
+  if (kind === 'VP8X') return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+  if (kind === 'VP8L') {
+    const bits = b.readUInt32LE(21);
+    return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)];
+  }
+  if (kind === 'VP8 ') return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+  throw new Error(`${file}: unknown webp chunk ${kind}`);
+}
+
+test('icon source is full resolution', () => {
+  // Every icon is resized from this file; a thumbnail here ships blurry icons.
+  assert.deepStrictEqual(webpSize('docs/superpowers/specs/assets/2026-11-25-godoggydate-app-icon-final.webp'), [1254, 1254]);
+});
+
+test('adaptive icon is inset for the Android safe zone', () => {
+  // Launchers mask to roughly the middle 66%, so the full tile would lose letters.
+  const icon = fs.readFileSync(at('mobile/assets/icon.png'));
+  const adaptive = fs.readFileSync(at('mobile/assets/adaptive-icon.png'));
+  assert.ok(!icon.equals(adaptive), 'adaptive-icon.png is the uninset full tile');
+});
+
+test('header logo box shows all of the art', () => {
+  // Measured: the logo art (1774x887) has content in rows 176..616.
+  const src = fs.readFileSync(at('web/components/BrandLogo.tsx'), 'utf8');
+  const ratio = Number(src.match(/const RATIO = ([\d.]+)/)[1]);
+  const posY = Number(src.match(/const POS_Y = (\d+)/)[1]) / 100;
+  const visible = 1774 / ratio;
+  const top = (887 - visible) * posY;
+  assert.ok(top <= 176 && top + visible >= 616, `shows rows ${Math.round(top)}..${Math.round(top + visible)}`);
+});
