@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { colors, fonts } from '../../constants/theme';
-import { Gingham, Glyph, Heading, Paper, PaperButton, PinkButton, Slip, type } from '../../components/pack/kit';
+import { Gingham, Glyph, type GlyphName, Heading, Paper, PaperButton, PinkButton, Slip, type } from '../../components/pack/kit';
 import { useSession } from '../../lib/session';
 import { listUpcomingPackDays } from '../../lib/packDay';
 import { listPackGroups } from '../../lib/packGroup';
@@ -28,11 +28,25 @@ import CityFeed from '../../components/CityFeed';
 import WhereWeGoSection from '../../components/WhereWeGoSection';
 import type { PackDay } from '../../../shared/packDay';
 import { packGroupScheduleLabel, type PackGroup } from '../../../shared/packGroup';
+import LostDogButton from '../../components/LostDogButton';
 
 const VIEWS: { id: 'days' | 'feed' | 'spots'; label: string; blurb: string }[] = [
   { id: 'days', label: 'Pack Days', blurb: 'Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the dogs yours actually clicks with. Free to join.' },
   { id: 'feed', label: 'Neighbarkhood', blurb: 'Barks from dog people nearby: ask the Pack, give something away, find a walk buddy.' },
   { id: 'spots', label: 'Sniff Spots', blurb: 'The vets, groomers and parks your Pack uses. Tag yours; no reviews, just a count.' },
+];
+
+// Why hosting is worth the one tap — under the empty "Host the first one" card.
+const HOST_BENEFITS: { icon: GlyphName; text: string }[] = [
+  { icon: 'check-circle-outline', text: 'Free to host' },
+  { icon: 'calendar-outline', text: 'Pick a park and a time' },
+  { icon: 'bell-outline', text: 'We tell nearby dog owners for you' },
+];
+
+// While Pack Days is quiet, two ways in to the other tabs on this screen.
+const nudgeRows = (city?: string): { icon: GlyphName; title: string; view: 'feed' | 'spots' }[] => [
+  { icon: 'chat-outline', title: 'Say hi in the Neighbarkhood', view: 'feed' },
+  { icon: 'map-marker-outline', title: city ? `See where other dogs in ${city} go` : 'See where other dogs go', view: 'spots' },
 ];
 
 export default function PackDaysTab() {
@@ -143,7 +157,6 @@ export default function PackDaysTab() {
       >
         <View style={styles.headerRow}>
           <View style={styles.titleRow}>
-            <View style={styles.titleBadge}><Glyph name="tree" size={18} /></View>
             <Text style={styles.title} accessibilityRole="header">{VIEWS.find((v) => v.id === view)?.label}</Text>
           </View>
           {canHost && anyEvents && (
@@ -169,14 +182,7 @@ export default function PackDaysTab() {
 
         {view === 'feed' && (
           <>
-            <Pressable
-              onPress={() => router.push('/lost')}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.lostCard, pressed && { opacity: 0.85 }]}
-            >
-              <Text style={styles.lostTitle}>Lost dog alert</Text>
-              <Text style={styles.groupMeta}>Bring them home. One tap tells your Pack and neighbors.</Text>
-            </Pressable>
+            <LostDogButton uid={user.uid} dogName={profile?.name?.trim() || 'Your dog'} />
             <CityFeed uid={user.uid} city={profile?.city?.trim()} canPost={canHost} blocked={blocked} reloadToken={reloadToken} />
           </>
         )}
@@ -223,16 +229,40 @@ export default function PackDaysTab() {
               <Paper style={styles.emptyCard}>
                 <Glyph name="tree" size={40} />
                 <Heading size={24} style={[styles.centerText, styles.emptyTitle]}>
-                  {profile?.city ? `Be the first to host a Pack Day in ${profile.city}` : 'Nothing on the calendar yet'}
+                  {profile?.city ? `Host ${profile.city}’s first Pack Day` : 'Nothing on the calendar yet'}
                 </Heading>
                 <Text style={[type.soft, styles.centerText]}>
-                  Pick your usual park and a Saturday morning, and host the first one. Six dogs is a great
-                  Pack Day.{elsewhere.length > 0 ? ' Pack Days in nearby cities are below.' : ''}
+                  Pick your usual park and a Saturday morning, and host the first one. Six dogs is plenty.{elsewhere.length > 0 ? ' Pack Days in nearby cities are below.' : ''}
                 </Text>
+                <View style={styles.benefitList}>
+                  {HOST_BENEFITS.map((b) => (
+                    <View key={b.text} style={styles.benefitRow}>
+                      <Glyph name={b.icon} size={16} />
+                      <Text style={styles.benefitText}>{b.text}</Text>
+                    </View>
+                  ))}
+                </View>
                 {canHost && <PinkButton label="Host a Pack Day" icon="tree" onPress={handleHost} style={styles.emptyBtn} />}
               </Paper>
             ) : (
               nearby.map((e) => <PackDayCard key={e.id} event={e} />)
+            )}
+
+            {nearby.length === 0 && (
+              <View style={styles.nudgeList}>
+                {nudgeRows(profile?.city?.trim()).map((n) => (
+                  <Pressable
+                    key={n.view}
+                    onPress={() => setView(n.view)}
+                    accessibilityRole="button"
+                    style={styles.nudgeRow}
+                  >
+                    <View style={styles.nudgeIcon}><Glyph name={n.icon} size={18} /></View>
+                    <Text style={styles.nudgeTitle}>{n.title}</Text>
+                    <Glyph name="chevron-right" size={18} />
+                  </Pressable>
+                ))}
+              </View>
             )}
           </View>
         )}
@@ -291,17 +321,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  titleBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '-8deg' }],
-  },
   title: { fontFamily: fonts.display, fontSize: 30, lineHeight: 34, color: colors.ink, flexShrink: 1 },
   subtitle: {
     fontFamily: fonts.bold,
@@ -316,12 +335,15 @@ const styles = StyleSheet.create({
   setupBody: { marginBottom: 12 },
   block: { marginBottom: 20 },
   retryBtn: { alignSelf: 'flex-start', marginTop: 10 },
-  switchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
+  // One bordered track holding all three, so it reads as "pick one of these"
+  // rather than three separate buttons.
+  switchRow: {
+    flexDirection: 'row', alignSelf: 'flex-start', gap: 2, padding: 3, marginBottom: 16,
+    borderWidth: 2, borderColor: colors.ink, borderRadius: 999, backgroundColor: colors.cream,
+  },
+  chip: { minHeight: 38, paddingHorizontal: 14, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   chipOn: { backgroundColor: colors.ink },
   chipText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
-  lostCard: { backgroundColor: colors.cream, borderWidth: 2, borderColor: colors.ink, borderRadius: 16, padding: 14, gap: 3, marginBottom: 14 },
-  lostTitle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
   loadingBox: { paddingVertical: 64, alignItems: 'center' },
   section: { marginBottom: 14 },
   sectionLabel: { marginBottom: 12 },
@@ -339,6 +361,19 @@ const styles = StyleSheet.create({
   emptyCard: { alignItems: 'center', gap: 6 },
   emptyTitle: { marginTop: 4 },
   emptyBtn: { marginTop: 12, alignSelf: 'stretch' },
+  benefitList: { alignSelf: 'stretch', gap: 6, marginTop: 10 },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  benefitText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink },
+  nudgeList: { marginTop: 10, gap: 8 },
+  nudgeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14,
+    borderWidth: 2, borderColor: colors.ink, borderRadius: 16, backgroundColor: colors.cream,
+  },
+  nudgeIcon: {
+    width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: colors.ink,
+    backgroundColor: colors.note, alignItems: 'center', justifyContent: 'center',
+  },
+  nudgeTitle: { flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
   gateIcon: {
     width: 76,
     height: 76,

@@ -6,6 +6,7 @@
     "audit:match-unlocks": "node scripts/audit-match-unlocks.cjs",
     "audit:runtime-config": "node scripts/audit-runtime-config.cjs",
     "test:launch-config": "node --test scripts/launch-config-lib.test.cjs",
+    "test:brand-assets": "node --test scripts/brand-assets.test.cjs",
     "stats:app": "node scripts/app-stats.cjs"
   },
   "dependencies": {

@@ -21,6 +21,7 @@ import { buildDemoGalleryDogs, buildDemoViewerDog } from '../lib/discover';
 import type { DiscoverFeedDog } from '../lib/discover';
 import type { DogSize } from '../../shared/types';
 import CompatBreakdown, { QUALITY_STYLES } from './CompatBreakdown';
+import { Icon } from './icons';
 
 interface Props {
   dogs: DiscoverFeedDog[];
@@ -136,7 +137,7 @@ export default function DemoGalleryGrid({ dogs, againstDogName, interactive = fa
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={dog.photos[0]} alt={dog.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-4xl">🐕</span>
+                  <Icon name="dog" size={40} className="text-brown" />
                 )}
 
                 {scored && (

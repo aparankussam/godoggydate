@@ -160,7 +160,7 @@ export default function ProUpsellCard({ isPro, isFounding, source }: Props) {
                 }`}
               >
                 {savings > 0 && (
-                  <span className="absolute -top-2 right-2 rounded-full bg-gold px-2 py-0.5 text-[9px] font-bold text-brown">
+                  <span className="absolute -top-2 right-2 rounded-full bg-gold px-2 py-0.5 text-[12px] font-bold text-brown">
                     save {savings}%
                   </span>
                 )}

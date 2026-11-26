@@ -1770,6 +1770,15 @@ export const sendReminderNotifications = functions.pubsub
       .get();
 
     let sent = 0;
+    // Memorial mode: a dog that has passed away gets no more reminders. One read per dog per run.
+    const memorial = new Map<string, boolean>();
+    const inMemorial = async (dogId: string): Promise<boolean> => {
+      if (!memorial.has(dogId)) {
+        const dog = await db.doc(`dogs/${dogId}`).get().catch(() => null);
+        memorial.set(dogId, !!dog?.get('memorialSince'));
+      }
+      return memorial.get(dogId) === true;
+    };
     for (const doc of snap.docs) {
       const data = doc.data() as {
         dueDate?: FirebaseFirestore.Timestamp;
@@ -1780,6 +1789,7 @@ export const sendReminderNotifications = functions.pubsub
       };
       const dogId = doc.ref.parent.parent?.id;
       if (!dogId || !data.dueDate) continue;
+      if (await inMemorial(dogId)) continue;
 
       const dueMs = data.dueDate.toMillis();
       const alreadyNotified = data.notifiedAt
@@ -2000,6 +2010,7 @@ export const sendCelebrationNotifications = functions
     let sent = 0;
     for (const doc of snap.docs) {
       const dogId = doc.id;
+      if (doc.get('memorialSince')) continue; // memorial mode: no "happy birthday" to a grieving owner
       const hits = activeCelebrations(doc.data(), now);
       for (const hit of hits) {
         // One marker per occasion per year — create() fails if it already

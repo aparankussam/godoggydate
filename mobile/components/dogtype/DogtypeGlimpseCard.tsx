@@ -14,6 +14,7 @@ import { loadRevealed, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
 import { trackEvent } from '../../lib/analytics';
 import { computeDogtype } from '../../../shared/dogtype';
 import type { SavedDogProfile } from '../../lib/profile';
+import Chevron from '../Chevron';
 
 export default function DogtypeGlimpseCard({ savedProfile, userId }: { savedProfile: SavedDogProfile; userId: string }) {
   const type = computeDogtype(savedProfile);
@@ -99,7 +100,7 @@ export default function DogtypeGlimpseCard({ savedProfile, userId }: { savedProf
         </>
       ) : null}
       <Pressable style={styles.row} accessibilityRole="button" onPress={() => setOpen((v) => !v)}>
-        <Text style={styles.rowText}>{open ? 'Show less ▲' : `See ${dogName}’s full Dogtype ▼`}</Text>
+        <Text style={styles.rowText}>{open ? 'Show less' : `See ${dogName}’s full Dogtype`} <Chevron open={open} color={styles.rowText.color} /></Text>
       </Pressable>
     </View>
   );

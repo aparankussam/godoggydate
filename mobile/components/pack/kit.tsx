@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   edge: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   pink: { backgroundColor: colors.primary },
   pinkEdge: { height: 6, backgroundColor: colors.primaryDark },
-  pinkText: { fontFamily: fonts.display, fontSize: 23, lineHeight: 27, color: ink, textAlign: 'center', flexShrink: 1, letterSpacing: 0.3 },
+  pinkText: { fontFamily: fonts.display, fontSize: 22, lineHeight: 27, color: ink, textAlign: 'center', flexShrink: 1, letterSpacing: 0.3 },
   paperBtn: { backgroundColor: paper },
   paperBtnEdge: { height: 5, backgroundColor: paperEdge },
   paperBtnText: { fontFamily: fonts.black, fontSize: 16, lineHeight: 21, color: ink, textAlign: 'center', flexShrink: 1 },

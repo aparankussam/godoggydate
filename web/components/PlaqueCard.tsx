@@ -23,6 +23,8 @@ import { trackEvent } from '../lib/analytics';
 import { computeDogtype } from '../../shared/dogtype';
 import { computePlaque } from '../../shared/plaque';
 import type { Plaque } from '../../shared/plaque';
+import ShareLogo from './ShareLogo';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -151,9 +153,7 @@ const PlaquePlate = forwardRef<HTMLDivElement, PlateProps>(function PlaquePlate(
             className="w-full mt-3 pt-2 flex items-center justify-between"
             style={{ borderTop: '1px solid rgba(201,162,75,0.4)' }}
           >
-            <p className="font-display" style={{ fontSize: 12, color: ENGRAVE }}>
-              GoDoggyDate
-            </p>
+            <ShareLogo height={24} />
             <p style={{ fontSize: 9.5, color: '#9C8A5F' }}>godoggydate.com</p>
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function PlaqueCard({ savedProfile }: Props) {
     <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
         <p className="text-xs font-bold text-brown">Just for fun</p>
-        <h2 className="font-display text-xl text-brown leading-tight">🏆 Employee of the Month</h2>
+        <h2 className="font-display text-xl text-brown leading-tight"><Icon name="trophy" /> Employee of the Month</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           {dogName}&apos;s official (and entirely ceremonial) office plaque — a straight-faced job title picked from
           their Dogtype, plus some very serious performance highlights. Updates each month.

@@ -5,7 +5,7 @@
 // word comes from the data the caller passes in (compat.*, the owner's fields).
 
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import { getVaccinationStatus } from '../../../shared/profile';
 import { formatDistanceMiles } from '../../../shared/utils/matchingEngine';
@@ -139,7 +139,7 @@ export function FitSticker({
 export function FitTag({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[bits.fitTag, style]}>
-      <Ionicons name="paw" size={13} color={INK} />
+      <MaterialCommunityIcons name="paw" size={13} color={INK} />
       <Text style={bits.fitTagText}>Fit with your dog</Text>
     </View>
   );
@@ -149,7 +149,7 @@ export function FitTag({ style }: { style?: StyleProp<ViewStyle> }) {
 export function PlaceTicket({ text, style }: { text: string; style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[bits.ticket, style]}>
-      <Ionicons name="location-sharp" size={15} color={INK} />
+      <MaterialCommunityIcons name="map-marker" size={15} color={INK} />
       <Text style={bits.ticketText} numberOfLines={1}>
         {text}
       </Text>
@@ -337,7 +337,7 @@ export const bits = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  fitTagText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 15, color: INK },
+  fitTagText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: INK },
   ticket: {
     flexDirection: 'row',
     alignItems: 'center',

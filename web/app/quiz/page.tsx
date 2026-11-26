@@ -8,8 +8,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import DogtypeQuiz from '../../components/DogtypeQuiz';
-import { PawCoin } from '../../components/StickerBits';
 import SiteFooter from '../../components/SiteFooter';
+import BrandLogo from '../../components/BrandLogo';
 
 export const dynamic = 'force-static';
 
@@ -30,8 +30,8 @@ export default function QuizPage() {
   return (
     <main className="min-h-screen">
       <header className="max-w-4xl mx-auto px-4 h-[54px] flex items-center justify-between">
-        <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-[22px] text-brown whitespace-nowrap">
-          <PawCoin size={30} /> GoDoggyDate
+        <Link href="/" aria-label="GoDoggyDate home" className="inline-flex min-h-[44px] items-center">
+          <BrandLogo height={40} />
         </Link>
         <Link href="/app" className="inline-flex min-h-[44px] items-center px-2 text-sm font-black text-brown underline decoration-2 underline-offset-[3px] whitespace-nowrap">Sign up free</Link>
       </header>

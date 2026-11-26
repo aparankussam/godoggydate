@@ -48,6 +48,7 @@ import ChatBubble from '../../../../../components/ChatBubble';
 import SignInGate from '../../../../../components/SignInGate';
 import { SafetySheet } from '../../../../../components/ReportProfileMenu';
 import { PawIcon } from '../../../../../components/PackDayFlyer';
+import { Icon } from '../../../../../components/icons';
 
 type Tab = 'chat' | 'album';
 type PlayState = 'saving' | 'pack' | 'match';
@@ -352,7 +353,7 @@ export default function PackDayChatPage() {
                   <button type="button" className={CHIP} disabled={sending} onClick={() => void run(() => sendPackDayQuick(eventId, uid, 'here'), 'Try again.')}>{CHAT_QUICK_MESSAGES.here}</button>
                   <button type="button" className={CHIP} disabled={sending} onClick={() => void run(() => sendPackDayQuick(eventId, uid, 'late'), 'Try again.')}>{CHAT_QUICK_MESSAGES.late}</button>
                   {isHost && <button type="button" className={CHIP} disabled={sending} onClick={() => void run(() => sendPackDayRainCheck(eventId, uid), 'Try again.')}>Rain? ☔</button>}
-                  {canPostPhoto(phase) && <button type="button" className={CHIP} disabled={sending} onClick={() => fileRef.current?.click()}>Add photo 📷</button>}
+                  {canPostPhoto(phase) && <button type="button" className={CHIP} disabled={sending} onClick={() => fileRef.current?.click()}><Icon name="camera" /> Add photo</button>}
                 </div>
                 <form onSubmit={handleSend} className="flex items-end gap-2">
                   <textarea

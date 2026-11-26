@@ -9,10 +9,26 @@ public class AppDelegate: ExpoAppDelegate {
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
 
+  // App-icon shortcut "My dog is lost" (UIApplicationShortcutItems in Info.plist
+  // and app.config.js) opens the one-question alert screen, app/lost/now.tsx.
+  static let lostShortcutType = "com.godoggydate.app.lostdog"
+  static let lostURL = URL(string: "godoggydate://lost/now")!
+  private var launchedFromLostShortcut = false
+
   public override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // A cold launch from the shortcut: hand the screen's URL to React Native as the
+    // launch URL, so the app opens straight on it.
+    var options = launchOptions
+    if let item = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem, item.type == AppDelegate.lostShortcutType {
+      launchedFromLostShortcut = true
+      var withURL = launchOptions ?? [:]
+      withURL[.url] = AppDelegate.lostURL
+      options = withURL
+    }
+
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -26,10 +42,27 @@ public class AppDelegate: ExpoAppDelegate {
     factory.startReactNative(
       withModuleName: "main",
       in: window,
-      launchOptions: launchOptions)
+      launchOptions: options)
 #endif
 
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    return super.application(application, didFinishLaunchingWithOptions: options)
+  }
+
+  // The shortcut while the app is already running (or right after the cold launch above).
+  public override func application(
+    _ application: UIApplication,
+    performActionFor shortcutItem: UIApplicationShortcutItem,
+    completionHandler: @escaping (Bool) -> Void
+  ) {
+    guard shortcutItem.type == AppDelegate.lostShortcutType else {
+      return super.application(application, performActionFor: shortcutItem, completionHandler: completionHandler)
+    }
+    if launchedFromLostShortcut {
+      launchedFromLostShortcut = false // the launch URL already opens the screen
+      completionHandler(true)
+      return
+    }
+    completionHandler(RCTLinkingManager.application(application, open: AppDelegate.lostURL, options: [:]))
   }
 
   // Linking API

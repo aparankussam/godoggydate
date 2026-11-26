@@ -1,4 +1,4 @@
-import { deleteField, doc, getDoc, writeBatch } from 'firebase/firestore';
+import { deleteField, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { getFirebase } from './firebase';
 import { stripUndefined } from './firestoreData';
 import {
@@ -71,4 +71,10 @@ export async function saveUserDogProfile(uid: string, profile: SavedDogProfile):
   );
 
   await batch.commit();
+}
+
+/** Memorial mode on (a 'YYYY-MM-DD' date) or off (null). One field, so nothing else on the profile is rewritten. */
+export async function setMemorial(uid: string, since: string | null): Promise<void> {
+  const { db } = getFirebase();
+  await updateDoc(doc(db, 'dogs', uid), { memorialSince: since });
 }

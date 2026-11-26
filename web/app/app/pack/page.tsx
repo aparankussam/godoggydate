@@ -20,6 +20,36 @@ import CityFeed from '../../../components/CityFeed';
 import type { PackDay } from '../../../../shared/packDay';
 import { PawIcon, TreeIcon } from '../../../components/PackDayFlyer';
 import SignInGate from '../../../components/SignInGate';
+import WhereWeGoSection from '../../../components/WhereWeGoSection';
+import LostDogButton from '../../../components/LostDogButton';
+import { Icon, type IconName } from '../../../components/icons';
+
+// Same three views, labels and blurbs as the iPhone Pack Days tab.
+const VIEWS: { id: 'days' | 'feed' | 'spots'; label: string; blurb: string }[] = [
+  { id: 'days', label: 'Pack Days', blurb: 'Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the dogs yours actually clicks with. Free to join.' },
+  { id: 'feed', label: 'Neighbarkhood', blurb: 'Barks from dog people nearby: ask the Pack, give something away, find a walk buddy.' },
+  { id: 'spots', label: 'Sniff Spots', blurb: 'The vets, groomers and parks your Pack uses. Tag yours; no reviews, just a count.' },
+];
+
+// Why hosting is worth the one tap — under the empty "Host the first one" card.
+const HOST_BENEFITS: { icon: IconName; text: string }[] = [
+  { icon: 'check', text: 'Free to host' },
+  { icon: 'calendar', text: 'Pick a park and a time' },
+  { icon: 'bell', text: 'We tell nearby dog owners for you' },
+];
+
+// Behind the "How hosting works" disclosure in the empty-state card.
+const HOST_STEPS: { icon: IconName; text: string }[] = [
+  { icon: 'calendar', text: 'Pick a place and a time — your usual park, any morning.' },
+  { icon: 'bell', text: 'We notify dog owners nearby when you post it.' },
+  { icon: 'heart', text: 'Show up, meet dogs, and maybe find your next match.' },
+];
+
+// While Pack Days is quiet, two ways in to the other tabs on this screen.
+const nudgeRows = (city?: string): { icon: IconName; title: string; view: 'feed' | 'spots' }[] => [
+  { icon: 'chat', title: 'Say hi in the Neighbarkhood', view: 'feed' },
+  { icon: 'map-marker', title: city ? `See where other dogs in ${city} go` : 'See where other dogs go', view: 'spots' },
+];
 
 export default function PackDaysPage() {
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -29,6 +59,18 @@ export default function PackDaysPage() {
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [groups, setGroups] = useState<{ mine: PackGroup[]; discover: PackGroup[] }>({ mine: [], discover: [] });
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'days' | 'feed' | 'spots'>('days');
+  const [showHostSteps, setShowHostSteps] = useState(false);
+
+  // The tab lives in ?view= so a refresh, a shared link or the Places back link lands on it.
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get('view');
+    if (v === 'feed' || v === 'spots') setView(v);
+  }, []);
+  const pickView = (v: 'days' | 'feed' | 'spots') => {
+    setView(v);
+    window.history.replaceState(null, '', v === 'days' ? '/app/pack' : `/app/pack?view=${v}`);
+  };
 
   useEffect(() => {
     const { auth } = getFirebase();
@@ -90,48 +132,66 @@ export default function PackDaysPage() {
 
   const canHost = isProfileComplete(profile);
   const city = profile?.city?.trim().toLowerCase();
+  const current = VIEWS.find((v) => v.id === view) ?? VIEWS[0];
   const nearbyGroups = groups.discover.filter((g) => !blocked.has(g.hostUid) && (!city || g.city.trim().toLowerCase() === city));
 
   return (
     <div className="min-h-screen">
       <header className="px-4 h-14 flex items-center justify-between gap-3">
         <h1 className="flex items-center gap-2.5 font-display text-[26px] leading-none text-brown">
-          <span
-            aria-hidden="true"
-            className="flex h-8 w-8 -rotate-[8deg] items-center justify-center rounded-full border-2 border-brown bg-cream text-brown shadow-[0_3px_0_rgba(42,31,74,0.28)]"
-          >
-            <TreeIcon size={18} />
-          </span>
-          Pack Days
+          {current.label}
         </h1>
-        {canHost && nearby.length + mine.length + elsewhere.length > 0 && (
+        {view === 'days' && canHost && nearby.length + mine.length + elsewhere.length > 0 && (
           <Link href="/app/pack/new" className="btn-secondary inline-flex min-h-[44px] items-center px-4 py-1.5 text-[15px]">Host one</Link>
         )}
       </header>
 
       <div className="p-4 lg:max-w-2xl lg:mx-auto lg:px-8 lg:py-8 space-y-6">
-        <p className="text-[15px] font-extrabold text-brown leading-snug">
-          Open group playdates at a public place. Show up with your dog, meet the neighbors, and find the
-          dogs yours actually clicks with. Free to join.
-        </p>
+        <p className="text-[15px] font-extrabold text-brown leading-snug">{current.blurb}</p>
 
-        {!canHost && events && (
+        {/* One bordered track holding all three, so it reads as "pick one of
+            these" rather than three separate buttons. */}
+        <div role="tablist" aria-label="Pack Days sections" className="inline-flex gap-0.5 rounded-full border-2 border-brown bg-cream p-1">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={view === v.id}
+              onClick={() => pickView(v.id)}
+              className={`min-h-[38px] rounded-full px-3 text-[14px] font-black transition-colors ${view === v.id ? 'bg-brown text-cream' : 'text-brown'}`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        {view === 'feed' && (
+          <>
+            <LostDogButton uid={authUser.uid} dogName={profile?.name?.trim() || 'Your dog'} />
+            <CityFeed uid={authUser.uid} city={profile?.city?.trim() || undefined} canPost={canHost} blocked={blocked} />
+          </>
+        )}
+
+        {view === 'spots' && <WhereWeGoSection uid={authUser.uid} city={profile?.city} />}
+
+        {view === 'days' && !canHost && events && (
           <div className="card p-5 text-center">
             <p className="font-display text-2xl text-brown">Add your dog to join in</p>
-            <p className="mt-1 text-[15px] font-extrabold text-brown-mid">Finish your dog&apos;s profile to RSVP or host a Pack Day.</p>
+            <p className="mt-1 text-[15px] font-extrabold text-brown-mid">Finish your dog&apos;s Pupfile to RSVP or host a Pack Day.</p>
             <Link href="/app" className="btn-primary inline-flex min-h-[52px] items-center mt-3 px-6 py-2.5">Set up my dog</Link>
           </div>
         )}
 
-        {error && <p role="alert" className="rounded-xl border-2 border-brown bg-cream px-4 py-3 text-[15px] font-black text-brown">{error}</p>}
+        {view === 'days' && error && <p role="alert" className="rounded-xl border-2 border-brown bg-cream px-4 py-3 text-[15px] font-black text-brown">{error}</p>}
 
-        {!events && !error && (
+        {view === 'days' && !events && !error && (
           <div className="flex items-center justify-center py-16">
             <span className="text-brown animate-spin motion-reduce:animate-none" role="status" aria-label="Loading"><PawIcon size={32} /></span>
           </div>
         )}
 
-        {mine.length > 0 && (
+        {view === 'days' && mine.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">Yours</h2>
             {mine.map((e) => (
@@ -140,41 +200,85 @@ export default function PackDaysPage() {
           </section>
         )}
 
-        {events && (
+        {view === 'days' && events && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">
               {profile?.city ? `Coming up in ${profile.city}` : 'Coming up'}
             </h2>
             {nearby.length === 0 ? (
-              <div className="card p-6 text-center">
-                <span className="inline-flex text-brown" aria-hidden="true"><TreeIcon size={40} /></span>
-                <p className="mt-2 font-display text-2xl text-brown">
-                  {profile?.city ? `Be the first to host a Pack Day in ${profile.city}` : 'Nothing on the calendar yet'}
-                </p>
-                <p className="mt-1 text-[15px] font-extrabold text-brown-mid leading-snug">
-                  Pick your usual park and a Saturday morning, and host the first one. Six dogs is a great
-                  Pack Day.
-                </p>
-                {canHost && (
-                  <Link href="/app/pack/new" className="btn-primary inline-flex min-h-[52px] items-center mt-4 px-6 py-2.5">
-                    Host a Pack Day
-                  </Link>
-                )}
-              </div>
+              <>
+                <div className="card p-6 text-center">
+                  <span className="inline-flex text-brown" aria-hidden="true"><TreeIcon size={40} /></span>
+                  <p className="mt-2 font-display text-2xl text-brown">
+                    {profile?.city ? `Host ${profile.city}’s first Pack Day` : 'Nothing on the calendar yet'}
+                  </p>
+                  <p className="mt-1 text-[15px] font-extrabold text-brown-mid leading-snug">
+                    Pick your usual park and a Saturday morning, and host the first one. Six dogs is plenty.
+                  </p>
+                  <ul className="mt-3 space-y-1.5 text-left">
+                    {HOST_BENEFITS.map((b) => (
+                      <li key={b.text} className="flex items-center gap-2 text-[13.5px] font-bold text-brown">
+                        <Icon name={b.icon} size={16} />
+                        {b.text}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setShowHostSteps((v) => !v)}
+                    className="mt-2 block min-h-[36px] text-[13.5px] font-bold text-rose underline underline-offset-2"
+                  >
+                    {showHostSteps ? 'Hide how it works' : 'How hosting works'}
+                  </button>
+                  {showHostSteps && (
+                    <ol className="mt-1 space-y-2.5 text-left">
+                      {HOST_STEPS.map((s, i) => (
+                        <li key={s.text} className="flex gap-2">
+                          <Icon name={s.icon} size={15} className="mt-0.5 shrink-0 text-brown" />
+                          <span className="text-[13px] font-semibold leading-snug text-brown-mid">
+                            <span className="font-black text-brown">{i + 1}. </span>{s.text}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  {canHost && (
+                    <Link href="/app/pack/new" className="btn-primary inline-flex min-h-[52px] items-center mt-4 px-6 py-2.5">
+                      Host a Pack Day
+                    </Link>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {nudgeRows(profile?.city?.trim()).map((n) => (
+                    <button
+                      key={n.view}
+                      type="button"
+                      onClick={() => pickView(n.view)}
+                      className="flex min-h-[48px] w-full items-center gap-2.5 rounded-2xl border-2 border-brown bg-cream px-3.5 text-left"
+                    >
+                      <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-brown bg-note">
+                        <Icon name={n.icon} size={18} className="text-brown" />
+                      </span>
+                      <span className="min-w-0 flex-1 text-[14px] font-bold text-brown">{n.title}</span>
+                      <Icon name="chevron-right" size={18} className="text-brown" />
+                    </button>
+                  ))}
+                </div>
+              </>
             ) : (
               nearby.map((e) => <PackDayCard key={e.id} event={e} />)
             )}
           </section>
         )}
 
-        {elsewhere.length > 0 && (
+        {view === 'days' && elsewhere.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">{nearby.length === 0 ? 'Upcoming in nearby cities' : 'Other cities'}</h2>
             {elsewhere.map((e) => <PackDayCard key={e.id} event={e} />)}
           </section>
         )}
 
-        {events && (groups.mine.length > 0 || nearbyGroups.length > 0 || canHost) && (
+        {view === 'days' && events && (groups.mine.length > 0 || nearbyGroups.length > 0 || canHost) && (
           <section className="space-y-3">
             <h2 className="font-display text-[22px] leading-none text-brown">Standing groups</h2>
             {[...groups.mine, ...nearbyGroups].map((g) => (
@@ -194,10 +298,6 @@ export default function PackDaysPage() {
           </section>
         )}
 
-        <section className="space-y-3">
-          <h2 className="font-display text-[22px] leading-none text-brown">Around the neighborhood</h2>
-          <CityFeed uid={authUser.uid} city={profile?.city?.trim() || undefined} canPost={canHost} blocked={blocked} />
-        </section>
       </div>
     </div>
   );

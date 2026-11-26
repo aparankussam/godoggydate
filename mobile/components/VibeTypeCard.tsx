@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, radius, shadow } from '../constants/theme';
 import { Glyph } from './pack/kit';
 import type { DogArchetype } from '../../shared/types';
+import Chevron from './Chevron';
 
 interface Props {
   archetype: DogArchetype;
@@ -25,7 +26,7 @@ export default function VibeTypeCard({ archetype }: Props) {
           <Text style={styles.name}>{archetype.name}</Text>
           <Text style={styles.hint}>Tap to see why</Text>
         </View>
-        <Text style={styles.chevron}>{expanded ? '▲' : '▼'}</Text>
+        <Chevron open={expanded} color={styles.chevron.color} />
       </View>
 
       {expanded && (

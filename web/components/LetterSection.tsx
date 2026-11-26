@@ -15,6 +15,7 @@ import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
 import { publicDogUrl } from '../lib/dogSlug';
 import LetterCard from './LetterCard';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -91,10 +92,10 @@ export default function LetterSection({ savedProfile, userId }: Props) {
   return (
     <section className="card p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">
+        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-rose">
           {milestone.emoji} {milestone.isActive ? `It's ${dogName}'s ${kindLabel}` : `${dogName}'s ${kindLabel} is ${when}`}
         </p>
-        <h2 className="font-display text-xl text-brown leading-tight">💌 The {kindLabel} Letter</h2>
+        <h2 className="font-display text-xl text-brown leading-tight"><Icon name="email" /> The {kindLabel} Letter</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           A warm keepsake letter from {dogName} for {milestone.kind === 'gotcha' ? 'the day they came home' : 'their birthday'} —
           written by AI from the real moments on their profile, never anything made up.
@@ -161,11 +162,11 @@ export default function LetterSection({ savedProfile, userId }: Props) {
           </button>
 
           {letter.sparse && (
-            <p className="mt-2 text-[11px] text-brown-light leading-snug text-center">
+            <p className="mt-2 text-[12px] text-brown-light leading-snug text-center">
               A shorter letter — add {dogName}&apos;s breed, temperament, and play style on your profile for a fuller one.
             </p>
           )}
-          <p className="mt-2 text-[11px] text-brown-light leading-snug text-center">
+          <p className="mt-2 text-[12px] text-brown-light leading-snug text-center">
             Written with AI in {dogName}&apos;s voice, grounded only in what you told us — nothing invented.
           </p>
         </>

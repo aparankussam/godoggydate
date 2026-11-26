@@ -5,15 +5,9 @@
   "start_url": "/app",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#FDF6EE",
-  "theme_color": "#E8633A",
+  "background_color": "#8FC9F2",
+  "theme_color": "#8FC9F2",
   "icons": [
-    {
-      "src": "/icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
@@ -27,7 +21,7 @@
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -37,5 +31,20 @@
     "social",
     "lifestyle"
   ],
-  "screenshots": []
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "My dog is lost",
+      "short_name": "Lost dog",
+      "description": "Alert your neighbors now",
+      "url": "/app/lost/now",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }

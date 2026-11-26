@@ -14,6 +14,9 @@ import type { Reminder, ReminderType } from '../../shared/types';
 interface Props {
   dogId: string;
   reminders: Reminder[];
+  /** Owner only: offered after a reminder is removed, in case that is why. */
+  dogName?: string;
+  onPassedAway?: () => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,7 +31,11 @@ function toDateInputValue(ms: number): string {
   return new Date(ms - tzOffsetMs).toISOString().slice(0, 10);
 }
 
-export default function RemindersSection({ dogId, reminders }: Props) {
+// The usual ones, offered as one-tap starters (never pre-made: a fake due date could be trusted).
+const QUICK_ADD_TYPES: ReminderType[] = ['heartworm', 'flea_tick', 'rabies', 'vet_visit', 'microchip_check', 'grooming'];
+
+export default function RemindersSection({ dogId, reminders, dogName, onPassedAway }: Props) {
+  const [removedOne, setRemovedOne] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [presetType, setPresetType] = useState<ReminderType>('heartworm');
   const [customLabel, setCustomLabel] = useState('');
@@ -42,6 +49,18 @@ export default function RemindersSection({ dogId, reminders }: Props) {
   const preset = useMemo(() => REMINDER_PRESETS.find((p) => p.type === presetType) ?? REMINDER_PRESETS[0], [presetType]);
 
   const sorted = useMemo(() => [...reminders].sort((a, b) => a.dueDate - b.dueDate), [reminders]);
+  // One-tap starters for the usual ones, so people see what a reminder can be. Hidden once the dog has one.
+  const quickAdd = useMemo(
+    () => QUICK_ADD_TYPES.filter((t) => !reminders.some((r) => r.type === t)).map((t) => REMINDER_PRESETS.find((p) => p.type === t)!).filter(Boolean),
+    [reminders],
+  );
+
+  function startQuickAdd(type: ReminderType) {
+    setPresetType(type);
+    setRepeats(true);
+    setError(null);
+    setShowAdd(true);
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -96,6 +115,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
     setBusyId(reminder.id);
     try {
       await deleteReminder(dogId, reminder.id);
+      setRemovedOne(true);
     } catch {
       setBusyId(null);
     }
@@ -113,21 +133,29 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           onClick={() => setShowAdd((v) => !v)}
           className="-my-3 -mr-2 px-2 py-3 text-xs font-bold text-brown hover:text-brown/80 transition-colors"
         >
-          {showAdd ? 'Cancel' : '+ Add'}
+          {showAdd ? 'Cancel' : '+ Add reminder'}
         </button>
       </div>
 
       {showAdd && (
         <form onSubmit={handleAdd} className="px-4 py-3 border-b border-border bg-cream-dark/40 flex flex-col gap-2.5">
-          <select
-            value={presetType}
-            onChange={(e) => setPresetType(e.target.value as ReminderType)}
-            className="rounded-xl border-2 border-brown bg-cream px-3 py-2 text-sm text-brown"
-          >
+          {/* Chips, as in the app: every kind of reminder visible at once. */}
+          <div role="radiogroup" aria-label="Reminder type" className="flex flex-wrap gap-1.5">
             {REMINDER_PRESETS.map((p) => (
-              <option key={p.type} value={p.type}>{p.label}</option>
+              <button
+                key={p.type}
+                type="button"
+                role="radio"
+                aria-checked={presetType === p.type}
+                onClick={() => setPresetType(p.type)}
+                className={`min-h-[36px] rounded-full border-2 border-brown px-3 text-xs font-bold ${
+                  presetType === p.type ? 'bg-brown text-cream' : 'bg-cream text-brown'
+                }`}
+              >
+                {p.label}
+              </button>
             ))}
-          </select>
+          </div>
           {presetType === 'custom' && (
             <input
               type="text"
@@ -165,8 +193,8 @@ export default function RemindersSection({ dogId, reminders }: Props) {
       )}
 
       {sorted.length === 0 && !showAdd && (
-        <div className="px-4 py-6 text-center">
-          <p className="text-sm text-brown-mid">Nothing due yet — add your first reminder.</p>
+        <div className="px-4 pt-5 pb-2 text-center">
+          <p className="text-sm text-brown-mid">Nothing due yet. Add your first reminder.</p>
         </div>
       )}
 
@@ -229,6 +257,28 @@ export default function RemindersSection({ dogId, reminders }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+      {removedOne && onPassedAway && (
+        <button type="button" onClick={onPassedAway} className="min-h-[44px] w-full border-t border-border px-4 text-left text-[13px] font-semibold text-brown-mid underline underline-offset-2">
+          Stopping these because {dogName} passed away?
+        </button>
+      )}
+      {!showAdd && quickAdd.length > 0 && (
+        <div className="border-t border-border px-4 py-3">
+          <p className="mb-1.5 text-xs font-bold text-brown-mid">Quick add</p>
+          <div className="flex flex-wrap gap-1.5">
+            {quickAdd.map((p) => (
+              <button
+                key={p.type}
+                type="button"
+                onClick={() => startQuickAdd(p.type)}
+                className="min-h-[36px] rounded-full border-2 border-dashed border-brown bg-cream px-3 text-xs font-bold text-brown"
+              >
+                + {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

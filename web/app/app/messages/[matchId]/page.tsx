@@ -47,6 +47,7 @@ import {
   playdateIcsFileName,
   type PlaydateDraftProblem,
 } from '../../../../../shared/playdates';
+import { Icon } from '../../../../components/icons';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -388,6 +389,14 @@ export default function ChatPage() {
 
   // Effective chat access: per-match unlock OR lifetime entitlement.
   const canChat = chatUnlocked || hasLifetime;
+  // From Matches' "Suggest a playdate": open the proposal form once chat is available.
+  const planOpened = useRef(false);
+  useEffect(() => {
+    if (planOpened.current || !canChat) return;
+    if (new URLSearchParams(window.location.search).get('plan') !== '1') return;
+    planOpened.current = true;
+    setShowPlaydateForm(true);
+  }, [canChat]);
 
   // ── Validate match access + load counterpart profile ─────────────────────────
   // Realtime listener (not a one-time getDoc): once a payment succeeds, the
@@ -931,7 +940,7 @@ export default function ChatPage() {
   if (authLoading || (authUser && loadingProfile)) {
     return (
       <div className="flex-1 flex items-center justify-center h-screen">
-        <span className="text-4xl animate-spin">🐾</span>
+        <Icon name="paw" size={40} className="animate-spin text-brown" />
       </div>
     );
   }
@@ -941,7 +950,7 @@ export default function ChatPage() {
   if (loadError) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-4xl" aria-hidden="true">😕</span>
+        <Icon name="help-circle" size={40} className="text-brown" />
         <p className="font-display text-3xl text-brown">Couldn&apos;t load this chat</p>
         <p className="text-brown-mid text-sm font-bold">Check your connection and try again.</p>
         <button
@@ -1154,7 +1163,7 @@ export default function ChatPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={dogPhoto} alt={dogName} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-xl" aria-hidden="true">🐕</span>
+              <Icon name="dog" size={22} className="text-brown" />
             )}
           </div>
           <div className="flex-1 min-w-0">
@@ -1178,7 +1187,7 @@ export default function ChatPage() {
           title={myBestFriendMatchId === matchId ? 'Best Friend' : 'Make Best Friend'}
           className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full hover:bg-cream-dark transition-colors disabled:opacity-50 text-lg text-brown"
         >
-          {myBestFriendMatchId === matchId ? '⭐' : '☆'}
+          <Icon name={myBestFriendMatchId === matchId ? 'star' : 'star-outline'} size={22} />
         </button>
         <button
           onClick={() => setShowReportMenu(true)}
@@ -1254,7 +1263,7 @@ export default function ChatPage() {
         )}
         {messages.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-16">
-            <span className="text-5xl" aria-hidden="true">🐕</span>
+            <Icon name="dog" size={48} className="text-brown" />
             <p className="font-display text-3xl text-brown">
               {canChat ? 'Someone has to text first' : 'Chat is locked'}
             </p>

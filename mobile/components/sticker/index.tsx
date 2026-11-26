@@ -21,7 +21,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 
 const INK = colors.ink;
@@ -32,7 +32,7 @@ const PAPER = colors.paper;
 
 /** Filled ink paw glyph (Discover, WOOF, the coin). */
 export function PawIcon({ size = 20, color = INK }: { size?: number; color?: string }) {
-  return <Ionicons name="paw" size={size} color={color} />;
+  return <MaterialCommunityIcons name="paw" size={size} color={color} />;
 }
 
 /** The paper coin with an ink paw, tilted -8deg. Used in headers. */
@@ -453,20 +453,26 @@ export function SkyBackground({ gingham = true }: { gingham?: boolean }) {
   );
 }
 
-/** In-app header: paw coin + one Chewy title on the sky; optional right slot. */
+/** In-app header: one Chewy title on the sky; optional leading and right slots. */
 export function StickerHeader({
   title,
   right,
   style,
+  large,
+  leading,
 }: {
   title: string;
+  /** Sits before the title, e.g. the logo on the home tab. */
+  leading?: ReactNode;
   right?: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Tab-page title size (Pack Days, Playroom, Pupfile); the default stays compact for Discover's deck. */
+  large?: boolean;
 }) {
   return (
     <View style={[styles.header, style]}>
-      <PawCoin size={28} />
-      <Text style={styles.headerTitle} accessibilityRole="header" numberOfLines={1}>
+      {leading}
+      <Text style={[styles.headerTitle, large && styles.headerTitleLarge]} accessibilityRole="header" numberOfLines={1}>
         {title}
       </Text>
       {right ? <View style={styles.headerRight}>{right}</View> : null}
@@ -504,7 +510,7 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 2,
   },
-  tagText: { fontFamily: fonts.black, fontSize: 12.5, color: INK },
+  tagText: { fontFamily: fonts.black, fontSize: 12, color: INK },
   card: {
     backgroundColor: PAPER,
     borderRadius: 24,
@@ -594,5 +600,6 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     color: INK,
   },
+  headerTitleLarge: { fontSize: 30, lineHeight: 34 },
   headerRight: { marginLeft: 'auto' },
 });

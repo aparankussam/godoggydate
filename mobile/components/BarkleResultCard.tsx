@@ -11,6 +11,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../constants/theme';
 import { MAX_TRIES, tileForGuess, type GuessResult } from '../../shared/barkle';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   puzzleNumber: number;
@@ -25,7 +26,7 @@ const BarkleResultCard = forwardRef<View, Props>(({ puzzleNumber, results, won }
   return (
     <View ref={ref} collapsable={false} style={styles.card}>
       <LinearGradient
-        colors={won ? ['#7A2E0E', '#FF5C8D', '#F5B731'] : ['#241A2E', '#4A3F6E', '#4D4373']}
+        colors={won ? ['#7A2E0E', '#FF5C8D', '#FFC56B'] : ['#241A2E', '#4A3F6E', '#4D4373']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -48,7 +49,7 @@ const BarkleResultCard = forwardRef<View, Props>(({ puzzleNumber, results, won }
         <Text style={styles.tagline}>Guess the mystery breed in six tries.</Text>
 
         <View style={styles.footer}>
-          <Text style={styles.brand}>GoDoggyDate</Text>
+          <BrandLogo height={30} />
           <Text style={styles.url}>godoggydate.com/barkle</Text>
         </View>
       </View>
@@ -122,6 +123,5 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.25)',
     paddingTop: 12,
   },
-  brand: { fontFamily: fonts.display, fontSize: 15, color: '#FFFFFF' },
   url: { fontFamily: fonts.body, fontSize: 11, color: 'rgba(255,255,255,0.8)' },
 });

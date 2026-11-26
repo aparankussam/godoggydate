@@ -83,3 +83,15 @@ test('isValidLostId and timeAgo', () => {
   assert.equal(timeAgo(0, 30 * 60000), '30 min ago');
   assert.equal(timeAgo(0, 3 * 3600000), '3 h ago');
 });
+
+test('kit readiness counts the four parts and names what is missing', async () => {
+  const { kitReadiness } = await import('./lostDog.ts');
+  assert.deepEqual(kitReadiness(null), { done: 0, total: 4, missing: ['Recent photo', 'Markings', 'Microchip number', 'Vet phone'] });
+  assert.deepEqual(kitReadiness({ photoUrl: 'x', markings: ' ', microchip: '985', vetPhone: '555' }), { done: 3, total: 4, missing: ['Markings'] });
+});
+
+test('the panic checklist is short and every step says what to do', async () => {
+  const { LOST_CHECKLIST } = await import('./lostDog.ts');
+  assert.ok(LOST_CHECKLIST.length >= 4 && LOST_CHECKLIST.length <= 6);
+  for (const step of LOST_CHECKLIST) assert.ok(step.title && step.body.length > 20);
+});

@@ -16,6 +16,7 @@ import { LimitsBlock } from './OwnerLimits';
 import { plain, FitSticker, PawIcon, PlaceTicket, Tape, fitTone, vaccinationLine } from './DiscoverBits';
 import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { uniqueTemperament } from '../../shared/temperament';
+import { dogAboutText } from '../../shared/dogLabels';
 
 interface FeedDog {
   id: string;
@@ -309,7 +310,7 @@ export default function SwipeStack({
                   </svg>
                 </span>
               </button>
-              <h1 className="min-w-0 flex-1 truncate font-display text-[25px] leading-none text-brown">{selectedDog.name}</h1>
+              <h1 className="min-w-0 flex-1 truncate font-display text-[26px] leading-none text-brown">{selectedDog.name}</h1>
               {/* The card's Report button sits behind this view, so it needs its own:
                   reading someone's full profile is exactly when you'd want to report
                   or block it. Blocking passes the card. */}
@@ -384,14 +385,14 @@ export default function SwipeStack({
                     </div>
 
                     {/* Vibe Check bio + breed read: the dog's own voice, written at onboarding. */}
-                    {selectedDog.ai?.vibeCheck && (selectedDog.ai.vibeCheck.bio || selectedDog.ai.vibeCheck.breedGuess) && (
+                    {(dogAboutText(selectedDog) || selectedDog.ai?.vibeCheck?.breedGuess) && (
                       <div className="rounded-xl border-2 border-brown/30 bg-cream px-3 py-2">
-                        {selectedDog.ai.vibeCheck.bio && (
-                          <p className="text-sm font-extrabold italic leading-snug text-brown-mid [overflow-wrap:anywhere]">
-                            &ldquo;{selectedDog.ai.vibeCheck.bio}&rdquo;
+                        {dogAboutText(selectedDog) && (
+                          <p className="text-sm font-extrabold leading-snug text-brown-mid [overflow-wrap:anywhere]">
+                            {dogAboutText(selectedDog)}
                           </p>
                         )}
-                        {selectedDog.ai.vibeCheck.breedGuess && (
+                        {selectedDog.ai?.vibeCheck?.breedGuess && (
                           <p className="mt-1 text-xs font-extrabold text-brown-mid">
                             AI&apos;s read: {selectedDog.ai.vibeCheck.breedGuess.name} ·{' '}
                             {breedConfidencePhrase(selectedDog.ai.vibeCheck.breedGuess.confidence)}
@@ -494,7 +495,7 @@ export default function SwipeStack({
                       aria-label={`What ${selectedDog.name}'s owner shared`}
                       className="rounded-[4px_10px_10px_4px] border-l-4 border-brown bg-cream-dark px-3 py-2"
                     >
-                      <p className="text-[13.5px] font-black leading-snug">{vaccinationLine(selectedDog)}</p>
+                      <p className="text-[13px] font-black leading-snug">{vaccinationLine(selectedDog)}</p>
                       <div className="mt-1">
                         <LimitsBlock compat={selectedDog.compat} ownerName={selectedDog.name} />
                       </div>
@@ -508,7 +509,7 @@ export default function SwipeStack({
             </main>
 
             <div className="shrink-0 px-3.5 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2">
-              <p className="mb-1.5 text-center text-[12.5px] font-extrabold leading-snug">
+              <p className="mb-1.5 text-center text-[12px] font-extrabold leading-snug">
                 It&apos;s a match when you both say WOOF. Then propose a playdate.
               </p>
               <div className="flex items-center gap-2.5">
@@ -516,7 +517,7 @@ export default function SwipeStack({
                   type="button"
                   onClick={() => { const d = selectedDog; setSelectedDog(null); if (d && (d.firestoreId ?? d.id) === (activeDog.firestoreId ?? activeDog.id)) triggerButtonAction('left'); }}
                   aria-label={`Pass on ${selectedDog.name}`}
-                  className="flex h-[52px] w-[66px] shrink-0 flex-col items-center justify-center gap-px rounded-[18px] border-[2.5px] border-brown bg-cream pb-[5px] text-[12.5px] font-black leading-none shadow-[inset_0_-5px_0_#E3D6BA] transition-all active:translate-y-px"
+                  className="flex h-[52px] w-[66px] shrink-0 flex-col items-center justify-center gap-px rounded-[18px] border-[2.5px] border-brown bg-cream pb-[5px] text-[12px] font-black leading-none shadow-[inset_0_-5px_0_#E3D6BA] transition-all active:translate-y-px"
                 >
                   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A1F4A" strokeWidth="4.6" strokeLinecap="round"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13" /></svg>
                   Pass
@@ -584,7 +585,7 @@ export default function SwipeStack({
               e.currentTarget.blur();
               triggerButtonAction('left');
             }}
-            className="flex h-[52px] w-[66px] shrink-0 flex-col items-center justify-center gap-px rounded-[18px] border-[2.5px] border-brown bg-cream pb-[5px] text-[12.5px] font-black leading-none shadow-[inset_0_-5px_0_#E3D6BA] outline-none transition-all focus-visible:ring-2 focus-visible:ring-brown focus-visible:ring-offset-2 active:translate-y-px [WebkitTapHighlightColor:transparent]"
+            className="flex h-[52px] w-[66px] shrink-0 flex-col items-center justify-center gap-px rounded-[18px] border-[2.5px] border-brown bg-cream pb-[5px] text-[12px] font-black leading-none shadow-[inset_0_-5px_0_#E3D6BA] outline-none transition-all focus-visible:ring-2 focus-visible:ring-brown focus-visible:ring-offset-2 active:translate-y-px [WebkitTapHighlightColor:transparent]"
             aria-label={`Pass on ${activeDog.name}`}
           >
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A1F4A" strokeWidth="4.6" strokeLinecap="round"><path d="M5.5 5.5l13 13M18.5 5.5l-13 13" /></svg>
@@ -608,7 +609,7 @@ export default function SwipeStack({
             ref={detailsTriggerRef}
             type="button"
             onClick={() => setSelectedDog(activeDog)}
-            className="flex h-[52px] w-[66px] shrink-0 flex-col items-center justify-center gap-px rounded-[18px] border-[2.5px] border-brown bg-cream pb-[5px] text-[12.5px] font-black leading-none shadow-[inset_0_-5px_0_#E3D6BA] outline-none transition-all focus-visible:ring-2 focus-visible:ring-brown focus-visible:ring-offset-2 active:translate-y-px [WebkitTapHighlightColor:transparent]"
+            className="flex h-[52px] w-[66px] shrink-0 flex-col items-center justify-center gap-px rounded-[18px] border-[2.5px] border-brown bg-cream pb-[5px] text-[12px] font-black leading-none shadow-[inset_0_-5px_0_#E3D6BA] outline-none transition-all focus-visible:ring-2 focus-visible:ring-brown focus-visible:ring-offset-2 active:translate-y-px [WebkitTapHighlightColor:transparent]"
             aria-label={`Details for ${activeDog.name}`}
           >
             <svg aria-hidden="true" width="20" height="18" viewBox="0 0 24 22">
@@ -619,7 +620,7 @@ export default function SwipeStack({
             Details
           </button>
         </div>
-        <p className="mx-auto mt-1.5 max-w-[32rem] text-center text-[12.5px] font-extrabold leading-[15px]">
+        <p className="mx-auto mt-1.5 max-w-[32rem] text-center text-[12px] font-extrabold leading-[15px]">
           It&apos;s a match when you both say WOOF. Then propose a playdate.
         </p>
       </div>

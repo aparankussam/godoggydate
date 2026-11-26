@@ -15,18 +15,21 @@ import { captureAndShare } from '../lib/shareCard';
 import { dogPageUrl } from '../lib/webLinks';
 import { trackEvent } from '../lib/analytics';
 import type { SavedDogProfile } from '../lib/profile';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
   /** The owner's uid. When set, shares carry a link to the dog's public page. */
   userId?: string;
+  /** Owner view: offers "Add date" for a missing birthday or Gotcha Day (opens Edit at the dates). */
+  onAddDate?: () => void;
 }
 
 const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string }>(
   ({ milestone, dogName }, ref) => (
     <View ref={ref} collapsable={false} style={styles.celebrate}>
       <LinearGradient
-        colors={['#B45309', '#FF5C8D', '#F5B731']}
+        colors={['#B45309', '#FF5C8D', '#FFC56B']}
         locations={[0, 0.55, 1]}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.9, y: 1 }}
@@ -41,7 +44,9 @@ const CelebrationCard = forwardRef<View, { milestone: Milestone; dogName: string
 );
 CelebrationCard.displayName = 'CelebrationCard';
 
-export default function MilestonesCard({ savedProfile, userId }: Props) {
+const MILESTONE_ICONS = { birthday: 'cake-variant', gotcha: 'home', godoggy_anniversary: 'paw' } as const;
+
+export default function MilestonesCard({ savedProfile, userId, onAddDate }: Props) {
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -77,8 +82,16 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
     setSharing(false);
   }
 
-  // Nothing real to celebrate or count down to — render nothing.
-  if (!celebrating && !next) return null;
+  // Real dates only, never samples: a missing one is shown as a gap to fill.
+  const missing = onAddDate
+    ? [
+        !savedProfile.birthMonth && { key: 'birthday' as const, title: `${dogName}'s birthday` },
+        !savedProfile.adoptionDate && { key: 'gotcha' as const, title: 'Gotcha Day' },
+      ].filter((m): m is { key: 'birthday' | 'gotcha'; title: string } => !!m)
+    : [];
+
+  // Nothing real to celebrate, count down to or fill in — render nothing.
+  if (!celebrating && !next && missing.length === 0) return null;
 
   if (celebrating) {
     return (
@@ -101,20 +114,35 @@ export default function MilestonesCard({ savedProfile, userId }: Props) {
   return (
     <View style={styles.countdownCard}>
       <Text style={styles.eyebrow}>Coming up</Text>
-      <View style={styles.countdownRow}>
-        <Text style={styles.countdownEmoji}>{next!.emoji}</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.countdownTitle} numberOfLines={1}>{next!.title}</Text>
-          <Text style={styles.countdownSub}>
-            {next!.subtitle} · {next!.daysUntil === 1 ? 'tomorrow' : `in ${next!.daysUntil} days`}
-          </Text>
+      {next && (
+        <View style={styles.countdownRow}>
+          <View style={styles.countdownIcon}><MaterialCommunityIcons name={MILESTONE_ICONS[next.kind]} size={24} color={colors.ink} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.countdownTitle} numberOfLines={1}>{next.title}</Text>
+            <Text style={styles.countdownSub}>
+              {next.subtitle} · {next.daysUntil === 1 ? 'tomorrow' : `in ${next.daysUntil} days`}
+            </Text>
+          </View>
         </View>
-      </View>
+      )}
+      {missing.map((m) => (
+        <View key={m.key} style={[styles.countdownRow, styles.missingRow]}>
+          <View style={[styles.countdownIcon, styles.missingFaded]}><MaterialCommunityIcons name={MILESTONE_ICONS[m.key]} size={24} color={colors.ink} /></View>
+          <Text style={[styles.countdownTitle, styles.missingFaded, { flex: 1 }]} numberOfLines={1}>{m.title}</Text>
+          <Pressable onPress={onAddDate} accessibilityRole="button" accessibilityLabel={`Add ${m.title} date`} hitSlop={8} style={styles.addDate}>
+            <Text style={styles.addDateText}>Add date</Text>
+          </Pressable>
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  missingRow: { marginTop: 8 },
+  missingFaded: { opacity: 0.55 },
+  addDate: { borderWidth: 2, borderColor: colors.ink, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: colors.paper },
+  addDateText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   section: {
     backgroundColor: colors.cream,
     borderRadius: radius.xl,
@@ -174,7 +202,7 @@ const styles = StyleSheet.create({
     color: colors.brownMid,
   },
   countdownRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  countdownEmoji: { fontSize: 26 },
+  countdownIcon: { width: 28, alignItems: 'center' },
   countdownTitle: { fontFamily: fonts.black, fontSize: 15, color: colors.brown },
   countdownSub: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, marginTop: 1 },
 });

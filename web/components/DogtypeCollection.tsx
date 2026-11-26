@@ -21,6 +21,7 @@ import {
 import { computeDogtype, dogtypeByCode } from '../../shared/dogtype';
 import { discoveredOrder, type DogtypeDogMap, type DogtypeLedger } from '../../shared/progress';
 import type { SavedDogProfile } from '../lib/auth';
+import { Icon } from './icons';
 
 interface Props {
   userId: string;
@@ -140,8 +141,8 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
                 className={`relative flex h-[78px] flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-brown px-0.5 text-brown ${code === ownCode ? 'bg-gold-light' : 'bg-note'}`}
               >
                 <span className="text-2xl" aria-hidden="true">{t.emoji}</span>
-                <span className="text-center text-[10.5px] font-black leading-tight">{t.name.replace(/^The /, '')}</span>
-                {count > 1 && <span className="absolute right-1 top-0.5 rounded-full bg-brown px-1.5 text-[10px] font-black text-paper">×{count}</span>}
+                <span className="text-center text-[12px] font-black leading-tight">{t.name.replace(/^The /, '')}</span>
+                {count > 1 && <span className="absolute right-1 top-0.5 rounded-full bg-brown px-1.5 text-[12px] font-black text-paper">×{count}</span>}
               </button>
             );
           })}
@@ -156,7 +157,7 @@ export default function DogtypeCollection({ userId, savedProfile }: Props) {
 
         {tiles.length > COMPACT && (
           <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-2 flex min-h-[44px] w-full items-center justify-center text-sm font-black text-rose">
-            {showAll ? 'Show fewer ▲' : `Show all ${TOTAL} ▼`}
+            {showAll ? 'Show fewer' : `Show all ${TOTAL}`} <Icon name={showAll ? 'chevron-up' : 'chevron-down'} />
           </button>
         )}
       </div>

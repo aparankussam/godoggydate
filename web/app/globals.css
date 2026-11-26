@@ -5,7 +5,7 @@
 :root {
   --color-primary: #FF5C8D;
   --color-primary-light: #FF8FB0;
-  --color-gold: #F5B731;
+  --color-gold: #FFC56B;
   --color-cream: #FFF9EC;
   --color-cream-dark: #F3ECDC;
   --color-brown: #2A1F4A;
@@ -146,3 +146,7 @@ summary:focus-visible,
     scroll-behavior: auto !important;
   }
 }
+
+/* No single words left alone on a line. */
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }

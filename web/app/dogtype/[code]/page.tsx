@@ -9,8 +9,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import SiteFooter from '../../../components/SiteFooter';
-import { PawCoin } from '../../../components/StickerBits';
 import { DOGTYPE_CODES, dogtypeByCode } from '../../../../shared/dogtype';
+import BrandLogo from '../../../components/BrandLogo';
 
 export const dynamic = 'force-static';
 
@@ -48,7 +48,7 @@ export default function DogtypePage({ params }: PageProps) {
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-sky/95 backdrop-blur-md border-b-2 border-brown">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-xl sm:text-2xl text-brown whitespace-nowrap"><PawCoin size={30} /> GoDoggyDate</Link>
+          <Link href="/" aria-label="GoDoggyDate home" className="inline-flex min-h-[44px] items-center"><BrandLogo height={40} /></Link>
           <Link href="/quiz?ref=dogtype" className="btn-secondary inline-flex min-h-[44px] items-center text-sm whitespace-nowrap px-4 py-2 sm:px-6">
             <span className="sm:hidden">Get yours</span>
             <span className="hidden sm:inline">Find your dog&apos;s Dogtype</span>
@@ -83,7 +83,7 @@ export default function DogtypePage({ params }: PageProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {type.axes.map((a) => (
             <div key={a.key} className="card p-4 rounded-2xl">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-brown-light">{a.axis}</p>
+              <p className="text-[12px] font-bold uppercase tracking-wide text-brown-light">{a.axis}</p>
               <p className="mt-1 font-display text-lg text-brown">
                 {a.pole.emoji} {a.pole.label}
                 <span className="text-brown-light text-sm font-body font-normal"> over {a.other.label}</span>

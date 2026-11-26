@@ -15,6 +15,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radius } from '../constants/theme';
 import type { Dogtype } from '../../shared/dogtype';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   dogtype: Dogtype;
@@ -24,7 +25,7 @@ interface Props {
 
 // Same palettes as web's StoryShareCard themes (solid gradients only).
 const GRADIENTS = {
-  spark: { colors: ['#7A2E0E', '#FF5C8D', '#F5B731'] as const, locations: [0, 0.55, 1] as const },
+  spark: { colors: ['#7A2E0E', '#FF5C8D', '#FFC56B'] as const, locations: [0, 0.55, 1] as const },
   zen: { colors: ['#241A2E', '#4A3F6E', '#C98A5E'] as const, locations: [0, 0.5, 1] as const },
 };
 
@@ -83,7 +84,7 @@ const DogtypeStoryCard = forwardRef<View, Props>(function DogtypeStoryCard({ dog
         {/* Baked-in brand footer — screenshots strip metadata, so the URL has
             to live on the pixels themselves. */}
         <View style={styles.footer}>
-          <Text style={styles.brand}>GoDoggyDate</Text>
+          <BrandLogo height={48} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -146,6 +147,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.2)',
   },
-  brand: { fontFamily: fonts.display, fontSize: 16, color: '#fff' },
   brandUrl: { fontFamily: fonts.body, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
 });

@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   reasonActive: { backgroundColor: colors.ink },
-  reasonLabel: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink },
+  reasonLabel: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
   reasonLabelActive: { color: colors.cream },
   preview: { alignItems: 'center' },
   // The shadow sits on a wrapper so it stays out of the captured image.

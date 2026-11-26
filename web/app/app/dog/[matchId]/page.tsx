@@ -22,11 +22,12 @@ import ReportProfileMenu from '../../../../components/ReportProfileMenu';
 import { foundingBadgeLabel } from '../../../../../shared/founding';
 import { otherUserIdFromMatchId } from '../../../../../shared/playdates';
 import SignInGate from '../../../../components/SignInGate';
-import { uniqueTemperament } from '../../../../../shared/temperament';
+import { uniqueTemperament, sentenceCase } from '../../../../../shared/temperament';
 import DogtypeRevealCard from '../../../../components/dogtype/DogtypeRevealCard';
 import { computeDogtype, dogtypeByCode } from '../../../../../shared/dogtype';
 import { discoveredCount, type DogtypeDogMap, type DogtypeLedger } from '../../../../../shared/progress';
 import { effectiveCode, loadDiscoveries, loadDogSnapshots, loadRevealed, markDiscoverySeen, onDiscoveriesChange } from '../../../../lib/dogtypeDiscovery';
+import { Icon } from '../../../../components/icons';
 
 interface MatchDoc {
   dog1UserId: string;
@@ -165,7 +166,7 @@ export default function MatchedDogProfilePage() {
   if (authLoading || (authUser && loading)) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
-        <span className="text-4xl animate-spin">🐾</span>
+        <Icon name="paw" size={40} className="animate-spin text-brown" />
       </div>
     );
   }
@@ -179,7 +180,7 @@ export default function MatchedDogProfilePage() {
   if (unavailable === 'left') {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-5xl" aria-hidden="true">👋</span>
+        <Icon name="paw" size={48} className="text-brown" />
         <h1 className="font-display text-2xl text-brown">This dog parent has left GoDoggyDate</h1>
         <p className="max-w-xs text-sm leading-relaxed text-brown-mid">
           They’re no longer on GoDoggyDate, so this profile isn’t available any more.
@@ -192,7 +193,7 @@ export default function MatchedDogProfilePage() {
   if (unavailable !== null || !profile) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
-        <span className="text-4xl">😕</span>
+        <Icon name="help-circle" size={40} className="text-brown" />
         <p className="font-display text-2xl text-brown">
           {unavailable === 'error' || unavailable === null ? 'Couldn’t load this profile' : 'This profile isn’t available'}
         </p>
@@ -240,7 +241,7 @@ export default function MatchedDogProfilePage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photos[safeActive]} alt={profile.name} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-8xl">🐕</span>
+            <Icon name="dog" size={96} className="text-brown" />
           )}
           {photos.length > 1 && (
             <div className="absolute top-4 left-4 right-4 flex gap-1.5">
@@ -283,7 +284,7 @@ export default function MatchedDogProfilePage() {
           </p>
           {typeof profile.foundingPackNumber === 'number' && (
             <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-note px-3 py-1.5 text-xs font-bold text-brown">
-              {foundingBadgeLabel(profile.foundingPackNumber)}
+              <Icon name="star" size={14} className="text-gold" /> {foundingBadgeLabel(profile.foundingPackNumber).replace('⭐ ', '')}
             </span>
           )}
         </div>
@@ -303,10 +304,17 @@ export default function MatchedDogProfilePage() {
         )}
 
         {/* Vibe Check: archetype type card + bio + Mutt Meter (breed guess) */}
+        {profile.bio?.trim() && (
+          <div className="px-1">
+            <p className="text-xs font-bold text-brown-mid mb-0.5">About {profile.name}</p>
+            <p className="text-sm leading-relaxed text-brown whitespace-pre-line [overflow-wrap:anywhere]">{profile.bio.trim()}</p>
+          </div>
+        )}
         {vibeCheck && (
           <div className="flex flex-col gap-3">
             <VibeTypeCard archetype={vibeCheck.archetype} />
-            {vibeCheck.bio && (
+            {/* The owner's own About line replaces the AI line when there is one. */}
+            {vibeCheck.bio && !profile.bio?.trim() && (
               <div className="px-1">
                 <p className="text-xs font-bold text-brown-mid mb-0.5">
                   ✨ Written by AI from their photos
@@ -340,14 +348,14 @@ export default function MatchedDogProfilePage() {
             <p className="text-xs font-bold text-brown-mid mb-2">Play style</p>
             <div className="flex flex-wrap gap-2">
               {profile.playStyles!.map((p) => (
-                <span key={p} className="rounded-full bg-cream border-2 border-brown px-3 py-1.5 text-sm text-brown">{p}</span>
+                <span key={p} className="rounded-full bg-cream border-2 border-brown px-3 py-1.5 text-sm text-brown">{sentenceCase(p)}</span>
               ))}
             </div>
           </div>
         )}
 
         <Link href={`/app/messages/${matchId}`} className="btn-primary text-center px-8 py-3.5 mt-2 [overflow-wrap:anywhere]">
-          💬 Message {profile.name}
+          <Icon name="chat" /> Message {profile.name}
         </Link>
       </div>
     </div>

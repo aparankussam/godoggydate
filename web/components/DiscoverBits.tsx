@@ -93,7 +93,7 @@ export function FitSticker({
 export function PlaceTicket({ text, className = '' }: { text: string; className?: string }) {
   return (
     <span
-      className={`flex max-w-full items-center gap-2 rounded-md border-2 border-brown bg-kraft py-1.5 pl-2.5 pr-3.5 text-[13.5px] font-black leading-none shadow-[0_2px_5px_rgba(42,31,74,0.25)] ${className}`}
+      className={`flex max-w-full items-center gap-2 rounded-md border-2 border-brown bg-kraft py-1.5 pl-2.5 pr-3.5 text-[13px] font-black leading-none shadow-[0_2px_5px_rgba(42,31,74,0.25)] ${className}`}
     >
       <svg aria-hidden="true" width="13" height="16" viewBox="0 0 16 20" fill="#2A1F4A" className="shrink-0">
         <path d="M8 0C3.6 0 0 3.5 0 7.9 0 13.2 8 20 8 20s8-6.8 8-12.1C16 3.5 12.4 0 8 0z" />
@@ -196,7 +196,7 @@ export function TrustSlip({
         </>
       ) : (
         <>
-          <p className="text-[13.5px] font-black leading-snug [overflow-wrap:anywhere]">
+          <p className="text-[13px] font-black leading-snug [overflow-wrap:anywhere]">
             {vacc} <span aria-hidden="true">&nbsp;·&nbsp;</span> <span className="font-extrabold">{limits.headline}</span>
             {limits.more ? <span className="font-extrabold text-brown-mid"> · {limits.more}</span> : null}
           </p>

@@ -26,6 +26,7 @@ import { trackEvent } from '../../lib/analytics';
 import NextToy from '../../components/playroom/NextToy';
 import { loadBoopAllTime, unlockedStickers, STICKERS, type Sticker } from '../../lib/boops';
 import { resolveHeroIndex } from '../../lib/coverPhoto';
+import BrandLogo from '../../components/BrandLogo';
 
 const CANVAS = Math.min(Dimensions.get('window').width - 40, 360);
 const STICKER = 60;
@@ -176,7 +177,8 @@ export default function StickerStudioScreen() {
             <DraggableSticker key={p.key} emoji={p.emoji} startX={p.startX} startY={p.startY} onRemove={() => removePlaced(p.key)} />
           ))}
           <View style={styles.canvasBrand} pointerEvents="none">
-            <Text style={styles.canvasBrandText}>GoDoggyDate · godoggydate.com</Text>
+            <BrandLogo height={20} />
+            <Text style={styles.canvasBrandText}>godoggydate.com</Text>
           </View>
         </View>
 
@@ -288,7 +290,7 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 40, alignItems: 'center', gap: 14 },
   canvas: { width: CANVAS, height: CANVAS, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.note, borderWidth: 2, borderColor: colors.ink },
   canvasEmpty: { alignItems: 'center', justifyContent: 'center' },
-  canvasBrand: { position: 'absolute', bottom: 8, right: 10 },
+  canvasBrand: { position: 'absolute', bottom: 8, right: 10, alignItems: 'flex-end', gap: 2 },
   canvasBrandText: { fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   placed: { position: 'absolute', width: STICKER, height: STICKER, alignItems: 'center', justifyContent: 'center' },
   placedEmoji: { fontSize: 52 },

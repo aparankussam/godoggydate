@@ -11,6 +11,8 @@ import type { MyPlaceTag } from '../lib/places';
 import { CONTENT_FILTER_MESSAGE, checkContent } from '../../shared/contentFilter';
 import { nearbyLine, PLACE_CATEGORIES, PLACE_CATEGORY_KEYS, PLACE_NAME_MAX } from '../../shared/places';
 import type { PlaceCategory } from '../../shared/places';
+import { Icon } from './icons';
+import { PLACE_ICONS } from '../../shared/placeIcons';
 
 export default function WhereWeGoSection({ uid, city }: { uid: string; city?: string }) {
   const [tags, setTags] = useState<MyPlaceTag[] | null>(null);
@@ -49,15 +51,15 @@ export default function WhereWeGoSection({ uid, city }: { uid: string; city?: st
 
   return (
     <section className="space-y-3" aria-labelledby="where-we-go-h">
-      <h3 id="where-we-go-h" className="font-display text-[22px] leading-none text-brown">Where we go</h3>
+      <h3 id="where-we-go-h" className="font-display text-[22px] leading-none text-brown">Your spots</h3>
       <p className="text-[15px] font-extrabold text-brown-mid">
-        Tag the places you use. No reviews, just a count: once 3 or more owners{city ? ` in ${city}` : ''} use a place, others see how many. Your tags stay private.
+        Once 3 or more owners{city ? ` in ${city}` : ''} use a place, others see how many. Your tags stay private.
       </p>
       <div className="card space-y-3 p-4">
         {tags?.map((tag) => (
           <div key={tag.placeId} className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
-              <p className="break-words text-[16px] font-black text-brown">{PLACE_CATEGORIES[tag.category].emoji} {tag.name}</p>
+              <p className="break-words text-[16px] font-black text-brown"><Icon name={PLACE_ICONS[tag.category]} /> {tag.name}</p>
               <p className="text-[13px] font-extrabold text-brown-mid">{nearbyLine(tag.ownerCount, 'this place') ?? PLACE_CATEGORIES[tag.category].label}</p>
             </div>
             <button type="button" onClick={() => void remove(tag)} aria-label={`Remove ${tag.name}`} className="min-h-[44px] px-2 text-[13px] font-black text-red-600">Remove</button>
@@ -71,7 +73,7 @@ export default function WhereWeGoSection({ uid, city }: { uid: string; city?: st
               key={key} type="button" onClick={() => setCategory(key)} aria-pressed={key === category}
               className={`min-h-[44px] rounded-full border-2 border-brown px-3 text-[13px] font-black text-brown ${key === category ? 'bg-brown text-paper' : 'bg-cream'}`}
             >
-              {PLACE_CATEGORIES[key].emoji} {PLACE_CATEGORIES[key].label}
+              <Icon name={PLACE_ICONS[key]} /> {PLACE_CATEGORIES[key].label}
             </button>
           ))}
         </div>

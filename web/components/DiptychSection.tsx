@@ -123,7 +123,7 @@ export default function DiptychSection({ savedProfile }: Props) {
   return (
     <section className="card p-5">
       <div className="mb-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-rose">National Dog Day 🐾</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-rose">National Dog Day 🐾</p>
         <h2 className="font-display text-xl text-brown leading-tight">Day 1 vs Day N</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           Two of your own photos, then vs now, with the real number of days since your earliest one. Pick the
@@ -231,7 +231,7 @@ export default function DiptychSection({ savedProfile }: Props) {
         </>
       )}
 
-      <p className="mt-2 text-[11px] text-brown-light leading-snug text-center">
+      <p className="mt-2 text-[12px] text-brown-light leading-snug text-center">
         The count is days since the earliest photo you picked — not a birthday or an age.
       </p>
     </section>

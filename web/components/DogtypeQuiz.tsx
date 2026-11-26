@@ -222,7 +222,7 @@ export default function DogtypeQuiz() {
         <p className="mt-2 text-xs font-bold text-brown-mid">
           Just to personalize the questions — it stays on this page and is never sent anywhere.
         </p>
-        <button type="button" onClick={startQuiz} className="btn-primary mt-6 flex w-full max-w-xs mx-auto items-center justify-center gap-2.5 min-h-[56px] text-[25px] leading-none">
+        <button type="button" onClick={startQuiz} className="btn-primary mt-6 flex w-full max-w-xs mx-auto items-center justify-center gap-2.5 min-h-[56px] text-[26px] leading-none">
           Start the quiz
           <Chevron />
         </button>
@@ -312,7 +312,7 @@ export default function DogtypeQuiz() {
         <button
           type="button"
           onClick={() => share('type')}
-          className="btn-primary flex h-14 items-center justify-center gap-2.5 pb-[5px] pt-0 text-[25px] leading-none tracking-[0.3px]"
+          className="btn-primary flex h-14 items-center justify-center gap-2.5 pb-[5px] pt-0 text-[26px] leading-none tracking-[0.3px]"
         >
           {copied === 'type' ? 'Link copied!' : (<><ShareIcon />{`Share ${dogLabel === 'your dog' ? 'this' : `${trimmedName}'s`} Dogtype`}</>)}
         </button>
@@ -321,7 +321,7 @@ export default function DogtypeQuiz() {
           onClick={() => trackEvent('quiz_signup_cta', { code: result.code, ref })}
           className="mt-0.5 flex min-h-[44px] items-center justify-center text-sm font-black text-brown underline decoration-2 underline-offset-[3px]"
         >
-          Make it official: create {dogLabel === 'your dog' ? "your dog's" : `${trimmedName}'s`} profile
+          Make it official: create {dogLabel === 'your dog' ? "your dog's" : `${trimmedName}'s`} Pupfile
         </Link>
       </div>
 

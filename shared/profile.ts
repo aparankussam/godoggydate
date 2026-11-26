@@ -61,6 +61,11 @@ export interface SavedDogProfile {
   lat?: number;
   lng?: number;
   prompts?: { prompt: string; answer: string }[];
+  /** Owner-written "About" line, up to PROFILE_TEXT_LIMITS.bio. null = cleared. */
+  bio?: string | null;
+  /** Memorial mode: 'YYYY-MM-DD' the owner marked the dog as passed away. Out of
+   *  Discover, no celebration or reminder pushes; the Pupfile becomes a memorial. */
+  memorialSince?: string | null;
   // Safety screening — the ONLY inputs detectUnsafePairings() reads
   // (shared/utils/matchingEngine.ts). Until these were collected, the whole
   // safety branch of the matching engine was unreachable: warnings.length was
@@ -391,6 +396,8 @@ export function toFullProfile(saved: SavedDogProfile, uid: string): DogProfile {
     lat: saved.lat,
     lng: saved.lng,
     prompts: saved.prompts,
+    bio: saved.bio?.trim() || undefined,
+    memorialSince: saved.memorialSince || undefined,
     coverPhotoIndex: saved.coverPhotoIndex,
     coverFocusX: saved.coverFocusX,
     coverFocusY: saved.coverFocusY,

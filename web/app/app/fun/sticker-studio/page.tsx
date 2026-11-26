@@ -20,6 +20,8 @@ import { trackEvent } from '../../../../lib/analytics';
 import { loadAllTime, loadBoops, unlockedStickers, nextSticker, STICKERS, type Sticker } from '../../../../lib/boops';
 import { onProgressChange } from '../../../../lib/progressSync';
 import SignInGate from '../../../../components/SignInGate';
+import ShareLogo from '../../../../components/ShareLogo';
+import { Icon } from '../../../../components/icons';
 
 const CANVAS = 320;
 const STICKER = 56;
@@ -168,7 +170,7 @@ export default function StickerStudioPage() {
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-24">
-        <span className="text-4xl animate-spin">🐾</span>
+        <Icon name="paw" size={40} className="animate-spin text-brown" />
       </div>
     );
   }
@@ -234,9 +236,10 @@ export default function StickerStudioPage() {
           ))}
 
           {/* Brand baked into the captured region so a repost keeps the back-link. */}
-          <div className="absolute bottom-2 right-2.5 pointer-events-none">
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.9)', fontFamily: 'system-ui, sans-serif' }}>
-              GoDoggyDate · godoggydate.com
+          <div className="absolute bottom-2 right-2.5 pointer-events-none flex flex-col items-end gap-0.5">
+            <ShareLogo height={20} />
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', fontFamily: 'system-ui, sans-serif' }}>
+              godoggydate.com
             </span>
           </div>
         </div>
@@ -299,7 +302,7 @@ export default function StickerStudioPage() {
                     className="w-[62px] h-[70px] rounded-2xl bg-cream border-2 border-brown flex flex-col items-center justify-center gap-0.5  transition-colors"
                   >
                     <span className="text-2xl">{s.emoji}</span>
-                    <span className="text-[9px] text-brown-mid">{s.label}</span>
+                    <span className="text-[12px] text-brown-mid">{s.label}</span>
                   </button>
                 ) : (
                   <div
@@ -308,7 +311,7 @@ export default function StickerStudioPage() {
                     title={`Unlocks at ${s.unlockAt} boops`}
                   >
                     <span className="text-2xl grayscale">🔒</span>
-                    <span className="text-[9px] font-bold text-brown-mid">{s.unlockAt}</span>
+                    <span className="text-[12px] font-bold text-brown-mid">{s.unlockAt}</span>
                   </div>
                 );
               })}

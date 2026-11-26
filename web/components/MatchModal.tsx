@@ -23,6 +23,7 @@ import DogtypeSheet from './dogtype/DogtypeSheet';
 import { getFirebase } from '../shared/utils/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
+import { Icon } from './icons';
 
 
 interface MatchDog {
@@ -204,7 +205,7 @@ export default function MatchModal({ dog, matchId, reveal = null, onKeepSwiping 
   );
 
   const pinkBtn =
-    'btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-4 pb-1 text-[25px] leading-none';
+    'btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-4 pb-1 text-[26px] leading-none';
 
   return (
     <div
@@ -497,11 +498,11 @@ function Polaroid({
         ) : mine ? (
           <DogFace />
         ) : (
-          <span className="text-5xl" aria-hidden="true">🐕</span>
+          <Icon name="dog" size={48} className="text-brown" />
         )}
       </div>
       <p className="px-0.5 pb-2 pt-1 text-center">
-        <span className="block font-display text-[25px] leading-none [overflow-wrap:anywhere]">{name}</span>
+        <span className="block font-display text-[26px] leading-none [overflow-wrap:anywhere]">{name}</span>
         <span className="mt-px block text-xs font-extrabold leading-tight text-brown-mid [overflow-wrap:anywhere]">{sub}</span>
       </p>
     </div>

@@ -12,6 +12,7 @@ import {
   type PushBannerState,
 } from '../lib/push';
 import { trackEvent } from '../lib/analytics';
+import { Icon } from './icons';
 
 export default function EnablePushBanner({ userId }: { userId: string }) {
   const [state, setState] = useState<PushBannerState>('none');
@@ -30,7 +31,7 @@ export default function EnablePushBanner({ userId }: { userId: string }) {
   if (state === 'blocked') {
     return (
       <div className="mb-4 rounded-[1.25rem] border border-brown/60 bg-cream px-4 py-3 flex items-center gap-3">
-        <span className="text-2xl shrink-0">🔕</span>
+        <Icon name="bell-off" size={24} className="text-brown" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-brown">Notifications are blocked</p>
           <p className="text-xs text-brown-mid">
@@ -51,7 +52,7 @@ export default function EnablePushBanner({ userId }: { userId: string }) {
 
   return (
     <div className="mb-4 rounded-[1.25rem] border-2 border-brown bg-note px-4 py-3 flex items-center gap-3">
-      <span className="text-2xl shrink-0">🔔</span>
+      <Icon name="bell" size={24} className="text-brown" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-brown">Never miss a match</p>
         <p className="text-xs text-brown-mid">

@@ -3,6 +3,7 @@
 // in iMessage/WhatsApp/Discord/X when someone shares "/quiz". Pure static
 // content: the row is paw prints, because type names are a mystery until you match.
 import { ImageResponse } from 'next/og';
+import { ogLogoImg } from '../../lib/ogLogo';
 
 export const dynamic = 'force-static';
 export const alt = "What's your dog's Dogtype? — a 90-second quiz";
@@ -22,7 +23,7 @@ export default function OpengraphImage() {
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '0 80px',
-          background: 'linear-gradient(135deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)',
+          background: 'linear-gradient(135deg, #7A2E0E 0%, #FF5C8D 55%, #FFC56B 100%)',
           fontFamily: 'sans-serif',
           color: '#fff',
         }}
@@ -52,7 +53,8 @@ export default function OpengraphImage() {
             fontWeight: 700,
           }}
         >
-          🐾 GoDoggyDate · godoggydate.com
+          {ogLogoImg(52)}
+          <span style={{ marginLeft: 20 }}>godoggydate.com</span>
         </div>
       </div>
     ),

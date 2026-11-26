@@ -42,6 +42,8 @@ export interface DiscoverFeedDog {
    *  failed, have none — every consumer must render nothing rather than a
    *  placeholder. */
   ai?: DogProfile['ai'];
+  /** Owner-written About line (shared/dogLabels dogAboutText picks it over the AI line). */
+  bio?: string;
   distanceMiles: number;
   /** How we know this dog is close: a measured distance within the radius, the
    *  same city, or only the same state. A dog is never shown as "nearby" on less. */
@@ -139,6 +141,7 @@ function toFeedDog(
     // most distinctive content was invisible on the one screen where you
     // decide whether you like a dog, and only appeared after a mutual match.
     ai: candidate.ai,
+    bio: candidate.bio,
     distanceMiles,
     locality,
     compat: calculateCompatibility(baseDog, candidate, distanceMiles),
@@ -491,6 +494,7 @@ export async function loadDiscoverDeck(
 
   for (const dog of candidates.dogs) {
     if (blockedIds.has(dog.id)) continue;
+    if (dog.memorialSince) continue; // a dog that has passed away is never offered as a match
     const miles = milesBetween(baseDog, dog);
     let locality: DiscoverFeedDog['locality'] | null = null;
     if (isKnown(miles)) {

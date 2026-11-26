@@ -87,12 +87,14 @@ service cloud.firestore {
       let bestFriendMatchId = d.get('bestFriendMatchId', null);
       let vaccinated = d.get('vaccinated', null);
       let publicPage = d.get('publicPage', null);
+      let memorialSince = d.get('memorialSince', null);
       return (ownerId == null || (ownerId is string && ownerId.size() <= 128))
           && (rabiesExpiry == null || (rabiesExpiry is string && rabiesExpiry.size() <= 32))
           && (adoptionDate == null || (adoptionDate is string && adoptionDate.size() <= 32))
           && (bestFriendMatchId == null || (bestFriendMatchId is string && bestFriendMatchId.size() <= 200))
           && (vaccinated == null || vaccinated is bool)
-          && (publicPage == null || publicPage is bool);
+          && (publicPage == null || publicPage is bool)
+          && (memorialSince == null || (memorialSince is string && memorialSince.size() <= 32));
     }
 
     function dogNums(d) {
@@ -176,7 +178,7 @@ service cloud.firestore {
       let changed = d.diff(resource.data).affectedKeys();
       return d.keys().size() <= 60
           && (!changed.hasAny(['name', 'breed', 'bio', 'healthNotes', 'city', 'state', 'location', 'age', 'sex', 'size']) || dogStrsA(d))
-          && (!changed.hasAny(['ownerId', 'rabiesExpiry', 'adoptionDate', 'bestFriendMatchId', 'vaccinated', 'publicPage']) || dogStrsB(d))
+          && (!changed.hasAny(['ownerId', 'rabiesExpiry', 'adoptionDate', 'bestFriendMatchId', 'vaccinated', 'publicPage', 'memorialSince']) || dogStrsB(d))
           && (!changed.hasAny(['energyLevel', 'lat', 'lng', 'birthYear', 'birthMonth', 'birthDay', 'coverPhotoIndex', 'coverFocusX', 'coverFocusY']) || dogNums(d))
           && (!changed.hasAny(['temperament', 'playStyles', 'notGoodWith', 'behaviorFlags', 'goodWith', 'boundaries', 'allergies', 'specialNeeds']) || dogLists(d))
           && (!changed.hasAny(['photos']) || dogPhotos(d))
@@ -812,15 +814,28 @@ service cloud.firestore {
           && okStr(d.get('markings', null), 200);
     }
 
-    // A new alert: the caller's own dog (the dog doc id is the owner's uid),
-    // active, with only the public-safe fields. city/state are re-stamped from the
-    // dog profile by the server, so what is sent here is only a first draft.
+    // Who may raise or close an alert for a dog: its owner, or someone in its
+    // household (a sitter, walker or partner invited through acceptHouseholdInvite).
+    function canActForDog(ownerId) {
+      return request.auth.uid == ownerId || isHouseholdMember(ownerId);
+    }
+
+    // A new alert: the caller's own dog (the dog doc id is the owner's uid), or a
+    // household dog with raisedBy set to the caller; active, with only the
+    // public-safe fields. city/state are re-stamped from the dog profile by the
+    // server, so what is sent here is only a first draft. lostLat/lostLng is where
+    // the dog went missing, rounded to ~1 km by the client and again by the server.
     function validNewLostAlert(d) {
       return d.keys().hasOnly(['ownerId', 'dogId', 'dogName', 'breed', 'size', 'markings', 'photoUrl',
-                               'microchipped', 'medicines', 'lastSeen', 'city', 'state', 'status', 'createdAt'])
+                               'microchipped', 'medicines', 'lastSeen', 'city', 'state', 'status', 'createdAt',
+                               'lostLat', 'lostLng', 'raisedBy'])
           && d.keys().hasAll(['ownerId', 'dogId', 'dogName', 'status', 'createdAt'])
-          && d.ownerId == request.auth.uid
-          && d.dogId == request.auth.uid
+          && d.ownerId is string
+          && d.dogId == d.ownerId
+          && ((d.ownerId == request.auth.uid && !('raisedBy' in d))
+              || (d.get('raisedBy', null) == request.auth.uid && d.ownerId != request.auth.uid && isHouseholdMember(d.ownerId)))
+          && (d.get('lostLat', null) == null || (d.lostLat is number && d.lostLat >= -90 && d.lostLat <= 90))
+          && (d.get('lostLng', null) == null || (d.lostLng is number && d.lostLng >= -180 && d.lostLng <= 180))
           && d.status == 'active'
           && d.createdAt == request.time
           && d.dogName is string && d.dogName.size() >= 1 && d.dogName.size() <= 60
@@ -843,12 +858,12 @@ service cloud.firestore {
       // and must be created in the same batch, pointing at this alert.
       allow create: if isRealAccount()
                     && validNewLostAlert(request.resource.data)
-                    && exists(/databases/$(database)/documents/dogs/$(request.auth.uid))
-                    && !exists(/databases/$(database)/documents/lostActive/$(request.auth.uid))
-                    && getAfter(/databases/$(database)/documents/lostActive/$(request.auth.uid)).data.alertId == alertId;
-      // The owner may mark it found (status + foundAt only) or update where the dog
-      // was last seen. Nothing else changes after creation.
-      allow update: if isOwner(resource.data.ownerId)
+                    && exists(/databases/$(database)/documents/dogs/$(request.resource.data.ownerId))
+                    && !exists(/databases/$(database)/documents/lostActive/$(request.resource.data.ownerId))
+                    && getAfter(/databases/$(database)/documents/lostActive/$(request.resource.data.ownerId)).data.alertId == alertId;
+      // The owner (or their household) may mark it found (status + foundAt only)
+      // or update where the dog was last seen. Nothing else changes after creation.
+      allow update: if isSignedIn() && canActForDog(resource.data.ownerId)
                     && resource.data.status == 'active'
                     && (
                          (request.resource.data.status == 'found'
@@ -860,6 +875,19 @@ service cloud.firestore {
                        );
       allow delete: if false;
 
+      // "I'm helping look": one doc per helper, keyed by their uid, holding only a
+      // timestamp. Members can count them; only the helper can add or remove theirs,
+      // and only while the alert is open.
+      match /helpers/{helperId} {
+        allow read: if isSignedIn();
+        allow create: if isRealAccount() && isOwner(helperId)
+                      && request.resource.data.keys().hasOnly(['createdAt'])
+                      && request.resource.data.createdAt == request.time
+                      && get(/databases/$(database)/documents/lostAlerts/$(alertId)).data.status == 'active';
+        allow delete: if isOwner(helperId);
+        allow update: if false;
+      }
+
       // Exact pins, finder contact details and photos: the owner only.
       match /sightings/{sightingId} {
         allow read: if isSignedIn()
@@ -869,8 +897,8 @@ service cloud.firestore {
     }
 
     match /lostActive/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isRealAccount() && isOwner(userId)
+      allow read: if isSignedIn() && canActForDog(userId);
+      allow create: if isRealAccount() && canActForDog(userId)
                     && request.resource.data.keys().hasOnly(['alertId', 'createdAt'])
                     && request.resource.data.alertId is string
                     && request.resource.data.alertId.size() <= 64
@@ -880,7 +908,7 @@ service cloud.firestore {
       allow update: if false;
       // Only once the alert is marked found (in the same batch), so closing is the
       // only way to be allowed a second alert.
-      allow delete: if isOwner(userId)
+      allow delete: if isSignedIn() && canActForDog(userId)
                     && getAfter(/databases/$(database)/documents/lostAlerts/$(resource.data.alertId)).data.status == 'found';
     }
 

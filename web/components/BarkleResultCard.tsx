@@ -9,6 +9,7 @@
 
 import { forwardRef } from 'react';
 import { MAX_TRIES, tileForGuess, type GuessResult } from '../../shared/barkle';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   puzzleNumber: number;
@@ -64,7 +65,7 @@ const BarkleResultCard = forwardRef<HTMLDivElement, Props>(function BarkleResult
           className="mt-[22px] -mx-6 -mb-[30px] self-stretch flex items-center justify-between px-6 py-3"
           style={{ backgroundColor: '#2A1F4A', color: '#FFF9EC' }}
         >
-          <p className="font-display text-[15px]">GoDoggyDate</p>
+          <ShareLogo height={30} />
           <p className="text-[11px] font-bold">godoggydate.com/barkle</p>
         </div>
       </div>

@@ -12,6 +12,8 @@ import { BackHeader, Gingham, Heading, Paper, PaperButton, Slip, Tag, type } fro
 import { useSession } from '../../lib/session';
 import { askPlaceRec, listCityPackDays, listPlaces, placeErrorMessage, type PublicPlace } from '../../lib/places';
 import { nearbyLine, packDayParks, placeCityKey, placeIdFor, PLACE_CATEGORIES, PLACE_CATEGORY_KEYS, type PlaceCategory } from '../../../shared/places';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { PLACE_ICONS } from '../../../shared/placeIcons';
 
 export default function PlacesScreen() {
   const { profile } = useSession();
@@ -63,7 +65,7 @@ export default function PlacesScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <Gingham />
-      <BackHeader title="Where we go" onBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/profile'))} />
+      <BackHeader title="Sniff Spots" onBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/pack'))} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {!cityKey ? (
           <Slip tone="amber">Add your city and state to your dog’s profile to see places near you.</Slip>
@@ -78,7 +80,7 @@ export default function PlacesScreen() {
                   accessibilityState={{ selected: key === category }}
                   style={[styles.chip, key === category && styles.chipOn]}
                 >
-                  <Text style={styles.chipText}>{PLACE_CATEGORIES[key].emoji} {PLACE_CATEGORIES[key].label}</Text>
+                  <Text style={styles.chipText}><MaterialCommunityIcons name={PLACE_ICONS[key]} size={16} color={colors.ink} /> {PLACE_CATEGORIES[key].label}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -108,7 +110,7 @@ export default function PlacesScreen() {
             ))}
             {places && places.length === 0 && extraParks.length === 0 && (
               <Slip tone="info">
-                No {PLACE_CATEGORIES[category].noun} has 3 owners yet, which is when we start showing a place. Tag yours from your profile to help it get there.
+                No {PLACE_CATEGORIES[category].noun} has 3 owners yet, which is when we start showing a place. Tag yours in Sniff Spots to help it get there.
               </Slip>
             )}
 

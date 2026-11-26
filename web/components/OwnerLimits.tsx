@@ -33,7 +33,7 @@ export function LimitChips({ compat, className = '' }: { compat: CompatibilityRe
         {compat.warnings.map((warning) => (
           <span
             key={warning}
-            className="rounded-2xl border border-amber-300/60 bg-amber-950/55 px-2.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-100 backdrop-blur-md"
+            className="rounded-2xl border border-amber-300/60 bg-amber-950/55 px-2.5 py-0.5 text-[12px] font-semibold leading-tight text-amber-100 backdrop-blur-md"
           >
             ⚠ {warning}
           </span>
@@ -62,7 +62,7 @@ export function LimitChips({ compat, className = '' }: { compat: CompatibilityRe
             key={item.id}
             role="listitem"
             title={item.detail ? `${item.text} (${item.detail})` : item.text}
-            className="rounded-2xl border border-amber-300/60 bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-100 shadow-[0_4px_14px_rgba(0,0,0,0.3)] backdrop-blur-md"
+            className="rounded-2xl border border-amber-300/60 bg-amber-950/60 px-2.5 py-0.5 text-[12px] font-semibold leading-tight text-amber-100 shadow-[0_4px_14px_rgba(0,0,0,0.3)] backdrop-blur-md"
           >
             <span aria-hidden="true">⚠ </span>
             {item.text}
@@ -71,7 +71,7 @@ export function LimitChips({ compat, className = '' }: { compat: CompatibilityRe
           <span
             key={item.id}
             role="listitem"
-            className="rounded-2xl border border-white/25 bg-black/40 px-2.5 py-0.5 text-[10px] font-semibold leading-tight text-white/90 shadow-[0_4px_14px_rgba(0,0,0,0.25)] backdrop-blur-md"
+            className="rounded-2xl border border-white/25 bg-black/40 px-2.5 py-0.5 text-[12px] font-semibold leading-tight text-white/90 shadow-[0_4px_14px_rgba(0,0,0,0.25)] backdrop-blur-md"
           >
             {item.text}
           </span>
@@ -80,7 +80,7 @@ export function LimitChips({ compat, className = '' }: { compat: CompatibilityRe
       {hidden.length > 0 && (
         <span
           role="listitem"
-          className={`rounded-2xl border px-2.5 py-0.5 text-[10px] font-semibold leading-tight backdrop-blur-md ${
+          className={`rounded-2xl border px-2.5 py-0.5 text-[12px] font-semibold leading-tight backdrop-blur-md ${
             hiddenCautions > 0
               ? 'border-amber-300/60 bg-amber-950/60 text-amber-100'
               : 'border-white/25 bg-black/40 text-white/80'
@@ -121,7 +121,7 @@ export function LimitList({
           : 'mt-3 rounded-xl bg-[rgba(180,83,9,0.08)] px-3 py-3'
       }
     >
-      <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${dark ? 'text-white' : 'text-brown-light'}`}>
+      <p className={`text-[12px] font-bold uppercase tracking-[0.12em] ${dark ? 'text-white' : 'text-brown-light'}`}>
         {heading}
       </p>
       <ul className="mt-1.5 space-y-1.5">
@@ -135,7 +135,7 @@ export function LimitList({
           </li>
         ))}
       </ul>
-      <p className={`mt-2 text-[11px] leading-snug ${dark ? 'text-white/70' : 'text-brown-light'}`}>
+      <p className={`mt-2 text-[12px] leading-snug ${dark ? 'text-white/70' : 'text-brown-light'}`}>
         Each owner chose these themselves. GoDoggyDate doesn&apos;t verify them.
       </p>
     </div>
@@ -153,7 +153,7 @@ export function LimitsBlock({ compat, ownerName }: { compat: CompatibilityResult
     ? items.map((i) => ({ key: i.id, text: i.text, detail: i.detail, caution: i.severity === 'caution' }))
     : compat.warnings.map((w) => ({ key: w, text: w, caution: true }));
   if (lines.length === 0) {
-    return <p className="text-[13.5px] font-extrabold leading-snug">{ownerName}&apos;s owner listed no limits</p>;
+    return <p className="text-[13px] font-extrabold leading-snug">{ownerName}&apos;s owner listed no limits</p>;
   }
   const ordered = [...lines.filter((l) => l.caution), ...lines.filter((l) => !l.caution)];
   return (

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import { PaperCard, PrimaryButton, SkyBackground, StickerDog, StickerHeader } from '../../components/sticker';
 import {
@@ -20,6 +20,7 @@ import {
   type MatchItem,
 } from '../../lib/matches';
 import { useSession } from '../../lib/session';
+import GrowPackCard, { GROW_PACK_BELOW } from '../../components/GrowPackCard';
 import { effectiveCode, loadDiscoveries, loadDogSnapshots, onDiscoveriesChange } from '../../lib/dogtypeDiscovery';
 import type { DogtypeDogMap, DogtypeLedger } from '../../../shared/progress';
 
@@ -31,7 +32,7 @@ function previewLine(match: MatchItem, selfUid: string): string {
 }
 
 export default function MatchesTab() {
-  const { user, loading: sessionLoading } = useSession();
+  const { user, profile, loading: sessionLoading } = useSession();
   const uid = user?.uid;
   const [ledger, setLedger] = useState<DogtypeLedger>({});
   const [snapshots, setSnapshots] = useState<DogtypeDogMap>({});
@@ -102,7 +103,7 @@ export default function MatchesTab() {
     return (
       <SafeAreaView style={styles.container}>
         <SkyBackground />
-        <StickerHeader title="Matches" style={styles.header} />
+        <StickerHeader title="Matches" large style={styles.header} />
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>Sign in to view matches</Text>
           <Text style={styles.emptyBody}>
@@ -127,7 +128,7 @@ export default function MatchesTab() {
   return (
     <SafeAreaView style={styles.container}>
       <SkyBackground />
-      <StickerHeader title="Matches" style={styles.header} />
+      <StickerHeader title="Matches" large style={styles.header} />
       {list.length > 0 && !error && (
         <Text style={styles.subtitle}>
           {list.length} {list.length === 1 ? 'dog wants' : 'dogs want'} to meet yours
@@ -150,7 +151,7 @@ export default function MatchesTab() {
           </PaperCard>
         </View>
       ) : list.length === 0 ? (
-        <View style={styles.emptyWrap}>
+        <ScrollView contentContainerStyle={styles.emptyWrap}>
           <PaperCard style={styles.emptyCard}>
             <StickerDog size={84} />
             <Text style={styles.emptyTitle}>No matches yet</Text>
@@ -166,7 +167,8 @@ export default function MatchesTab() {
               style={styles.emptyBtn}
             />
           </PaperCard>
-        </View>
+          <GrowPackCard uid={user.uid} profile={profile} />
+        </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
           {list.map((match) => {
@@ -245,10 +247,25 @@ export default function MatchesTab() {
                     >
                       {previewLine(match, user.uid)}
                     </Text>
+                    {/* A quiet match: nobody has written yet, so offer the next step to actually meeting. */}
+                    {match.isNew && match.chatUnlocked ? (
+                      <Pressable
+                        onPress={() =>
+                          router.push({ pathname: '/chat/[matchId]', params: { matchId: match.id, name: match.dog.name, plan: '1' } })
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel={`Suggest a playdate with ${match.dog.name}`}
+                        hitSlop={6}
+                        style={styles.suggest}
+                      >
+                        <MaterialCommunityIcons name="calendar" size={14} color={colors.ink} />
+                        <Text style={styles.suggestText}>Suggest a playdate</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                   <View style={[styles.chatCoin, !match.chatUnlocked && styles.chatCoinLocked]}>
-                    <Ionicons
-                      name={match.chatUnlocked ? 'chatbubble' : 'lock-closed'}
+                    <MaterialCommunityIcons
+                      name={match.chatUnlocked ? 'chat' : 'lock'}
                       size={19}
                       color={colors.ink}
                     />
@@ -257,6 +274,7 @@ export default function MatchesTab() {
               </View>
             );
           })}
+          {list.length < GROW_PACK_BELOW ? <GrowPackCard uid={user.uid} profile={profile} /> : null}
         </ScrollView>
       )}
     </SafeAreaView>
@@ -329,7 +347,7 @@ const styles = StyleSheet.create({
   rowTopSpacer: { flex: 1 },
   dogName: {
     fontFamily: fonts.display,
-    fontSize: 21,
+    fontSize: 22,
     lineHeight: 25,
     color: colors.ink,
     flexShrink: 1,
@@ -344,7 +362,7 @@ const styles = StyleSheet.create({
   breed: {
     flexShrink: 1,
     fontFamily: fonts.bold,
-    fontSize: 13.5,
+    fontSize: 13,
     color: colors.brownMid,
   },
   newTag: {
@@ -364,6 +382,11 @@ const styles = StyleSheet.create({
     color: colors.brownMid,
   },
   lastMessageNew: { fontFamily: fonts.black, color: colors.rose },
+  suggest: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 8,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.note,
+  },
+  suggestText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   lastMessageBold: { fontFamily: fonts.black, color: colors.ink },
   chatCoin: {
     width: 44,
@@ -378,9 +401,10 @@ const styles = StyleSheet.create({
   },
   chatCoinLocked: { backgroundColor: colors.creamDark },
   emptyWrap: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 16,
+    gap: 12,
   },
   emptyCard: { alignItems: 'center', paddingHorizontal: 22, paddingVertical: 26, gap: 10 },
   emptyTitle: {

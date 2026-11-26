@@ -5,12 +5,13 @@
 // Mirrors mobile/components/playroom/ToyBox.tsx.
 
 import { Children, useState, type ReactNode } from 'react';
+import { Icon, type IconName } from '../icons';
 
 const VISIBLE = 4;
 
 interface Props {
   title: string;
-  emoji: string;
+  icon: IconName;
   // Tailwind background class for the bin, e.g. 'bg-gold-light'.
   tint: string;
   // 'grid' = 2-column cards (tilted like stickers); 'stack' = full-width rows.
@@ -18,7 +19,7 @@ interface Props {
   children: ReactNode;
 }
 
-export default function ToyBox({ title, emoji, tint, layout, children }: Props) {
+export default function ToyBox({ title, icon, tint, layout, children }: Props) {
   const [all, setAll] = useState(false);
   const items = Children.toArray(children);
   const extra = items.length - VISIBLE;
@@ -30,7 +31,7 @@ export default function ToyBox({ title, emoji, tint, layout, children }: Props) 
   return (
     <section className={`rounded-[1.5rem] border-2 border-brown p-3.5 shadow-[0_6px_0_rgba(42,31,74,0.14)] ${tint}`}>
       <h2 className="mb-3 flex items-center gap-2 font-display text-[26px] leading-none text-brown">
-        <span aria-hidden="true" className="inline-block -rotate-6 text-[28px]">{emoji}</span>
+        <Icon name={icon} size={28} className="-rotate-6" />
         {title}
       </h2>
       <div className={body}>{shown}</div>
@@ -41,7 +42,7 @@ export default function ToyBox({ title, emoji, tint, layout, children }: Props) 
           aria-expanded={all}
           className="mt-3.5 flex min-h-[44px] w-full items-center justify-center rounded-full border-2 border-brown bg-paper px-4 font-display text-lg text-brown transition-transform active:scale-95"
         >
-          {all ? 'Show less ▲' : `Show all ${items.length} ▼`}
+          {all ? 'Show less' : `Show all ${items.length}`} <Icon name={all ? 'chevron-up' : 'chevron-down'} size={20} />
         </button>
       )}
     </section>

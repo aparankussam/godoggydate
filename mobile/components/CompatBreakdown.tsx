@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontFamily: fonts.black,
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.ink,
   },
 });

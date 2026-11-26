@@ -17,6 +17,9 @@ import { askForMedAlarms, syncMedAlarms } from '../lib/medAlarms';
 interface Props {
   dogId: string;
   reminders: Reminder[];
+  /** Owner only: offered after a reminder is removed, in case that is why. */
+  dogName?: string;
+  onPassedAway?: () => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -39,7 +42,11 @@ const DOSE_TIMES: { label: string; hour: number }[] = [
 // can't describe itself two different ways across tabs or platforms.
 const dueLabel = reminderDueLabel;
 
-export default function RemindersSection({ dogId, reminders }: Props) {
+// The usual ones, offered as one-tap starters (never pre-made: a fake due date could be trusted).
+const QUICK_ADD_TYPES: ReminderType[] = ['heartworm', 'flea_tick', 'rabies', 'vet_visit', 'microchip_check', 'grooming'];
+
+export default function RemindersSection({ dogId, reminders, dogName, onPassedAway }: Props) {
+  const [removedOne, setRemovedOne] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [presetType, setPresetType] = useState<ReminderType>('heartworm');
   const [customLabel, setCustomLabel] = useState('');
@@ -54,6 +61,19 @@ export default function RemindersSection({ dogId, reminders }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [celebrateId, setCelebrateId] = useState<string | null>(null);
+  const quickAdd = useMemo(
+    () => QUICK_ADD_TYPES.filter((t) => !reminders.some((r) => r.type === t))
+      .map((t) => REMINDER_PRESETS.find((p) => p.type === t))
+      .filter((p): p is (typeof REMINDER_PRESETS)[number] => !!p),
+    [reminders],
+  );
+
+  function startQuickAdd(type: ReminderType) {
+    setPresetType(type);
+    setRepeats(true);
+    setError(null);
+    setShowAdd(true);
+  }
   const celebrateOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -144,6 +164,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
     setBusyId(reminder.id);
     try {
       await deleteReminder(dogId, reminder.id);
+      setRemovedOne(true);
     } catch {
       setBusyId(null);
     }
@@ -157,7 +178,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           <Text style={styles.subtitle}>The dates nobody holds in their head</Text>
         </View>
         <Pressable onPress={() => setShowAdd((v) => !v)}>
-          <Text style={styles.addLink}>{showAdd ? 'Cancel' : '+ Add'}</Text>
+          <Text style={styles.addLink}>{showAdd ? 'Cancel' : '+ Add reminder'}</Text>
         </Pressable>
       </View>
 
@@ -279,7 +300,7 @@ export default function RemindersSection({ dogId, reminders }: Props) {
 
       {sorted.length === 0 && !showAdd && (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>Nothing due yet — add your first reminder.</Text>
+          <Text style={styles.emptyText}>Nothing due yet. Add your first reminder.</Text>
         </View>
       )}
 
@@ -330,6 +351,29 @@ export default function RemindersSection({ dogId, reminders }: Props) {
           </View>
         );
       })}
+      {removedOne && onPassedAway ? (
+        <Pressable accessibilityRole="button" onPress={onPassedAway} style={styles.passedRow}>
+          <Text style={styles.passedText}>Stopping these because {dogName} passed away?</Text>
+        </Pressable>
+      ) : null}
+      {!showAdd && quickAdd.length > 0 && (
+        <View style={styles.quickAdd}>
+          <Text style={styles.quickAddLabel}>Quick add</Text>
+          <View style={styles.chipRow}>
+            {quickAdd.map((p) => (
+              <Pressable
+                key={p.type}
+                onPress={() => startQuickAdd(p.type)}
+                accessibilityRole="button"
+                accessibilityLabel={`Add a ${p.label} reminder`}
+                style={[styles.presetChip, styles.quickChip]}
+              >
+                <Text style={styles.presetChipText}>+ {p.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -373,6 +417,9 @@ const styles = StyleSheet.create({
   presetChipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
   presetChipText: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown },
   presetChipTextActive: { color: colors.cream },
+  quickAdd: { paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.creamDark, gap: 8 },
+  quickAddLabel: { fontFamily: fonts.black, fontSize: 12, color: colors.brownMid },
+  quickChip: { borderStyle: 'dashed' },
   input: {
     borderWidth: 2,
     borderColor: colors.ink,
@@ -424,5 +471,7 @@ const styles = StyleSheet.create({
   },
   doneBtnText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   deleteBtn: { paddingHorizontal: 4 },
+  passedRow: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14 },
+  passedText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.brownMid, textDecorationLine: 'underline' },
   deleteBtnText: { fontSize: 18, color: colors.brownMid },
 });

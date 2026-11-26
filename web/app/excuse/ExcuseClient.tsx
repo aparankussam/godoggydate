@@ -18,9 +18,9 @@ import Link from 'next/link';
 import ExcuseNoteCard from '../../components/ExcuseNoteCard';
 import ScaleToFit from '../../components/ScaleToFit';
 import SiteFooter from '../../components/SiteFooter';
-import { PawCoin } from '../../components/StickerBits';
 import { shareOrDownloadCard } from '../../lib/shareCard';
 import { buildExcuseNote, EXCUSE_REASONS } from '../../../shared/excuseNote';
+import BrandLogo from '../../components/BrandLogo';
 
 export default function ExcuseClient() {
   const [dogName, setDogName] = useState('');
@@ -65,7 +65,7 @@ export default function ExcuseClient() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-sky/95 backdrop-blur-md border-b-2 border-brown">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="inline-flex min-h-[44px] items-center gap-2 font-display text-xl sm:text-2xl text-brown whitespace-nowrap"><PawCoin size={30} /> GoDoggyDate</Link>
+          <Link href="/" aria-label="GoDoggyDate home" className="inline-flex min-h-[44px] items-center"><BrandLogo height={40} /></Link>
           <Link href="/app" className="btn-secondary inline-flex min-h-[44px] items-center text-sm whitespace-nowrap px-4 py-2 sm:px-6">Sign up free</Link>
         </div>
       </nav>

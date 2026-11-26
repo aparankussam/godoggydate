@@ -36,6 +36,7 @@ export const REMINDER_PRESETS: ReminderPreset[] = [
   { type: 'rabies',      label: 'Rabies booster',       defaultLabel: 'Rabies booster',          recurrenceDays: 365, helpText: 'Set to your vet-given expiry' },
   { type: 'booster',     label: 'Other booster',        defaultLabel: 'Booster shot',            recurrenceDays: 365, helpText: 'Annual' },
   { type: 'license',     label: 'License renewal',      defaultLabel: 'Dog license renewal',     recurrenceDays: 365, helpText: 'Annual' },
+  { type: 'microchip_check', label: 'Microchip check', defaultLabel: 'Check microchip contact info', recurrenceDays: 365, helpText: 'Yearly. A chip only helps if the phone number on it is current. Find the registry at petmicrochiplookup.org.' },
   { type: 'grooming',    label: 'Grooming',              defaultLabel: 'Grooming appointment',    recurrenceDays: 42,  helpText: 'Every 6 weeks' },
   { type: 'vet_visit',   label: 'Annual vet visit',      defaultLabel: 'Annual checkup',          recurrenceDays: 365, helpText: 'Annual' },
   { type: 'insurance_claim', label: 'Insurance claim window', defaultLabel: 'File insurance claim', helpText: 'One-time — set to your filing deadline' },

@@ -309,7 +309,7 @@ export default function BarkleGame() {
 
       {/* Clues */}
       <div className="card p-5 sm:p-6">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brown-light mb-3">
+        <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-brown-light mb-3">
           {finished ? 'The clues were' : `Clue ${cluesShown} of ${breed.clues.length}`}
         </p>
         <ol className="space-y-2.5">
@@ -408,7 +408,7 @@ export default function BarkleGame() {
       {finished && (
         <div className="mt-5">
           <div className="card text-brown p-7 text-center animate-fade-in-up">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-rose">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-rose">
               {status === 'won'
                 ? `Solved in ${results.length}/${MAX_TRIES}`
                 : `Out of guesses — ${MAX_TRIES}/${MAX_TRIES}`}
@@ -469,7 +469,7 @@ export default function BarkleGame() {
         <span className="mb-2 flex justify-center"><PawCoin size={40} /></span>
         <h3 className="font-display text-xl text-brown mb-2">Love dogs this much?</h3>
         <p className="text-sm text-brown-mid mb-4">
-          Build your dog&apos;s profile, get their daily card, and meet dogs who actually fit — free.
+          Build your dog&apos;s Pupfile, get their daily card, and meet dogs who actually fit — free.
         </p>
         <Link href="/app" className="btn-secondary inline-block">
           Open GoDoggyDate

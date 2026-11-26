@@ -12,6 +12,7 @@ import { plain, FitSticker, PawIcon, PlaceTicket, TrustSlip } from './DiscoverBi
 import { formatDistanceMiles } from '../../shared/utils/matchingEngine';
 import { ageLabel, sexLabel, sizeLabel } from '../lib/discover';
 import { temperamentLabel } from '../../shared/temperament';
+import { Icon } from './icons';
 
 interface CardDog {
   ownerId?: string;
@@ -286,7 +287,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-note">
-              <span className="text-7xl" aria-hidden="true">🐕</span>
+              <Icon name="dog" size={72} className="text-brown" />
               <span className="text-sm font-extrabold text-brown">No photo yet</span>
             </div>
           )}
@@ -378,7 +379,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, Props>(function SwipeCard({
               />
             )}
           </div>
-          <p className="mt-0.5 text-[14.5px] font-black leading-[1.3] [overflow-wrap:anywhere]">{factsLine}</p>
+          <p className="mt-0.5 text-[15px] font-black leading-[1.3] [overflow-wrap:anywhere]">{factsLine}</p>
           {vibeLine && (
             <p className="text-sm font-extrabold leading-[1.3] text-brown-mid [overflow-wrap:anywhere]">{vibeLine}</p>
           )}

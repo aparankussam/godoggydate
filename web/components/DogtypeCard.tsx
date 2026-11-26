@@ -7,6 +7,7 @@
 // social object a stranger sees and wants for their own dog.
 
 import type { Dogtype } from '../../shared/dogtype';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   dogtype: Dogtype;
@@ -24,7 +25,7 @@ interface Props {
 function gradientFor(code: string): string {
   const spark = code[0] === 'E';
   return spark
-    ? 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #F5B731 100%)'
+    ? 'linear-gradient(160deg, #7A2E0E 0%, #FF5C8D 55%, #FFC56B 100%)'
     : 'linear-gradient(160deg, #241A2E 0%, #4A3F6E 50%, #C98A5E 100%)';
 }
 
@@ -97,7 +98,7 @@ export default function DogtypeCard({ dogtype, dogName, photoUrl, photoFocus, in
         </div>
 
         <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between">
-          <p className="font-display text-sm text-white">GoDoggyDate</p>
+          <ShareLogo height={28} />
           <p className="text-[10px] text-white/60">godoggydate.com</p>
         </div>
       </div>

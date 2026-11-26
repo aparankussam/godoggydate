@@ -31,3 +31,19 @@ test('only signed-in reporters are thanked, once each, never the owner', () => {
     ['h1', 'h2'],
   );
 });
+
+test('members near where the dog was lost are told first, nearest first, whatever their city', async () => {
+  const { nearbyMembers, milesBetween } = await import('../firebase/functions/src/lostDogLogic.ts');
+  const pin = { lat: 42.6, lng: -83.15 };
+  const near = nearbyMembers([
+    { id: 'far', lat: 42.9, lng: -83.15 },     // ~21 mi
+    { id: 'two', lat: 42.63, lng: -83.15 },    // ~2 mi
+    { id: 'one', lat: 42.61, lng: -83.15 },    // ~0.7 mi
+    { id: 'nocoords' },
+  ], pin);
+  assert.deepEqual(near, ['one', 'two']);
+  assert.ok(Math.abs(milesBetween(pin, { lat: 42.63, lng: -83.15 }) - 2.07) < 0.05);
+  const a = planAudience({ ownerId: 'o', matchPartners: ['m'], packDayAttendees: [], cityMembers: ['c', 'one'], nearbyMembers: near, broadcast: true });
+  assert.deepEqual(a.first, ['one', 'two', 'm']);
+  assert.deepEqual(a.rest, ['c']);
+});

@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
 import CompatBreakdown from './CompatBreakdown';
 import type { DiscoverDog } from '../lib/discover';
@@ -30,7 +30,7 @@ import {
   plain,
   vaccinationLine,
 } from './discover/DiscoverBits';
-import { uniqueTemperament } from '../../shared/temperament';
+import { uniqueTemperament, sentenceCase } from '../../shared/temperament';
 
 interface Props {
   dog: DiscoverDog | null;
@@ -96,7 +96,7 @@ function DetailsBody({ dog, onClose, onLike, onPass, onReport }: Props & { dog: 
   const tone = fitTone(dog.compat);
   const prompts = dog.prompts.filter((p) => p.answer?.trim());
   const chipGroups = [
-    { label: 'Plays', items: dog.playStyles },
+    { label: 'Plays', items: dog.playStyles.map(sentenceCase) },
     { label: 'Is', items: uniqueTemperament(dog.temperament ?? []) },
   ].filter((g) => g.items.length > 0);
 
@@ -111,7 +111,7 @@ function DetailsBody({ dog, onClose, onLike, onPass, onReport }: Props & { dog: 
           accessibilityLabel="Back to the card"
         >
           <View style={styles.headerBtn}>
-            <Ionicons name="chevron-back" size={20} color={colors.ink} />
+            <MaterialCommunityIcons name="chevron-left" size={20} color={colors.ink} />
           </View>
         </Pressable>
         <Text style={styles.headerName} numberOfLines={1} accessibilityRole="header">
@@ -126,7 +126,7 @@ function DetailsBody({ dog, onClose, onLike, onPass, onReport }: Props & { dog: 
             accessibilityLabel={`Report or block ${dog.name}`}
           >
             <View style={styles.headerBtn}>
-              <Ionicons name="ellipsis-horizontal" size={20} color={colors.ink} />
+              <MaterialCommunityIcons name="dots-horizontal" size={20} color={colors.ink} />
             </View>
           </Pressable>
         )}
@@ -323,7 +323,7 @@ function DetailsBody({ dog, onClose, onLike, onPass, onReport }: Props & { dog: 
               accessibilityLabel={`Pass on ${dog.name}`}
             >
               <View pointerEvents="none" style={styles.passEdge} />
-              <Ionicons name="close" size={24} color={colors.ink} style={{ marginBottom: -1 }} />
+              <MaterialCommunityIcons name="close" size={24} color={colors.ink} style={{ marginBottom: -1 }} />
               <Text style={styles.passText}>Pass</Text>
             </Pressable>
           )}
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  counterText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 15, color: colors.ink },
+  counterText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.ink },
   nextPolaroid: {
     position: 'absolute',
     right: 10,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   name: { flexShrink: 1, fontFamily: fonts.display, fontSize: 32, lineHeight: 38, color: colors.ink },
   nameTicket: { flexShrink: 1 },
-  facts: { marginTop: 4, fontFamily: fonts.black, fontSize: 14.5, lineHeight: 19, color: colors.ink },
+  facts: { marginTop: 4, fontFamily: fonts.black, fontSize: 15, lineHeight: 19, color: colors.ink },
 
   vibe: {
     borderRadius: 12,
@@ -453,11 +453,11 @@ const styles = StyleSheet.create({
   },
   fitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   fitText: { flex: 1, minWidth: 0 },
-  fitEyebrow: { fontFamily: fonts.black, fontSize: 12.5, lineHeight: 16, color: colors.brownMid, marginBottom: 2 },
+  fitEyebrow: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.brownMid, marginBottom: 2 },
   fitEyebrowSoft: { fontFamily: fonts.bold },
   reason: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   reasonText: { flex: 1, fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: colors.ink },
-  fitFoot: { marginTop: 8, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid },
+  fitFoot: { marginTop: 8, fontFamily: fonts.bold, fontSize: 12, lineHeight: 17, color: colors.brownMid },
   mathBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   mathText: { fontFamily: fonts.black, fontSize: 13, color: colors.rose, textDecorationLine: 'underline' },
 
@@ -477,12 +477,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  noteLabel: { fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 16, color: colors.brownMid },
+  noteLabel: { fontFamily: fonts.bold, fontSize: 12, lineHeight: 16, color: colors.brownMid },
   noteAnswer: { fontFamily: fonts.hand, fontSize: 24, lineHeight: 27, color: colors.ink, marginTop: 2 },
 
   chipGroups: { gap: 8 },
   chipGroup: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  chipGroupLabel: { width: 40, paddingTop: 6, fontFamily: fonts.black, fontSize: 12.5, color: colors.brownMid },
+  chipGroupLabel: { width: 40, paddingTop: 6, fontFamily: fonts.black, fontSize: 12, color: colors.brownMid },
   chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
     borderRadius: 999,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   },
   chipText: { fontFamily: fonts.black, fontSize: 13, lineHeight: 18, color: colors.ink },
 
-  energy: { fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 18, color: colors.brownMid },
+  energy: { fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.brownMid },
   energyStrong: { fontFamily: fonts.black, color: colors.ink },
 
   trust: {
@@ -510,13 +510,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   trustStrong: { fontFamily: fonts.black, fontSize: 14, lineHeight: 19, color: colors.ink },
-  trustSmall: { marginTop: 8, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid },
+  trustSmall: { marginTop: 8, fontFamily: fonts.bold, fontSize: 12, lineHeight: 17, color: colors.brownMid },
 
   footer: { paddingHorizontal: 14, paddingBottom: 10 },
   helper: {
     textAlign: 'center',
     fontFamily: fonts.bold,
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 16,
     color: colors.ink,
     marginBottom: 6,
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   passEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 5, backgroundColor: colors.border },
-  passText: { fontFamily: fonts.black, fontSize: 12.5, lineHeight: 15, color: colors.ink },
+  passText: { fontFamily: fonts.black, fontSize: 12, lineHeight: 16, color: colors.ink },
   woofBtn: {
     flex: 1,
     height: 54,

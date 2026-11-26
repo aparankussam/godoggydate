@@ -40,6 +40,8 @@ export const PROFILE_TEXT_LIMITS = {
   breed: 60,
   city: 60,
   promptAnswer: 300,
+  /** The Pupfile "About" line: 3 to 5 lines on a phone. */
+  bio: 300,
   /** 5 digits, a hyphen, 4 digits. */
   zip: 10,
 } as const;

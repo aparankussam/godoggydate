@@ -18,6 +18,8 @@ import { shareOrDownloadCard } from '../lib/shareCard';
 import { trackEvent } from '../lib/analytics';
 import { loadAdventures, onProgressChange, setAdventureDone } from '../lib/progressSync';
 import { adventuresFor, ADVENTURE_COUNT } from '../../shared/adventures';
+import ShareLogo from './ShareLogo';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -102,7 +104,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
     <section className="rounded-2xl border-2 border-brown bg-cream-dark/30 p-5">
       <div className="mb-3">
         <p className="text-xs font-bold text-brown">Just for fun</p>
-        <h2 className="font-display text-xl text-brown leading-tight">🗺️ {dogName}&apos;s Adventure Passport</h2>
+        <h2 className="font-display text-xl text-brown leading-tight"><Icon name="map-marker-path" /> {dogName}&apos;s Adventure Passport</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           A bucket list picked to fit {dogName}. Stamp a quest when you two actually pull it off — it&apos;s your own
           checklist, {dogId ? 'saved to your account' : 'saved on this device'}.
@@ -159,7 +161,7 @@ export default function AdventurePassportWeb({ savedProfile, dogId }: Props) {
             className="mt-auto pt-4 flex items-center justify-between"
             style={{ borderTop: '1px solid rgba(255,255,255,0.2)' }}
           >
-            <p className="font-display text-sm">GoDoggyDate</p>
+            <ShareLogo height={28} />
             <p className="text-xs text-white">godoggydate.com</p>
           </div>
         </div>

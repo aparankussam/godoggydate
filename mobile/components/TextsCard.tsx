@@ -13,6 +13,7 @@
 import { forwardRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { fonts } from '../constants/theme';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   texts: string[];
@@ -61,7 +62,7 @@ const TextsCard = forwardRef<View, Props>(function TextsCard({ texts, dogName },
 
       {/* Baked-in brand + URL — a reposted PNG still carries the back-link. */}
       <View style={styles.brand}>
-        <Text style={styles.brandName}>GoDoggyDate</Text>
+        <BrandLogo height={26} />
         <Text style={styles.brandUrl}>godoggydate.com</Text>
       </View>
     </View>
@@ -139,6 +140,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: RULE,
   },
-  brandName: { fontFamily: fonts.display, fontSize: 13, color: INK },
   brandUrl: { fontFamily: fonts.body, fontSize: 10, color: INK_SOFT },
 });

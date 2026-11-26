@@ -2,6 +2,7 @@
 // The link preview for a shared lost-dog alert (Facebook / Nextdoor / iMessage).
 // Name, city and the dog's photo only: nothing about the owner.
 import { ImageResponse } from 'next/og';
+import { ogLogoImg } from '../../../lib/ogLogo';
 import { loadPublicLostAlert } from '../../../lib/lostPublic';
 import { fetchTrustedPhotoDataUri } from '../../../lib/trustedPhotoUrl';
 
@@ -55,7 +56,7 @@ export default async function OpengraphImage({ params }: { params: { id: string 
             </div>
           )}
           <div style={{ display: 'flex', marginTop: 44, paddingTop: 22, borderTop: '2px solid rgba(255,255,255,0.3)', fontSize: 28 }}>
-            🐾 GoDoggyDate
+            {ogLogoImg(52)}
           </div>
         </div>
       </div>

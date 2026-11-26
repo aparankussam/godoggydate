@@ -15,6 +15,7 @@
 // canvas. Colours are inline hex (no oklch / backdrop-blur) for faithful capture.
 
 import { forwardRef } from 'react';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   dogName: string;
@@ -27,7 +28,7 @@ interface Props {
 // Comedy-club palette, literal hex for faithful html2canvas capture.
 const STAGE = '#241014'; // deep brick-red house
 const STAGE_2 = '#3A1A18';
-const SPOT = '#F5B731'; // spotlight gold
+const SPOT = '#FFC56B'; // spotlight gold
 const CREAM = '#FFF9EC';
 const CREAM_SOFT = '#E9D9C6';
 const PRIMARY = '#FF5C8D';
@@ -135,8 +136,8 @@ const RoastCard = forwardRef<HTMLDivElement, Props>(function RoastCard(
           style={{ borderTop: `1px solid rgba(253,246,238,0.18)` }}
         >
           <p style={{ fontSize: 12, color: CREAM_SOFT }}>affectionate roast · written by AI</p>
-          <div className="text-right">
-            <p className="font-display" style={{ fontSize: 15, color: CREAM }}>GoDoggyDate</p>
+          <div className="flex flex-col items-end">
+            <ShareLogo height={30} />
             <p style={{ fontSize: 11, color: INK_SOFT }}>godoggydate.com</p>
           </div>
         </div>

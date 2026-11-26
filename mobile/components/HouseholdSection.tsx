@@ -10,7 +10,7 @@
 // and the join screen.
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts, radius } from '../constants/theme';
 import { PrimaryButton, SecondaryButton } from './sticker';
 import {
@@ -184,14 +184,14 @@ export default function HouseholdSection({ dogName, memberIds, memberNames }: Pr
             <Text style={styles.codeText}>{invite.code}</Text>
             <SecondaryButton
               label="Share invite"
-              icon={<Ionicons name="share-outline" size={18} color={colors.ink} />}
+              icon={<MaterialCommunityIcons name="export-variant" size={18} color={colors.ink} />}
               onPress={handleShare}
             />
           </View>
         ) : (
           <SecondaryButton
             label={inviting ? 'Creating…' : memberIds.length >= 3 ? 'Household is full (4 max)' : 'Invite someone'}
-            icon={inviting || memberIds.length >= 3 ? undefined : <Ionicons name="person-add" size={17} color={colors.ink} />}
+            icon={inviting || memberIds.length >= 3 ? undefined : <MaterialCommunityIcons name="account-plus" size={17} color={colors.ink} />}
             onPress={handleInvite}
             disabled={inviting || memberIds.length >= 3}
           />
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.creamDark,
   },
   title: { fontFamily: fonts.display, fontSize: 22, lineHeight: 26, color: colors.ink },
-  subtitle: { fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.brownMid, marginTop: 2 },
+  subtitle: { fontFamily: fonts.bold, fontSize: 12, lineHeight: 17, color: colors.brownMid, marginTop: 2 },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     borderColor: colors.ink,
     backgroundColor: colors.paper,
   },
-  removeText: { fontFamily: fonts.black, fontSize: 12.5, color: colors.ink },
+  removeText: { fontFamily: fonts.black, fontSize: 12, color: colors.ink },
   section: { padding: 16, gap: 8 },
   codeBox: {
     borderRadius: radius.md,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
-  codeLabel: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.brownMid, textAlign: 'center' },
+  codeLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.brownMid, textAlign: 'center' },
   codeText: {
     fontFamily: fonts.black,
     fontSize: 28,
@@ -281,9 +281,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 4,
   },
-  errorText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger },
+  errorText: { fontFamily: fonts.bold, fontSize: 12, color: colors.danger },
   joinLinkHit: { alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' },
-  joinLink: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink, textDecorationLine: 'underline' },
+  joinLink: { fontFamily: fonts.black, fontSize: 13, color: colors.ink, textDecorationLine: 'underline' },
   joinedText: { fontFamily: fonts.black, fontSize: 14, color: colors.ink },
   joinForm: { gap: 10 },
   joinInput: {

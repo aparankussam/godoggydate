@@ -11,7 +11,9 @@ import { CITY_FEED_LIMITS, POST_TEMPLATES, POST_TEMPLATE_KEYS } from '../../shar
 import type { FeedItem, PostTemplate } from '../../shared/cityFeed';
 import type { PackDay } from '../../shared/packDay';
 import PackDayCard from './PackDayCard';
+import LostAlertCard from './LostAlertCard';
 import ReportProfileMenu from './ReportProfileMenu';
+import { Icon, SirenIcon } from './icons';
 
 interface Props {
   uid: string;
@@ -67,12 +69,27 @@ export default function CityFeed({ uid, city, canPost, blocked }: Props) {
     return <p className="card p-4 text-[15px] font-extrabold text-brown-mid">Add your city to your dog’s profile to see what’s happening nearby.</p>;
   }
 
+  // Lost dogs are pinned above everything, newest first; the rest stays in feed order.
+  const lostItems = (items ?? []).filter((i) => i.kind === 'lost').sort((a, b) => b.sortMs - a.sortMs);
+
   return (
     <div className="space-y-3">
+      {lostItems.map((item) => item.kind === 'lost' && <LostAlertCard key={`l${item.id}`} id={item.id} data={item.data} uid={uid} />)}
       {template ? (
         <div className="card space-y-3 p-4">
           <h3 className="font-display text-[20px] leading-none text-brown">{POST_TEMPLATES[template].emoji} {POST_TEMPLATES[template].label}</h3>
           <p className="text-[15px] font-extrabold text-brown-mid">{POST_TEMPLATES[template].prompt}</p>
+          {/* A found dog may already have a family looking: show their alerts first. */}
+          {template === 'found_dog' && lostItems.some((i) => i.kind === 'lost' && i.data.status !== 'found') && (
+            <div className="rounded-xl border-2 border-amber-spine bg-amber px-3 py-2">
+              <p className="text-[14px] font-black text-brown">Is it one of these lost dogs? Tap one to tell the family:</p>
+              {lostItems.map((i) => i.kind === 'lost' && i.data.status !== 'found' && (
+                <a key={i.id} href={`/lost/${i.id}`} className="mt-1 block text-[15px] font-black text-brown underline">
+                  <SirenIcon size={16} /> {String(i.data.dogName ?? 'A dog')}{i.data.lastSeen ? `, last seen ${String(i.data.lastSeen)}` : ''}
+                </a>
+              ))}
+            </div>
+          )}
           <textarea
             value={text} onChange={(e) => setText(e.target.value)} maxLength={CITY_FEED_LIMITS.maxTextLength} rows={3}
             placeholder="Keep it short and friendly" aria-label="Post text"
@@ -92,9 +109,9 @@ export default function CityFeed({ uid, city, canPost, blocked }: Props) {
           </div>
         </div>
       ) : canPost ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {POST_TEMPLATE_KEYS.map((k) => (
-            <button key={k} type="button" onClick={() => setTemplate(k)} className="btn-secondary min-h-[44px] px-4 py-1.5 text-[15px]">
+            <button key={k} type="button" onClick={() => setTemplate(k)} className="btn-secondary min-h-[44px] whitespace-nowrap px-1.5 py-1.5 text-[14px]">
               {POST_TEMPLATES[k].emoji} {POST_TEMPLATES[k].label}
             </button>
           ))}
@@ -114,18 +131,7 @@ export default function CityFeed({ uid, city, canPost, blocked }: Props) {
           const e = days.get(item.id);
           return e ? <PackDayCard key={`d${item.id}`} event={e} badge={e.hostUid === uid ? 'hosting' : e.attendeeUids.includes(uid) ? 'going' : undefined} /> : null;
         }
-        if (item.kind === 'lost') {
-          const d = item.data;
-          const lastSeen = d.lastSeen ?? d.lastSeenPlace;
-          return (
-            <div key={`l${item.id}`} className="card space-y-1 p-4">
-              <p className="text-[12px] font-black uppercase tracking-wider text-brown">🚨 Lost dog</p>
-              <p className="text-[16px] font-black text-brown">{String(d.dogName ?? d.title ?? 'A dog is missing nearby')}</p>
-              {!!lastSeen && <p className="text-[15px] font-extrabold text-brown-mid">Last seen: {String(lastSeen)}</p>}
-              <a href={`/lost/${item.id}`} className="inline-block text-[15px] font-black text-brown underline">See the poster and report a sighting</a>
-            </div>
-          );
-        }
+        if (item.kind === 'lost') return null; // pinned above
         const t = POST_TEMPLATES[item.template];
         if (!t) return null;
         return (
@@ -135,7 +141,7 @@ export default function CityFeed({ uid, city, canPost, blocked }: Props) {
               <span className="text-[13px] font-extrabold text-brown-mid">{ago(item.sortMs)}</span>
             </div>
             <p className="break-words text-[15px] font-bold text-brown">{item.text}</p>
-            {!!item.place && <p className="text-[15px] font-extrabold text-brown-mid">📍 {item.place}</p>}
+            {!!item.place && <p className="text-[15px] font-extrabold text-brown-mid"><Icon name="map-marker" /> {item.place}</p>}
             <div className="flex flex-wrap items-center gap-2">
               {item.authorUid === uid ? (
                 <>

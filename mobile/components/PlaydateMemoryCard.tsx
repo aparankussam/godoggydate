@@ -1,9 +1,10 @@
 import { forwardRef } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../constants/theme';
 import { StickerDog } from './sticker';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   dogName: string;
@@ -53,14 +54,14 @@ const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, 
         <Text style={styles.badgeText}>Playdate · Confirmed</Text>
       </View>
       <View style={styles.ball} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Ionicons name="tennisball" size={20} color={colors.ink} />
+        <MaterialCommunityIcons name="tennis-ball" size={20} color={colors.ink} />
       </View>
 
       <View style={styles.infoPanel}>
         {clampedStars !== null && clampedStars > 0 && (
           <View style={styles.stars} accessibilityLabel={`${clampedStars} out of 5 stars`}>
             {Array.from({ length: clampedStars }).map((_, i) => (
-              <Ionicons key={i} name="star" size={24} color={colors.paper} />
+              <MaterialCommunityIcons key={i} name="star" size={24} color={colors.paper} />
             ))}
           </View>
         )}
@@ -69,7 +70,7 @@ const PlaydateMemoryCard = forwardRef<View, Props>(({ dogName, dogBreed, photo, 
         {verdict && <Text style={styles.tagline}>Our dogs played. {verdict}</Text>}
 
         <View style={styles.footer}>
-          <Text style={styles.brand}>GoDoggyDate</Text>
+          <BrandLogo height={28} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -137,6 +138,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,249,236,0.2)',
   },
-  brand: { color: colors.paper, fontFamily: fonts.display, fontSize: 18 },
   brandUrl: { color: 'rgba(255,249,236,0.75)', fontFamily: fonts.bold, fontSize: 12 },
 });

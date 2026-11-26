@@ -20,6 +20,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../constants/theme';
 import type { ExcuseNote } from '../../shared/excuseNote';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   note: ExcuseNote;
@@ -93,7 +94,7 @@ const ExcuseNoteCard = forwardRef<View, Props>(function ExcuseNoteCard({ note },
 
           {/* Baked-in brand + URL — a reposted PNG keeps the back-link */}
           <View style={styles.footer}>
-            <Text style={styles.brand}>GoDoggyDate</Text>
+            <BrandLogo height={22} />
             <Text style={styles.brandUrl}>godoggydate.com</Text>
           </View>
         </View>
@@ -195,6 +196,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: INK_SOFT,
   },
-  brand: { fontFamily: fonts.display, fontSize: 11, color: INK },
   brandUrl: { fontFamily: fonts.body, fontSize: 8.5, color: INK_SOFT },
 });

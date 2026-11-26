@@ -49,7 +49,7 @@ export default function LostSightingForm({ alertId, dogName }: { alertId: string
 
   if (done) {
     return (
-      <p role="status" className="rounded-xl bg-cream-dark px-4 py-4 text-[17px] font-black text-brown">
+      <p role="status" className="rounded-xl bg-cream-dark px-4 py-4 text-[16px] font-black text-brown">
         Thank you! {dogName}&apos;s family has your message. Please stay safe and keep a calm distance: a scared dog can run.
       </p>
     );
@@ -74,7 +74,7 @@ export default function LostSightingForm({ alertId, dogName }: { alertId: string
       </label>
 
       <div>
-        <button type="button" onClick={sharePin} className="btn-secondary min-h-[48px] w-full text-[17px]">
+        <button type="button" onClick={sharePin} className="btn-secondary min-h-[48px] w-full text-[16px]">
           {pin ? 'Location added ✓ (tap to refresh)' : pinState === 'asking' ? 'Finding you…' : '📍 Add where I am now (optional)'}
         </button>
         <p className="mt-1.5 text-[13px] font-extrabold text-brown-mid">

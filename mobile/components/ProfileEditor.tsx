@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PrimaryButton } from './sticker';
 import { colors, fonts, radius } from '../constants/theme';
 import { uploadDogPhoto } from '../lib/storage';
@@ -45,7 +45,7 @@ import {
   toAdoptionDateIso,
   toIsoDate,
 } from '../../shared/dates';
-import { temperamentLabel } from '../../shared/temperament';
+import { temperamentLabel, sentenceCase } from '../../shared/temperament';
 
 // Placeholder text: clearly lighter than typed ink so empty fields read empty.
 const PLACEHOLDER = '#8E87A8';
@@ -127,7 +127,7 @@ const NOT_GOOD_WITH_OPTIONS = [
 const BEHAVIOR_FLAG_OPTIONS = [
   'needs slow introduction', 'easily overstimulated', 'resource guarding',
   'anxious with dogs', 'prefers calm dogs', 'not comfortable with kids',
-  'reactive on leash only',
+  'reactive on leash only', 'escape artist',
 ] as const;
 
 // Two explicit answers plus a third state — neither selected — which is the
@@ -140,7 +140,7 @@ const VACCINATED_CHOICES = [
 
 type ValidationErrors = Partial<Record<
   'photos' | 'name' | 'breed' | 'age' | 'sex' | 'size' | 'personality' | 'zip' | 'city' | 'state'
-  | 'prompts' | 'rabiesExpiry' | 'birthDate' | 'adoptionDate',
+  | 'bio' | 'prompts' | 'rabiesExpiry' | 'birthDate' | 'adoptionDate',
   string
 >>;
 
@@ -219,6 +219,10 @@ export default function ProfileEditor({
   const [energyLevel, setEnergyLevel] = useState(initialProfile?.energyLevel ?? 60);
   const [temperament, setTemperament] = useState<string[]>((initialProfile?.temperament ?? []).map(temperamentLabel));
   const [playStyles, setPlayStyles] = useState<string[]>(initialProfile?.playStyles ?? []);
+  // No About line yet: start from the AI Vibe Check line as a draft the owner can keep or rewrite.
+  const [bio, setBio] = useState(
+    (initialProfile?.bio ?? initialProfile?.ai?.vibeCheck?.bio ?? '').slice(0, PROFILE_TEXT_LIMITS.bio),
+  );
   // The 3 web prompts, answered or not. Matched by prompt text, as web does.
   const [prompts, setPrompts] = useState(
     DEFAULT_PROMPTS.map((prompt) => ({
@@ -298,6 +302,7 @@ export default function ProfileEditor({
   const cityRef = useRef<TextInput | null>(null);
   const stateRef = useRef<TextInput | null>(null);
   const promptRefs = useRef<Array<TextInput | null>>([]);
+  const bioRef = useRef<TextInput | null>(null);
 
   // Same helper the web form and the swipe card use, so the preview below
   // cannot drift from what other owners are actually shown.
@@ -525,6 +530,7 @@ export default function ProfileEditor({
     if (next.zip) return zipRef.current?.focus();
     if (next.city) return cityRef.current?.focus();
     if (next.state) return stateRef.current?.focus();
+    if (next.bio) return bioRef.current?.focus();
     if (next.prompts) return promptRefs.current[promptIndex]?.focus();
   }
 
@@ -541,6 +547,7 @@ export default function ProfileEditor({
       zip,
       city,
       usState,
+      bio,
       ...prompts.map((item) => item.answer),
       ...customTemperament,
     ]);
@@ -553,6 +560,7 @@ export default function ProfileEditor({
     if (flagged(zip)) next.zip = CONTENT_FILTER_MESSAGE;
     if (flagged(city)) next.city = CONTENT_FILTER_MESSAGE;
     if (flagged(usState)) next.state = CONTENT_FILTER_MESSAGE;
+    if (flagged(bio)) next.bio = CONTENT_FILTER_MESSAGE;
     if (customTemperament.some(flagged)) next.personality = CONTENT_FILTER_MESSAGE;
     const promptIndex = prompts.findIndex((item) => flagged(item.answer));
     if (promptIndex >= 0) next.prompts = CONTENT_FILTER_MESSAGE;
@@ -726,6 +734,8 @@ export default function ProfileEditor({
         city: city.trim() || undefined,
         state: usState.trim().toUpperCase() || undefined,
         zip: zip.trim() || undefined,
+        // null, not undefined, so clearing it actually clears on save.
+        bio: bio.trim() || null,
         // Answered prompts only, as web saves them. Any prompt that isn't one
         // of the 3 editable ones is kept as it was rather than dropped.
         prompts: [
@@ -764,7 +774,7 @@ export default function ProfileEditor({
           accessibilityRole="button"
           accessibilityLabel="Back to profile without saving"
         >
-          <Ionicons name="chevron-back" size={18} color={colors.ink} />
+          <MaterialCommunityIcons name="chevron-left" size={18} color={colors.ink} />
           <Text style={styles.cancelText}>Back</Text>
         </Pressable>
       )}
@@ -821,13 +831,13 @@ export default function ProfileEditor({
                 accessibilityRole="button"
                 accessibilityLabel="Remove photo"
               >
-                <Ionicons name="close" size={16} color={colors.paper} />
+                <MaterialCommunityIcons name="close" size={16} color={colors.paper} />
               </Pressable>
             </View>
           ))}
           {photos.length < 6 && (
             <Pressable style={styles.addPhoto} onPress={pickPhoto} accessibilityRole="button" accessibilityLabel="Add photo">
-              <Ionicons name="add-circle" size={30} color={colors.ink} />
+              <MaterialCommunityIcons name="plus-circle" size={30} color={colors.ink} />
               <Text style={styles.addPhotoText}>Add photo</Text>
             </Pressable>
           )}
@@ -877,7 +887,7 @@ export default function ProfileEditor({
               </View>
             ) : (
               <View style={styles.vibeBusyRow}>
-                <Ionicons name="sparkles" size={17} color={colors.ink} />
+                <MaterialCommunityIcons name="creation" size={17} color={colors.ink} />
                 <Text style={styles.vibeButtonText}>
                   {initialProfile?.ai?.vibeCheck ? 'Redo the Vibe Check' : 'Fill this in from the photos'}
                 </Text>
@@ -1048,7 +1058,7 @@ export default function ProfileEditor({
           {PLAY_STYLE_OPTIONS.map((option) => (
             <ChoiceChip
               key={option}
-              label={option}
+              label={sentenceCase(option)}
               active={playStyles.includes(option)}
               onPress={() => setPlayStyles((prev) => toggleIn(prev, option))}
             />
@@ -1090,7 +1100,7 @@ export default function ProfileEditor({
           {BEHAVIOR_FLAG_OPTIONS.map((option) => (
             <ChoiceChip
               key={option}
-              label={option}
+              label={sentenceCase(option)}
               active={behaviorFlags.includes(option)}
               onPress={() => setBehaviorFlags((prev: string[]) => (
                 prev.includes(option) ? prev.filter((item: string) => item !== option) : [...prev, option]
@@ -1164,6 +1174,21 @@ export default function ProfileEditor({
       <View style={styles.card}>
         <Text style={styles.cardTitle} accessibilityRole="header">About your dog</Text>
         <Text style={styles.helper}>Optional. Your answers show on your dog&apos;s card.</Text>
+        <Text style={styles.subLabel}>In a few lines, who is your dog? This shows on their Pupfile and in Discover.</Text>
+        <TextInput
+          ref={bioRef}
+          style={[styles.input, styles.bioInput]}
+          placeholder="Couch potato until the leash comes out. Loves the creek, side-eyes cats, will trade any toy for cheese."
+          placeholderTextColor={PLACEHOLDER}
+          value={bio}
+          onChangeText={setBio}
+          maxLength={PROFILE_TEXT_LIMITS.bio}
+          multiline
+          textAlignVertical="top"
+          accessibilityLabel="About your dog"
+        />
+        <Text style={styles.bioCount}>{bio.length}/{PROFILE_TEXT_LIMITS.bio}</Text>
+        {errors.bio ? <Text style={styles.error}>{errors.bio}</Text> : null}
         {prompts.map((item, index) => (
           <View key={item.prompt} style={styles.promptItem}>
             <Text style={styles.subLabel}>{item.prompt}</Text>
@@ -1513,7 +1538,7 @@ const styles = StyleSheet.create({
   },
   helper: {
     fontFamily: fonts.semibold,
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 17,
     color: colors.brownMid,
     marginBottom: 10,
@@ -1530,6 +1555,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   inputError: { borderColor: colors.danger, borderWidth: 2.5 },
+  bioInput: { minHeight: 104 },
+  bioCount: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brownMid, textAlign: 'right', marginTop: -4 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
@@ -1548,7 +1575,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontFamily: fonts.bold,
     color: colors.ink,
-    fontSize: 13.5,
+    fontSize: 13,
   },
   chipTextActive: { color: colors.paper },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -1594,7 +1621,7 @@ const styles = StyleSheet.create({
   error: {
     marginTop: 6,
     fontFamily: fonts.bold,
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.danger,
   },
   orText: {

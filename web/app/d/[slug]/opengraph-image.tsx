@@ -5,6 +5,7 @@
 // iMessage/WhatsApp/Discord/X. This is what makes a shared card actually
 // look like something worth tapping.
 import { ImageResponse } from 'next/og';
+import { ogLogoImg } from '../../../lib/ogLogo';
 import { getAdminDb } from '../../../lib/firebaseAdmin';
 import { parseDogSlugToUid } from '../../../lib/dogSlug';
 import { getHeroPhoto, resolveHeroIndex, getHeroFocus } from '../../../lib/photos';
@@ -94,7 +95,7 @@ export default async function OpengraphImage({ params }: { params: { slug: strin
                 borderRadius: 999,
                 padding: '8px 20px',
                 marginBottom: 24,
-                color: '#F5B731',
+                color: '#FFC56B',
                 fontSize: 24,
                 fontWeight: 700,
               }}
@@ -122,7 +123,7 @@ export default async function OpengraphImage({ params }: { params: { slug: strin
               fontWeight: 700,
             }}
           >
-            🐾 GoDoggyDate
+            {ogLogoImg(52)}
           </div>
         </div>
       </div>

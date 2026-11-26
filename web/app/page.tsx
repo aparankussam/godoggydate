@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import AuthModal from '../components/AuthModal';
 import FoundingPackSection from '../components/FoundingPackSection';
 import CopyrightYear from '../components/CopyrightYear';
+import BrandLogo from '../components/BrandLogo';
+import AnimatedLogo from '../components/AnimatedLogo';
 import { trackEvent } from '../lib/analytics';
 import { onAuthStateChanged } from '../lib/auth';
 import { getFirebase } from '../shared/utils/firebase';
 import { getEntitlements, getFoundingMemberLink, isProActive } from '../lib/entitlements';
 import { takePendingPackDay } from '../lib/packDayPending';
-import { PawCoin, Tape, StickerDog, Chevron } from '../components/StickerBits';
+import { Tape, StickerDog, Chevron } from '../components/StickerBits';
 
 export default function HomePage() {
   const router = useRouter();
@@ -75,7 +77,7 @@ export default function HomePage() {
   ];
 
   const steps = [
-    { n: '01', title: "Create your dog's profile", desc: 'A few photos and their personality — that\'s all it takes to unlock everything else.' },
+    { n: '01', title: "Create your dog's Pupfile", desc: 'A few photos and their personality — that\'s all it takes to unlock everything else.' },
     { n: '02', title: 'Meet their Dogtype', desc: 'Get your dog\'s 16-type identity card, their life stage, and a Playroom full of cards to share — instantly, solo.' },
     { n: '03', title: 'Share it', desc: 'The Dogtype card is made to post. Every share is how another owner (and their dog) finds the app.' },
     { n: '04', title: 'Find playmates who fit', desc: 'When you\'re ready for company, match with compatible dogs nearby and plan a real meetup — or join a Pack Day, an open group playdate at a public place.' },
@@ -101,8 +103,7 @@ export default function HomePage() {
         <div className="lg:col-span-2">
           <header className="flex h-[50px] items-center justify-between pl-4 pr-2 pt-1.5">
             <Link href="/" aria-label="GoDoggyDate home" className="flex min-h-[44px] items-center gap-2">
-              <PawCoin size={34} />
-              <span className="font-display text-[26px] leading-none tracking-[0.3px] text-brown">GoDoggyDate</span>
+              <BrandLogo height={40} />
             </Link>
             <button
               type="button"
@@ -136,11 +137,11 @@ export default function HomePage() {
 
             <div className="absolute -right-3.5 -top-7 z-[4] w-40 rotate-[4deg] overflow-hidden rounded-[9px] border-2 border-brown bg-paper text-center shadow-[0_3px_0_rgba(42,31,74,0.28)]">
               <p className="bg-brown px-0 pb-1 pt-[3px] text-xs font-black leading-[1.2] tracking-[0.3px] text-paper">Kaju&apos;s Dogtype</p>
-              <p className="whitespace-nowrap px-1 pt-1 font-display text-[19px] leading-[1.05]">The Zoomie Menace</p>
+              <p className="whitespace-nowrap px-1 pt-1 font-display text-[20px] leading-[1.05]">The Zoomie Menace</p>
               <p className="px-1.5 pb-[5px] pt-px text-[13px] font-extrabold leading-[1.2] text-brown-mid">Maximum dog.</p>
             </div>
 
-            <p className="absolute -right-2 top-[247px] z-[3] m-0 -rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12.5px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)] lg:top-[295px]">
+            <p className="absolute -right-2 top-[247px] z-[3] m-0 -rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)] lg:top-[295px]">
               Sample card
             </p>
 
@@ -162,12 +163,15 @@ export default function HomePage() {
             </div>
             <p className="m-0 pb-1.5 pt-[3px] text-center">
               <span className="block font-display text-[20px] leading-[1.05]">Your dog?</span>
-              <span className="block text-[12.5px] font-black leading-[15px]">Dogtype: ?</span>
+              <span className="block text-[12px] font-black leading-[15px]">Dogtype: ?</span>
             </p>
           </div>
         </div>
 
         <div className="lg:pb-6">
+          <div className="mx-[18px] mb-3 max-w-[360px]">
+            <AnimatedLogo />
+          </div>
           <h1 className="mx-[18px] mt-1.5 font-display text-[34px] font-normal leading-none tracking-[0.2px] text-brown lg:text-6xl lg:leading-[1.02]">
             Find a dog who
             <br />
@@ -182,7 +186,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => handleCTA('hero_primary')}
-                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[25px] leading-none tracking-[0.3px]"
+                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[26px] leading-none tracking-[0.3px]"
               >
                 Open the app
                 <Chevron />
@@ -191,14 +195,14 @@ export default function HomePage() {
               <Link
                 href="/quiz?ref=hero"
                 onClick={() => trackEvent('cta_click', { source: 'hero_quiz', signed_in: false })}
-                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[25px] leading-none tracking-[0.3px]"
+                className="btn-primary flex h-14 w-full items-center justify-center gap-2.5 px-0 pb-[5px] pt-0 text-[26px] leading-none tracking-[0.3px]"
               >
                 Find your dog&apos;s Dogtype
                 <Chevron />
               </Link>
             )}
             {!signedIn && (
-              <p className="absolute -right-1 -top-[15px] m-0 rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12.5px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)]">
+              <p className="absolute -right-1 -top-[15px] m-0 rotate-3 whitespace-nowrap rounded-md border-2 border-brown bg-paper px-[9px] pb-[3px] pt-0.5 text-[12px] font-black leading-[1.3] shadow-[0_2px_0_rgba(42,31,74,0.28)]">
                 Free · 90 seconds, no signup
               </p>
             )}
@@ -214,7 +218,7 @@ export default function HomePage() {
       <section aria-label="What to know" className="rounded-t-[22px] border-t-[2.5px] border-brown bg-paper px-5 pb-6 pt-[18px]">
         <ul className="mx-auto w-fit max-w-full list-none p-0">
           {trust.map((t) => (
-            <li key={t} className="flex items-center gap-2.5 text-[15.5px] font-extrabold leading-[30px] text-brown">
+            <li key={t} className="flex items-center gap-2.5 text-[15px] font-extrabold leading-[30px] text-brown">
               <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-brown" />
               {t}
             </li>
@@ -232,7 +236,7 @@ export default function HomePage() {
               onClick={() => handleCTA('hero_create_profile')}
               className="btn-secondary flex min-h-[48px] w-full items-center justify-center text-base"
             >
-              Create your dog&apos;s profile
+              Create your dog&apos;s Pupfile
             </button>
           )}
           <p className="mt-2 text-center text-sm font-bold text-brown-mid">
@@ -297,9 +301,9 @@ export default function HomePage() {
       {/* CTA */}
       <section className="bg-brown py-16">
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <span aria-hidden="true" className="mx-auto mb-5 flex justify-center">
-            <PawCoin size={56} />
-          </span>
+          <div className="mx-auto mb-6 max-w-[300px]">
+            <AnimatedLogo />
+          </div>
           <h2 className="font-display text-4xl text-paper mb-4">
             Start with who your dog is
           </h2>
@@ -311,7 +315,7 @@ export default function HomePage() {
             onClick={() => handleCTA('footer_primary')}
             className="btn-primary text-lg px-10 py-4 min-h-[48px]"
           >
-            {signedIn ? 'Open App →' : "Create Your Dog's Profile"}
+            {signedIn ? 'Open App →' : "Create Your Dog's Pupfile"}
           </button>
         </div>
       </section>
@@ -319,9 +323,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="bg-paper border-t-[2.5px] border-brown py-8">
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="inline-flex items-center gap-2 font-display text-xl text-brown">
-            <PawCoin size={28} /> GoDoggyDate
-          </span>
+          <BrandLogo height={40} />
           <div className="text-center sm:text-left">
             <p className="text-sm font-semibold text-brown-mid">
               © <CopyrightYear /> GoDoggyDate. Made for dogs everywhere.

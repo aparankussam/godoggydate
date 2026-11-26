@@ -4,17 +4,19 @@
 // No imports: firebase/functions/src/cityFeedRules.ts keeps a byte-identical
 // copy (checked by serverMirrors.test.ts), so the server and the apps agree.
 
-export type PostTemplate = 'ask' | 'recommend' | 'free_lend' | 'walk_buddy' | 'found_dog';
+export type PostTemplate = 'ask' | 'recommend' | 'free_lend' | 'walk_buddy' | 'found_dog' | 'heads_up' | 'sitter_swap';
 
 export const POST_TEMPLATES: Record<
   PostTemplate,
   { label: string; emoji: string; prompt: string; placeRequired: boolean; expiryHours: number }
 > = {
-  ask: { label: 'Ask the Pack', emoji: '🙋', prompt: 'What do you want to ask the neighbors?', placeRequired: false, expiryHours: 72 },
+  ask: { label: 'Ask the Pack', emoji: '💬', prompt: 'What do you want to ask the neighbors?', placeRequired: false, expiryHours: 72 },
   recommend: { label: 'Recommend', emoji: '⭐', prompt: 'What should neighbors try, and why?', placeRequired: false, expiryHours: 14 * 24 },
   free_lend: { label: 'Up for Grabs', emoji: '🎁', prompt: 'What are you giving away or lending?', placeRequired: false, expiryHours: 7 * 24 },
   walk_buddy: { label: 'Walkies Wanted', emoji: '🦮', prompt: 'When and where are you walking?', placeRequired: true, expiryHours: 24 },
   found_dog: { label: 'Found a Pup', emoji: '🔎', prompt: 'Where did you find a dog? Describe them.', placeRequired: true, expiryHours: 72 },
+  heads_up: { label: 'Heads Up', emoji: '⚠️', prompt: 'What should dog owners nearby watch out for? A coyote, a loose dog, algae, glass or poison bait.', placeRequired: true, expiryHours: 48 },
+  sitter_swap: { label: 'Sitter Swap', emoji: '🤝', prompt: 'Need a sitter, or can you help? Neighbors trade dog-sitting, no money. Say when.', placeRequired: false, expiryHours: 7 * 24 },
 };
 
 export const POST_TEMPLATE_KEYS = Object.keys(POST_TEMPLATES) as PostTemplate[];

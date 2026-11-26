@@ -4,7 +4,8 @@
 // Presentational only. The shareable PNG is still DogtypeCard.
 
 import type { Dogtype } from '../../shared/dogtype';
-import { PawIcon, PoleIcon, StickerDog, Tape } from './StickerBits';
+import { PoleIcon, StickerDog, Tape } from './StickerBits';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   dogtype: Dogtype;
@@ -63,8 +64,7 @@ export default function DogtypeResultCard({ dogtype, dogName, photoUrl, photoFoc
       <p className="mt-2 text-center text-[13px] font-extrabold leading-[18px] text-brown-mid">Dogtype is a playful read, not a score.</p>
 
       <p className="mt-2 flex h-[34px] items-center justify-center gap-[7px] whitespace-nowrap rounded-[3px] bg-brown pb-px text-paper">
-        <PawIcon size={17} color="#FFF9EC" />
-        <span className="font-display text-[19px] leading-none tracking-[0.3px]">GoDoggyDate</span>
+        <ShareLogo height={26} />
         <span className="text-[13px] font-black leading-none">· godoggydate.com</span>
       </p>
     </article>

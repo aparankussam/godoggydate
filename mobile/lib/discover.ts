@@ -5,6 +5,7 @@ import type { CompatibilityResult, DogProfile } from '../../shared/types';
 import { getFirebase } from './firebase';
 import { getBlockedUserIds } from './blocks';
 import { getRenderablePhotos } from './photos';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface DiscoverDog {
   id: string;
@@ -50,6 +51,23 @@ export interface DiscoverDog {
 }
 
 export const DEFAULT_DISCOVER_RADIUS_MILES = 50;
+/** The same choices as the website's Discover (web/lib/discover.ts). */
+export const DISCOVER_RADIUS_OPTIONS = [10, 25, 50, 100] as const;
+const RADIUS_KEY = 'gdd.discover.radius';
+
+/** The radius this person last picked on this phone, or the default. */
+export async function loadDiscoverRadius(): Promise<number> {
+  try {
+    const saved = Number(await AsyncStorage.getItem(RADIUS_KEY));
+    return (DISCOVER_RADIUS_OPTIONS as readonly number[]).includes(saved) ? saved : DEFAULT_DISCOVER_RADIUS_MILES;
+  } catch {
+    return DEFAULT_DISCOVER_RADIUS_MILES; // storage unavailable: the default stays
+  }
+}
+
+export function saveDiscoverRadius(miles: number): void {
+  AsyncStorage.setItem(RADIUS_KEY, String(miles)).catch(() => { /* per-person convenience only */ });
+}
 
 export interface FetchDiscoverFeedOptions {
   radiusMiles?: number;
@@ -58,6 +76,8 @@ export interface FetchDiscoverFeedOptions {
 export interface DiscoverFeedResult {
   dogs: DiscoverDog[];
   radiusApplied: boolean;
+  /** Dogs left out only because they are farther than the radius (for "try a wider radius"). */
+  beyondRadiusCount: number;
 }
 
 function isSeedUserId(id: string): boolean {
@@ -147,9 +167,10 @@ function toDiscoverDog(baseDog: DogProfile, id: string, saved: SavedDogProfile):
     // set it — so this chain always fell through to a prompt or the
     // engine's microcopy. The Vibe Check bio IS the dog's-voice line
     // this was reaching for, and it was sitting unused on dog.ai.
+    // The owner's own About line first, then the Vibe Check line.
     tagline:
-      dog.ai?.vibeCheck?.bio?.trim() ||
       dog.bio?.trim() ||
+      dog.ai?.vibeCheck?.bio?.trim() ||
       dog.prompts?.find((prompt) => prompt.answer?.trim())?.answer?.trim() ||
       compat.microcopy,
     ai: dog.ai,
@@ -180,15 +201,15 @@ export async function fetchDiscoverFeed(
   userId: string,
   options: FetchDiscoverFeedOptions = {},
 ): Promise<DiscoverFeedResult> {
-  if (!userId) return { dogs: [], radiusApplied: false };
+  if (!userId) return { dogs: [], radiusApplied: false, beyondRadiusCount: 0 };
 
   const { db } = getFirebase();
   const currentSnap = await getDocs(collection(db, 'dogs'));
   const currentDoc = currentSnap.docs.find((docSnap) => docSnap.id === userId);
-  if (!currentDoc) return { dogs: [], radiusApplied: false };
+  if (!currentDoc) return { dogs: [], radiusApplied: false, beyondRadiusCount: 0 };
 
   const currentSaved = normalizeSavedProfile(currentDoc.data() as SavedDogProfile);
-  if (!isProfileComplete(currentSaved)) return { dogs: [], radiusApplied: false };
+  if (!isProfileComplete(currentSaved)) return { dogs: [], radiusApplied: false, beyondRadiusCount: 0 };
 
   const baseDog = toFullProfile(currentSaved, userId);
   const [swipedIds, blockedIds] = await Promise.all([
@@ -200,6 +221,7 @@ export async function fetchDiscoverFeed(
   const radiusMiles = options.radiusMiles ?? DEFAULT_DISCOVER_RADIUS_MILES;
   const applyRadius = baseHasCoords && radiusMiles > 0;
 
+  let beyondRadiusCount = 0;
   const dogs = currentSnap.docs
     .map((docSnap) => ({
       id: docSnap.id,
@@ -208,6 +230,7 @@ export async function fetchDiscoverFeed(
     .filter(({ id, saved }) => {
       if (id === userId) return false;
       if (isSeedUserId(id)) return false;
+      if (saved.memorialSince) return false; // a dog that has passed away is never offered as a match
       if (swipedIds.has(id)) return false;
       if (blockedIds.has(id)) return false;
       return isProfileComplete(saved);
@@ -221,7 +244,9 @@ export async function fetchDiscoverFeed(
       // Without this, a mobile user with coords never sees a web-created
       // profile in the same area.
       if (typeof dog.distanceMiles !== 'number') return true;
-      return dog.distanceMiles <= radiusMiles;
+      if (dog.distanceMiles <= radiusMiles) return true;
+      beyondRadiusCount += 1;
+      return false;
     })
     // Nearest first, then the better fit — the same order as
     // web/lib/discover.ts's buildDiscoverFeed, so a person sees the same deck
@@ -233,7 +258,7 @@ export async function fetchDiscoverFeed(
       return distA - distB || b.compat.score - a.compat.score;
     });
 
-  return { dogs, radiusApplied: applyRadius };
+  return { dogs, radiusApplied: applyRadius, beyondRadiusCount };
 }
 
 /**

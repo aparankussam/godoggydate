@@ -8,6 +8,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts, radius } from '../constants/theme';
 import type { Adventure } from '../../shared/adventures';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   dogName: string;
@@ -49,7 +50,7 @@ const AdventurePassportCard = forwardRef<View, Props>(({ dogName, photoUrl, comp
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.brand}>GoDoggyDate</Text>
+        <BrandLogo height={28} />
         <Text style={styles.url}>godoggydate.com</Text>
       </View>
     </View>
@@ -115,6 +116,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.2)',
   },
-  brand: { fontFamily: fonts.display, fontSize: 13, color: '#fff' },
   url: { fontFamily: fonts.body, fontSize: 10, color: 'rgba(255,255,255,0.6)' },
 });

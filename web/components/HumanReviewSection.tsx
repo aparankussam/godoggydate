@@ -22,6 +22,7 @@ import { trackEvent } from '../lib/analytics';
 import { feedback } from '../lib/feedback';
 import { loadHumanReview, onProgressChange, saveHumanReview } from '../lib/progressSync';
 import HumanReviewCard from './HumanReviewCard';
+import { Icon } from './icons';
 
 interface Props {
   savedProfile: SavedDogProfile;
@@ -152,7 +153,7 @@ export default function HumanReviewSection({ savedProfile, userId }: Props) {
     <section className="rounded-2xl border-2 border-brown bg-cream p-5">
       <div className="mb-3">
         <p className="text-xs font-bold text-brown">Just for fun</p>
-        <h2 className="font-display text-xl text-brown leading-tight">⭐ My Human: A Review</h2>
+        <h2 className="font-display text-xl text-brown leading-tight"><Icon name="star" /> My Human: A Review</h2>
         <p className="mt-1 text-sm text-brown-mid leading-relaxed">
           {dogName} would like to review their human — deadpan star rating, honest pros, and a few gentle
           notes for improvement. A quarterly keepsake, written by AI in {dogName}&apos;s voice.

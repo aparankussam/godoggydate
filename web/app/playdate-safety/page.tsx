@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { absoluteUrl, defaultSocialImages } from '../../lib/site';
-import { PawCoin } from '../../components/StickerBits';
 import SiteFooter from '../../components/SiteFooter';
 import {
   AFTER_A_BAD_MEETING,
@@ -19,6 +18,7 @@ import {
   type EvidenceLevel,
   type SourceId,
 } from '../../lib/meetupSafety';
+import BrandLogo from '../../components/BrandLogo';
 
 export const metadata: Metadata = {
   title: 'Play or Fight? First-Meeting Safety Reference | GoDoggyDate',
@@ -157,9 +157,10 @@ export default function PlaydateSafetyPage() {
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-2 overflow-x-auto px-4">
           <Link
             href="/"
-            className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-3 font-display text-lg text-brown"
+            aria-label="GoDoggyDate home"
+            className="inline-flex shrink-0 items-center rounded-full px-3 py-2"
           >
-            <PawCoin size={28} /> GoDoggyDate
+            <BrandLogo height={36} />
           </Link>
           {SECTIONS.map((s) => (
             <a

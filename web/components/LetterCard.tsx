@@ -25,6 +25,7 @@
 // brand + URL ("GoDoggyDate · godoggydate.com").
 
 import { forwardRef, useLayoutEffect, useRef, useState } from 'react';
+import ShareLogo from './ShareLogo';
 
 interface Props {
   /** 'screen' = full letter, natural height, page scrolls it — never trimmed.
@@ -218,7 +219,7 @@ const LetterCard = forwardRef<HTMLDivElement, Props>(function LetterCard(
           className="flex items-center justify-between"
           style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${RULE}` }}
         >
-          <p className="font-display" style={{ fontSize: 16, color: INK }}>GoDoggyDate</p>
+          <ShareLogo height={32} />
           <p style={{ fontSize: 12, color: INK_SOFT }}>godoggydate.com</p>
         </div>
       </div>

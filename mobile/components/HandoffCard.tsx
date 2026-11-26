@@ -22,6 +22,7 @@ import { focusForPhoto, resolveHeroIndex } from '../lib/coverPhoto';
 import { CoverImage } from './CoverPhotoEditor';
 import type { Reminder } from '../../shared/types';
 import { formatUsDate, reminderDueLabel } from '../../shared/dates';
+import BrandLogo from './BrandLogo';
 
 interface Props {
   profile: SavedDogProfile;
@@ -127,13 +128,16 @@ const HandoffCard = forwardRef<View, Props>(function HandoffCard({ profile, remi
         <View style={styles.identityText}>
           <Text style={styles.eyebrow}>Care sheet</Text>
           <Text style={styles.name} numberOfLines={1}>{profile.name}</Text>
-          {identity ? <Text style={styles.identityLine} numberOfLines={1}>{identity}</Text> : null}
+          {identity ? <Text style={styles.identityLine} numberOfLines={2}>{identity}</Text> : null}
         </View>
       </View>
 
       {/* Owner-declared safety. Both lists print verbatim; when the owner
           declared nothing we say exactly that, rather than implying this dog
           is fine with everyone — an empty answer is not a clearance. */}
+      {behaviorFlags.includes('escape artist') && (
+        <Text style={styles.escape}>⚠️ Escape artist: watch doors and gates, and check the leash and collar before every walk.</Text>
+      )}
       <Section title="What the owner flagged">
         {declaredNothing ? (
           <Text style={styles.bodyText}>
@@ -207,7 +211,7 @@ const HandoffCard = forwardRef<View, Props>(function HandoffCard({ profile, remi
           owner wrote about their own dog.
         </Text>
         <View style={styles.brandRow}>
-          <Text style={styles.brandName}>GoDoggyDate</Text>
+          <BrandLogo height={26} />
           <Text style={styles.brandUrl}>godoggydate.com</Text>
         </View>
       </View>
@@ -219,6 +223,7 @@ HandoffCard.displayName = 'HandoffCard';
 export default HandoffCard;
 
 const styles = StyleSheet.create({
+  escape: { fontFamily: fonts.black, fontSize: 13, lineHeight: 18, color: '#B91C1C', backgroundColor: '#FDECEC', borderRadius: 10, padding: 10, marginBottom: 10 },
   // Fluid up to 360, like web: no fixed aspect, so it can shrink on a narrow
   // phone and still capture cleanly at whatever width it rendered at.
   card: {
@@ -253,13 +258,13 @@ const styles = StyleSheet.create({
   identityText: { flex: 1, minWidth: 0 },
   eyebrow: {
     fontFamily: fonts.bold,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 1.6,
     textTransform: 'uppercase',
     color: colors.primary,
   },
   name: { fontFamily: fonts.display, fontSize: 24, color: colors.brown },
-  identityLine: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
+  identityLine: { fontFamily: fonts.body, fontSize: 14, color: colors.brownLight },
   section: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -268,15 +273,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: fonts.bold,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     color: colors.brownLight,
   },
   sectionBody: { marginTop: 8 },
-  bodyText: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: colors.brownMid },
+  bodyText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.brownMid },
   flagGroups: { gap: 12 },
-  groupLabel: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brownMid, marginBottom: 6 },
+  groupLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brownMid, marginBottom: 6 },
   tagList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: {
     borderRadius: radius.full,
@@ -286,7 +291,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  tagText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.brown },
+  tagText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
   vaxBox: {
     borderRadius: 12,
     borderWidth: 1,
@@ -296,15 +301,15 @@ const styles = StyleSheet.create({
   vaxYes: { borderColor: colors.border, backgroundColor: colors.white },
   vaxNo: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
   vaxUnstated: { borderColor: '#FDE68A', backgroundColor: '#FFFBEB' },
-  vaxTitle: { fontFamily: fonts.bold, fontSize: 12, color: colors.brown },
-  vaxSub: { fontFamily: fonts.body, fontSize: 11, lineHeight: 16, color: colors.brownLight, marginTop: 2 },
+  vaxTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.brown },
+  vaxSub: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.brownLight, marginTop: 2 },
   vaxNoText: { color: '#B91C1C' },
   vaxNoSub: { color: 'rgba(185,28,28,0.8)' },
   vaxUnstatedText: { color: '#92400E' },
   dueList: { gap: 6 },
   dueRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
-  dueLabel: { flex: 1, fontFamily: fonts.semibold, fontSize: 12, color: colors.brown },
-  dueDate: { fontFamily: fonts.body, fontSize: 11, color: colors.brownLight },
+  dueLabel: { flex: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.brown },
+  dueDate: { fontFamily: fonts.body, fontSize: 13, color: colors.brownLight },
   dueUrgent: { fontFamily: fonts.bold, color: '#DC2626' },
   footer: {
     borderTopWidth: 1,
@@ -313,13 +318,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  footerText: { fontFamily: fonts.body, fontSize: 11, lineHeight: 16, color: colors.brownLight },
+  footerText: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.brownLight },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 8,
   },
-  brandName: { fontFamily: fonts.display, fontSize: 14, color: colors.brown },
-  brandUrl: { fontFamily: fonts.body, fontSize: 10, color: colors.brownLight },
+  brandUrl: { fontFamily: fonts.body, fontSize: 12, color: colors.brownLight },
 });

@@ -35,7 +35,7 @@ import DateTimePicker, {
 import { useStripe } from '@stripe/stripe-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts } from '../../constants/theme';
 import { getFirebase } from '../../lib/firebase';
 import {
@@ -185,7 +185,7 @@ function draftToDate(draft: PlaydateDetails): Date {
 }
 
 export default function ChatScreen() {
-  const { matchId, name } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[] }>();
+  const { matchId, name, plan } = useLocalSearchParams<{ matchId?: string | string[]; name?: string | string[]; plan?: string }>();
   const { user } = useSession();
   const resolvedMatchId = Array.isArray(matchId) ? matchId[0] : matchId;
   const resolvedName = Array.isArray(name) ? name[0] : name;
@@ -246,6 +246,13 @@ export default function ChatScreen() {
 
   // Effective chat access: per-match unlock OR Founding Member entitlement.
   const canChat = chatUnlocked || hasLifetime;
+  // From Matches' "Suggest a playdate": open the proposal form once chat is available.
+  const planOpened = useRef(false);
+  useEffect(() => {
+    if (plan !== '1' || !canChat || planOpened.current) return;
+    planOpened.current = true;
+    setShowPlaydateForm(true);
+  }, [plan, canChat]);
   const dogName = resolvedName || match?.dog.name || 'your match';
   const otherProfile = match?.dog.profile ?? null;
   // The photo the dog leads with (cover pick, else AI hero, else first real
@@ -1005,7 +1012,7 @@ export default function ChatScreen() {
           accessibilityLabel="Back"
           hitSlop={4}
         >
-          <Ionicons name="chevron-back" size={26} color={colors.ink} />
+          <MaterialCommunityIcons name="chevron-left" size={26} color={colors.ink} />
         </Pressable>
         <Pressable
           style={styles.headerCenter}
@@ -1034,7 +1041,7 @@ export default function ChatScreen() {
             accessibilityLabel={isBestFriend ? 'Remove Best Friend' : `Make ${dogName} Best Friend`}
             accessibilityState={{ selected: isBestFriend }}
           >
-            <Ionicons name={isBestFriend ? 'star' : 'star-outline'} size={22} color={colors.ink} />
+            <MaterialCommunityIcons name={isBestFriend ? 'star' : 'star-outline'} size={22} color={colors.ink} />
           </Pressable>
         )}
         <Pressable
@@ -1047,7 +1054,7 @@ export default function ChatScreen() {
           {reportPending ? (
             <ActivityIndicator size="small" color={colors.ink} />
           ) : (
-            <Ionicons name="ellipsis-horizontal" size={22} color={colors.ink} />
+            <MaterialCommunityIcons name="dots-horizontal" size={22} color={colors.ink} />
           )}
         </Pressable>
       </View>
@@ -1161,7 +1168,7 @@ export default function ChatScreen() {
                 <View style={styles.memoryCardActions}>
                   <SecondaryButton
                     label="Share this memory"
-                    icon={<Ionicons name="share" size={18} color={colors.ink} />}
+                    icon={<MaterialCommunityIcons name="export-variant" size={18} color={colors.ink} />}
                     onPress={handleShareMemoryCard}
                     loading={sharingMemoryCard}
                   />
@@ -1293,7 +1300,7 @@ export default function ChatScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Playdate date"
                       >
-                        <Ionicons name="calendar" size={18} color={colors.ink} />
+                        <MaterialCommunityIcons name="calendar" size={18} color={colors.ink} />
                         <Text style={styles.playdatePickerBtnText}>{formatDay(draftDate, now)}</Text>
                       </Pressable>
                       <Pressable
@@ -1302,7 +1309,7 @@ export default function ChatScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Playdate time"
                       >
-                        <Ionicons name="time" size={18} color={colors.ink} />
+                        <MaterialCommunityIcons name="clock" size={18} color={colors.ink} />
                         <Text style={styles.playdatePickerBtnText}>
                           {formatClock(parseIsoTime(playdateDraft.time) ?? 10 * 60)}
                         </Text>
@@ -1357,7 +1364,7 @@ export default function ChatScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Propose a playdate"
                   >
-                    <Ionicons name="ticket" size={18} color={colors.ink} />
+                    <MaterialCommunityIcons name="ticket" size={18} color={colors.ink} />
                     <Text style={styles.chipTextStrong}>Propose playdate</Text>
                   </Pressable>
                   {starterPrompts.map((prompt) => (
@@ -1404,7 +1411,7 @@ export default function ChatScreen() {
                   accessibilityLabel="Send"
                   icon={sending
                     ? <ActivityIndicator color={colors.ink} size="small" />
-                    : <Ionicons name="arrow-up" size={22} color={colors.ink} />}
+                    : <MaterialCommunityIcons name="arrow-up" size={22} color={colors.ink} />}
                 />
               </View>
             </View>
@@ -1531,8 +1538,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   chipPressed: { transform: [{ translateY: 1 }], opacity: 0.92 },
-  chipTextStrong: { fontFamily: fonts.black, fontSize: 13.5, color: colors.ink },
-  chipText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink },
+  chipTextStrong: { fontFamily: fonts.black, fontSize: 13, color: colors.ink },
+  chipText: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -1634,7 +1641,7 @@ const styles = StyleSheet.create({
   foundingMemberLinkText: {
     color: colors.rose,
     fontFamily: fonts.black,
-    fontSize: 13.5,
+    fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
     textDecorationLine: 'underline',

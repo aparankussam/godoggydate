@@ -5,6 +5,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../../constants/theme';
+import Chevron from '../Chevron';
 
 interface Props {
   title: string;
@@ -28,7 +29,7 @@ export default function TreatRow({ title, glimpse, open, onToggle, children }: P
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.glimpse} numberOfLines={2}>{glimpse}</Text>
         </View>
-        <Text style={styles.chev}>{open ? '▲' : '▼'}</Text>
+        <Chevron open={open} color={styles.chev.color} />
       </Pressable>
       {open ? <View style={styles.body}>{children}</View> : null}
     </View>
@@ -38,7 +39,7 @@ export default function TreatRow({ title, glimpse, open, onToggle, children }: P
 const styles = StyleSheet.create({
   wrap: { backgroundColor: colors.paper, borderWidth: 2, borderColor: colors.ink, borderRadius: 18, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, minHeight: 64 },
-  title: { fontFamily: fonts.display, fontSize: 19, lineHeight: 22, color: colors.ink },
+  title: { fontFamily: fonts.display, fontSize: 20, lineHeight: 22, color: colors.ink },
   glimpse: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: colors.brownMid, marginTop: 2 },
   chev: { fontFamily: fonts.black, fontSize: 13, color: colors.rose },
   body: { paddingHorizontal: 8, paddingBottom: 10 },

@@ -24,7 +24,7 @@ module.exports = {
     splash: {
       image: './assets/splash.png',
       resizeMode: 'contain',
-      backgroundColor: '#FDF6EE',
+      backgroundColor: '#FFFFFF',
     },
     assetBundlePatterns: ['**/*'],
     ios: {
@@ -48,12 +48,21 @@ module.exports = {
         NSCameraUsageDescription: 'Upload a photo of your dog.',
         NSPhotoLibraryUsageDescription: 'Choose a photo from your library.',
         NSMicrophoneUsageDescription: "Record your dog's bark for Snoot Boop.",
+        // App-icon shortcut, handled in ios/GoDoggyDate/AppDelegate.swift (opens /lost/now).
+        UIApplicationShortcutItems: [
+          {
+            UIApplicationShortcutItemType: 'com.godoggydate.app.lostdog',
+            UIApplicationShortcutItemTitle: 'My dog is lost',
+            UIApplicationShortcutItemSubtitle: 'Alert your neighbors now',
+            UIApplicationShortcutItemIconSymbolName: 'exclamationmark.triangle.fill',
+          },
+        ],
       },
     },
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#FDF6EE',
+        backgroundColor: '#58C6FC',
       },
       package: 'com.godoggydate.app',
       permissions: ['ACCESS_FINE_LOCATION', 'CAMERA', 'READ_EXTERNAL_STORAGE'],

@@ -17,6 +17,7 @@ import { getFirebase } from '../shared/utils/firebase';
 import { getStripeClient, isStripeConfigured } from '../lib/stripeClient';
 import { trackEvent } from '../lib/analytics';
 import { CHAT_UNLOCK_PRICE_CENTS, formatPrice } from '../shared/utils/stripe';
+import { Icon } from './icons';
 
 interface ChatUnlockPanelProps {
   matchId: string;
@@ -99,7 +100,7 @@ function UnlockForm({ matchId, dogName, onCheckAgain }: ChatUnlockPanelProps) {
   if (awaitingWebhook) {
     return (
       <div className="text-center py-2">
-        <span className="text-2xl">🐾</span>
+        <Icon name="paw" size={24} className="text-brown" />
         <p className="mt-2 text-sm font-semibold text-brown">Confirming your payment…</p>
         <p className="mt-1 text-xs text-brown-light">
           Chat with {dogName} usually opens within a minute.
