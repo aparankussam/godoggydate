@@ -122,5 +122,7 @@ test('favicon.ico is the new icon', () => {
   // Browsers fetch /favicon.ico on their own; the old file was the paw.
   const b = fs.readFileSync(at('web/app/favicon.ico'));
   assert.strictEqual(b.readUInt16LE(2), 1, 'not an .ico file');
-  assert.strictEqual(b[6], 48, 'expected the 48px export of the new icon');
+  assert.strictEqual(b[6], 48, 'expected a 48px icon');
+  const sha = require('node:crypto').createHash('sha256').update(b).digest('hex');
+  assert.notStrictEqual(sha, 'adb4e4ccd7c1a1615cd335f30257ce0b751a6ac034afa2d7148b2bf1b6f17b95', 'favicon.ico is still the old paw');
 });
